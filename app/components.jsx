@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { S } from "./styles";
@@ -129,7 +129,6 @@ export const CalendarView = ({ app }) => {
 };
 
 export const AdminEvents = ({ app: v }) => {
-  // DINAMIKUSAN SZŰRJÜK A JELENTKEZŐKET A TÖRLÉSEK MIATT!
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
 
   return (
