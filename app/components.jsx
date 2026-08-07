@@ -20,7 +20,7 @@ export const getCategoryImage = (category) => {
 };
 
 export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
-  const { formatEventDate, initiateJoin, setSelectedEventAttendees, registrations, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, fetchData, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
+  const { formatEventDate, initiateJoin, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, fetchData, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
   return (
     <List dataSource={tournamentsData || []} renderItem={(evt) => {
       const eId = String(evt._id || evt.id);
@@ -47,7 +47,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                 </Button>
               ) : (
                 <Space style={{ flexWrap: 'wrap' }}>
-                  {!evt.external_url && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventAttendees((registrations||[]).filter(reg => String(reg.tournamentId) === eId)); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
+                  {!evt.external_url && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8}); setIsEventModalOpen(true); }} />
                   <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} onClick={() => fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_GATE', payload: { tournamentId: eId, newState: !evt.is_open }}) }).then(()=>fetchData())}>{evt.is_open ? '🔒 Zárás' : '🔓 Nyitás'}</Button>
                   <Popconfirm title="Biztosan törlöd?" onConfirm={() => handleDeleteTournament(eId)} okText="Igen" cancelText="Mégse"><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm>
@@ -129,6 +129,9 @@ export const CalendarView = ({ app }) => {
 };
 
 export const AdminEvents = ({ app: v }) => {
+  // DINAMIKUSAN SZŰRJÜK A JELENTKEZŐKET A TÖRLÉSEK MIATT!
+  const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
+
   return (
     <div>
       <div style={S.tabHeader}>
@@ -149,8 +152,8 @@ export const AdminEvents = ({ app: v }) => {
         ]} />
       </Modal>
 
-      <Modal title="Jelentkezők" open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750}>
-        <Table dataSource={v.selectedEventAttendees || []} rowKey={(record) => record._id || record.id} pagination={false} columns={[
+      <Modal title="Jelentkezők kezelése" open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750}>
+        <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} columns={[
           { title: 'Név', dataIndex: 'name', key: 'name' }, 
           { title: 'Email', dataIndex: 'email', key: 'email' }, 
           { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> }, 

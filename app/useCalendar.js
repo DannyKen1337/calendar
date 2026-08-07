@@ -8,7 +8,6 @@ export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Admin & User state
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -16,22 +15,20 @@ export const useCalendar = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // Modals
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isExternalForm, setIsExternalForm] = useState(false);
   const [editingEventId, setEditingEventId] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Event interaction
   const [isEventDetailsModalOpen, setIsEventDetailsModalOpen] = useState(false);
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [selectedEventToJoin, setSelectedEventToJoin] = useState(null);
 
-  // Attendees state
+  // ÉLŐ FRISSÍTÉS JAVÍTÁSA: Csak az ID-t tároljuk!
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
-  const [selectedEventAttendees, setSelectedEventAttendees] = useState([]);
+  const [selectedEventIdForAttendees, setSelectedEventIdForAttendees] = useState(null);
   const [registrations, setRegistrations] = useState([]);
 
   const [eventForm] = Form.useForm();
@@ -158,7 +155,7 @@ export const useCalendar = () => {
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
-    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventAttendees, setSelectedEventAttendees, registrations, handleRemoveRegistration,
+    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
     messageApi, contextHolder, formatEventDate, fetchData
   };
 };

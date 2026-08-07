@@ -15,17 +15,13 @@ const { TextArea } = Input;
 export default function AdminPage() {
   const app = useCalendar();
 
-  const ThemeStyles = () => (
-    <style>{`
-      :root { --bg-base: #121212; --bg-container: #2B1A1C; --color-primary: #E5B15D; --color-border: #4A2E33; --text-base: #E0D6C8; --tag-bg: #4A2E33; }
-      .ant-input, .ant-input-number-input, .ant-select-selector { background-color: var(--bg-base) !important; color: var(--text-base) !important; border-color: var(--color-border) !important; }
-      .ant-btn-default:not(:disabled):hover { color: var(--color-primary) !important; border-color: var(--color-primary) !important; }
-    `}</style>
-  );
-
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#E5B15D', colorBgBase: '#121212', colorBgContainer: '#2B1A1C', colorTextBase: '#E0D6C8', colorBorder: '#4A2E33' }}}>
-      <ThemeStyles />
+      <style>{`
+        :root { --bg-base: #121212; --bg-container: #2B1A1C; --color-primary: #E5B15D; --color-border: #4A2E33; --text-base: #E0D6C8; }
+        .ant-input, .ant-input-number-input, .ant-select-selector { background-color: var(--bg-base) !important; color: var(--text-base) !important; border-color: var(--color-border) !important; }
+        .ant-btn-default:not(:disabled):hover { color: var(--color-primary) !important; border-color: var(--color-primary) !important; }
+      `}</style>
       <Layout style={S.layout}>
         {app.contextHolder}
 
@@ -45,7 +41,7 @@ export default function AdminPage() {
               app.userRole ? (
                   <div style={{ textAlign: 'center', marginTop: '50px' }}>
                       <Title level={3} style={{ color: '#E5B15D' }}>Sikeres regisztráció!</Title>
-                      <Paragraph style={{ color: '#E0D6C8' }}>Kérlek, szólj a fő adminisztrátornak, hogy a "Közösség" menüben adja meg neked a szervezői jogosultságot!</Paragraph>
+                      <Paragraph style={{ color: '#E0D6C8' }}>Kérlek, szólj a fő adminisztrátornak, hogy a "Szervezők" menüben adja meg neked a jogosultságot!</Paragraph>
                   </div>
               ) : (
                   <div style={{ maxWidth: '400px', margin: '50px auto' }}>

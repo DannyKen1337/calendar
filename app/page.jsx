@@ -7,19 +7,11 @@ import { S } from "./styles";
 import { useCalendar } from "./useCalendar";
 import { CalendarView, getCategoryImage } from "./components";
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
 
 export default function PublicCalendar() {
   const app = useCalendar();
-
-  const ThemeStyles = () => (
-    <style>{`
-      :root { --bg-base: #121212; --bg-container: #2B1A1C; --color-primary: #E5B15D; --color-border: #4A2E33; --text-base: #E0D6C8; --tag-bg: #4A2E33; }
-      .ant-input, .ant-input-number-input, .ant-select-selector { background-color: var(--bg-base) !important; color: var(--text-base) !important; border-color: var(--color-border) !important; }
-      .ant-btn-default:not(:disabled):hover { color: var(--color-primary) !important; border-color: var(--color-primary) !important; }
-    `}</style>
-  );
 
   const EventDetailsModal = () => (
     <Modal open={app.isEventDetailsModalOpen} onCancel={() => app.setIsEventDetailsModalOpen(false)} footer={null}>
@@ -43,21 +35,17 @@ export default function PublicCalendar() {
 
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#E5B15D', colorBgBase: '#121212', colorBgContainer: '#2B1A1C', colorTextBase: '#E0D6C8', colorBorder: '#4A2E33' }}}>
-      <ThemeStyles />
-      <Layout style={S.layout}>
+      <style>{`
+        :root { --bg-base: #121212; --bg-container: #2B1A1C; --color-primary: #E5B15D; --color-border: #4A2E33; --text-base: #E0D6C8; }
+        .ant-input, .ant-input-number-input, .ant-select-selector { background-color: var(--bg-base) !important; color: var(--text-base) !important; border-color: var(--color-border) !important; }
+        .ant-btn-default:not(:disabled):hover { color: var(--color-primary) !important; border-color: var(--color-primary) !important; }
+      `}</style>
+      <Layout style={{ minHeight: '100vh', background: '#121212' }}>
         {app.contextHolder}
-
-        <Header style={S.header}>
-          <div style={S.logoContainer}><span style={S.logoText}>NAPTÁR</span></div>
-          {/* BEJELENTKEZÉS GOMB ELTÁVOLÍTVA A PUBLIKUS NÉZETBŐL */}
-        </Header>
-
         <Content style={S.content}>
           <CalendarView app={app} />
         </Content>
-
         <EventDetailsModal />
-
         <Modal title="Jelentkezés" open={app.isJoinModalOpen} onCancel={() => app.setIsJoinModalOpen(false)} footer={null}>
           <div style={S.modalHeaderBox}><Text strong>{app.selectedEventToJoin?.name}</Text><br/><Text type="secondary">{app.formatEventDate(app.selectedEventToJoin?.date)}</Text></div>
           <Form form={app.joinForm} layout="vertical" onFinish={app.submitJoin}>
