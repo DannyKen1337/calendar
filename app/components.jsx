@@ -1,13 +1,10 @@
-
 "use client";
-import React, { useState } from "react";
-import { Card, Button, Typography, Row, Col, Tag, Space, List, Input, Popconfirm, InputNumber, Table, Modal, Form, Select, Upload, Switch, Divider, Grid } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UploadOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import React from "react";
+import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid } from "antd";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 
 const { Title, Text, Paragraph } = Typography;
-const { Option } = Select;
-const { TextArea } = Input;
 const { useBreakpoint } = Grid;
 
 export const getCategoryImage = (category) => {
@@ -49,7 +46,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                   {(!evt.is_open && !evt.external_url) ? "Lezárva" : btnText}
                 </Button>
               ) : (
-                <Space>
+                <Space style={{ flexWrap: 'wrap' }}>
                   {!evt.external_url && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventAttendees((registrations||[]).filter(reg => String(reg.tournamentId) === eId)); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8}); setIsEventModalOpen(true); }} />
                   <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} onClick={() => fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_GATE', payload: { tournamentId: eId, newState: !evt.is_open }}) }).then(()=>fetchData())}>{evt.is_open ? '🔒 Zárás' : '🔓 Nyitás'}</Button>
@@ -67,14 +64,11 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
 export const CalendarView = ({ app }) => {
   const { tournaments, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
   const [currentDate, setCurrentDate] = useState(new Date());
-  
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
-
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   let firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
-
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyCells = Array.from({ length: firstDayOfMonth }, (_, i) => i);
   const days = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"];
@@ -99,45 +93,30 @@ export const CalendarView = ({ app }) => {
     <div>
       <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Közösségi Naptár</Title>
       <Divider style={S.divider} />
-
       {isMobile ? (
         (!tournaments || tournaments.length === 0) ? ( <Paragraph style={S.emptyText}>Nincs esemény.</Paragraph> ) : ( <EventList tournamentsData={tournaments} app={app} /> )
       ) : (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <Button size="large" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>&lt; Előző</Button>
-            <Title level={2} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>
-              {months[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </Title>
+            <Title level={2} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>{months[currentDate.getMonth()]} {currentDate.getFullYear()}</Title>
             <Button size="large" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>Következő &gt;</Button>
           </div>
-
           <div style={S.calendarScroll}>
             <div style={S.calendarGrid}>
               {days.map(day => <div key={day} style={S.calHeaderCell}>{day}</div>)}
-              
               {emptyCells.map(i => <div key={`empty-${i}`} />)}
-              
               {daysArray.map(day => {
                 const dayEvents = getEventsForDay(day);
                 const isToday = new Date().getDate() === day && new Date().getMonth() === currentDate.getMonth() && new Date().getFullYear() === currentDate.getFullYear();
-                
                 return (
                   <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
                     <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}>{day}</div>
-                    {dayEvents.map(evt => {
-                      const eId = String(evt._id || evt.id);
-                      return (
-                        <div 
-                          key={eId} 
-                          style={S.calEventStrip} 
-                          onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }}
-                          title={evt.name}
-                        >
+                    {dayEvents.map(evt => (
+                        <div key={String(evt._id || evt.id)} style={S.calEventStrip} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={evt.name}>
                           {getEventTime(evt.date)} - {evt.name}
                         </div>
-                      )
-                    })}
+                    ))}
                   </div>
                 )
               })}
@@ -154,9 +133,30 @@ export const AdminEvents = ({ app: v }) => {
     <div>
       <div style={S.tabHeader}>
         <Title level={3} style={S.tabTitle}>Naptár Kezelése</Title>
-        <Button type="default" shape="round" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} icon={<PlusOutlined />} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
+        <Space style={{ flexWrap: 'wrap' }}>
+          <Button type="default" shape="round" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők (Jogosultságok)</Button>
+          <Button type="primary" shape="round" style={S.primaryBtn} icon={<PlusOutlined />} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
+        </Space>
       </div>
       <EventList tournamentsData={v.tournaments} isAdmin={true} app={v} />
+
+      <Modal title="Szervezők és Felhasználók" open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800}>
+        <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} columns={[
+          { title: 'Felhasználónév', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
+          { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
+          { title: 'Szerepkör', dataIndex: 'role', render: (role) => <Tag color={role === 'admin' ? 'orange' : 'green'}>{role === 'admin' ? 'Admin' : 'Felhasználó'}</Tag> },
+          { title: 'Művelet', render: (_, record) => ( record.email !== v.userEmail ? ( <Button type={record.role === 'admin' ? 'default' : 'primary'} style={record.role === 'admin' ? {background: '#2B1A1C', color: '#E0D6C8'} : S.primaryBtn} size="small" onClick={() => v.toggleUserRole(record)}>{record.role === 'admin' ? 'Visszafokozás' : 'Admin jogosultság adása'}</Button> ) : null ) }
+        ]} />
+      </Modal>
+
+      <Modal title="Jelentkezők" open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750}>
+        <Table dataSource={v.selectedEventAttendees || []} rowKey={(record) => record._id || record.id} pagination={false} columns={[
+          { title: 'Név', dataIndex: 'name', key: 'name' }, 
+          { title: 'Email', dataIndex: 'email', key: 'email' }, 
+          { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> }, 
+          { title: 'Művelet', key: 'action', render: (_, record) => (<Popconfirm title="Törlés?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>) }
+        ]} />
+      </Modal>
     </div>
   );
 };

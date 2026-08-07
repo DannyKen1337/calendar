@@ -36,6 +36,16 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+
+    if (actionType === 'TOGGLE_ROLE') {
+      const targetId = payload.targetUserId;
+      await db.collection('users').updateOne(
+        getQuery(targetId), 
+        { $set: { role: payload.makeAdmin ? 'admin' : 'customer' } }
+      );
+      return NextResponse.json({ success: true });
+    }
+    
     if (actionType === 'JOIN_TOURNAMENT') {
       const { tournamentId, name, email } = payload;
       const tournament = await db.collection('tournaments').findOne(getQuery(tournamentId));
