@@ -8,7 +8,7 @@ export async function POST(request) {
     const body = await request.json();
     const { actionType, payload } = body;
     const client = await clientPromise;
-    const db = client.db('Tavern_DB'); // update if different
+    const db = client.db(); // update if different
 
     const getQuery = (id) => {
       try { return { $or: [{ id: String(id) }, { _id: new ObjectId(id) }] }; }

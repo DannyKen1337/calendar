@@ -5,7 +5,7 @@ import clientPromise from '@/lib/mongodb';
 export async function GET(request) {
   try {
     const client = await clientPromise;
-    const db = client.db('Tavern_DB');;
+    const db = client.db();
 
     const [tournaments, registrations] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),

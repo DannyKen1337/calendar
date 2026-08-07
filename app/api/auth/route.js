@@ -7,7 +7,7 @@ export async function POST(request) {
   try {
     const { action, username, email, password, loginId } = await request.json();
     const client = await clientPromise;
-    const db = client.db('Tavern_DB');;
+    const db = client.db();
 
     if (action === 'register') {
       const existingUser = await db.collection('users').findOne({ $or: [{ email }, { username }] });
