@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { S } from "./styles";
@@ -119,7 +119,6 @@ export const CalendarView = ({ app }) => {
                           onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} 
                           title={evt.name} /* Így felbukkan a teljes név ha fölé viszik az egeret! */
                         >
-                          {/* ITT TÖRTÉNT A JAVÍTÁS: Idő + Kategória */}
                           {getEventTime(evt.date)} {evt.category || 'Egyéb'}
                         </div>
                     ))}
