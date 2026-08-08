@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { S } from "./styles";
@@ -113,8 +113,14 @@ export const CalendarView = ({ app }) => {
                   <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
                     <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}>{day}</div>
                     {dayEvents.map(evt => (
-                        <div key={String(evt._id || evt.id)} style={S.calEventStrip} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={evt.name}>
-                          {getEventTime(evt.date)} - {evt.name}
+                        <div 
+                          key={String(evt._id || evt.id)} 
+                          style={S.calEventStrip} 
+                          onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} 
+                          title={evt.name} /* Így felbukkan a teljes név ha fölé viszik az egeret! */
+                        >
+                          {/* ITT TÖRTÉNT A JAVÍTÁS: Idő + Kategória */}
+                          {getEventTime(evt.date)} {evt.category || 'Egyéb'}
                         </div>
                     ))}
                   </div>

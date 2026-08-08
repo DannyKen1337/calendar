@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Tavern Calendar",
-  description: "A simple calendar app for the tavern",
+  description: "Szerelmes vagyok Csontiba!",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
