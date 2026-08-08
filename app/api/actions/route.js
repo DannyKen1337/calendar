@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -8,7 +7,7 @@ export async function POST(request) {
     const body = await request.json();
     const { actionType, payload } = body;
     const client = await clientPromise;
-    const db = client.db(); // update if different
+    const db = client.db(); 
 
     const getQuery = (id) => {
       try { return { $or: [{ id: String(id) }, { _id: new ObjectId(id) }] }; }
@@ -36,7 +35,6 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
-
     if (actionType === 'TOGGLE_ROLE') {
       const targetId = payload.targetUserId;
       await db.collection('users').updateOne(
@@ -45,7 +43,7 @@ export async function POST(request) {
       );
       return NextResponse.json({ success: true });
     }
-    
+
     if (actionType === 'JOIN_TOURNAMENT') {
       const { tournamentId, name, email } = payload;
       const tournament = await db.collection('tournaments').findOne(getQuery(tournamentId));
@@ -59,6 +57,24 @@ export async function POST(request) {
       await db.collection('registrations').insertOne({ tournamentId: String(tournamentId), tournamentName: tournament.name, name, email, status: isQueue ? 'Várólista' : 'Aktív', date: new Date() });
       await db.collection('tournaments').updateOne(getQuery(tournamentId), { $inc: { [isQueue ? 'queue_count' : 'current_players']: 1 } });
       return NextResponse.json({ success: true, isQueue });
+    }
+
+    // --- ÚJ FUNKCIÓ: LEIRATKOZÁS E-MAIL CÍMMEL ---
+    if (actionType === 'UNSUBSCRIBE_BY_EMAIL') {
+      const { tournamentId, email } = payload;
+      
+      const reg = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email });
+      if (!reg) {
+        return NextResponse.json({ error: "Nem találtunk jelentkezést ezzel az e-mail címmel!" }, { status: 404 });
+      }
+      
+      await db.collection('registrations').deleteOne({ _id: reg._id });
+      await db.collection('tournaments').updateOne(
+        getQuery(tournamentId),
+        { $inc: { [reg.status === 'Aktív' ? 'current_players' : 'queue_count']: -1 } }
+      );
+      
+      return NextResponse.json({ success: true });
     }
 
     if (actionType === 'REMOVE_REGISTRATION') {

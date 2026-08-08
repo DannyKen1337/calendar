@@ -23,16 +23,20 @@ export const useCalendar = () => {
 
   const [isEventDetailsModalOpen, setIsEventDetailsModalOpen] = useState(false);
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
+  
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [selectedEventToJoin, setSelectedEventToJoin] = useState(null);
 
-  // ÉLŐ FRISSÍTÉS JAVÍTÁSA: Csak az ID-t tároljuk!
+  // ÚJ: LEIRATKOZÁS ÁLLAPOT
+  const [isUnsubscribeModalOpen, setIsUnsubscribeModalOpen] = useState(false);
+
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
   const [selectedEventIdForAttendees, setSelectedEventIdForAttendees] = useState(null);
   const [registrations, setRegistrations] = useState([]);
 
   const [eventForm] = Form.useForm();
   const [joinForm] = Form.useForm();
+  const [unsubscribeForm] = Form.useForm(); // ÚJ: LEIRATKOZÁS ŰRLAP
   const [authForm] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -135,6 +139,35 @@ export const useCalendar = () => {
     } catch (e) {}
   };
 
+  // ÚJ: LEIRATKOZÁS LOGIKA
+  const initiateUnsubscribe = (tournament) => {
+    setIsEventDetailsModalOpen(false);
+    setSelectedEventToJoin(tournament); // Ugyanazt a state-t használjuk az azonosításhoz
+    unsubscribeForm.resetFields();
+    setIsUnsubscribeModalOpen(true);
+  };
+
+  const submitUnsubscribe = async (values) => {
+    const eId = String(selectedEventToJoin._id || selectedEventToJoin.id);
+    try {
+      const response = await fetch('/api/actions', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email: values.email } }) 
+      });
+      const result = await response.json();
+      if (result.error) { 
+        messageApi.error(result.error); 
+        return; 
+      }
+      messageApi.success("Sikeresen lejelentkeztél az eseményről.");
+      setIsUnsubscribeModalOpen(false); 
+      fetchData(); // Azonnal frissíti a naptárat a csökkentett létszámmal!
+    } catch (e) {
+      messageApi.error("Hálózati hiba történt.");
+    }
+  };
+
   const handleRemoveRegistration = async (registrationId) => {
     try {
       await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REMOVE_REGISTRATION', payload: { registrationId } }) });
@@ -155,6 +188,7 @@ export const useCalendar = () => {
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
+    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
     messageApi, contextHolder, formatEventDate, fetchData
   };
