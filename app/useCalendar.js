@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { message, Form } from "antd";
 
-const IMGBB_API_KEY = "IDE_JON_AZ_IMGBB_KULCSOD"; 
+const IMGBB_API_KEY = "b64207c1e8ce79dd8ffe3ccc5de459cd"; 
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
