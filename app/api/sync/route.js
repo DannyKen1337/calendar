@@ -11,27 +11,27 @@ function getEventDetails(name, dateStr) {
   const day = date.getDay(); 
   const lowerName = name.toLowerCase();
 
-  let type = "Riftbound Esemény";
+  let finalName = "Riftbound Esemény";
   let desc = "Új Riftbound esemény a Tavernben! Gyere el és játssz velünk.";
   let color = 8136034; 
 
   if (lowerName.includes("bo1") || lowerName.includes("nexus night bo1") || day === 3) {
-    type = "Nexus Night BO1";
+    finalName = "Nexus Night BO1";
     desc = "Szerdai Nexus Night BO1 verseny! Teszteld a paklidat egy gyors, egy-meccses formátumban. Kezdőknek és haladóknak egyaránt tökéletes!";
     color = 3447003; 
   } 
   else if (lowerName.includes("bo3") || lowerName.includes("nexus night bo3") || day === 6) {
-    type = "Nexus Night BO3";
+    finalName = "Nexus Night BO3";
     desc = "Szombati Nexus Night BO3! Készülj a komolyabb, Best-of-3 meccsekre, és mutasd meg, mit tud a paklid a legjobbak ellen.";
     color = 15105570; 
   }
-  else if (lowerName.includes("klubnap") || day === 5) {
-    type = "Klubnap";
+  else if (lowerName.includes("klub") || day === 5) {
+    finalName = "Klubnap";
     desc = "Pénteki Klubnap! Laza játék, pakli tesztelés, cserebere és jó hangulat egész délután. Ha most ismerkedsz a játékkal, itt a helyed!";
     color = 3066993; 
   }
 
-  return { type, desc, color };
+  return { finalName, desc, color };
 }
 
 export async function GET(request) {
@@ -57,25 +57,29 @@ export async function GET(request) {
     let addedCount = 0;
 
     for (const event of uvsEvents) {
+      const { finalName, desc, color } = getEventDetails(event.name, event.date);
+
+      const d = new Date(event.date);
+      const formattedDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
       const existingEvent = await db.collection('tournaments').findOne({ 
-        name: event.name, 
-        date: event.date 
+        name: finalName, 
+        date: formattedDate 
       });
 
       if (!existingEvent) {
-        const { type, desc, color } = getEventDetails(event.name, event.date);
-
         const newTournament = {
-          name: event.name,
-          category: type,
-          date: event.date,
+          name: finalName,
+          category: "Riftbound",
+          date: formattedDate,
           max_players: 16,
           current_players: 0,
           queue_count: 0,
           is_open: true,
-          external_url: event.url,
-          imageUrl: "https://wiki.leagueoflegends.com/en-us/images/RB_riftbound_icon.svg?a702a",
-          description: `${desc}\n\n👉 Hivatalos UVS link: ${event.url}`,
+          isExternalEvent: true,
+          external_url: UVS_STORE_URL,
+          imageUrl: "",
+          description: `${desc}\n\n👉 Hivatalos jelentkezés az UVS oldalon: ${UVS_STORE_URL}`,
           userRole: "UVS Bot",
           created_at: new Date()
         };
@@ -83,7 +87,7 @@ export async function GET(request) {
         await db.collection('tournaments').insertOne(newTournament);
         addedCount++;
 
-        await sendDiscordNotification(event);
+        await sendDiscordNotification(newTournament, color);
       }
     }
 
@@ -94,7 +98,6 @@ export async function GET(request) {
     return NextResponse.json({ 
       success: true, 
       addedEvents: addedCount, 
-      foundOnUVS: uvsEvents.length,
       message: finalMessage
     }, { headers: noCacheHeaders });
 
@@ -135,47 +138,39 @@ async function fetchUVSEvents() {
 
       if (!chunk.includes('"full_address"') && !chunk.includes('"queue_status"')) continue;
 
-      const idMatch = chunk.match(/"id":"([a-f0-9\-]{36})"/);
       const dateMatch = chunk.match(/"(?:start_datetime|startTime|startDate|start_time)"\s*:\s*"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}[^"]*)"/i) 
                      || chunk.match(/"(202[4-9]-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}[^"]*)"/);
 
-      if (idMatch && dateMatch) {
-        const eventId = idMatch[1];
+      if (dateMatch) {
         const eventDate = dateMatch[1];
-        
-        if (eventId === STORE_ID) continue;
-
         const uniqueKey = eventName + eventDate;
         
         if (!foundEventKeys.has(uniqueKey)) {
           foundEventKeys.add(uniqueKey);
           events.push({
-            id: eventId,
-            url: `https://locator.riftbound.uvsgames.com/events/${eventId}`,
             name: eventName.replace(/\\u0026/g, "&").replace(/\\u0027/g, "'"),
             date: eventDate
           });
         }
       }
     }
-
   } catch (error) {
   }
   return events;
 }
 
-async function sendDiscordNotification(event) {
-  const eventDate = new Date(event.date).toLocaleString('hu-HU', { month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' });
-  const { type, desc, color } = getEventDetails(event.name, event.date);
+async function sendDiscordNotification(tournament, color) {
+  const eventDate = new Date(tournament.date).toLocaleString('hu-HU', { month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' });
 
   const payload = {
     username: "Tavern Naptár",
     avatar_url: "https://wiki.leagueoflegends.com/en-us/images/RB_riftbound_icon.svg?a702a",
+    thread_name: `⚔️ ${tournament.name}`,
     embeds: [
       {
-        title: `⚔️ ${type}: ${event.name}`,
-        description: `${desc}\n\n**🔗 [Kattints ide a hivatalos UVS jelentkezéshez!](${event.url})**`,
-        url: event.url,
+        title: `Új esemény: ${tournament.name}`,
+        description: `${tournament.description}\n\n**🔗 [Kattints ide az UVS jelentkezéshez!](${tournament.external_url})**`,
+        url: tournament.external_url,
         color: color, 
         fields: [
           { name: "Időpont", value: eventDate, inline: true }
