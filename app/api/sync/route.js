@@ -16,7 +16,7 @@ function getEventDetails(name, dateStr) {
   let desc = "Új Riftbound esemény a Tavernben! Gyere el és játssz velünk.";
   let color = 8136034; // Alapértelmezett bordó szín
 
-  // 1. Típus: Nexus Night BO1 (Általában szerda)
+  // 1. Típus: Nexus Night BOI (Általában szerda)
   if (lowerName.includes("bo1") || lowerName.includes("nexus night bo1") || day === 3) {
     type = "Nexus Night BO1";
     desc = "Szerdai Nexus Night BO1 verseny! Teszteld a paklidat egy gyors, egy-meccses formátumban. Kezdőknek és haladóknak egyaránt tökéletes!";
