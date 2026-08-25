@@ -3,7 +3,7 @@ import clientPromise from '@/lib/mongodb';
 
 export const dynamic = 'force-dynamic';
 
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1541699932019232858/naC7BnVuuuZg9O_S9h2Ne2PXi8ZY72V7l7bxk5RsWvWUKHm";
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1541733480893784064/U8vTVf1xzUabLBDW4CoVbnE57E1o4RhgcmoYxxaevsx2WczJYQAvNazj_yHQGM9yCpXW";
 const UVS_STORE_URL = "https://locator.riftbound.uvsgames.com/stores/1b2d94ce-6b26-45de-b888-5ffc3106f678";
 
 function getEventDetails(name) {
@@ -113,6 +113,27 @@ export async function GET(request) {
   }
 }
 
+// ÚJ: a legközelebbi (nem a legelső) érvényes találat kiválasztása a névhez képest,
+// mert a régi kód a chunk elejétől kereste, ami gyakran egy MÁSIK esemény dátumát/ID-ját fogta el.
+function findNearestValue(chunk, anchorPos, regexSource, excludeFn) {
+  const regex = new RegExp(regexSource, 'g');
+  let m;
+  let best = null;
+  let bestDist = Infinity;
+
+  while ((m = regex.exec(chunk)) !== null) {
+    const val = m[1];
+    if (excludeFn && excludeFn(val)) continue;
+
+    const dist = Math.abs(m.index - anchorPos);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = val;
+    }
+  }
+  return best;
+}
+
 async function fetchUVSEvents() {
   const events = [];
   const STORE_ID = "1b2d94ce-6b26-45de-b888-5ffc3106f678";
@@ -150,36 +171,29 @@ async function fetchUVSEvents() {
       const start = Math.max(0, match.index - 1500);
       const end = Math.min(cleaned.length, match.index + 1500);
       const chunk = cleaned.substring(start, end);
+      const anchorPos = match.index - start; // az esemény neve hol van a chunk-on belül
 
       if (!chunk.includes("SCHEDULED") && !chunk.includes("ACCEPTING_SIGNUPS") && !chunk.includes("Debrecen") && !chunk.includes("Kossuth")) {
         continue;
       }
 
-      const dateRegex = /"(202[4-9]-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}[^"]*)"/g;
-      let dateMatch;
-      let validDate = null;
-
-      while ((dateMatch = dateRegex.exec(chunk)) !== null) {
-        const dStr = dateMatch[1];
-        if (!dStr.includes("2025-10-31") && !dStr.includes("2027-01-01") && !dStr.includes("2026-12-01")) {
-          validDate = dStr;
-          break;
-        }
-      }
+      // JAVÍTVA: a névhez LEGKÖZELEBBI dátumot vesszük, nem az elsőt a chunk elejétől
+      const validDate = findNearestValue(
+        chunk,
+        anchorPos,
+        '"(202[4-9]-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}[^"]*)"',
+        (dStr) => dStr.includes("2025-10-31") || dStr.includes("2027-01-01") || dStr.includes("2026-12-01")
+      );
 
       if (!validDate) continue;
 
-      const idRegex = /"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})"/g;
-      let idMatch;
-      let validId = null;
-
-      while ((idMatch = idRegex.exec(chunk)) !== null) {
-        const idStr = idMatch[1];
-        if (idStr !== STORE_ID && idStr !== "cc8902bc-dba3-4435-aab2-e9e812482166" && idStr !== "c9b1ea79-ee44-440c-a70c-60dea20470ed") {
-          validId = idStr;
-          break;
-        }
-      }
+      // JAVÍTVA: ugyanez a logika az ID-ra is
+      const validId = findNearestValue(
+        chunk,
+        anchorPos,
+        '"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})"',
+        (idStr) => idStr === STORE_ID || idStr === "cc8902bc-dba3-4435-aab2-e9e812482166" || idStr === "c9b1ea79-ee44-440c-a70c-60dea20470ed"
+      );
 
       if (validId) {
         if (seenIds.has(validId)) continue;
@@ -205,11 +219,13 @@ async function fetchUVSEvents() {
 async function sendDiscordNotification(tournament, color) {
   const eventDate = new Date(tournament.date).toLocaleString('hu-HU', { month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' });
 
+  // JAVÍTVA: reguláris szöveges csatornához a "thread_name" mezőt eltávolítottuk.
+  // A thread_name csak Forum-csatornákon működik (új szálat nyit); sima szöveges
+  // csatornán ez hibát okozhat vagy figyelmen kívül marad — most egyszerű üzenetként posztol.
   const payload = {
     username: "Tavern Naptár",
     avatar_url: "https://wiki.leagueoflegends.com/en-us/images/RB_riftbound_icon.svg?a702a",
     content: "Új Riftbound esemény nyílt meg a Tavernben! 🎉",
-    thread_name: `⚔️ ${tournament.name}`.substring(0, 95),
     embeds: [
       {
         title: tournament.name,
