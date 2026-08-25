@@ -45,19 +45,24 @@ export async function GET(request) {
 
     if (uvsEvents.length === 0) {
       return NextResponse.json(
-        { success: true, message: "A bot lefutott, de jelenleg nem talált új valós eseményt." },
+        { success: true, message: "A bot lefutott, de jelenleg nem talált új eseményt." },
         { headers: noCacheHeaders }
       );
     }
 
     let addedCount = 0;
+    let discordErrors = [];
 
     for (const event of uvsEvents) {
       const { desc, color } = getEventDetails(event.name, event.date);
 
-      // Kijavított, tökéletes dátumformátum az Input mezőkhöz!
+      // PONTOS MAGYAR IDŐZÓNA KONVERZIÓ (UTC -> Helyi idő)
       const d = new Date(event.date);
-      const formattedDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const formattedDate = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Europe/Budapest',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      }).format(d).replace(' ', 'T');
 
       const existingEvent = await db.collection('tournaments').findOne({ 
         name: event.name, 
@@ -66,16 +71,16 @@ export async function GET(request) {
 
       if (!existingEvent) {
         const newTournament = {
-          name: event.name, // Megtartjuk az eredeti UVS nevet
-          category: "Riftbound", // Fix Riftbound kategória
+          name: event.name, // A pontos UVS név marad
+          category: "Riftbound",
           date: formattedDate,
           max_players: 16,
           current_players: 0,
           queue_count: 0,
           is_open: true,
-          isExternalEvent: true, // Be is pipálja a külső weboldalt
+          isExternalEvent: true,
           external_url: event.url,
-          imageUrl: "", // Nincs plusz logó
+          imageUrl: "", 
           description: `${desc}\n\n👉 Hivatalos jelentkezés az UVS oldalon: ${event.url}`,
           userRole: "UVS Bot",
           created_at: new Date()
@@ -84,18 +89,23 @@ export async function GET(request) {
         await db.collection('tournaments').insertOne(newTournament);
         addedCount++;
 
-        await sendDiscordNotification(newTournament, color);
+        // Discord küldés és hibaellenőrzés
+        const discordRes = await sendDiscordNotification(newTournament, color);
+        if (!discordRes.ok) {
+           discordErrors.push(await discordRes.text());
+        }
       }
     }
 
     const finalMessage = addedCount > 0 
       ? `${addedCount} új esemény hozzáadva a naptárhoz és a Discordhoz!` 
-      : `Sikeres olvasás! (Találtam ${uvsEvents.length} valódi versenyt, de ezek már be vannak írva a naptáradba).`;
+      : `Találtam ${uvsEvents.length} versenyt, de ezek már be vannak írva a naptáradba.`;
 
     return NextResponse.json({ 
       success: true, 
       addedEvents: addedCount, 
-      message: finalMessage
+      message: finalMessage,
+      discord_debug: discordErrors // Ha hisztizik a Discord, itt látni fogod miért!
     }, { headers: noCacheHeaders });
 
   } catch (error) {
@@ -105,71 +115,51 @@ export async function GET(request) {
 
 async function fetchUVSEvents() {
   const events = [];
-  const STORE_ID = "1b2d94ce-6b26-45de-b888-5ffc3106f678";
-
   try {
     const response = await fetch(`${UVS_STORE_URL}?t=${Date.now()}`, { 
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
     
     let html = await response.text();
-    const cleanedHtml = html.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 
-    // A BIZTOS MÓDSZER: Csak a VALÓDI (Betáblázott) események körül keresünk!
-    const chunks = cleanedHtml.split('"event_status":"SCHEDULED"');
-    const foundEventKeys = new Set();
-
-    // Végigmegyünk a darabokon (az első darabot kivéve, mert az az esemény előtti kódrészlet)
-    for (let i = 0; i < chunks.length - 1; i++) {
-      const left = chunks[i].slice(-2500); // 2500 karakterrel előtte
-      const right = chunks[i+1].substring(0, 2500); // 2500 karakterrel utána
-      const chunk = left + right;
-
-      // Megkeressük a nevet a Scheduled részhez a legközelebb!
-      const nameMatches = [...chunk.matchAll(/"name":"([^"]+)"/g)];
-      let eventName = null;
-      for (let j = nameMatches.length - 1; j >= 0; j--) {
-        const n = nameMatches[j][1].replace(/\\u0026/g, "&").replace(/\\u0027/g, "'");
-        if (n !== "Riftbound" && !n.includes("Tavern Club and Store") && n.length > 3) {
-          eventName = n;
-          break;
-        }
-      }
-
-      // Kifejezetten a pontos "start_datetime" kulcsszóhoz ragaszkodunk (nincs fals dátum)
-      const dateMatch = chunk.match(/"(start_datetime|startTime|startDate|start_time)"\s*:\s*"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}[^"]*)"/i);
+    // 100%-OS JSON BÁNYÁSZAT (Sima szöveg helyett az objektumokat olvassa)
+    const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+    if (nextDataMatch) {
+      const data = JSON.parse(nextDataMatch[1]);
+      const foundEvents = [];
       
-      if (eventName && dateMatch) {
-        const eventDate = dateMatch[2];
-
-        // Megkeressük a pontos ID-t az UVS linkhez
-        const idMatches = [...chunk.matchAll(/"id":"([a-f0-9\-]{36})"/g)];
-        let eventId = null;
-        for (const m of idMatches) {
-          if (m[1] !== STORE_ID) {
-            eventId = m[1];
-            break;
+      const findEvents = (obj) => {
+        if (Array.isArray(obj)) {
+          obj.forEach(findEvents);
+        } else if (obj !== null && typeof obj === 'object') {
+          // A valódi, kiírt események ismérvei az UVS-en:
+          if (obj.event_status === "SCHEDULED" && obj.full_address && obj.name && obj.id) {
+             foundEvents.push(obj);
           }
+          Object.values(obj).forEach(findEvents);
         }
+      };
+      findEvents(data);
 
-        const uniqueKey = eventName + eventDate;
-        if (!foundEventKeys.has(uniqueKey)) {
-          foundEventKeys.add(uniqueKey);
-          events.push({
-            id: eventId,
-            url: eventId ? `https://locator.riftbound.uvsgames.com/events/${eventId}` : UVS_STORE_URL,
-            name: eventName,
-            date: eventDate
-          });
+      for (const ev of foundEvents) {
+        const dateStr = ev.start_datetime || ev.start_time || ev.startDate;
+        if (dateStr) {
+           events.push({
+             id: ev.id,
+             name: ev.name,
+             date: dateStr,
+             url: `https://locator.riftbound.uvsgames.com/events/${ev.id}`
+           });
         }
       }
     }
   } catch (error) {
+    console.error("Fetch Error", error);
   }
   return events;
 }
@@ -180,11 +170,12 @@ async function sendDiscordNotification(tournament, color) {
   const payload = {
     username: "Tavern Naptár",
     avatar_url: "https://wiki.leagueoflegends.com/en-us/images/RB_riftbound_icon.svg?a702a",
-    thread_name: `⚔️ ${tournament.name}`, // FÓRUM SZÁL! Ez hozza létre az új bejegyzést
+    content: "Egy új hivatalos esemény nyílt meg! 🎉", // Kötelező egy kezdőszöveg a Fórum szálakhoz!
+    thread_name: `⚔️ ${tournament.name}`.substring(0, 95), 
     embeds: [
       {
-        title: `Új esemény: ${tournament.name}`,
-        description: `${tournament.description}`,
+        title: tournament.name,
+        description: tournament.description,
         url: tournament.external_url,
         color: color, 
         fields: [
@@ -196,7 +187,7 @@ async function sendDiscordNotification(tournament, color) {
     ]
   };
 
-  await fetch(DISCORD_WEBHOOK_URL, {
+  return await fetch(DISCORD_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
