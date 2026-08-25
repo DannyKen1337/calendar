@@ -21,7 +21,7 @@ function getEventDetails(name, dateStr) {
 
   if (lowerName.includes("bo1") || lowerName.includes("nexus night bo1") || day === 3) {
     type = "Nexus Night BO1";
-    desc = "Szerdai Nexus Night BO1 verseny! Teszteld a paklidat egy gyors, egy meccses formátumban. Kezdőknek és haladóknak egyaránt tökéletes!";
+    desc = "Szerdai Nexus Night BO1 verseny! Teszteld a paklidat egy gyors, egy-meccses formátumban. Kezdőknek és haladóknak egyaránt tökéletes!";
     color = 3447003; 
   } 
   else if (lowerName.includes("bo3") || lowerName.includes("nexus night bo3") || day === 6) {
@@ -39,7 +39,6 @@ function getEventDetails(name, dateStr) {
 }
 
 export async function GET(request) {
-  // Megtiltjuk a böngészőnek, hogy elmentse a gombnyomás eredményét!
   const noCacheHeaders = {
     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
     'Pragma': 'no-cache',
@@ -54,7 +53,7 @@ export async function GET(request) {
 
     if (uvsEvents.length === 0) {
       return NextResponse.json(
-        { success: true, message: "A bot lefutott, de jelenleg nem lát új eseményt az UVS oldalon." },
+        { success: true, message: "A bot lefutott, de az 'Istenmód' sem talált új eseményt a forráskódban! (Lehet, hogy még nem élesítette az UVS szervere)." },
         { headers: noCacheHeaders }
       );
     }
@@ -68,7 +67,7 @@ export async function GET(request) {
       });
 
       if (!existingEvent) {
-        const { type, desc } = getEventDetails(event.name, event.date);
+        const { type, desc, color } = getEventDetails(event.name, event.date);
 
         const newTournament = {
           name: event.name,
@@ -85,7 +84,7 @@ export async function GET(request) {
           created_at: new Date()
         };
 
-        const result = await db.collection('tournaments').insertOne(newTournament);
+        await db.collection('tournaments').insertOne(newTournament);
         addedCount++;
 
         await sendDiscordNotification(event);
@@ -94,16 +93,23 @@ export async function GET(request) {
 
     const finalMessage = addedCount > 0 
       ? `${addedCount} új esemény hozzáadva a naptárhoz és a Discordhoz!` 
-      : "Minden esemény szinkronban van, nem volt új hozzáadandó!";
+      : `Látom a versenyeket (Összesen ${uvsEvents.length} db), de ezek már be vannak írva a naptáradba! (Nincs új esemény)`;
 
-    return NextResponse.json({ success: true, addedEvents: addedCount, message: finalMessage }, { headers: noCacheHeaders });
+    return NextResponse.json({ 
+      success: true, 
+      addedEvents: addedCount, 
+      foundOnUVS: uvsEvents.length,
+      message: finalMessage,
+      debug_events: uvsEvents // Ezt a fejlesztőnek küldjük
+    }, { headers: noCacheHeaders });
+
   } catch (error) {
     console.error("Szinkronizációs hiba:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: noCacheHeaders });
   }
 }
 
-// --- TERMINÁTOR SZINTŰ ADATBÁNYÁSZ ---
+// --- TERMINÁTOR SZINTŰ ADATBÁNYÁSZ (GOD MODE) ---
 async function fetchUVSEvents() {
   const events = [];
   const STORE_ID = "1b2d94ce-6b26-45de-b888-5ffc3106f678";
@@ -114,76 +120,87 @@ async function fetchUVSEvents() {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        // Álcázzuk magunkat egy igazi Google Chrome böngészőnek
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7'
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
       }
     });
     
     const html = await response.text();
+    const foundIds = new Set();
 
-    // 1. MÓDSZER: Megpróbáljuk kibányászni a teljes rejtett JSON adatbázist
-    const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
-    if (nextDataMatch) {
-      try {
-        const jsonData = JSON.parse(nextDataMatch[1]);
-        const foundIds = new Set();
-        
-        function findEvents(obj) {
-          if (Array.isArray(obj)) {
-            obj.forEach(findEvents);
-          } else if (obj !== null && typeof obj === 'object') {
-            if (obj.id && obj.name && (obj.startDate || obj.startTime)) {
-              if (obj.id !== STORE_ID && !foundIds.has(obj.id)) {
-                events.push({
-                  id: obj.id,
-                  url: `https://locator.riftbound.uvsgames.com/events/${obj.id}`,
-                  name: obj.name,
-                  date: obj.startDate || obj.startTime
-                });
-                foundIds.add(obj.id);
-              }
-            }
-            Object.values(obj).forEach(findEvents);
+    // 1. MÉLYKERESÉS JSON-BEN (Bármilyen state, Redux, Next.js adatbázis)
+    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+    let match;
+    while ((match = scriptRegex.exec(html)) !== null) {
+      const scriptContent = match[1];
+      if (scriptContent.includes('"id"') && scriptContent.includes('"name"')) {
+        const jsonMatches = scriptContent.match(/\{[\s\S]+\}/g);
+        if (jsonMatches) {
+          for (const jsonStr of jsonMatches) {
+            try {
+              const jsonObj = JSON.parse(jsonStr);
+              findEventsInObject(jsonObj, foundIds, events, STORE_ID);
+            } catch(e) {}
           }
-        }
-        findEvents(jsonData);
-      } catch(e) { console.error("JSON parse hiba"); }
-    }
-
-    // 2. MÓDSZER (Mentőöv): Hatalmas 1600 karakteres "csúszóablak"
-    if (events.length === 0) {
-      const idRegex = /"id":"([a-f0-9\-]{36})"/g;
-      let match;
-      const foundIds = new Set();
-      
-      while ((match = idRegex.exec(html)) !== null) {
-        const id = match[1];
-        if (id === STORE_ID || foundIds.has(id)) continue;
-        
-        const startIndex = Math.max(0, match.index - 800);
-        const endIndex = Math.min(html.length, match.index + 800);
-        const chunk = html.substring(startIndex, endIndex);
-        
-        const nameMatch = chunk.match(/"name":"([^"]+)"/);
-        const dateMatch = chunk.match(/"start(?:Date|Time)":"([^"]+)"/);
-        
-        if (nameMatch && dateMatch) {
-          events.push({
-            id: id,
-            url: `https://locator.riftbound.uvsgames.com/events/${id}`,
-            name: nameMatch[1].replace(/\\u0026/g, "&").replace(/\\u0027/g, "'").replace(/\\"/g, '"'),
-            date: dateMatch[1]
-          });
-          foundIds.add(id);
         }
       }
     }
+
+    // 2. SZUPER REGEX (Ha a JSON parse elszállna, megyünk a nyers szövegre!)
+    const idMatches = [...html.matchAll(/"id":"([a-f0-9\-]{36})"/g)];
+    for (const idMatch of idMatches) {
+      const id = idMatch[1];
+      if (id === STORE_ID || foundIds.has(id)) continue;
+      
+      const start = Math.max(0, idMatch.index - 500);
+      const end = Math.min(html.length, idMatch.index + 500);
+      const chunk = html.substring(start, end);
+      
+      const nameMatch = chunk.match(/"name":"([^"]+)"/);
+      const dateMatch = chunk.match(/"[^"]*(?:start|date|time)[^"]*":"(202[4-9]-[0-9]{2}-[0-9]{2}T[^"]+)"/i);
+      
+      if (nameMatch && dateMatch) {
+        events.push({
+          id: id,
+          url: `https://locator.riftbound.uvsgames.com/events/${id}`,
+          name: nameMatch[1].replace(/\\u0026/g, "&").replace(/\\u0027/g, "'").replace(/\\"/g, '"'),
+          date: dateMatch[1]
+        });
+        foundIds.add(id);
+      }
+    }
+
   } catch (error) {
     console.error("Nem sikerült letölteni az UVS oldalát:", error);
   }
   return events;
+}
+
+// Rekurzív kereső, ami BÁRMILYEN mélyen is van a dátum, megtalálja
+function findEventsInObject(obj, foundIds, events, STORE_ID) {
+  if (Array.isArray(obj)) {
+    obj.forEach(item => findEventsInObject(item, foundIds, events, STORE_ID));
+  } else if (obj !== null && typeof obj === 'object') {
+    let dateField = Object.keys(obj).find(key => 
+      (key.toLowerCase().includes('start') || key.toLowerCase().includes('date') || key.toLowerCase().includes('time')) 
+      && typeof obj[key] === 'string' 
+      && obj[key].includes('202') 
+      && !isNaN(Date.parse(obj[key]))
+    );
+
+    if (obj.id && obj.name && dateField) {
+      if (obj.id !== STORE_ID && !foundIds.has(obj.id) && obj.id.length > 20) {
+        events.push({
+          id: obj.id,
+          url: `https://locator.riftbound.uvsgames.com/events/${obj.id}`,
+          name: obj.name,
+          date: obj[dateField]
+        });
+        foundIds.add(obj.id);
+      }
+    }
+    Object.values(obj).forEach(val => findEventsInObject(val, foundIds, events, STORE_ID));
+  }
 }
 
 async function sendDiscordNotification(event) {
