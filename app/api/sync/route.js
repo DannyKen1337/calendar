@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 
-// EZ A LEGFONTOSABB ÚJ SOR: Szigorúan megtiltja a Vercelnek, hogy elmentse az eredményt!
+// Kötelező azonnali futás (nincs Vercel cache)
 export const dynamic = 'force-dynamic'; 
 
 // IDE MÁSOLD BE A DISCORD WEBHOOK LINKEDET!
@@ -39,20 +39,28 @@ function getEventDetails(name, dateStr) {
 }
 
 export async function GET(request) {
+  // Megtiltjuk a böngészőnek, hogy elmentse a gombnyomás eredményét!
+  const noCacheHeaders = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  };
+
   try {
     const client = await clientPromise;
     const db = client.db();
 
-    // 1. ESEMÉNYEK LEKÉRÉSE AZ UVS OLDALRÓL
     const uvsEvents = await fetchUVSEvents();
 
     if (uvsEvents.length === 0) {
-      return NextResponse.json({ success: true, message: "A bot lefutott, de jelenleg nem lát új eseményt az UVS oldalon (Lehet, hogy pár perc kell a frissüléshez)." });
+      return NextResponse.json(
+        { success: true, message: "A bot lefutott, de jelenleg nem lát új eseményt az UVS oldalon." },
+        { headers: noCacheHeaders }
+      );
     }
 
     let addedCount = 0;
 
-    // 2. ESEMÉNYEK FELDOLGOZÁSA ÉS MENTÉSE
     for (const event of uvsEvents) {
       const existingEvent = await db.collection('tournaments').findOne({ 
         name: event.name, 
@@ -80,45 +88,97 @@ export async function GET(request) {
         const result = await db.collection('tournaments').insertOne(newTournament);
         addedCount++;
 
-        // 3. KIKÜLDÉS A DISCORDRA
         await sendDiscordNotification(event);
       }
     }
 
-    return NextResponse.json({ success: true, addedEvents: addedCount, message: addedCount > 0 ? `${addedCount} új esemény hozzáadva a naptárhoz és a Discordhoz!` : "Minden esemény szinkronban van, nem volt új hozzáadandó!" });
+    const finalMessage = addedCount > 0 
+      ? `${addedCount} új esemény hozzáadva a naptárhoz és a Discordhoz!` 
+      : "Minden esemény szinkronban van, nem volt új hozzáadandó!";
+
+    return NextResponse.json({ success: true, addedEvents: addedCount, message: finalMessage }, { headers: noCacheHeaders });
   } catch (error) {
     console.error("Szinkronizációs hiba:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// --- SEGÉDFÜGGVÉNYEK ---
-
+// --- TERMINÁTOR SZINTŰ ADATBÁNYÁSZ ---
 async function fetchUVSEvents() {
   const events = [];
+  const STORE_ID = "1b2d94ce-6b26-45de-b888-5ffc3106f678";
+
   try {
-    // TRÜKK: Hozzáadunk egy véletlenszerű időbélyeget a linkhez (?t=...), így az UVS szervere nem tud gyorsítótárazott, régi oldalt adni!
     const response = await fetch(`${UVS_STORE_URL}?t=${Date.now()}`, { 
       cache: 'no-store',
       headers: {
         'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
+        'Pragma': 'no-cache',
+        // Álcázzuk magunkat egy igazi Google Chrome böngészőnek
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7'
       }
     });
+    
     const html = await response.text();
 
-    // Szigorúbb, pontosabb regex a név és dátum kinyeréséhez
-    const regex = /"id":"([a-f0-9\-]{36})".*?"name":"([^"]+)".*?"start(?:Date|Time)":"([^"]+)"/g;
-    let match;
-    
-    while ((match = regex.exec(html)) !== null) {
-      const eventId = match[1];
-      events.push({
-        id: eventId,
-        url: `https://locator.riftbound.uvsgames.com/events/${eventId}`,
-        name: match[2].replace(/\\u0026/g, "&").replace(/\\u0027/g, "'"),
-        date: match[3]
-      });
+    // 1. MÓDSZER: Megpróbáljuk kibányászni a teljes rejtett JSON adatbázist
+    const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+    if (nextDataMatch) {
+      try {
+        const jsonData = JSON.parse(nextDataMatch[1]);
+        const foundIds = new Set();
+        
+        function findEvents(obj) {
+          if (Array.isArray(obj)) {
+            obj.forEach(findEvents);
+          } else if (obj !== null && typeof obj === 'object') {
+            if (obj.id && obj.name && (obj.startDate || obj.startTime)) {
+              if (obj.id !== STORE_ID && !foundIds.has(obj.id)) {
+                events.push({
+                  id: obj.id,
+                  url: `https://locator.riftbound.uvsgames.com/events/${obj.id}`,
+                  name: obj.name,
+                  date: obj.startDate || obj.startTime
+                });
+                foundIds.add(obj.id);
+              }
+            }
+            Object.values(obj).forEach(findEvents);
+          }
+        }
+        findEvents(jsonData);
+      } catch(e) { console.error("JSON parse hiba"); }
+    }
+
+    // 2. MÓDSZER (Mentőöv): Hatalmas 1600 karakteres "csúszóablak"
+    if (events.length === 0) {
+      const idRegex = /"id":"([a-f0-9\-]{36})"/g;
+      let match;
+      const foundIds = new Set();
+      
+      while ((match = idRegex.exec(html)) !== null) {
+        const id = match[1];
+        if (id === STORE_ID || foundIds.has(id)) continue;
+        
+        const startIndex = Math.max(0, match.index - 800);
+        const endIndex = Math.min(html.length, match.index + 800);
+        const chunk = html.substring(startIndex, endIndex);
+        
+        const nameMatch = chunk.match(/"name":"([^"]+)"/);
+        const dateMatch = chunk.match(/"start(?:Date|Time)":"([^"]+)"/);
+        
+        if (nameMatch && dateMatch) {
+          events.push({
+            id: id,
+            url: `https://locator.riftbound.uvsgames.com/events/${id}`,
+            name: nameMatch[1].replace(/\\u0026/g, "&").replace(/\\u0027/g, "'").replace(/\\"/g, '"'),
+            date: dateMatch[1]
+          });
+          foundIds.add(id);
+        }
+      }
     }
   } catch (error) {
     console.error("Nem sikerült letölteni az UVS oldalát:", error);
