@@ -43,7 +43,7 @@ export async function GET(request) {
 
     if (uvsEvents.length === 0) {
       return NextResponse.json(
-        { success: true, message: "A bot lefutott, de jelenleg nem talált új, élesített eseményt." },
+        { success: false, message: "A bot lefutott, de egyetlen eseményt sem talált. Ellenőrizd az UVS oldalt!" },
         { headers: noCacheHeaders }
       );
     }
@@ -87,7 +87,9 @@ export async function GET(request) {
         addedCount++;
 
         const discordRes = await sendDiscordNotification(newTournament, color);
-        if (!discordRes.ok) discordErrors.push(await discordRes.text());
+        if (!discordRes.ok) {
+          discordErrors.push(await discordRes.text());
+        }
       }
     }
 
@@ -122,42 +124,59 @@ async function fetchUVSEvents() {
     });
     
     let html = await response.text();
-    const cleanedHtml = html.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    let cleaned = html.replace(/\\/g, '');
 
-    const blocks = cleanedHtml.split('"id":"');
+    const nameMatches = [...cleaned.matchAll(/"name":"([^"]+)"/g)];
     const foundKeys = new Set();
 
-    for (let i = 1; i < blocks.length; i++) {
-      const block = blocks[i];
-      if (block.length < 36) continue;
+    for (const match of nameMatches) {
+      const eventName = match[1];
+      
+      if (eventName.length < 4 || eventName.includes("Tavern Club") || eventName.includes("Policy") || eventName === "Riftbound") continue;
 
-      const eventId = block.substring(0, 36);
-      if (!/^[a-f0-9\-]{36}$/.test(eventId) || eventId === STORE_ID) continue;
+      const start = Math.max(0, match.index - 1500);
+      const end = Math.min(cleaned.length, match.index + 1500);
+      const chunk = cleaned.substring(start, end);
 
-      const chunk = block.substring(0, 2500);
-
-      const nameMatch = chunk.match(/"name":"([^"]+)"/);
-      if (!nameMatch) continue;
-      const eventName = nameMatch[1].replace(/\\u0026/g, "&").replace(/\\u0027/g, "'");
-
-      if (eventName.includes("Tavern Club and Store") || eventName === "Riftbound" || eventName.length < 4) continue;
-
-      const dateMatch = chunk.match(/"(?:start_datetime|startDate|startTime|start_time)"\s*:\s*"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}[^"]*)"/i);
-      if (!dateMatch) continue;
-      const eventDate = dateMatch[1];
-
-      if (!chunk.includes("SCHEDULED") && !chunk.includes("ACCEPTING_SIGNUPS") && !chunk.includes("Kossuth") && !chunk.includes("Debrecen")) {
+      if (!chunk.includes("SCHEDULED") && !chunk.includes("ACCEPTING_SIGNUPS") && !chunk.includes("Debrecen") && !chunk.includes("Kossuth")) {
         continue;
       }
 
-      const uniqueKey = eventName + eventDate;
+      const dateRegex = /"(202[4-9]-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}[^"]*)"/g;
+      let dateMatch;
+      let validDate = null;
+      
+      while ((dateMatch = dateRegex.exec(chunk)) !== null) {
+        const dStr = dateMatch[1];
+        if (!dStr.includes("2025-10-31") && !dStr.includes("2027-01-01") && !dStr.includes("2026-12-01")) {
+          validDate = dStr;
+          break; 
+        }
+      }
+
+      if (!validDate) continue;
+
+      const idRegex = /"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})"/g;
+      let idMatch;
+      let validId = null;
+      
+      while ((idMatch = idRegex.exec(chunk)) !== null) {
+        const idStr = idMatch[1];
+        if (idStr !== STORE_ID && idStr !== "cc8902bc-dba3-4435-aab2-e9e812482166" && idStr !== "c9b1ea79-ee44-440c-a70c-60dea20470ed") {
+          validId = idStr;
+          break; 
+        }
+      }
+
+      const uniqueKey = eventName + validDate;
+      
       if (!foundKeys.has(uniqueKey)) {
         foundKeys.add(uniqueKey);
         events.push({
-          id: eventId,
-          url: `https://locator.riftbound.uvsgames.com/events/${eventId}`,
+          id: validId,
           name: eventName,
-          date: eventDate
+          date: validDate,
+          url: validId ? `https://locator.riftbound.uvsgames.com/events/${validId}` : UVS_STORE_URL
         });
       }
     }
