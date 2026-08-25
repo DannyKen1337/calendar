@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 
 const { Title, Text, Paragraph } = Typography;
@@ -65,7 +65,6 @@ export const CalendarView = ({ app }) => {
   const { tournaments, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
   const [currentDate, setCurrentDate] = useState(new Date());
   
-  // ITT A JAVÍTÁS: Kliens oldali pontos idő lekérése
   const [realToday, setRealToday] = useState(null);
 
   useEffect(() => {
@@ -118,7 +117,6 @@ export const CalendarView = ({ app }) => {
               {daysArray.map(day => {
                 const dayEvents = getEventsForDay(day);
                 
-                // ITT A JAVÍTÁS MÁSIK FELE: A realToday-t használjuk az összehasonlításhoz
                 const isToday = realToday && realToday.getDate() === day && realToday.getMonth() === currentDate.getMonth() && realToday.getFullYear() === currentDate.getFullYear();
                 
                 return (
@@ -153,7 +151,18 @@ export const AdminEvents = ({ app: v }) => {
       <div style={S.tabHeader}>
         <Title level={3} style={S.tabTitle}>Naptár Kezelése</Title>
         <Space style={{ flexWrap: 'wrap' }}>
-          <Button type="default" shape="round" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők (Jogosultságok)</Button>
+          {/* ÚJ: MANUÁLIS SZINKRONIZÁLÁS GOMB */}
+          <Button 
+            type="default" 
+            shape="round" 
+            style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#E5B15D' }} 
+            icon={<SyncOutlined spin={v.isSyncing} />} 
+            onClick={v.handleSync}
+            loading={v.isSyncing}
+          >
+            UVS Szinkron
+          </Button>
+          <Button type="default" shape="round" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
           <Button type="primary" shape="round" style={S.primaryBtn} icon={<PlusOutlined />} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
         </Space>
       </div>

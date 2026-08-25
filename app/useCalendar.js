@@ -2,11 +2,12 @@
 import { useState, useEffect } from "react";
 import { message, Form } from "antd";
 
-const IMGBB_API_KEY = "b64207c1e8ce79dd8ffe3ccc5de459cd"; 
+const IMGBB_API_KEY = "IDE_JON_AZ_IMGBB_KULCSOD"; 
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false); // ÚJ: Szinkronizálás töltés állapota
 
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState("");
@@ -27,7 +28,6 @@ export const useCalendar = () => {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [selectedEventToJoin, setSelectedEventToJoin] = useState(null);
 
-  // ÚJ: LEIRATKOZÁS ÁLLAPOT
   const [isUnsubscribeModalOpen, setIsUnsubscribeModalOpen] = useState(false);
 
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
@@ -36,7 +36,7 @@ export const useCalendar = () => {
 
   const [eventForm] = Form.useForm();
   const [joinForm] = Form.useForm();
-  const [unsubscribeForm] = Form.useForm(); // ÚJ: LEIRATKOZÁS ŰRLAP
+  const [unsubscribeForm] = Form.useForm();
   const [authForm] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -63,6 +63,24 @@ export const useCalendar = () => {
       if (data.users) setUsersList(data.users);
     } catch (e) {}
     setLoading(false);
+  };
+
+  // ÚJ: MANUÁLIS SZINKRONIZÁLÁS GOMB LOGIKÁJA
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/sync');
+      const data = await response.json();
+      if (data.error) {
+        messageApi.error(`Hiba történt: ${data.error}`);
+      } else {
+        messageApi.success(data.message || "Szinkronizálás sikeres!");
+        fetchData(); // Azonnal frissítjük a naptár rácsát az új eseményekkel!
+      }
+    } catch (e) {
+      messageApi.error("Hálózati hiba a szinkronizáláskor.");
+    }
+    setIsSyncing(false);
   };
 
   const handleLogout = () => {
@@ -139,10 +157,9 @@ export const useCalendar = () => {
     } catch (e) {}
   };
 
-  // ÚJ: LEIRATKOZÁS LOGIKA
   const initiateUnsubscribe = (tournament) => {
     setIsEventDetailsModalOpen(false);
-    setSelectedEventToJoin(tournament); // Ugyanazt a state-t használjuk az azonosításhoz
+    setSelectedEventToJoin(tournament);
     unsubscribeForm.resetFields();
     setIsUnsubscribeModalOpen(true);
   };
@@ -162,7 +179,7 @@ export const useCalendar = () => {
       }
       messageApi.success("Sikeresen lejelentkeztél az eseményről.");
       setIsUnsubscribeModalOpen(false); 
-      fetchData(); // Azonnal frissíti a naptárat a csökkentett létszámmal!
+      fetchData(); 
     } catch (e) {
       messageApi.error("Hálózati hiba történt.");
     }
@@ -184,6 +201,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
+    isSyncing, handleSync, // ÚJ SZINKRON VÁLTOZÓK
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
