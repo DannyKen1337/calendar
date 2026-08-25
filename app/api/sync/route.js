@@ -21,7 +21,7 @@ function getEventDetails(name, dateStr) {
 
   if (lowerName.includes("bo1") || lowerName.includes("nexus night bo1") || day === 3) {
     type = "Nexus Night BO1";
-    desc = "Szerdai Nexus Night BO1 verseny! Teszteld a paklidat egy gyors, egy-meccses formátumban. Kezdőknek és haladóknak egyaránt tökéletes!";
+    desc = "Szerdai Nexus Night BO1 verseny! Teszteld a paklidat egy gyors, egy meccses formátumban. Kezdőknek és haladóknak egyaránt tökéletes!";
     color = 3447003; 
   } 
   else if (lowerName.includes("bo3") || lowerName.includes("nexus night bo3") || day === 6) {
