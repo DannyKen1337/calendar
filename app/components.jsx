@@ -1,12 +1,46 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select } from "antd";
+// BEIMPORTÁLTUK A CONFIGPROVIDER-T ÉS A THEME-T
+import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG } from '@/lib/gameConfig'; 
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
+
+// --- A TAVERN HIVATALOS SÖTÉT TÉMÁJA ---
+// Ez fogja kiirtani a fehér kereteket az összes Ant Design elemből!
+const tavernTheme = {
+  algorithm: theme.darkAlgorithm,
+  token: {
+    colorPrimary: '#E5B15D',       // Gombok, fókusz és ikonok színe
+    colorBgBase: '#121212',        // Alap háttér
+    colorBgElevated: '#1a1012',    // Modálok és felugrók belső háttere (FEHÉR KERET GYILKOS)
+    colorBorder: '#4A2E33',        // Szegélyek
+    colorBorderSecondary: '#4A2E33',
+    colorText: '#E0D6C8',          // Általános szöveg
+    colorTextHeading: '#E5B15D',   // Címsorok
+  },
+  components: {
+    Modal: {
+      contentBg: '#1a1012',
+      headerBg: '#1a1012',
+      paddingMD: 24,
+    },
+    Table: {
+      colorBgContainer: '#2B1A1C',
+      headerBg: '#1a1012',
+      borderColor: '#4A2E33',
+    },
+    Input: {
+      colorBgContainer: '#2B1A1C',
+    },
+    Select: {
+      colorBgContainer: '#2B1A1C',
+    }
+  }
+};
 
 export const getGameConfig = (category) => {
   const fallback = GAME_CONFIG["Egyéb"] || { color: '#6b7280', logo: 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png' };
@@ -28,13 +62,6 @@ export const getCategoryImage = (category) => {
   return getGameConfig(category).logo || 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png';
 };
 
-// KÖZÖS TAVERN MODAL STÍLUS
-const tavernModalStyles = {
-  content: { backgroundColor: '#1a1012', border: '1px solid #4A2E33', padding: '24px', borderRadius: '16px' },
-  header: { backgroundColor: '#1a1012', borderBottom: '1px solid #4A2E33', paddingBottom: '12px', marginBottom: '20px' },
-  body: { backgroundColor: '#1a1012', color: '#E0D6C8' }
-};
-
 export const PublicModals = ({ app }) => {
   if (!app) return null;
   const { 
@@ -46,26 +73,25 @@ export const PublicModals = ({ app }) => {
   return (
     <>
       <Modal
-        title={<span style={{ color: '#E5B15D', fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>}
+        title={<span style={{ fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>}
         open={isEventDetailsModalOpen}
         onCancel={() => setIsEventDetailsModalOpen(false)}
-        closeIcon={<CloseOutlined style={{ color: '#E5B15D', fontSize: '18px' }} />}
+        closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
         footer={[
-          <Button key="close" style={{ background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' }} onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
+          <Button key="close" onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
           selectedEventDetails?.external_url ? (
-            <Button key="ext" type="primary" style={S.primaryBtn} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>
+            <Button key="ext" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>
               Tovább a weboldalra
             </Button>
           ) : (
-            <Button key="join" type="primary" style={S.primaryBtn} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>
+            <Button key="join" type="primary" style={{ color: '#000', fontWeight: 'bold' }} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>
               {selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}
             </Button>
           )
         ]}
-        styles={tavernModalStyles}
       >
         {selectedEventDetails && (
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4">
             {/* NAGY LOGÓ KÖZÉPEN */}
             <div className="flex justify-center mb-6">
               <div className="bg-[#0a0a0a] p-4 rounded-2xl border-2 border-[#4A2E33] shadow-lg">
@@ -78,7 +104,7 @@ export const PublicModals = ({ app }) => {
             </div>
 
             <div className="text-center mb-6">
-              <Title level={3} style={{ color: '#fff', margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
+              <Title level={3} style={{ margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
               <Tag color={getGameConfig(selectedEventDetails.category).color} style={{ color: '#fff', fontSize: '14px', padding: '4px 12px' }}>
                 {selectedEventDetails.category}
               </Tag>
@@ -104,23 +130,21 @@ export const PublicModals = ({ app }) => {
       </Modal>
 
       <Modal
-        title={<span style={{ color: '#E5B15D', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>}
+        title={<span style={{ fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>}
         open={isJoinModalOpen}
         onCancel={() => setIsJoinModalOpen(false)}
         onOk={() => joinForm.submit()}
         closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
         okText="Jelentkezem"
         cancelText="Mégse"
-        okButtonProps={{ style: S.primaryBtn }}
-        cancelButtonProps={{ style: { background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' } }}
-        styles={tavernModalStyles}
+        okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}
       >
-        <Form form={joinForm} layout="vertical" onFinish={submitJoin} style={{ marginTop: 20 }}>
-          <Form.Item name="name" label={<span style={{ color: '#E0D6C8' }}>Neved</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Input placeholder="Pl.: Teszt Elek" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33', padding: '10px' }} />
+        <Form form={joinForm} layout="vertical" onFinish={submitJoin} className="mt-4">
+          <Form.Item name="name" label="Neved" rules={[{ required: true, message: 'Kötelező!' }]}>
+            <Input placeholder="Pl.: Teszt Elek" />
           </Form.Item>
-          <Form.Item name="email" label={<span style={{ color: '#E0D6C8' }}>E-mail címed</span>} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
-            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33', padding: '10px' }} />
+          <Form.Item name="email" label="E-mail címed" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
+            <Input placeholder="pelda@email.com" />
           </Form.Item>
         </Form>
       </Modal>
@@ -134,13 +158,11 @@ export const PublicModals = ({ app }) => {
         okText="Leiratkozás"
         cancelText="Mégse"
         okButtonProps={{ danger: true }}
-        cancelButtonProps={{ style: { background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' } }}
-        styles={{...tavernModalStyles, header: { ...tavernModalStyles.header, borderBottomColor: '#ff4d4f40' }}}
       >
-        <Form form={unsubscribeForm} layout="vertical" onFinish={submitUnsubscribe} style={{ marginTop: 20 }}>
+        <Form form={unsubscribeForm} layout="vertical" onFinish={submitUnsubscribe} className="mt-4">
           <p style={{ marginBottom: 15, color: '#baaaac' }}>Add meg az e-mail címed, amivel jelentkeztél a(z) <b style={{color: '#E5B15D'}}>{selectedEventToJoin?.name}</b> eseményre:</p>
-          <Form.Item name="email" label={<span style={{ color: '#E0D6C8' }}>E-mail cím</span>} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
-            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33', padding: '10px' }} />
+          <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
+            <Input placeholder="pelda@email.com" />
           </Form.Item>
         </Form>
       </Modal>
@@ -232,57 +254,59 @@ export const CalendarView = ({ app }) => {
   };
 
   return (
-    <div>
-      <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Havi Naptár</Title>
-      <Divider style={S.divider} />
-      {isMobile ? (
-        (!tournaments || tournaments.length === 0) ? ( <Paragraph style={S.emptyText}>Nincs esemény.</Paragraph> ) : ( <EventList tournamentsData={tournaments} app={app} /> )
-      ) : (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <Button size="large" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>&lt; Előző</Button>
-            <Title level={2} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>{months[currentDate.getMonth()]} {currentDate.getFullYear()}</Title>
-            <Button size="large" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>Következő &gt;</Button>
-          </div>
-          <div style={S.calendarScroll}>
-            <div style={S.calendarGrid}>
-              {days.map(day => <div key={day} style={S.calHeaderCell}>{day}</div>)}
-              {emptyCells.map(i => <div key={`empty-${i}`} />)}
-              {daysArray.map(day => {
-                const dayEvents = getEventsForDay(day);
-                const isToday = realToday && realToday.getDate() === day && realToday.getMonth() === currentDate.getMonth() && realToday.getFullYear() === currentDate.getFullYear();
-                
-                return (
-                  <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
-                    <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}>{day}</div>
-                    {dayEvents.map(evt => {
-                        const eventColor = evt.color || getGameConfig(evt.category).color;
-                        return (
-                          <div 
-                            key={String(evt._id || evt.id)} 
-                            style={{
-                              ...S.calEventStrip, 
-                              backgroundColor: eventColor, 
-                              color: '#fff', 
-                              textShadow: '0 1px 2px rgba(0,0,0,0.5)' 
-                            }} 
-                            onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} 
-                            title={evt.name}
-                          >
-                            {getEventTime(evt.date)} {evt.category || 'Egyéb'}
-                          </div>
-                        );
-                    })}
-                  </div>
-                )
-              })}
+    <ConfigProvider theme={tavernTheme}>
+      <div>
+        <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Havi Naptár</Title>
+        <Divider style={S.divider} />
+        {isMobile ? (
+          (!tournaments || tournaments.length === 0) ? ( <Paragraph style={S.emptyText}>Nincs esemény.</Paragraph> ) : ( <EventList tournamentsData={tournaments} app={app} /> )
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <Button size="large" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>&lt; Előző</Button>
+              <Title level={2} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>{months[currentDate.getMonth()]} {currentDate.getFullYear()}</Title>
+              <Button size="large" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>Következő &gt;</Button>
             </div>
-          </div>
-        </>
-      )}
+            <div style={S.calendarScroll}>
+              <div style={S.calendarGrid}>
+                {days.map(day => <div key={day} style={S.calHeaderCell}>{day}</div>)}
+                {emptyCells.map(i => <div key={`empty-${i}`} />)}
+                {daysArray.map(day => {
+                  const dayEvents = getEventsForDay(day);
+                  const isToday = realToday && realToday.getDate() === day && realToday.getMonth() === currentDate.getMonth() && realToday.getFullYear() === currentDate.getFullYear();
+                  
+                  return (
+                    <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
+                      <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}>{day}</div>
+                      {dayEvents.map(evt => {
+                          const eventColor = evt.color || getGameConfig(evt.category).color;
+                          return (
+                            <div 
+                              key={String(evt._id || evt.id)} 
+                              style={{
+                                ...S.calEventStrip, 
+                                backgroundColor: eventColor, 
+                                color: '#fff', 
+                                textShadow: '0 1px 2px rgba(0,0,0,0.5)' 
+                              }} 
+                              onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} 
+                              title={evt.name}
+                            >
+                              {getEventTime(evt.date)} {evt.category || 'Egyéb'}
+                            </div>
+                          );
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
-      <PublicModals app={app} />
-    </div>
+        <PublicModals app={app} />
+      </div>
+    </ConfigProvider>
   );
 };
 
@@ -290,82 +314,82 @@ export const AdminEvents = ({ app: v }) => {
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
   
   return (
-    <div>
-      <div style={S.tabHeader}>
-        <Title level={3} style={S.tabTitle}>Naptár Kezelése</Title>
-        <Space style={{ flexWrap: 'wrap' }}>
-          <Button 
-             type="default" 
-             shape="round" 
-             style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#E5B15D' }} 
-             icon={<SyncOutlined spin={v.isSyncing} />} 
-             onClick={v.handleSync}
-             loading={v.isSyncing}
-          >
-            UVS Szinkron
-          </Button>
-          <Button type="default" shape="round" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
-          <Button type="primary" shape="round" style={S.primaryBtn} icon={<PlusOutlined />} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
-        </Space>
+    <ConfigProvider theme={tavernTheme}>
+      <div>
+        <div style={S.tabHeader}>
+          <Title level={3} style={S.tabTitle}>Naptár Kezelése</Title>
+          <Space style={{ flexWrap: 'wrap' }}>
+            <Button 
+               type="default" 
+               shape="round" 
+               style={{ color: '#E5B15D', borderColor: '#E5B15D' }} 
+               icon={<SyncOutlined spin={v.isSyncing} />} 
+               onClick={v.handleSync}
+               loading={v.isSyncing}
+            >
+              UVS Szinkron
+            </Button>
+            <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
+            <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
+          </Space>
+        </div>
+        
+        <EventList tournamentsData={v.tournaments} isAdmin={true} app={v} />
+        
+        <Modal 
+          title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>}
+          open={v.isEventModalOpen} 
+          onCancel={() => v.setIsEventModalOpen(false)} 
+          onOk={() => v.eventForm.submit()} 
+          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+          okText="Mentés" 
+          cancelText="Mégse"
+          okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}
+        >
+          <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4">
+            <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}>
+              <Input placeholder="Pl.: Nexus Night BO1" />
+            </Form.Item>
+            <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kötelező!' }]}>
+              <Select placeholder="Válassz játékot...">
+                {Object.keys(GAME_CONFIG).map(game => (
+                  <Select.Option key={game} value={game}>{game}</Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]}>
+              <Input type="datetime-local" />
+            </Form.Item>
+            <Form.Item name="max_players" label="Max Létszám">
+              <Input type="number" placeholder="Alapértelmezett: 16" />
+            </Form.Item>
+            <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)">
+              <Input placeholder="https://..." />
+            </Form.Item>
+            <Form.Item name="description" label="Leírás (Opcionális)">
+              <Input.TextArea rows={4} placeholder="További részletek a versenyről..." />
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        <Modal title="Szervezős Felhasználók" open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
+          <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} columns={[
+            { title: 'Felhasználónév', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
+            { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
+            { title: 'Szerepkör', dataIndex: 'role', render: (role) => <Tag color={role === 'admin' ? 'orange' : 'green'}>{role === 'admin' ? 'Admin' : 'Felhasználó'}</Tag> },
+            { title: 'Művelet', render: (_, record) => ( record.email !== v.userEmail ? ( <Button type={record.role === 'admin' ? 'default' : 'primary'} style={record.role === 'admin' ? {} : {color: '#000', fontWeight: 'bold'}} size="small" onClick={() => v.toggleUserRole(record)}>{record.role === 'admin' ? 'Visszafokozás' : 'Admin jogosultság adása'}</Button> ) : null ) }
+          ]} />
+        </Modal>
+
+        <Modal title="Jelentkezők kezelése" open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
+          <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} columns={[
+            { title: 'Név', dataIndex: 'name', key: 'name', render: text => <span style={{color: '#E0D6C8'}}>{text}</span> }, 
+            { title: 'Email', dataIndex: 'email', key: 'email', render: text => <span style={{color: '#baaaac'}}>{text}</span> }, 
+            { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> }, 
+            { title: 'Művelet', key: 'action', render: (_, record) => (<Popconfirm title="Törlöd?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>) }
+          ]} />
+        </Modal>
       </div>
-      
-      <EventList tournamentsData={v.tournaments} isAdmin={true} app={v} />
-      
-      <Modal 
-        title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>}
-        open={v.isEventModalOpen} 
-        onCancel={() => v.setIsEventModalOpen(false)} 
-        onOk={() => v.eventForm.submit()} 
-        closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
-        okText="Mentés" 
-        cancelText="Mégse"
-        okButtonProps={{ style: S.primaryBtn }}
-        cancelButtonProps={{ style: { background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' } }}
-        styles={tavernModalStyles}
-      >
-        <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent}>
-          <Form.Item name="name" label={<span style={{ color: '#E0D6C8' }}>Esemény neve</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Input placeholder="Pl.: Nexus Night BO1" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
-          </Form.Item>
-          <Form.Item name="category" label={<span style={{ color: '#E0D6C8' }}>Kategória (Játék)</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Select placeholder="Válassz játékot..." dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
-              {Object.keys(GAME_CONFIG).map(game => (
-                <Select.Option key={game} value={game}>{game}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="date" label={<span style={{ color: '#E0D6C8' }}>Dátum és Időpont</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Input type="datetime-local" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
-          </Form.Item>
-          <Form.Item name="max_players" label={<span style={{ color: '#E0D6C8' }}>Max Létszám</span>}>
-            <Input type="number" placeholder="Alapértelmezett: 16" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
-          </Form.Item>
-          <Form.Item name="external_url" label={<span style={{ color: '#E0D6C8' }}>Külső jelentkezési link (Opcionális)</span>}>
-            <Input placeholder="https://..." style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
-          </Form.Item>
-          <Form.Item name="description" label={<span style={{ color: '#E0D6C8' }}>Leírás (Opcionális)</span>}>
-            <Input.TextArea rows={4} placeholder="További részletek a versenyről..." style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal title={<span style={{ color: '#E5B15D' }}>Szervezős Felhasználók</span>} open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800} styles={tavernModalStyles} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-        <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} className="dark-table" columns={[
-          { title: 'Felhasználónév', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
-          { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
-          { title: 'Szerepkör', dataIndex: 'role', render: (role) => <Tag color={role === 'admin' ? 'orange' : 'green'}>{role === 'admin' ? 'Admin' : 'Felhasználó'}</Tag> },
-          { title: 'Művelet', render: (_, record) => ( record.email !== v.userEmail ? ( <Button type={record.role === 'admin' ? 'default' : 'primary'} style={record.role === 'admin' ? {background: '#2B1A1C', color: '#E0D6C8'} : S.primaryBtn} size="small" onClick={() => v.toggleUserRole(record)}>{record.role === 'admin' ? 'Visszafokozás' : 'Admin jogosultság adása'}</Button> ) : null ) }
-        ]} />
-      </Modal>
-
-      <Modal title={<span style={{ color: '#E5B15D' }}>Jelentkezők kezelése</span>} open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750} styles={tavernModalStyles} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-        <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} className="dark-table" columns={[
-          { title: 'Név', dataIndex: 'name', key: 'name', render: text => <span style={{color: '#E0D6C8'}}>{text}</span> }, 
-          { title: 'Email', dataIndex: 'email', key: 'email', render: text => <span style={{color: '#baaaac'}}>{text}</span> }, 
-          { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> }, 
-          { title: 'Művelet', key: 'action', render: (_, record) => (<Popconfirm title="Törlöd?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>) }
-        ]} />
-      </Modal>
-    </div>
+    </ConfigProvider>
   );
 };
