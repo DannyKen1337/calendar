@@ -1,22 +1,19 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG } from '@/lib/gameConfig'; 
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
 
-// OKOS KONFIG KERESŐ: Felismeri a régi rövidebb neveket is (pl. "Pokémon" -> "Pokémon TCG")
 export const getGameConfig = (category) => {
   const fallback = GAME_CONFIG["Egyéb"] || { color: '#6b7280', logo: 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png' };
   if (!category) return fallback;
   
-  // Ha pontos az egyezés
   if (GAME_CONFIG[category]) return GAME_CONFIG[category];
 
-  // Ha csak részleges az egyezés a régi adatbázis miatt
   const catStr = category.toLowerCase();
   for (const key of Object.keys(GAME_CONFIG)) {
     const kStr = key.toLowerCase();
@@ -31,7 +28,13 @@ export const getCategoryImage = (category) => {
   return getGameConfig(category).logo || 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png';
 };
 
-// PUBLIKUS ABLAKOK (Jelentkezés, Részletek, Leiratkozás)
+// KÖZÖS TAVERN MODAL STÍLUS
+const tavernModalStyles = {
+  content: { backgroundColor: '#1a1012', border: '1px solid #4A2E33', padding: '24px', borderRadius: '16px' },
+  header: { backgroundColor: '#1a1012', borderBottom: '1px solid #4A2E33', paddingBottom: '12px', marginBottom: '20px' },
+  body: { backgroundColor: '#1a1012', color: '#E0D6C8' }
+};
+
 export const PublicModals = ({ app }) => {
   if (!app) return null;
   const { 
@@ -43,11 +46,12 @@ export const PublicModals = ({ app }) => {
   return (
     <>
       <Modal
-        title={<span style={{ color: '#E5B15D', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>}
+        title={<span style={{ color: '#E5B15D', fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>}
         open={isEventDetailsModalOpen}
         onCancel={() => setIsEventDetailsModalOpen(false)}
+        closeIcon={<CloseOutlined style={{ color: '#E5B15D', fontSize: '18px' }} />}
         footer={[
-          <Button key="close" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
+          <Button key="close" style={{ background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' }} onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
           selectedEventDetails?.external_url ? (
             <Button key="ext" type="primary" style={S.primaryBtn} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>
               Tovább a weboldalra
@@ -58,20 +62,41 @@ export const PublicModals = ({ app }) => {
             </Button>
           )
         ]}
-        styles={{ body: { background: '#121212', color: '#E0D6C8', padding: '10px 0' }, content: { background: '#121212', border: '1px solid #4A2E33' }, header: { background: '#121212', borderBottom: '1px solid #4A2E33' } }}
+        styles={tavernModalStyles}
       >
         {selectedEventDetails && (
           <div className="space-y-4">
-            <Title level={4} style={{ color: '#fff', margin: 0 }}>{selectedEventDetails.name}</Title>
-            <Tag color={getGameConfig(selectedEventDetails.category).color} style={{ color: '#fff' }}>{selectedEventDetails.category}</Tag>
-            <p style={{ marginTop: 10 }}><strong>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
-            {!selectedEventDetails.external_url && (
-              <p><strong>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p>
-            )}
+            {/* NAGY LOGÓ KÖZÉPEN */}
+            <div className="flex justify-center mb-6">
+              <div className="bg-[#0a0a0a] p-4 rounded-2xl border-2 border-[#4A2E33] shadow-lg">
+                <img 
+                  src={getCategoryImage(selectedEventDetails.category)} 
+                  alt={selectedEventDetails.category} 
+                  style={{ width: '120px', height: '120px', objectFit: 'contain' }} 
+                />
+              </div>
+            </div>
+
+            <div className="text-center mb-6">
+              <Title level={3} style={{ color: '#fff', margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
+              <Tag color={getGameConfig(selectedEventDetails.category).color} style={{ color: '#fff', fontSize: '14px', padding: '4px 12px' }}>
+                {selectedEventDetails.category}
+              </Tag>
+            </div>
+
+            <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
+              <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
+              {!selectedEventDetails.external_url && (
+                <p>
+                  <strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}
+                </p>
+              )}
+            </div>
+
             {selectedEventDetails.description && (
-              <div style={{ marginTop: 15, background: '#2B1A1C', padding: 15, borderRadius: 8, border: '1px solid #4A2E33' }}>
+              <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33] mt-4">
                 <strong style={{ color: '#E5B15D' }}>Leírás:</strong>
-                <p style={{ whiteSpace: 'pre-wrap', marginTop: 5 }}>{selectedEventDetails.description}</p>
+                <p style={{ whiteSpace: 'pre-wrap', marginTop: 8, color: '#baaaac' }}>{selectedEventDetails.description}</p>
               </div>
             )}
           </div>
@@ -79,41 +104,43 @@ export const PublicModals = ({ app }) => {
       </Modal>
 
       <Modal
-        title={<span style={{ color: '#E5B15D' }}>Jelentkezés: {selectedEventToJoin?.name}</span>}
+        title={<span style={{ color: '#E5B15D', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>}
         open={isJoinModalOpen}
         onCancel={() => setIsJoinModalOpen(false)}
         onOk={() => joinForm.submit()}
+        closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
         okText="Jelentkezem"
         cancelText="Mégse"
         okButtonProps={{ style: S.primaryBtn }}
-        cancelButtonProps={{ style: { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' } }}
-        styles={{ body: { background: '#121212', color: '#E0D6C8' }, content: { background: '#121212', border: '1px solid #4A2E33' }, header: { background: '#121212', borderBottom: '1px solid #4A2E33' } }}
+        cancelButtonProps={{ style: { background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' } }}
+        styles={tavernModalStyles}
       >
         <Form form={joinForm} layout="vertical" onFinish={submitJoin} style={{ marginTop: 20 }}>
           <Form.Item name="name" label={<span style={{ color: '#E0D6C8' }}>Neved</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Input placeholder="Pl.: Teszt Elek" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
+            <Input placeholder="Pl.: Teszt Elek" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33', padding: '10px' }} />
           </Form.Item>
           <Form.Item name="email" label={<span style={{ color: '#E0D6C8' }}>E-mail címed</span>} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
-            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
+            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33', padding: '10px' }} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={<span style={{ color: '#E5B15D' }}>Leiratkozás</span>}
+        title={<span style={{ color: '#ff4d4f', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Leiratkozás</span>}
         open={isUnsubscribeModalOpen}
         onCancel={() => setIsUnsubscribeModalOpen(false)}
         onOk={() => unsubscribeForm.submit()}
+        closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />}
         okText="Leiratkozás"
         cancelText="Mégse"
         okButtonProps={{ danger: true }}
-        cancelButtonProps={{ style: { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' } }}
-        styles={{ body: { background: '#121212', color: '#E0D6C8' }, content: { background: '#121212', border: '1px solid #4A2E33' }, header: { background: '#121212', borderBottom: '1px solid #4A2E33' } }}
+        cancelButtonProps={{ style: { background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' } }}
+        styles={{...tavernModalStyles, header: { ...tavernModalStyles.header, borderBottomColor: '#ff4d4f40' }}}
       >
         <Form form={unsubscribeForm} layout="vertical" onFinish={submitUnsubscribe} style={{ marginTop: 20 }}>
-          <p style={{ marginBottom: 15 }}>Add meg az e-mail címed, amivel jelentkeztél a(z) <b style={{color: '#E5B15D'}}>{selectedEventToJoin?.name}</b> eseményre:</p>
+          <p style={{ marginBottom: 15, color: '#baaaac' }}>Add meg az e-mail címed, amivel jelentkeztél a(z) <b style={{color: '#E5B15D'}}>{selectedEventToJoin?.name}</b> eseményre:</p>
           <Form.Item name="email" label={<span style={{ color: '#E0D6C8' }}>E-mail cím</span>} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
-            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
+            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33', padding: '10px' }} />
           </Form.Item>
         </Form>
       </Modal>
@@ -137,7 +164,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
         <List.Item style={S.eventItem}>
           <Card size="small" className="cozy-shadow" style={S.eventCard}>
             <div style={S.eventFlex}>
-              <div style={{...S.eventInfo, cursor: !isAdmin ? 'pointer' : 'default'}} onClick={() => { if(!isAdmin) { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); } }}>
+              <div style={{...S.eventInfo, cursor: 'pointer'}} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }}>
                 <img src={evt.imageUrl || getCategoryImage(evt.category)} alt={evt.name} style={S.eventImg} />
                 <div style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
                 <div>
@@ -254,9 +281,7 @@ export const CalendarView = ({ app }) => {
         </>
       )}
 
-      {/* ITT KAPOTT HELYET A PUBLIKUS ABLAKRENDSZER */}
       <PublicModals app={app} />
-      
     </div>
   );
 };
@@ -287,41 +312,45 @@ export const AdminEvents = ({ app: v }) => {
       <EventList tournamentsData={v.tournaments} isAdmin={true} app={v} />
       
       <Modal 
-        title={v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"} 
+        title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>}
         open={v.isEventModalOpen} 
         onCancel={() => v.setIsEventModalOpen(false)} 
         onOk={() => v.eventForm.submit()} 
+        closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
         okText="Mentés" 
         cancelText="Mégse"
+        okButtonProps={{ style: S.primaryBtn }}
+        cancelButtonProps={{ style: { background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' } }}
+        styles={tavernModalStyles}
       >
         <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent}>
-          <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Input placeholder="Pl.: Nexus Night BO1" />
+          <Form.Item name="name" label={<span style={{ color: '#E0D6C8' }}>Esemény neve</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
+            <Input placeholder="Pl.: Nexus Night BO1" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
           </Form.Item>
-          <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Select placeholder="Válassz játékot...">
+          <Form.Item name="category" label={<span style={{ color: '#E0D6C8' }}>Kategória (Játék)</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
+            <Select placeholder="Válassz játékot..." dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
               {Object.keys(GAME_CONFIG).map(game => (
                 <Select.Option key={game} value={game}>{game}</Select.Option>
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]}>
-            <Input type="datetime-local" />
+          <Form.Item name="date" label={<span style={{ color: '#E0D6C8' }}>Dátum és Időpont</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
+            <Input type="datetime-local" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
           </Form.Item>
-          <Form.Item name="max_players" label="Max Létszám">
-            <Input type="number" placeholder="Alapértelmezett: 16" />
+          <Form.Item name="max_players" label={<span style={{ color: '#E0D6C8' }}>Max Létszám</span>}>
+            <Input type="number" placeholder="Alapértelmezett: 16" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
           </Form.Item>
-          <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)">
-            <Input placeholder="https://..." />
+          <Form.Item name="external_url" label={<span style={{ color: '#E0D6C8' }}>Külső jelentkezési link (Opcionális)</span>}>
+            <Input placeholder="https://..." style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
           </Form.Item>
-          <Form.Item name="description" label="Leírás (Opcionális)">
-            <Input.TextArea rows={4} placeholder="További részletek a versenyről..." />
+          <Form.Item name="description" label={<span style={{ color: '#E0D6C8' }}>Leírás (Opcionális)</span>}>
+            <Input.TextArea rows={4} placeholder="További részletek a versenyről..." style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="Szervezős Felhasználók" open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800}>
-        <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} columns={[
+      <Modal title={<span style={{ color: '#E5B15D' }}>Szervezős Felhasználók</span>} open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800} styles={tavernModalStyles} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
+        <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} className="dark-table" columns={[
           { title: 'Felhasználónév', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
           { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
           { title: 'Szerepkör', dataIndex: 'role', render: (role) => <Tag color={role === 'admin' ? 'orange' : 'green'}>{role === 'admin' ? 'Admin' : 'Felhasználó'}</Tag> },
@@ -329,10 +358,10 @@ export const AdminEvents = ({ app: v }) => {
         ]} />
       </Modal>
 
-      <Modal title="Jelentkezők kezelése" open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750}>
-        <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} columns={[
-          { title: 'Név', dataIndex: 'name', key: 'name' }, 
-          { title: 'Email', dataIndex: 'email', key: 'email' }, 
+      <Modal title={<span style={{ color: '#E5B15D' }}>Jelentkezők kezelése</span>} open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750} styles={tavernModalStyles} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
+        <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} className="dark-table" columns={[
+          { title: 'Név', dataIndex: 'name', key: 'name', render: text => <span style={{color: '#E0D6C8'}}>{text}</span> }, 
+          { title: 'Email', dataIndex: 'email', key: 'email', render: text => <span style={{color: '#baaaac'}}>{text}</span> }, 
           { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> }, 
           { title: 'Művelet', key: 'action', render: (_, record) => (<Popconfirm title="Törlöd?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>) }
         ]} />
