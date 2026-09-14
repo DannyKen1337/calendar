@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect } from "react";
-// BEIMPORTÁLTUK A CONFIGPROVIDER-T ÉS A THEME-T
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined } from "@ant-design/icons";
 import { S } from "./styles";
@@ -10,17 +9,16 @@ const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
 
 // --- A TAVERN HIVATALOS SÖTÉT TÉMÁJA ---
-// Ez fogja kiirtani a fehér kereteket az összes Ant Design elemből!
 const tavernTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
-    colorPrimary: '#E5B15D',       // Gombok, fókusz és ikonok színe
-    colorBgBase: '#121212',        // Alap háttér
-    colorBgElevated: '#1a1012',    // Modálok és felugrók belső háttere (FEHÉR KERET GYILKOS)
-    colorBorder: '#4A2E33',        // Szegélyek
+    colorPrimary: '#E5B15D',       
+    colorBgBase: '#121212',        
+    colorBgElevated: '#1a1012',    
+    colorBorder: '#4A2E33',        
     colorBorderSecondary: '#4A2E33',
-    colorText: '#E0D6C8',          // Általános szöveg
-    colorTextHeading: '#E5B15D',   // Címsorok
+    colorText: '#E0D6C8',          
+    colorTextHeading: '#E5B15D',   
   },
   components: {
     Modal: {
@@ -92,7 +90,6 @@ export const PublicModals = ({ app }) => {
       >
         {selectedEventDetails && (
           <div className="space-y-4 pt-4">
-            {/* NAGY LOGÓ KÖZÉPEN */}
             <div className="flex justify-center mb-6">
               <div className="bg-[#0a0a0a] p-4 rounded-2xl border-2 border-[#4A2E33] shadow-lg">
                 <img 
@@ -105,7 +102,17 @@ export const PublicModals = ({ app }) => {
 
             <div className="text-center mb-6">
               <Title level={3} style={{ margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
-              <Tag color={getGameConfig(selectedEventDetails.category).color} style={{ color: '#fff', fontSize: '14px', padding: '4px 12px' }}>
+              {/* JAVÍTOTT CÍMKE: Garantált teli háttérszín */}
+              <Tag 
+                color={getGameConfig(selectedEventDetails.category).color} 
+                style={{ 
+                  background: getGameConfig(selectedEventDetails.category).color,
+                  borderColor: getGameConfig(selectedEventDetails.category).color,
+                  color: '#fff', 
+                  fontSize: '14px', 
+                  padding: '4px 12px' 
+                }}
+              >
                 {selectedEventDetails.category}
               </Tag>
             </div>
