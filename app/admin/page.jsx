@@ -6,12 +6,14 @@ import { LogoutOutlined, UploadOutlined } from "@ant-design/icons";
 import { S } from "../styles";
 import { useCalendar } from "../useCalendar";
 import { AdminEvents } from "../components";
+import EventGenerator from '@/components/EventGenerator';
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
+<EventGenerator />
 export default function AdminPage() {
   const app = useCalendar();
 

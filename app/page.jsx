@@ -6,9 +6,12 @@ import { CalendarOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { useCalendar } from "./useCalendar";
 import { CalendarView, getCategoryImage } from "./components";
+import CalendarFilters from '@/components/CalendarFilters';
 
 const { Content } = Layout;
 const { Title, Paragraph, Text } = Typography;
+
+<CalendarFilters events={tournaments} />
 
 export default function PublicCalendar() {
   const app = useCalendar();
