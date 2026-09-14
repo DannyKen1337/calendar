@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
-// Hozzáadtuk a LogoutOutlined ikont az importokhoz:
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined } from "@ant-design/icons";
+// Hozzáadtuk az EyeOutlined ikont a publikus naptár gombhoz
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG } from '@/lib/gameConfig'; 
 
@@ -317,8 +317,16 @@ export const CalendarView = ({ app }) => {
 };
 
 export const AdminEvents = ({ app: v }) => {
+  // Állapot a játék szerinti szűréshez
+  const [adminFilter, setAdminFilter] = useState('Mind');
+  
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
   
+  // Szűrt és időrendi sorba rendezett események listája
+  const filteredAndSortedTournaments = (v.tournaments || [])
+    .filter(evt => adminFilter === 'Mind' || evt.category === adminFilter)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
   return (
     <ConfigProvider theme={tavernTheme}>
       <div>
@@ -351,12 +359,39 @@ export const AdminEvents = ({ app: v }) => {
             <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
             <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
             <Button type="dashed" shape="round" icon={<CalendarOutlined />} style={{ color: '#E5B15D', borderColor: '#E5B15D', background: 'transparent' }} onClick={() => window.location.href = '/admin/generator'}>Ismétlődő Generátor</Button>
+            
+            {/* ÚJ: Publikus Naptár Megtekintése Gomb (Új lapon nyílik) */}
+            <Button 
+              type="default" 
+              shape="round" 
+              icon={<EyeOutlined />} 
+              style={{ color: '#fff', borderColor: '#4A2E33', background: '#2B1A1C' }} 
+              onClick={() => window.open('/', '_blank')}
+            >
+              Publikus Naptár
+            </Button>
           </Space>
         </div>
+
+        {/* ÚJ: Szűrősáv az admin eseményekhez */}
+        <div className="flex items-center gap-4 mb-6 bg-[#2B1A1C] p-3 rounded-xl border border-[#4A2E33] w-fit">
+          <span className="text-[#baaaac] font-bold">Szűrés játék szerint:</span>
+          <Select
+            value={adminFilter}
+            onChange={setAdminFilter}
+            style={{ width: 200 }}
+            dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}
+          >
+            <Select.Option value="Mind">Minden játék</Select.Option>
+            {Object.keys(GAME_CONFIG).map(game => (
+              <Select.Option key={game} value={game}>{game}</Select.Option>
+            ))}
+          </Select>
+        </div>
         
-        <EventList tournamentsData={v.tournaments} isAdmin={true} app={v} />
+        {/* Szűrt és rendezett listát adjuk át az EventList-nek */}
+        <EventList tournamentsData={filteredAndSortedTournaments} isAdmin={true} app={v} />
         
-        {/* MEGLÉVŐ ABLAKOK... (Új esemény, Szervezők, Jelszó, Jelentkezők - maradt minden a régiben) */}
         <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4">
             <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
@@ -402,7 +437,6 @@ export const AdminEvents = ({ app: v }) => {
           ]} />
         </Modal>
 
-        {/* --- ÚJ ABLAK: TEVÉKENYSÉGNAPLÓ --- */}
         <Modal title={<span style={{ color: '#E5B15D' }}>Tevékenységnapló (Audit Log)</span>} open={v.isLogModalOpen} onCancel={() => v.setIsLogModalOpen(false)} footer={null} width={900} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Table dataSource={v.logs} rowKey={(record) => record._id} pagination={{ pageSize: 8 }} columns={[
             { title: 'Dátum', dataIndex: 'date', render: d => <span style={{color: '#baaaac'}}>{new Date(d).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> },
@@ -412,7 +446,6 @@ export const AdminEvents = ({ app: v }) => {
           ]} />
         </Modal>
 
-        {/* --- ÚJ ABLAK: FEKETELISTA --- */}
         <Modal title={<span style={{ color: '#ff4d4f' }}>Feketelista (Tiltott e-mailek)</span>} open={v.isBlacklistModalOpen} onCancel={() => v.setIsBlacklistModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />}>
           <Form form={v.blacklistForm} layout="inline" onFinish={v.handleBanEmail} style={{ marginBottom: 20 }}>
             <Form.Item name="email" rules={[{ required: true, type: 'email', message: 'E-mail kötelező!' }]}><Input placeholder="Tiltandó e-mail" style={{ width: 250 }} /></Form.Item>
