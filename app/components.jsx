@@ -325,30 +325,21 @@ export const AdminEvents = ({ app: v }) => {
         <div style={S.tabHeader}>
           <Title level={3} style={S.tabTitle}>Naptár Kezelése</Title>
           <Space style={{ flexWrap: 'wrap' }}>
-            <Button 
-               type="default" 
-               shape="round" 
-               style={{ color: '#E5B15D', borderColor: '#E5B15D' }} 
-               icon={<SyncOutlined spin={v.isSyncing} />} 
-               onClick={v.handleSync}
-               loading={v.isSyncing}
-            >
-              UVS Szinkron
-            </Button>
+            
+            {/* INNEN KERÜLT KI AZ UVS SZINKRON GOMB */}
+
             <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
             <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
             
-            {/* ÚJ KIJELENTKEZÉS GOMB */}
             <Button 
-               type="default" 
+               type="dashed" 
                shape="round" 
-               danger 
-               icon={<LogoutOutlined />} 
-               onClick={() => { v.handleLogout(); window.location.href = '/'; }}
+               icon={<CalendarOutlined />} 
+               style={{ color: '#E5B15D', borderColor: '#E5B15D', background: 'transparent' }} 
+               onClick={() => window.location.href = '/admin/generator'}
             >
-              Kijelentkezés
+              Ismétlődő Generátor
             </Button>
-
           </Space>
         </div>
         
@@ -395,7 +386,6 @@ export const AdminEvents = ({ app: v }) => {
             { title: 'Felhasználónév', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
             { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
             { title: 'Szerepkör', dataIndex: 'role', render: (role) => {
-                // TULAJDONOS SZÖVEG ÁTÍRVA "Admin2"-RE:
                 if (role === 'owner') return <Tag color="purple">Admin2</Tag>;
                 if (role === 'admin') return <Tag color="orange">Admin</Tag>;
                 return <Tag color="green">Játékos</Tag>;
