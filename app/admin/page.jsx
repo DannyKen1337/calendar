@@ -19,9 +19,9 @@ export default function AdminPage() {
             {/* Elválasztó vonal */}
             <div className="h-6 w-px bg-[#4A2E33]"></div>
             
-            {/* Kijelentkezés gomb */}
+            {/* Kijelentkezés gomb JAVÍTVA: Visszadob az admin bejelentkezőhöz */}
             <button 
-              onClick={() => { app.handleLogout(); window.location.href = '/'; }}
+              onClick={() => { app.handleLogout(); window.location.href = '/admin'; }}
               className="text-[#ff4d4f] hover:text-red-400 flex items-center gap-2 font-bold transition text-lg cursor-pointer bg-transparent border-none"
             >
               <LogoutOutlined /> Kijelentkezés
