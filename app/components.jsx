@@ -1,14 +1,14 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined } from "@ant-design/icons";
+// Hozzáadtuk a LogoutOutlined ikont az importokhoz:
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG } from '@/lib/gameConfig'; 
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
 
-// --- A TAVERN HIVATALOS SÖTÉT TÉMÁJA ---
 const tavernTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
@@ -337,6 +337,18 @@ export const AdminEvents = ({ app: v }) => {
             </Button>
             <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
             <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
+            
+            {/* ÚJ KIJELENTKEZÉS GOMB */}
+            <Button 
+               type="default" 
+               shape="round" 
+               danger 
+               icon={<LogoutOutlined />} 
+               onClick={() => { v.handleLogout(); window.location.href = '/'; }}
+            >
+              Kijelentkezés
+            </Button>
+
           </Space>
         </div>
         
@@ -383,7 +395,8 @@ export const AdminEvents = ({ app: v }) => {
             { title: 'Felhasználónév', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
             { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
             { title: 'Szerepkör', dataIndex: 'role', render: (role) => {
-                if (role === 'owner') return <Tag color="purple">Tulajdonos</Tag>;
+                // TULAJDONOS SZÖVEG ÁTÍRVA "Admin2"-RE:
+                if (role === 'owner') return <Tag color="purple">Admin2</Tag>;
                 if (role === 'admin') return <Tag color="orange">Admin</Tag>;
                 return <Tag color="green">Játékos</Tag>;
             }},
