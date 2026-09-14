@@ -1,9 +1,7 @@
 "use client";
-import { useState } from 'react';
 import { GAME_CONFIG } from '@/lib/gameConfig';
 
-export default function CalendarFilters({ events }) {
-  const [activeFilters, setActiveFilters] = useState([]);
+export default function CalendarFilters({ events, activeFilters, setActiveFilters }) {
 
   const toggleFilter = (game) => {
     if (activeFilters.includes(game)) {
@@ -20,10 +18,6 @@ export default function CalendarFilters({ events }) {
     }
     window.location.href = url; 
   };
-
-  const filteredEvents = activeFilters.length === 0 
-    ? events 
-    : events.filter(e => activeFilters.includes(e.category));
 
   return (
     <div className="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">

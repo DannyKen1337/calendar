@@ -1,52 +1,40 @@
-import clientPromise from '@/lib/mongodb';
+"use client";
+
+import { useState } from 'react';
+import { useCalendar } from '@/app/useCalendar';
+import { CalendarView } from '@/app/components';
 import CalendarFilters from '@/components/CalendarFilters';
 
-export const dynamic = 'force-dynamic';
+export default function PublicCalendarPage() {
+  const app = useCalendar();
+  const [activeFilters, setActiveFilters] = useState([]);
 
-export default async function CalendarPage() {
-  const client = await clientPromise;
-  const db = client.db();
-  
-  // Események lekérése
-  const rawTournaments = await db.collection('tournaments')
-    .find({})
-    .sort({ date: 1 })
-    .toArray();
+  // Leszűrjük az eseményeket a gombok alapján
+  const filteredTournaments = activeFilters.length === 0 
+    ? app.tournaments 
+    : app.tournaments.filter(e => activeFilters.includes(e.category));
 
-  // Next.js serializációs hiba elkerülése: A MongoDB _id-t stringgé kell alakítani
-  const tournaments = rawTournaments.map(t => ({
-    ...t,
-    _id: t._id.toString(),
-  }));
+  // Kicseréljük az eredeti listát a szűrtre, hogy a CalendarView csak azokat mutassa
+  const appWithFilteredEvents = {
+    ...app,
+    tournaments: filteredTournaments
+  };
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 md:p-8">
+    <main className="min-h-screen bg-[#121212] text-white p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center text-orange-500">Tavern Eseménynaptár</h1>
+        <h1 className="text-4xl font-bold mb-8 text-center text-[#E5B15D] font-serif">
+          Tavern Eseménynaptár
+        </h1>
         
-        <CalendarFilters events={tournaments} />
+        <CalendarFilters 
+          events={app.tournaments} 
+          activeFilters={activeFilters}
+          setActiveFilters={setActiveFilters}
+        />
         
-        {/* IDE JÖHET VISSZA A SAJÁT ESEMÉNY LISTÁZÓ KÓDOD (KÁRTYÁK), VAGY HASZNÁLHATOD EZT AZ ALAPOT: */}
-        <div className="grid gap-4 mt-8">
-          {tournaments.length === 0 ? (
-            <p className="text-center text-gray-500">Jelenleg nincs kiírt esemény.</p>
-          ) : (
-            tournaments.map(event => (
-              <div key={event._id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg flex items-center gap-4">
-                {event.imageUrl && (
-                  <img src={event.imageUrl} alt={event.category} className="w-12 h-12 object-contain" />
-                )}
-                <div>
-                  <h3 className="text-xl font-bold">{event.name} <span className="text-sm font-normal text-gray-400">({event.category})</span></h3>
-                  <p className="text-orange-400">
-                    {new Date(event.date).toLocaleString('hu-HU', { month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
+        <CalendarView app={appWithFilteredEvents} />
+        
       </div>
     </main>
   );

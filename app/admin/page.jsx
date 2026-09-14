@@ -1,23 +1,31 @@
+"use client";
+
+import { useCalendar } from '@/app/useCalendar';
+import { AdminEvents } from '@/app/components';
 import EventGenerator from '@/components/EventGenerator';
 
-export const dynamic = 'force-dynamic';
+export default function AdminPage() {
+  // Ez a hook felel a felhasználókért, jelentkezőkért és a modális ablakokért!
+  const app = useCalendar(); 
 
-export default async function AdminPage() {
   return (
-    <main className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Admin Vezérlőpult</h1>
+    <main className="min-h-screen bg-[#121212] text-white p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-8">
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <h1 className="text-3xl font-bold text-[#E5B15D] font-serif border-b border-[#4A2E33] pb-4">
+          Admin Vezérlőpult
+        </h1>
+
+        {/* ÚJ FUNKCIÓ: Ismétlődő Esemény Generátor */}
+        <div className="flex justify-center">
           <EventGenerator />
-          
-          <div className="bg-zinc-900 p-6 rounded-lg h-fit">
-              <h2 className="text-xl font-bold mb-4">UVS Szinkronizáció</h2>
-              <p className="text-gray-400 mb-4">
-                A külső weboldal szinkronizációja jelenleg biztonsági okokból szünetel. Használd az Ismétlődő Esemény Generátort a kiírásokhoz!
-              </p>
-          </div>
         </div>
+
+        {/* A RÉGI FUNKCIÓK: Szervezők kezelése, UVS Szinkron, Eseménylista */}
+        <div className="bg-[#2B1A1C] p-6 rounded-2xl border border-[#4A2E33]">
+          <AdminEvents app={app} />
+        </div>
+
       </div>
     </main>
   );
