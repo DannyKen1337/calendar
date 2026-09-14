@@ -7,32 +7,36 @@ const IMGBB_API_KEY = "IDE_JON_AZ_IMGBB_KULCSOD";
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false); // ÚJ: Szinkronizálás töltés állapota
-
+  const [isSyncing, setIsSyncing] = useState(false); 
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [usersList, setUsersList] = useState([]);
+  
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isExternalForm, setIsExternalForm] = useState(false);
   const [editingEventId, setEditingEventId] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-
+  
   const [isEventDetailsModalOpen, setIsEventDetailsModalOpen] = useState(false);
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
   
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [selectedEventToJoin, setSelectedEventToJoin] = useState(null);
-
+  
   const [isUnsubscribeModalOpen, setIsUnsubscribeModalOpen] = useState(false);
-
+  
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
   const [selectedEventIdForAttendees, setSelectedEventIdForAttendees] = useState(null);
   const [registrations, setRegistrations] = useState([]);
+
+  // ÚJ: TULAJDONOSI STATE-EK
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
+  const [passwordForm] = Form.useForm();
 
   const [eventForm] = Form.useForm();
   const [joinForm] = Form.useForm();
@@ -43,12 +47,12 @@ export const useCalendar = () => {
   useEffect(() => {
     const storedSession = localStorage.getItem('tavern_calendar_session');
     if (storedSession) {
-      try { 
-        const userData = JSON.parse(storedSession); 
-        setUserName(userData.username); 
-        setUserEmail(userData.email); 
-        setUserRole(userData.role); 
-      } catch (error) { localStorage.removeItem('tavern_calendar_session'); }
+      try {
+         const userData = JSON.parse(storedSession);
+         setUserName(userData.username);
+         setUserEmail(userData.email);
+         setUserRole(userData.role);
+       } catch (error) { localStorage.removeItem('tavern_calendar_session'); }
     }
     fetchData();
   }, []);
@@ -65,7 +69,6 @@ export const useCalendar = () => {
     setLoading(false);
   };
 
-  // ÚJ: MANUÁLIS SZINKRONIZÁLÁS GOMB LOGIKÁJA
   const handleSync = async () => {
     setIsSyncing(true);
     try {
@@ -75,7 +78,7 @@ export const useCalendar = () => {
         messageApi.error(`Hiba történt: ${data.error}`);
       } else {
         messageApi.success(data.message || "Szinkronizálás sikeres!");
-        fetchData(); // Azonnal frissítjük a naptár rácsát az új eseményekkel!
+        fetchData();
       }
     } catch (e) {
       messageApi.error("Hálózati hiba a szinkronizáláskor.");
@@ -111,6 +114,44 @@ export const useCalendar = () => {
     fetchData();
   };
 
+  // --- ÚJ: TULAJDONOSI FUNKCIÓK ---
+  const initiatePasswordChange = (user) => {
+    setSelectedUserForPassword(user);
+    passwordForm.resetFields();
+    setIsPasswordModalOpen(true);
+  };
+
+  const submitPasswordChange = async (values) => {
+    const uId = String(selectedUserForPassword._id || selectedUserForPassword.id);
+    try {
+      const response = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionType: 'CHANGE_USER_PASSWORD', payload: { userId: uId, newPassword: values.newPassword } })
+      });
+      const result = await response.json();
+      if (result.error) { messageApi.error(result.error); return; }
+      
+      messageApi.success("Jelszó sikeresen felülírva!");
+      setIsPasswordModalOpen(false);
+    } catch (e) {
+      messageApi.error("Hálózati hiba történt.");
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    try {
+      await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId) } })
+      });
+      messageApi.success("Felhasználó véglegesen törölve.");
+      fetchData();
+    } catch (err) {}
+  };
+  // --------------------------------
+
   const handleImageUpload = async (info, targetForm) => {
     if (IMGBB_API_KEY === "IDE_JON_AZ_IMGBB_KULCSOD") { messageApi.error("ImgBB API kulcs hiányzik!"); return; }
     const file = info.file.originFileObj || info.file; if (!file) return;
@@ -126,7 +167,6 @@ export const useCalendar = () => {
   };
 
   const saveEvent = async (values) => {
-    // Biztosítjuk, hogy a gombnyomásról is megkapja az értékeket
     const formValues = values || eventForm.getFieldsValue(); 
     try {
       const payload = { 
@@ -155,9 +195,9 @@ export const useCalendar = () => {
   };
 
   const handleDeleteTournament = async (tournamentId) => { 
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId) }}) }); 
-    messageApi.success("Esemény törölve."); fetchData(); 
-  };
+     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId) }}) }); 
+     messageApi.success("Esemény törölve."); fetchData(); 
+   };
 
   const initiateJoin = (tournament) => {
     setIsEventDetailsModalOpen(false);
@@ -187,15 +227,15 @@ export const useCalendar = () => {
     const eId = String(selectedEventToJoin._id || selectedEventToJoin.id);
     try {
       const response = await fetch('/api/actions', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email: values.email } }) 
-      });
+         method: 'POST', 
+         headers: { 'Content-Type': 'application/json' }, 
+         body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email: values.email } }) 
+       });
       const result = await response.json();
       if (result.error) { 
-        messageApi.error(result.error); 
-        return; 
-      }
+         messageApi.error(result.error); 
+         return; 
+       }
       messageApi.success("Sikeresen lejelentkeztél az eseményről.");
       setIsUnsubscribeModalOpen(false); 
       fetchData(); 
@@ -220,8 +260,9 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
-    isSyncing, handleSync, // ÚJ SZINKRON VÁLTOZÓK
+    isSyncing, handleSync,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
+    isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange, handleDeleteUser, // TULAJDONOSI EXTRÁK
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
