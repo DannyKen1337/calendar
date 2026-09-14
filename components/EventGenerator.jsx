@@ -6,7 +6,7 @@ export default function EventGenerator() {
   const [formData, setFormData] = useState({
     name: '', category: 'Riftbound', customColor: '#6b7280',
     startDate: '', time: '18:00', weeks: 4,
-    maxPlayers: 16, description: ''
+    maxPlayers: 16, description: '', externalUrl: '' // ÚJ MEZŐ
   });
   const [status, setStatus] = useState('');
 
@@ -23,15 +23,15 @@ export default function EventGenerator() {
     const result = await res.json();
     if (result.success) {
       setStatus('✅ ' + result.message);
-      setFormData({...formData, name: '', description: ''}); 
+      setFormData({...formData, name: '', description: '', externalUrl: ''}); 
     } else {
       setStatus('❌ Hiba történt: ' + result.error);
     }
   };
 
   return (
-    <div className="bg-zinc-900 p-6 rounded-lg text-white max-w-xl">
-      <h2 className="text-2xl font-bold mb-4">Ismétlődő Esemény Generátor</h2>
+    <div className="bg-zinc-900 p-6 rounded-lg text-white max-w-xl border border-zinc-800">
+      <h2 className="text-2xl font-bold mb-4 text-[#E5B15D]">Ismétlődő Esemény Generátor</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -80,7 +80,12 @@ export default function EventGenerator() {
           <label className="block mb-1 text-sm text-gray-400">Leírás (opcionális)</label>
           <textarea rows="3" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-2 bg-zinc-800 rounded border border-zinc-700"></textarea>
         </div>
-        <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 p-3 rounded font-bold transition">
+        {/* ÚJ MEZŐ: Külső link (opcionális) */}
+        <div>
+          <label className="block mb-1 text-sm text-gray-400">Külső jelentkezési link (opcionális, pl. UVS)</label>
+          <input type="url" value={formData.externalUrl} onChange={e => setFormData({...formData, externalUrl: e.target.value})} className="w-full p-2 bg-zinc-800 rounded border border-zinc-700" placeholder="https://locator.riftbound..." />
+        </div>
+        <button type="submit" className="w-full bg-[#E5B15D] text-black hover:bg-orange-500 p-3 rounded font-bold transition">
           Események Létrehozása
         </button>
         {status && <p className="text-sm text-center mt-2">{status}</p>}

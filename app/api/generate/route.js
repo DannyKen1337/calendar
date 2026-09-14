@@ -5,18 +5,17 @@ import { GAME_CONFIG } from '@/lib/gameConfig';
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { name, category, customColor, startDate, time, weeks, maxPlayers, description } = data;
+    const { name, category, customColor, startDate, time, weeks, maxPlayers, description, externalUrl } = data;
 
     const client = await clientPromise;
     const db = client.db();
     const eventsToInsert = [];
 
-    // Kezdődátum és időpont kombinálása
     const baseDate = new Date(`${startDate}T${time}:00`);
 
     for (let i = 0; i < weeks; i++) {
       const eventDate = new Date(baseDate);
-      eventDate.setDate(baseDate.getDate() + (i * 7)); // 7 naponta ismétlődik
+      eventDate.setDate(baseDate.getDate() + (i * 7)); 
 
       const formattedDate = new Intl.DateTimeFormat('sv-SE', {
         timeZone: 'Europe/Budapest',
@@ -32,11 +31,12 @@ export async function POST(request) {
         category: category,
         color: finalColor,
         date: formattedDate,
-        max_players: parseInt(maxPlayers),
+        max_players: parseInt(maxPlayers) || 16,
         current_players: 0,
         queue_count: 0,
         is_open: true,
-        isExternalEvent: false,
+        isExternalEvent: !!externalUrl, // Ha van link, külsős lesz!
+        external_url: externalUrl || "",
         imageUrl: config.logo,
         description: description,
         userRole: "Admin Generator",

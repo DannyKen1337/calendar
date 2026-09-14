@@ -125,13 +125,32 @@ export const useCalendar = () => {
     setIsUploading(false);
   };
 
-  const saveEvent = async () => {
-    const values = eventForm.getFieldsValue();
+  const saveEvent = async (values) => {
+    // Biztosítjuk, hogy a gombnyomásról is megkapja az értékeket
+    const formValues = values || eventForm.getFieldsValue(); 
     try {
-      const payload = { ...values, max_players: isExternalForm ? 0 : (values.max_players || 8), external_url: isExternalForm ? (values.external_url || "") : "", imageUrl: values.imageUrl || "", isExternalEvent: isExternalForm, userRole: userName };
-      if (editingEventId) { await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'EDIT_TOURNAMENT', payload: { id: editingEventId, ...payload } }) }); messageApi.success("Frissítve!"); } 
-      else { await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'ADD_TOURNAMENT', payload }) }); messageApi.success("Létrehozva!"); }
-      setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); fetchData();
+      const payload = { 
+        ...formValues, 
+        max_players: parseInt(formValues.max_players) || 16, 
+        external_url: formValues.external_url || "", 
+        imageUrl: formValues.imageUrl || "", 
+        isExternalEvent: !!formValues.external_url, 
+        userRole: userName 
+      };
+      
+      if (editingEventId) { 
+        await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'EDIT_TOURNAMENT', payload: { id: editingEventId, ...payload } }) }); 
+        messageApi.success("Frissítve!"); 
+      } else { 
+        await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'ADD_TOURNAMENT', payload }) }); 
+        messageApi.success("Létrehozva!"); 
+      }
+      
+      setIsEventModalOpen(false); 
+      eventForm.resetFields(); 
+      setEditingEventId(null); 
+      setIsExternalForm(false); 
+      fetchData();
     } catch (err) {}
   };
 
