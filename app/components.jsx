@@ -8,10 +8,117 @@ import { GAME_CONFIG } from '@/lib/gameConfig';
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
 
+// OKOS KONFIG KERESŐ: Felismeri a régi rövidebb neveket is (pl. "Pokémon" -> "Pokémon TCG")
+export const getGameConfig = (category) => {
+  const fallback = GAME_CONFIG["Egyéb"] || { color: '#6b7280', logo: 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png' };
+  if (!category) return fallback;
+  
+  // Ha pontos az egyezés
+  if (GAME_CONFIG[category]) return GAME_CONFIG[category];
+
+  // Ha csak részleges az egyezés a régi adatbázis miatt
+  const catStr = category.toLowerCase();
+  for (const key of Object.keys(GAME_CONFIG)) {
+    const kStr = key.toLowerCase();
+    if ((kStr.includes(catStr) || catStr.includes(kStr)) && key !== "Egyéb") {
+      return GAME_CONFIG[key];
+    }
+  }
+  return fallback;
+};
+
 export const getCategoryImage = (category) => {
-  const game = GAME_CONFIG[category];
-  if (game && game.logo) return game.logo;
-  return 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png'; // Alapértelmezett "Egyéb" kocka ikon
+  return getGameConfig(category).logo || 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png';
+};
+
+// PUBLIKUS ABLAKOK (Jelentkezés, Részletek, Leiratkozás)
+export const PublicModals = ({ app }) => {
+  if (!app) return null;
+  const { 
+    isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin,
+    isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin,
+    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, submitUnsubscribe
+  } = app;
+
+  return (
+    <>
+      <Modal
+        title={<span style={{ color: '#E5B15D', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>}
+        open={isEventDetailsModalOpen}
+        onCancel={() => setIsEventDetailsModalOpen(false)}
+        footer={[
+          <Button key="close" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
+          selectedEventDetails?.external_url ? (
+            <Button key="ext" type="primary" style={S.primaryBtn} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>
+              Tovább a weboldalra
+            </Button>
+          ) : (
+            <Button key="join" type="primary" style={S.primaryBtn} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>
+              {selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}
+            </Button>
+          )
+        ]}
+        styles={{ body: { background: '#121212', color: '#E0D6C8', padding: '10px 0' }, content: { background: '#121212', border: '1px solid #4A2E33' }, header: { background: '#121212', borderBottom: '1px solid #4A2E33' } }}
+      >
+        {selectedEventDetails && (
+          <div className="space-y-4">
+            <Title level={4} style={{ color: '#fff', margin: 0 }}>{selectedEventDetails.name}</Title>
+            <Tag color={getGameConfig(selectedEventDetails.category).color} style={{ color: '#fff' }}>{selectedEventDetails.category}</Tag>
+            <p style={{ marginTop: 10 }}><strong>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
+            {!selectedEventDetails.external_url && (
+              <p><strong>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p>
+            )}
+            {selectedEventDetails.description && (
+              <div style={{ marginTop: 15, background: '#2B1A1C', padding: 15, borderRadius: 8, border: '1px solid #4A2E33' }}>
+                <strong style={{ color: '#E5B15D' }}>Leírás:</strong>
+                <p style={{ whiteSpace: 'pre-wrap', marginTop: 5 }}>{selectedEventDetails.description}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title={<span style={{ color: '#E5B15D' }}>Jelentkezés: {selectedEventToJoin?.name}</span>}
+        open={isJoinModalOpen}
+        onCancel={() => setIsJoinModalOpen(false)}
+        onOk={() => joinForm.submit()}
+        okText="Jelentkezem"
+        cancelText="Mégse"
+        okButtonProps={{ style: S.primaryBtn }}
+        cancelButtonProps={{ style: { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' } }}
+        styles={{ body: { background: '#121212', color: '#E0D6C8' }, content: { background: '#121212', border: '1px solid #4A2E33' }, header: { background: '#121212', borderBottom: '1px solid #4A2E33' } }}
+      >
+        <Form form={joinForm} layout="vertical" onFinish={submitJoin} style={{ marginTop: 20 }}>
+          <Form.Item name="name" label={<span style={{ color: '#E0D6C8' }}>Neved</span>} rules={[{ required: true, message: 'Kötelező!' }]}>
+            <Input placeholder="Pl.: Teszt Elek" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
+          </Form.Item>
+          <Form.Item name="email" label={<span style={{ color: '#E0D6C8' }}>E-mail címed</span>} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
+            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={<span style={{ color: '#E5B15D' }}>Leiratkozás</span>}
+        open={isUnsubscribeModalOpen}
+        onCancel={() => setIsUnsubscribeModalOpen(false)}
+        onOk={() => unsubscribeForm.submit()}
+        okText="Leiratkozás"
+        cancelText="Mégse"
+        okButtonProps={{ danger: true }}
+        cancelButtonProps={{ style: { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' } }}
+        styles={{ body: { background: '#121212', color: '#E0D6C8' }, content: { background: '#121212', border: '1px solid #4A2E33' }, header: { background: '#121212', borderBottom: '1px solid #4A2E33' } }}
+      >
+        <Form form={unsubscribeForm} layout="vertical" onFinish={submitUnsubscribe} style={{ marginTop: 20 }}>
+          <p style={{ marginBottom: 15 }}>Add meg az e-mail címed, amivel jelentkeztél a(z) <b style={{color: '#E5B15D'}}>{selectedEventToJoin?.name}</b> eseményre:</p>
+          <Form.Item name="email" label={<span style={{ color: '#E0D6C8' }}>E-mail cím</span>} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
+            <Input placeholder="pelda@email.com" style={{ background: '#2B1A1C', color: '#fff', borderColor: '#4A2E33' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  );
 };
 
 export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
@@ -24,8 +131,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
       if (evt.external_url) { btnText = "Tovább a weboldalra"; btnType = "default"; btnIcon = <LinkOutlined />; } 
       else if (isFull) { btnText = "Várólista"; btnType = "dashed"; btnIcon = <UsergroupAddOutlined />; }
       
-      // Dinamikus szín lekérése (vagy a mentett egyedi szín, vagy a configból)
-      const eventColor = evt.color || (GAME_CONFIG[evt.category] ? GAME_CONFIG[evt.category].color : '#6b7280');
+      const eventColor = evt.color || getGameConfig(evt.category).color;
 
       return (
         <List.Item style={S.eventItem}>
@@ -35,7 +141,6 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                 <img src={evt.imageUrl || getCategoryImage(evt.category)} alt={evt.name} style={S.eventImg} />
                 <div style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
                 <div>
-                  {/* Színes Tag a játéknak megfelelően */}
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>
                     {evt.category || "Egyéb"}
                   </Tag>
@@ -124,8 +229,7 @@ export const CalendarView = ({ app }) => {
                   <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
                     <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}>{day}</div>
                     {dayEvents.map(evt => {
-                        // Dinamikus szín a naptár csíkokhoz
-                        const eventColor = evt.color || (GAME_CONFIG[evt.category] ? GAME_CONFIG[evt.category].color : '#6b7280');
+                        const eventColor = evt.color || getGameConfig(evt.category).color;
                         return (
                           <div 
                             key={String(evt._id || evt.id)} 
@@ -133,7 +237,7 @@ export const CalendarView = ({ app }) => {
                               ...S.calEventStrip, 
                               backgroundColor: eventColor, 
                               color: '#fff', 
-                              textShadow: '0 1px 2px rgba(0,0,0,0.5)' // Hogy világos színen is olvasható legyen a fehér szöveg
+                              textShadow: '0 1px 2px rgba(0,0,0,0.5)' 
                             }} 
                             onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} 
                             title={evt.name}
@@ -149,6 +253,10 @@ export const CalendarView = ({ app }) => {
           </div>
         </>
       )}
+
+      {/* ITT KAPOTT HELYET A PUBLIKUS ABLAKRENDSZER */}
+      <PublicModals app={app} />
+      
     </div>
   );
 };
