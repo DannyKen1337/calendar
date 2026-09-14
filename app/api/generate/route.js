@@ -11,18 +11,21 @@ export async function POST(request) {
     const db = client.db();
     const eventsToInsert = [];
 
-    const baseDate = new Date(`${startDate}T${time}:00`);
     const weekCount = parseInt(weeks) || 1;
+    
+    // Szétválasztjuk az évet, hónapot és napot, hogy a Vercel UTC szervere ne tudja eltolni az időt
+    const [year, month, day] = startDate.split('-').map(Number);
 
     for (let i = 0; i < weekCount; i++) {
-      const eventDate = new Date(baseDate);
-      eventDate.setDate(baseDate.getDate() + (i * 7)); 
-
-      const formattedDate = new Intl.DateTimeFormat('sv-SE', {
-        timeZone: 'Europe/Budapest',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit'
-      }).format(eventDate).replace(' ', 'T');
+      // Kiszámoljuk a pontos dátumot a hetek hozzáadásával (Szigorúan UTC-ben számolva, hogy a nyári/téli átállás se zavarjon be)
+      const d = new Date(Date.UTC(year, month - 1, day + (i * 7)));
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      
+      // Egyszerűen összefűzzük a pontos dátumot a felhasználó által megadott pontos idővel (pl. "18:00")
+      // Így garantáltan az kerül az adatbázisba, amit te beírtál.
+      const formattedDate = `${yyyy}-${mm}-${dd}T${time}`;
 
       const config = GAME_CONFIG[category] || GAME_CONFIG["Egyéb"];
       const finalColor = category === "Egyéb" && customColor ? customColor : config.color;
@@ -37,7 +40,7 @@ export async function POST(request) {
         queue_count: 0,
         is_open: true,
         isExternalEvent: isExternal,
-        // Ha külső, és megadtak annyi linket, akkor berakja azt a heti linket, különben üresen hagyja.
+        // Ha külső, és megadtak linket, akkor beteszi az adott heti linket, különben üresen hagyja.
         external_url: isExternal ? (externalUrls[i] || "") : "",
         imageUrl: config.logo,
         description: description,
