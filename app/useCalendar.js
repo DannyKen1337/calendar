@@ -13,6 +13,13 @@ export const useCalendar = () => {
   const [userEmail, setUserEmail] = useState("");
   const [usersList, setUsersList] = useState([]);
   
+  // God Mode állapotok
+  const [logs, setLogs] = useState([]);
+  const [blacklist, setBlacklist] = useState([]);
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -26,22 +33,21 @@ export const useCalendar = () => {
   
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [selectedEventToJoin, setSelectedEventToJoin] = useState(null);
-  
   const [isUnsubscribeModalOpen, setIsUnsubscribeModalOpen] = useState(false);
   
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
   const [selectedEventIdForAttendees, setSelectedEventIdForAttendees] = useState(null);
   const [registrations, setRegistrations] = useState([]);
 
-  // ÚJ: TULAJDONOSI STATE-EK
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
+  
   const [passwordForm] = Form.useForm();
-
   const [eventForm] = Form.useForm();
   const [joinForm] = Form.useForm();
   const [unsubscribeForm] = Form.useForm();
   const [authForm] = Form.useForm();
+  const [blacklistForm] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
@@ -65,6 +71,9 @@ export const useCalendar = () => {
       if (data.tournaments) setTournaments(data.tournaments);
       if (data.registrations) setRegistrations(data.registrations);
       if (data.users) setUsersList(data.users);
+      if (data.logs) setLogs(data.logs);
+      if (data.blacklist) setBlacklist(data.blacklist);
+      if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
     } catch (e) {}
     setLoading(false);
   };
@@ -89,7 +98,6 @@ export const useCalendar = () => {
   const handleLogout = () => {
     localStorage.removeItem('tavern_calendar_session');
     setUserRole(null); setUserName(""); setUserEmail("");
-    messageApi.info("Kijelentkezve.");
   };
 
   const handleAuthSubmit = async (values) => {
@@ -104,30 +112,50 @@ export const useCalendar = () => {
         setUserName(data.user.username); setUserEmail(data.user.email); setUserRole(data.user.role);
         setIsAuthModalOpen(false); authForm.resetFields();
       }
-    } catch (e) { messageApi.error("Hiba a bejelentkezésnél."); }
+    } catch (e) {}
+  };
+
+  // --- GOD MODE FUNKCIÓK ---
+  const toggleMaintenance = async (newState) => {
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: newState, adminName: userName } }) });
+    setIsMaintenance(newState);
+    messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA.");
+    fetchData();
+  };
+
+  const handleBanEmail = async (values) => {
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'BAN_EMAIL', payload: { email: values.email, reason: values.reason, adminName: userName } }) });
+    messageApi.success("E-mail cím feketelistára téve.");
+    blacklistForm.resetFields();
+    fetchData();
+  };
+
+  const handleUnbanEmail = async (email) => {
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNBAN_EMAIL', payload: { email, adminName: userName } }) });
+    messageApi.success("Tiltás feloldva.");
+    fetchData();
+  };
+
+  const handleExportDB = () => {
+    window.location.href = '/api/export-db';
   };
 
   const toggleUserRole = async (targetUser) => {
     const makeAdmin = targetUser.role !== 'admin';
     const targetId = String(targetUser._id || targetUser.id);
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_ROLE', payload: { targetUserId: targetId, makeAdmin }}) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_ROLE', payload: { targetUserId: targetId, makeAdmin, adminName: userName }}) });
     fetchData();
   };
 
-  // --- ÚJ: TULAJDONOSI FUNKCIÓK ---
-  const initiatePasswordChange = (user) => {
-    setSelectedUserForPassword(user);
-    passwordForm.resetFields();
-    setIsPasswordModalOpen(true);
-  };
-
+  const initiatePasswordChange = (user) => { setSelectedUserForPassword(user); passwordForm.resetFields(); setIsPasswordModalOpen(true); };
+  
   const submitPasswordChange = async (values) => {
     const uId = String(selectedUserForPassword._id || selectedUserForPassword.id);
     try {
       const response = await fetch('/api/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionType: 'CHANGE_USER_PASSWORD', payload: { userId: uId, newPassword: values.newPassword } })
+        body: JSON.stringify({ actionType: 'CHANGE_USER_PASSWORD', payload: { userId: uId, newPassword: values.newPassword, adminName: userName } })
       });
       const result = await response.json();
       if (result.error) { messageApi.error(result.error); return; }
@@ -140,18 +168,11 @@ export const useCalendar = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    try {
-      await fetch('/api/actions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId) } })
-      });
-      messageApi.success("Felhasználó véglegesen törölve.");
-      fetchData();
-    } catch (err) {}
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId), adminName: userName } }) });
+    messageApi.success("Felhasználó törölve."); fetchData();
   };
-  // --------------------------------
 
+  // --- ESEMÉNY ÉS JELENTKEZÉS KEZELÉS ---
   const handleImageUpload = async (info, targetForm) => {
     if (IMGBB_API_KEY === "IDE_JON_AZ_IMGBB_KULCSOD") { messageApi.error("ImgBB API kulcs hiányzik!"); return; }
     const file = info.file.originFileObj || info.file; if (!file) return;
@@ -175,7 +196,8 @@ export const useCalendar = () => {
         external_url: formValues.external_url || "", 
         imageUrl: formValues.imageUrl || "", 
         isExternalEvent: !!formValues.external_url, 
-        userRole: userName 
+        userRole: userName, 
+        adminName: userName 
       };
       
       if (editingEventId) { 
@@ -195,7 +217,7 @@ export const useCalendar = () => {
   };
 
   const handleDeleteTournament = async (tournamentId) => { 
-     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId) }}) }); 
+     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId), adminName: userName }}) }); 
      messageApi.success("Esemény törölve."); fetchData(); 
    };
 
@@ -246,23 +268,24 @@ export const useCalendar = () => {
 
   const handleRemoveRegistration = async (registrationId) => {
     try {
-      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REMOVE_REGISTRATION', payload: { registrationId } }) });
-      messageApi.success("Törölve."); fetchData(); 
+      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REMOVE_REGISTRATION', payload: { registrationId, adminName: userName } }) });
+      messageApi.success("Jelentkező törölve."); fetchData(); 
     } catch (err) {}
   };
 
   const formatEventDate = (dateString) => {
-    if (!dateString) return "Hamarosan";
-    const d = new Date(dateString);
+    if (!dateString) return "Hamarosan"; 
+    const d = new Date(dateString); 
     if (isNaN(d.getTime())) return dateString; 
     return (d.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' })).replace(/^\w/, c => c.toUpperCase());
   };
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
+    isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB,
     isSyncing, handleSync,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
-    isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange, handleDeleteUser, // TULAJDONOSI EXTRÁK
+    isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange, handleDeleteUser,
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,

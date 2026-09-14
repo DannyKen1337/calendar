@@ -9,12 +9,26 @@ export default function PublicCalendarPage() {
   const app = useCalendar();
   const [activeFilters, setActiveFilters] = useState([]);
 
-  // Leszűrjük az eseményeket a gombok alapján
+  if (app.loading) {
+    return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-[#E5B15D] font-bold text-xl">Betöltés...</div>;
+  }
+
+  // --- KARBANTARTÁS KÉPERNYŐ ---
+  if (app.isMaintenance) {
+    return (
+      <main className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+        <div className="bg-[#1a1012] p-8 rounded-2xl border-2 border-[#E5B15D] shadow-xl w-full max-w-lg text-center">
+          <h1 className="text-4xl font-bold text-[#E5B15D] font-serif mb-4">Karbantartás alatt 🛠️</h1>
+          <p className="text-[#E0D6C8] text-lg">A Tavern naptárrendszere jelenleg fejlesztés és karbantartás alatt áll. Kérjük, látogass vissza később!</p>
+        </div>
+      </main>
+    );
+  }
+
   const filteredTournaments = activeFilters.length === 0 
     ? app.tournaments 
     : app.tournaments.filter(e => activeFilters.includes(e.category));
 
-  // Kicseréljük az eredeti listát a szűrtre, hogy a CalendarView csak azokat mutassa
   const appWithFilteredEvents = {
     ...app,
     tournaments: filteredTournaments
