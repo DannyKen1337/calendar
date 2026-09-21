@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
-// Hozzáadtuk az EyeOutlined ikont a publikus naptár gombhoz
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined } from "@ant-design/icons";
+// Hozzáadtuk a LeftOutlined és RightOutlined ikonokat a heti lapozóhoz
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG } from '@/lib/gameConfig'; 
 
@@ -235,6 +235,8 @@ export const CalendarView = ({ app }) => {
   
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
+  
+  // --- ASZTALI HAVI NÉZET LOGIKÁJA ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   let firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
@@ -259,15 +261,112 @@ export const CalendarView = ({ app }) => {
       return d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // --- ÚJ: MOBIL HETI NÉZET LOGIKÁJA ---
+  const getMonday = (d) => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); 
+    return new Date(date.setDate(diff));
+  };
+
+  const weekStart = getMonday(currentDate);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const formatMobileDateRange = (start, end) => {
+     const format = (d) => `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, '0')}. ${String(d.getDate()).padStart(2, '0')}.`;
+     return `${format(start)} - ${format(end)}`;
+  };
+
+  const weekDaysHu = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"];
+  const eventsByDay = Array(7).fill().map(() => []);
+
+  (tournaments || []).forEach(evt => {
+     if(!evt.date) return;
+     const d = new Date(evt.date);
+     if(d >= weekStart && d <= weekEnd) {
+        let dayIdx = d.getDay() - 1;
+        if (dayIdx === -1) dayIdx = 6;
+        eventsByDay[dayIdx].push(evt);
+     }
+  });
+  eventsByDay.forEach(dayEvents => dayEvents.sort((a,b) => new Date(a.date) - new Date(b.date)));
+
+  const prevWeek = () => setCurrentDate(new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000));
+  const nextWeek = () => setCurrentDate(new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000));
+
   return (
     <ConfigProvider theme={tavernTheme}>
       <div>
-        <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Havi Naptár</Title>
-        <Divider style={S.divider} />
         {isMobile ? (
-          (!tournaments || tournaments.length === 0) ? ( <Paragraph style={S.emptyText}>Nincs esemény.</Paragraph> ) : ( <EventList tournamentsData={tournaments} app={app} /> )
+          // ================= MOBIL (HETI) NÉZET =================
+          <div className="mobile-weekly-calendar">
+            
+            {/* Heti Lapozó Fejléc */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: '#1a1012', padding: '15px', borderRadius: '16px', border: '1px solid #4A2E33' }}>
+              <Button icon={<LeftOutlined />} onClick={prevWeek} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
+              <div style={{ textAlign: 'center' }}>
+                <Text style={{ display: 'block', color: '#baaaac', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+                  Heti nézet
+                </Text>
+                <Title level={5} style={{ color: '#E5B15D', margin: 0, fontFamily: 'Georgia, serif' }}>
+                  {formatMobileDateRange(weekStart, weekEnd)}
+                </Title>
+              </div>
+              <Button icon={<RightOutlined />} onClick={nextWeek} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
+            </div>
+
+            {/* Napok és Események Listája */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {weekDaysHu.map((dayName, idx) => {
+                const dayEvents = eventsByDay[idx];
+                const currentDayDate = new Date(weekStart);
+                currentDayDate.setDate(currentDayDate.getDate() + idx);
+                
+                const isToday = realToday && 
+                                realToday.getDate() === currentDayDate.getDate() && 
+                                realToday.getMonth() === currentDayDate.getMonth() && 
+                                realToday.getFullYear() === currentDayDate.getFullYear();
+                
+                return (
+                  <div key={dayName} style={{ 
+                    background: '#1a1012', 
+                    padding: '15px', 
+                    borderRadius: '16px', 
+                    border: isToday ? '2px solid #E5B15D' : '1px solid #4A2E33',
+                    boxShadow: isToday ? '0 4px 15px rgba(229, 177, 93, 0.15)' : 'none'
+                  }}>
+                    
+                    {/* Nap Fejléce */}
+                    <div style={{ borderBottom: '1px solid #4A2E33', paddingBottom: '10px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <Title level={4} style={{ color: isToday ? '#E5B15D' : '#d8b4e2', margin: 0, fontFamily: 'Georgia, serif' }}>
+                         {dayName} {isToday && <Tag color="gold" style={{marginLeft: 10}}>Ma</Tag>}
+                       </Title>
+                       <Text style={{ color: '#baaaac', fontWeight: 'bold' }}>
+                         {`${String(currentDayDate.getMonth() + 1).padStart(2, '0')}. ${String(currentDayDate.getDate()).padStart(2, '0')}.`}
+                       </Text>
+                    </div>
+
+                    {/* Napi Események vagy Üres Állapot */}
+                    {dayEvents.length > 0 ? (
+                       <EventList tournamentsData={dayEvents} app={app} />
+                    ) : (
+                       <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                         <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs kiírt esemény.</Text>
+                       </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         ) : (
+          // ================= ASZTALI (HAVI) NÉZET =================
           <>
+            <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Havi Naptár</Title>
+            <Divider style={S.divider} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <Button size="large" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>&lt; Előző</Button>
               <Title level={2} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>{months[currentDate.getMonth()]} {currentDate.getFullYear()}</Title>
@@ -317,12 +416,10 @@ export const CalendarView = ({ app }) => {
 };
 
 export const AdminEvents = ({ app: v }) => {
-  // Állapot a játék szerinti szűréshez
   const [adminFilter, setAdminFilter] = useState('Mind');
   
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
   
-  // Szűrt és időrendi sorba rendezett események listája
   const filteredAndSortedTournaments = (v.tournaments || [])
     .filter(evt => adminFilter === 'Mind' || evt.category === adminFilter)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -331,7 +428,6 @@ export const AdminEvents = ({ app: v }) => {
     <ConfigProvider theme={tavernTheme}>
       <div>
 
-        {/* --- GOD MODE: TULAJDONOSI ESZKÖZÖK SÁVJA --- */}
         {v.userRole === 'owner' && (
           <div className="bg-[#1a1012] p-4 rounded-xl border-2 border-purple-900 mb-8 shadow-lg">
             <Title level={4} style={{ color: '#d8b4e2', margin: '0 0 15px 0', fontFamily: 'Georgia, serif' }}>👑 Tulajdonosi Eszközök (God Mode)</Title>
@@ -351,7 +447,6 @@ export const AdminEvents = ({ app: v }) => {
             </div>
           </div>
         )}
-        {/* ------------------------------------------ */}
 
         <div style={S.tabHeader}>
           <Title level={3} style={S.tabTitle}>Naptár Kezelése</Title>
@@ -360,7 +455,6 @@ export const AdminEvents = ({ app: v }) => {
             <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
             <Button type="dashed" shape="round" icon={<CalendarOutlined />} style={{ color: '#E5B15D', borderColor: '#E5B15D', background: 'transparent' }} onClick={() => window.location.href = '/admin/generator'}>Ismétlődő Generátor</Button>
             
-            {/* ÚJ: Publikus Naptár Megtekintése Gomb (Új lapon nyílik) */}
             <Button 
               type="default" 
               shape="round" 
@@ -373,7 +467,6 @@ export const AdminEvents = ({ app: v }) => {
           </Space>
         </div>
 
-        {/* ÚJ: Szűrősáv az admin eseményekhez */}
         <div className="flex items-center gap-4 mb-6 bg-[#2B1A1C] p-3 rounded-xl border border-[#4A2E33] w-fit">
           <span className="text-[#baaaac] font-bold">Szűrés játék szerint:</span>
           <Select
@@ -389,7 +482,6 @@ export const AdminEvents = ({ app: v }) => {
           </Select>
         </div>
         
-        {/* Szűrt és rendezett listát adjuk át az EventList-nek */}
         <EventList tournamentsData={filteredAndSortedTournaments} isAdmin={true} app={v} />
         
         <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
