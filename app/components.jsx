@@ -39,7 +39,7 @@ const tavernTheme = {
   }
 };
 
-const defaultLogoUrl = 'https://cdn-icons-png.flaticon.com/512/6650/6650171.png';
+const defaultLogoUrl = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
 
 export const getGameConfig = (category) => {
   const fallback = GAME_CONFIG["Egyéb"] || { color: '#6b7280', logo: defaultLogoUrl };
@@ -95,7 +95,15 @@ export const PublicModals = ({ app }) => {
                   src={selectedEventDetails.imageUrl || getCategoryImage(selectedEventDetails.category)} 
                   alt={selectedEventDetails.category} 
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                  onError={(e) => { e.target.src = defaultLogoUrl; }}
+                  onError={(e) => { 
+                    // OKOS HIBAJAVÍTÓ: Ha hibás az adatbázisban lévő link, először a kategória frissített logóját próbálja
+                    if (e.target.getAttribute('data-retried') !== 'true') {
+                      e.target.setAttribute('data-retried', 'true');
+                      e.target.src = getCategoryImage(selectedEventDetails.category);
+                    } else {
+                      e.target.src = defaultLogoUrl; 
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -184,18 +192,20 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
           <Card size="small" className="cozy-shadow" style={S.eventCard}>
             <div style={S.eventFlex}>
               <div style={{...S.eventInfo, cursor: 'pointer'}} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }}>
-                
-                {/* 
-                  FONTOS: Itt rögzítjük le a képek méretét a listában. 
-                  A minWidth és a height fix, az objectFit: contain pedig megakadályozza, 
-                  hogy a különböző képarányok széthúzzák egymást.
-                */}
                 <div style={{ width: '64px', height: '64px', minWidth: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1012', borderRadius: '8px', border: '1px solid #4A2E33', padding: '4px' }}>
                   <img 
                     src={evt.imageUrl || getCategoryImage(evt.category)} 
                     alt={evt.name} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                    onError={(e) => { e.target.src = defaultLogoUrl; }}
+                    onError={(e) => { 
+                      // OKOS HIBAJAVÍTÓ ITT IS
+                      if (e.target.getAttribute('data-retried') !== 'true') {
+                        e.target.setAttribute('data-retried', 'true');
+                        e.target.src = getCategoryImage(evt.category);
+                      } else {
+                        e.target.src = defaultLogoUrl; 
+                      }
+                    }}
                   />
                 </div>
                 
@@ -241,7 +251,6 @@ export const CalendarView = ({ app }) => {
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
   
-  // --- ASZTALI HAVI NÉZET LOGIKÁJA ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   let firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
@@ -266,7 +275,6 @@ export const CalendarView = ({ app }) => {
       return d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // --- ÚJ: MOBIL HETI NÉZET LOGIKÁJA ---
   const getMonday = (d) => {
     const date = new Date(d);
     const day = date.getDay();
@@ -306,7 +314,6 @@ export const CalendarView = ({ app }) => {
     <ConfigProvider theme={tavernTheme}>
       <div>
         {isMobile ? (
-          // ================= MOBIL (HETI) NÉZET =================
           <div className="mobile-weekly-calendar">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: '#1a1012', padding: '15px', borderRadius: '16px', border: '1px solid #4A2E33' }}>
               <Button icon={<LeftOutlined />} onClick={prevWeek} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
@@ -361,7 +368,6 @@ export const CalendarView = ({ app }) => {
             </div>
           </div>
         ) : (
-          // ================= ASZTALI (HAVI) NÉZET =================
           <>
             <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Havi Naptár</Title>
             <Divider style={S.divider} />
