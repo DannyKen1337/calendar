@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
-// Hozzáadtuk a LeftOutlined és RightOutlined ikonokat a heti lapozóhoz
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG } from '@/lib/gameConfig'; 
@@ -40,12 +39,12 @@ const tavernTheme = {
   }
 };
 
-export const getGameConfig = (category) => {
-  const fallback = GAME_CONFIG["Egyéb"] || { color: '#6b7280', logo: 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png' };
-  if (!category) return fallback;
-  
-  if (GAME_CONFIG[category]) return GAME_CONFIG[category];
+const defaultLogoUrl = 'https://cdn-icons-png.flaticon.com/512/6650/6650171.png';
 
+export const getGameConfig = (category) => {
+  const fallback = GAME_CONFIG["Egyéb"] || { color: '#6b7280', logo: defaultLogoUrl };
+  if (!category) return fallback;
+  if (GAME_CONFIG[category]) return GAME_CONFIG[category];
   const catStr = category.toLowerCase();
   for (const key of Object.keys(GAME_CONFIG)) {
     const kStr = key.toLowerCase();
@@ -57,7 +56,7 @@ export const getGameConfig = (category) => {
 };
 
 export const getCategoryImage = (category) => {
-  return getGameConfig(category).logo || 'https://cdn-icons-png.flaticon.com/512/6836/6836867.png';
+  return getGameConfig(category).logo || defaultLogoUrl;
 };
 
 export const PublicModals = ({ app }) => {
@@ -91,27 +90,19 @@ export const PublicModals = ({ app }) => {
         {selectedEventDetails && (
           <div className="space-y-4 pt-4">
             <div className="flex justify-center mb-6">
-              <div className="bg-[#0a0a0a] p-4 rounded-2xl border-2 border-[#4A2E33] shadow-lg">
+              <div className="bg-[#0a0a0a] p-4 rounded-2xl border-2 border-[#4A2E33] shadow-lg flex items-center justify-center" style={{ width: '150px', height: '150px' }}>
                 <img 
-                  src={getCategoryImage(selectedEventDetails.category)} 
+                  src={selectedEventDetails.imageUrl || getCategoryImage(selectedEventDetails.category)} 
                   alt={selectedEventDetails.category} 
-                  style={{ width: '120px', height: '120px', objectFit: 'contain' }} 
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                  onError={(e) => { e.target.src = defaultLogoUrl; }}
                 />
               </div>
             </div>
 
             <div className="text-center mb-6">
               <Title level={3} style={{ margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
-              <Tag 
-                color={getGameConfig(selectedEventDetails.category).color} 
-                style={{ 
-                  background: getGameConfig(selectedEventDetails.category).color,
-                  borderColor: getGameConfig(selectedEventDetails.category).color,
-                  color: '#fff', 
-                  fontSize: '14px', 
-                  padding: '4px 12px' 
-                }}
-              >
+              <Tag color={getGameConfig(selectedEventDetails.category).color} style={{ background: getGameConfig(selectedEventDetails.category).color, borderColor: getGameConfig(selectedEventDetails.category).color, color: '#fff', fontSize: '14px', padding: '4px 12px' }}>
                 {selectedEventDetails.category}
               </Tag>
             </div>
@@ -193,7 +184,21 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
           <Card size="small" className="cozy-shadow" style={S.eventCard}>
             <div style={S.eventFlex}>
               <div style={{...S.eventInfo, cursor: 'pointer'}} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }}>
-                <img src={evt.imageUrl || getCategoryImage(evt.category)} alt={evt.name} style={S.eventImg} />
+                
+                {/* 
+                  FONTOS: Itt rögzítjük le a képek méretét a listában. 
+                  A minWidth és a height fix, az objectFit: contain pedig megakadályozza, 
+                  hogy a különböző képarányok széthúzzák egymást.
+                */}
+                <div style={{ width: '64px', height: '64px', minWidth: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1012', borderRadius: '8px', border: '1px solid #4A2E33', padding: '4px' }}>
+                  <img 
+                    src={evt.imageUrl || getCategoryImage(evt.category)} 
+                    alt={evt.name} 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    onError={(e) => { e.target.src = defaultLogoUrl; }}
+                  />
+                </div>
+                
                 <div style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
                 <div>
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>
@@ -303,8 +308,6 @@ export const CalendarView = ({ app }) => {
         {isMobile ? (
           // ================= MOBIL (HETI) NÉZET =================
           <div className="mobile-weekly-calendar">
-            
-            {/* Heti Lapozó Fejléc */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: '#1a1012', padding: '15px', borderRadius: '16px', border: '1px solid #4A2E33' }}>
               <Button icon={<LeftOutlined />} onClick={prevWeek} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
               <div style={{ textAlign: 'center' }}>
@@ -318,7 +321,6 @@ export const CalendarView = ({ app }) => {
               <Button icon={<RightOutlined />} onClick={nextWeek} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
             </div>
 
-            {/* Napok és Események Listája */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {weekDaysHu.map((dayName, idx) => {
                 const dayEvents = eventsByDay[idx];
@@ -338,8 +340,6 @@ export const CalendarView = ({ app }) => {
                     border: isToday ? '2px solid #E5B15D' : '1px solid #4A2E33',
                     boxShadow: isToday ? '0 4px 15px rgba(229, 177, 93, 0.15)' : 'none'
                   }}>
-                    
-                    {/* Nap Fejléce */}
                     <div style={{ borderBottom: '1px solid #4A2E33', paddingBottom: '10px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                        <Title level={4} style={{ color: isToday ? '#E5B15D' : '#d8b4e2', margin: 0, fontFamily: 'Georgia, serif' }}>
                          {dayName} {isToday && <Tag color="gold" style={{marginLeft: 10}}>Ma</Tag>}
@@ -348,8 +348,6 @@ export const CalendarView = ({ app }) => {
                          {`${String(currentDayDate.getMonth() + 1).padStart(2, '0')}. ${String(currentDayDate.getDate()).padStart(2, '0')}.`}
                        </Text>
                     </div>
-
-                    {/* Napi Események vagy Üres Állapot */}
                     {dayEvents.length > 0 ? (
                        <EventList tournamentsData={dayEvents} app={app} />
                     ) : (
@@ -427,23 +425,19 @@ export const AdminEvents = ({ app: v }) => {
   return (
     <ConfigProvider theme={tavernTheme}>
       <div>
-
         {v.userRole === 'owner' && (
           <div className="bg-[#1a1012] p-4 rounded-xl border-2 border-purple-900 mb-8 shadow-lg">
             <Title level={4} style={{ color: '#d8b4e2', margin: '0 0 15px 0', fontFamily: 'Georgia, serif' }}>👑 Tulajdonosi Eszközök (God Mode)</Title>
             <div className="flex flex-wrap gap-4 items-center">
-              
               <div className="flex items-center gap-2 bg-[#2B1A1C] px-4 py-2 rounded-lg border border-[#4A2E33]">
                 <strong className={v.isMaintenance ? "text-red-500" : "text-green-500"}>Karbantartás Mód:</strong>
                 <Popconfirm title={`Biztosan ${v.isMaintenance ? 'kikapcsolod' : 'bekapcsolod'} a karbantartást?`} onConfirm={() => v.toggleMaintenance(!v.isMaintenance)} okText="Igen" cancelText="Mégse">
                   <Button danger={v.isMaintenance} type={v.isMaintenance ? "primary" : "default"} size="small">{v.isMaintenance ? "BEKAPCSOLVA" : "KIKAPCSOLVA"}</Button>
                 </Popconfirm>
               </div>
-
               <Button type="primary" style={{ background: '#4b1b54', borderColor: '#4b1b54', color: '#fff' }} onClick={() => v.setIsLogModalOpen(true)}>Tevékenységnapló</Button>
               <Button type="primary" danger onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
               <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={v.handleExportDB}>💾 Adatbázis Mentés (JSON)</Button>
-            
             </div>
           </div>
         )}
@@ -454,16 +448,7 @@ export const AdminEvents = ({ app: v }) => {
             <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
             <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { v.eventForm.resetFields(); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
             <Button type="dashed" shape="round" icon={<CalendarOutlined />} style={{ color: '#E5B15D', borderColor: '#E5B15D', background: 'transparent' }} onClick={() => window.location.href = '/admin/generator'}>Ismétlődő Generátor</Button>
-            
-            <Button 
-              type="default" 
-              shape="round" 
-              icon={<EyeOutlined />} 
-              style={{ color: '#fff', borderColor: '#4A2E33', background: '#2B1A1C' }} 
-              onClick={() => window.open('/', '_blank')}
-            >
-              Publikus Naptár
-            </Button>
+            <Button type="default" shape="round" icon={<EyeOutlined />} style={{ color: '#fff', borderColor: '#4A2E33', background: '#2B1A1C' }} onClick={() => window.open('/', '_blank')}>Publikus Naptár</Button>
           </Space>
         </div>
 
