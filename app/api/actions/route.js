@@ -159,6 +159,32 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    if (actionType === 'CHANGE_OWN_PASSWORD') {
+      const ownerSession = await verifyOwner();
+      if (!ownerSession) {
+        return NextResponse.json({ error: 'Csak Admin2 módosíthatja a saját jelszavát.' }, { status: 403 });
+      }
+
+      const { currentPassword, newPassword } = payload;
+      if (!currentPassword || !newPassword) {
+        return NextResponse.json({ error: 'A jelenlegi és az új jelszó megadása kötelező.' }, { status: 400 });
+      }
+      if (newPassword.length < 6) {
+        return NextResponse.json({ error: 'Az új jelszónak legalább 6 karakter hosszúnak kell lennie.' }, { status: 400 });
+      }
+
+      const user = await db.collection('users').findOne(getQuery(ownerSession.id));
+      if (!user) return NextResponse.json({ error: 'Felhasználó nem található.' }, { status: 404 });
+
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) return NextResponse.json({ error: 'A jelenlegi jelszó hibás.' }, { status: 400 });
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db.collection('users').updateOne(getQuery(ownerSession.id), { $set: { password: hashedPassword } });
+      await addLog(db, session.username, 'SAJÁT JELSZÓ CSERE', 'Megváltoztatta a saját jelszavát.');
+      return NextResponse.json({ success: true });
+    }
+
     // --- RENDSZER BEÁLLÍTÁSOK ÉS TILTÓLISTA ---
     if (actionType === 'TOGGLE_MAINTENANCE') {
       const ownerSession = await verifyOwner();

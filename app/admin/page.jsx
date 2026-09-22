@@ -125,6 +125,15 @@ export default function AdminPage() {
             Admin Vezérlőpult
           </h1>
           <div className="flex items-center gap-4">
+            {app.userRole === 'owner' && (
+              <button
+                type="button"
+                onClick={() => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); }}
+                className="text-[#E0D6C8] hover:text-[#E5B15D] flex items-center gap-2 font-bold transition text-lg cursor-pointer bg-transparent border-none"
+              >
+                <LockOutlined /> Saját jelszó
+              </button>
+            )}
             <div className="h-6 w-px bg-[#4A2E33]"></div>
             
             <button 

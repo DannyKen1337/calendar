@@ -41,8 +41,10 @@ export const useCalendar = () => {
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
+  const [isOwnPasswordModalOpen, setIsOwnPasswordModalOpen] = useState(false);
   
   const [passwordForm] = Form.useForm();
+  const [ownPasswordForm] = Form.useForm();
   const [eventForm] = Form.useForm();
   const [joinForm] = Form.useForm();
   const [unsubscribeForm] = Form.useForm();
@@ -216,6 +218,24 @@ export const useCalendar = () => {
     } catch (e) { messageApi.error("Hálózati hiba történt."); }
   };
 
+  const submitOwnPasswordChange = async (values) => {
+    try {
+      const response = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actionType: 'CHANGE_OWN_PASSWORD',
+          payload: { currentPassword: values.currentPassword, newPassword: values.newPassword },
+        }),
+      });
+      const result = await response.json();
+      if (result.error) { messageApi.error(result.error); return; }
+      messageApi.success("Saját jelszavad sikeresen megváltozott!");
+      setIsOwnPasswordModalOpen(false);
+      ownPasswordForm.resetFields();
+    } catch (e) { messageApi.error("Hálózati hiba történt."); }
+  };
+
   const handleDeleteUser = async (userId) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId) } }) });
     messageApi.success("Felhasználó törölve."); fetchData(true);
@@ -325,7 +345,8 @@ export const useCalendar = () => {
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isSyncing, handleSync,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
-    isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange, handleDeleteUser,
+    isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
+    isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
