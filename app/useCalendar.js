@@ -50,10 +50,7 @@ export const useCalendar = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
-    // 1. Session ellenőrzése a backendtől induláskor (Nem localStorage!)
     checkSession();
-    
-    // Bolt betöltése
     const storedStore = localStorage.getItem('tavern_selected_store');
     if (storedStore) setSelectedStore(storedStore);
   }, []);
@@ -66,12 +63,12 @@ export const useCalendar = () => {
         setUserName(data.user.username);
         setUserEmail(data.user.email);
         setUserRole(data.user.role);
-        fetchAdminData(); // Ha admin, betölti a nagy adatot
+        fetchAdminData(false); 
       } else {
-        fetchPublicData(); // Ha nem admin, csak a kicsit
+        fetchPublicData(false);
       }
     } catch (e) {
-      fetchPublicData(); // Ha hiba van (offline), próbálja a publikust
+      fetchPublicData(false);
     }
   };
 
@@ -84,27 +81,25 @@ export const useCalendar = () => {
     }
   };
 
-  // Publikus adatok letöltése
-  const fetchPublicData = async () => {
-    setLoading(true);
+  // Az isBackground paraméter megakadályozza a képernyő villogását!
+  const fetchPublicData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const response = await fetch(`/api/public-data?t=${Date.now()}`);
       const data = await response.json();
       if (data.tournaments) setTournaments(data.tournaments);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
     } catch (e) {}
-    setLoading(false);
+    if (!isBackground) setLoading(false);
   };
 
-  // Admin adatok letöltése
-  const fetchAdminData = async () => {
-    setLoading(true);
+  const fetchAdminData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const response = await fetch(`/api/admin-data?t=${Date.now()}`);
       if (response.status === 401) {
-         // Ha a token lejárt, visszadob publikusra
          setUserRole(null);
-         fetchPublicData();
+         fetchPublicData(isBackground);
          return;
       }
       const data = await response.json();
@@ -115,16 +110,16 @@ export const useCalendar = () => {
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
     } catch (e) {
-       fetchPublicData(); // Fallback
+       fetchPublicData(isBackground);
     }
-    setLoading(false);
+    if (!isBackground) setLoading(false);
   };
 
-  const fetchData = () => {
+  const fetchData = (isBackground = false) => {
     if (userRole === 'admin' || userRole === 'owner') {
-      fetchAdminData();
+      fetchAdminData(isBackground);
     } else {
-      fetchPublicData();
+      fetchPublicData(isBackground);
     }
   };
 
@@ -134,7 +129,7 @@ export const useCalendar = () => {
       const response = await fetch('/api/sync');
       const data = await response.json();
       if (data.error) messageApi.error(`Hiba: ${data.error}`);
-      else { messageApi.success(data.message || "Szinkronizálás sikeres!"); fetchData(); }
+      else { messageApi.success(data.message || "Szinkronizálás sikeres!"); fetchData(true); }
     } catch (e) { messageApi.error("Hálózati hiba."); }
     setIsSyncing(false);
   };
@@ -142,7 +137,7 @@ export const useCalendar = () => {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     setUserRole(null); setUserName(""); setUserEmail("");
-    fetchPublicData();
+    fetchPublicData(false);
   };
 
   const handleAuthSubmit = async (values) => {
@@ -155,7 +150,7 @@ export const useCalendar = () => {
         messageApi.success(`Üdvözlünk, ${data.user.username}!`);
         setUserName(data.user.username); setUserEmail(data.user.email); setUserRole(data.user.role);
         setIsAuthModalOpen(false); authForm.resetFields();
-        fetchAdminData(); // Login után azonnal lerántja a titkos adatokat!
+        fetchAdminData(false);
       } else {
         messageApi.success('Sikeres regisztráció! Most jelentkezz be.');
         setIsRegistering(false);
@@ -166,17 +161,17 @@ export const useCalendar = () => {
 
   const toggleMaintenance = async (newState) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: newState } }) });
-    setIsMaintenance(newState); messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA."); fetchData();
+    setIsMaintenance(newState); messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA."); fetchData(true);
   };
 
   const handleBanEmail = async (values) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'BAN_EMAIL', payload: { email: values.email, reason: values.reason } }) });
-    messageApi.success("E-mail cím feketelistára téve."); blacklistForm.resetFields(); fetchData();
+    messageApi.success("E-mail cím feketelistára téve."); blacklistForm.resetFields(); fetchData(true);
   };
 
   const handleUnbanEmail = async (email) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNBAN_EMAIL', payload: { email } }) });
-    messageApi.success("Tiltás feloldva."); fetchData();
+    messageApi.success("Tiltás feloldva."); fetchData(true);
   };
 
   const handleExportDB = () => window.location.href = '/api/export-db';
@@ -186,7 +181,7 @@ export const useCalendar = () => {
       const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'CLEANUP_OLD_EVENTS', payload: {} }) });
       const result = await response.json();
       if (result.error) messageApi.error(result.error);
-      else { messageApi.success(`${result.count} db régi esemény törölve!`); fetchData(); }
+      else { messageApi.success(`${result.count} db régi esemény törölve!`); fetchData(true); }
     } catch (e) { messageApi.error("Hálózati hiba történt."); }
   };
 
@@ -194,7 +189,7 @@ export const useCalendar = () => {
     const makeAdmin = targetUser.role !== 'admin';
     const targetId = String(targetUser._id || targetUser.id);
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_ROLE', payload: { targetUserId: targetId, makeAdmin }}) });
-    fetchData();
+    fetchData(true);
   };
 
   const initiatePasswordChange = (user) => { setSelectedUserForPassword(user); passwordForm.resetFields(); setIsPasswordModalOpen(true); };
@@ -211,10 +206,9 @@ export const useCalendar = () => {
 
   const handleDeleteUser = async (userId) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId) } }) });
-    messageApi.success("Felhasználó törölve."); fetchData();
+    messageApi.success("Felhasználó törölve."); fetchData(true);
   };
 
-  // Képfeltöltés átirányítva a biztonságos backend szerverünkhöz!
   const handleImageUpload = async (info, targetForm) => {
     const file = info.file.originFileObj || info.file; if (!file) return;
     setIsUploading(true);
@@ -228,6 +222,19 @@ export const useCalendar = () => {
     setIsUploading(false);
   };
 
+  // Dinamikus színkiosztó az események kártyáihoz a játék neve alapján
+  const getGameColor = (gameName) => {
+    if (!gameName) return '#E5B15D';
+    const g = gameName.toLowerCase();
+    if (g.includes('riftbound')) return '#8B5CF6'; // Lila
+    if (g.includes('pokemon') || g.includes('pokémon')) return '#F59E0B'; // Sárga
+    if (g.includes('star wars') || g.includes('unlimited')) return '#EF4444'; // Piros
+    if (g.includes('lorcana')) return '#10B981'; // Zöld
+    if (g.includes('magic') || g.includes('mtg')) return '#3B82F6'; // Kék
+    if (g.includes('flesh') || g.includes('blood')) return '#B91C1C'; // Sötétpiros
+    return '#E5B15D'; // Alapértelmezett Tavern arany
+  };
+
   const saveEvent = async (values) => {
     const formValues = values || eventForm.getFieldsValue(); 
     try {
@@ -236,7 +243,8 @@ export const useCalendar = () => {
         max_players: parseInt(formValues.max_players) || 16, 
         external_url: formValues.external_url || "", 
         imageUrl: formValues.imageUrl || "", 
-        isExternalEvent: !!formValues.external_url
+        isExternalEvent: !!formValues.external_url,
+        color: formValues.game ? getGameColor(formValues.game) : (formValues.color || '#E5B15D') // Szín frissítése
       };
       
       if (editingEventId) { 
@@ -247,13 +255,15 @@ export const useCalendar = () => {
         messageApi.success("Létrehozva!"); 
       }
       
-      setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); fetchData();
+      setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); 
+      fetchData(true); // Láthatatlan háttérfrissítés
     } catch (err) {}
   };
 
   const handleDeleteTournament = async (tournamentId) => { 
      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId) }}) }); 
-     messageApi.success("Esemény törölve."); fetchData(); 
+     messageApi.success("Esemény törölve."); 
+     fetchData(true); 
    };
 
   const initiateJoin = (tournament) => {
@@ -269,7 +279,8 @@ export const useCalendar = () => {
       const result = await response.json();
       if (result.error) { messageApi.error(result.error); return; }
       messageApi.success(result.isQueue ? "Várólistára kerültél!" : "Hely biztosítva!");
-      setIsJoinModalOpen(false); joinForm.resetFields(); fetchData();
+      setIsJoinModalOpen(false); joinForm.resetFields(); 
+      fetchData(true);
     } catch (e) {}
   };
 
@@ -283,14 +294,16 @@ export const useCalendar = () => {
       const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email: values.email } }) });
       const result = await response.json();
       if (result.error) { messageApi.error(result.error); return; }
-      messageApi.success("Sikeresen lejelentkeztél az eseményről."); setIsUnsubscribeModalOpen(false); fetchData(); 
+      messageApi.success("Sikeresen lejelentkeztél az eseményről."); setIsUnsubscribeModalOpen(false); 
+      fetchData(true); 
     } catch (e) { messageApi.error("Hálózati hiba történt."); }
   };
 
   const handleRemoveRegistration = async (registrationId) => {
     try {
       await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REMOVE_REGISTRATION', payload: { registrationId } }) });
-      messageApi.success("Jelentkező törölve."); fetchData(); 
+      messageApi.success("Jelentkező törölve."); 
+      fetchData(true); 
     } catch (err) {}
   };
 
