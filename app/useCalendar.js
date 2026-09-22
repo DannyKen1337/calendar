@@ -2,8 +2,6 @@
 import { useState, useEffect } from "react";
 import { message, Form } from "antd";
 
-const IMGBB_API_KEY = "IDE_JON_AZ_IMGBB_KULCSOD"; 
-
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,7 +11,6 @@ export const useCalendar = () => {
   const [userEmail, setUserEmail] = useState("");
   const [usersList, setUsersList] = useState([]);
   
-  // ÚJ: Bolt választó állapot
   const [selectedStore, setSelectedStore] = useState(null);
   
   const [logs, setLogs] = useState([]);
@@ -53,24 +50,30 @@ export const useCalendar = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
-    const storedSession = localStorage.getItem('tavern_calendar_session');
-    if (storedSession) {
-      try {
-         const userData = JSON.parse(storedSession);
-         setUserName(userData.username);
-         setUserEmail(userData.email);
-         setUserRole(userData.role);
-       } catch (error) { localStorage.removeItem('tavern_calendar_session'); }
-    }
+    // 1. Session ellenőrzése a backendtől induláskor (Nem localStorage!)
+    checkSession();
     
-    // Bolt betöltése a memóriából
+    // Bolt betöltése
     const storedStore = localStorage.getItem('tavern_selected_store');
-    if (storedStore) {
-      setSelectedStore(storedStore);
-    }
-    
-    fetchData();
+    if (storedStore) setSelectedStore(storedStore);
   }, []);
+
+  const checkSession = async () => {
+    try {
+      const res = await fetch('/api/auth/session');
+      const data = await res.json();
+      if (data.user) {
+        setUserName(data.user.username);
+        setUserEmail(data.user.email);
+        setUserRole(data.user.role);
+        fetchAdminData(); // Ha admin, betölti a nagy adatot
+      } else {
+        fetchPublicData(); // Ha nem admin, csak a kicsit
+      }
+    } catch (e) {
+      fetchPublicData(); // Ha hiba van (offline), próbálja a publikust
+    }
+  };
 
   const handleSelectStore = (storeId) => {
     setSelectedStore(storeId);
@@ -81,10 +84,29 @@ export const useCalendar = () => {
     }
   };
 
-  const fetchData = async () => {
+  // Publikus adatok letöltése
+  const fetchPublicData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/data?t=${Date.now()}`);
+      const response = await fetch(`/api/public-data?t=${Date.now()}`);
+      const data = await response.json();
+      if (data.tournaments) setTournaments(data.tournaments);
+      if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
+    } catch (e) {}
+    setLoading(false);
+  };
+
+  // Admin adatok letöltése
+  const fetchAdminData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin-data?t=${Date.now()}`);
+      if (response.status === 401) {
+         // Ha a token lejárt, visszadob publikusra
+         setUserRole(null);
+         fetchPublicData();
+         return;
+      }
       const data = await response.json();
       if (data.tournaments) setTournaments(data.tournaments);
       if (data.registrations) setRegistrations(data.registrations);
@@ -92,8 +114,18 @@ export const useCalendar = () => {
       if (data.logs) setLogs(data.logs);
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
-    } catch (e) {}
+    } catch (e) {
+       fetchPublicData(); // Fallback
+    }
     setLoading(false);
+  };
+
+  const fetchData = () => {
+    if (userRole === 'admin' || userRole === 'owner') {
+      fetchAdminData();
+    } else {
+      fetchPublicData();
+    }
   };
 
   const handleSync = async () => {
@@ -107,9 +139,10 @@ export const useCalendar = () => {
     setIsSyncing(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('tavern_calendar_session');
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
     setUserRole(null); setUserName(""); setUserEmail("");
+    fetchPublicData();
   };
 
   const handleAuthSubmit = async (values) => {
@@ -118,27 +151,31 @@ export const useCalendar = () => {
       const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...values }) });
       const data = await response.json();
       if (data.error) messageApi.error(data.error);
-      else {
+      else if (action === 'login') {
         messageApi.success(`Üdvözlünk, ${data.user.username}!`);
-        localStorage.setItem('tavern_calendar_session', JSON.stringify({ username: data.user.username, email: data.user.email, role: data.user.role }));
         setUserName(data.user.username); setUserEmail(data.user.email); setUserRole(data.user.role);
         setIsAuthModalOpen(false); authForm.resetFields();
+        fetchAdminData(); // Login után azonnal lerántja a titkos adatokat!
+      } else {
+        messageApi.success('Sikeres regisztráció! Most jelentkezz be.');
+        setIsRegistering(false);
+        authForm.resetFields();
       }
-    } catch (e) {}
+    } catch (e) { messageApi.error("Szerver hiba történt."); }
   };
 
   const toggleMaintenance = async (newState) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: newState, adminName: userName } }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: newState } }) });
     setIsMaintenance(newState); messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA."); fetchData();
   };
 
   const handleBanEmail = async (values) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'BAN_EMAIL', payload: { email: values.email, reason: values.reason, adminName: userName } }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'BAN_EMAIL', payload: { email: values.email, reason: values.reason } }) });
     messageApi.success("E-mail cím feketelistára téve."); blacklistForm.resetFields(); fetchData();
   };
 
   const handleUnbanEmail = async (email) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNBAN_EMAIL', payload: { email, adminName: userName } }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNBAN_EMAIL', payload: { email } }) });
     messageApi.success("Tiltás feloldva."); fetchData();
   };
 
@@ -146,7 +183,7 @@ export const useCalendar = () => {
 
   const handleCleanupOldEvents = async () => {
     try {
-      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'CLEANUP_OLD_EVENTS', payload: { adminName: userName } }) });
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'CLEANUP_OLD_EVENTS', payload: {} }) });
       const result = await response.json();
       if (result.error) messageApi.error(result.error);
       else { messageApi.success(`${result.count} db régi esemény törölve!`); fetchData(); }
@@ -156,7 +193,7 @@ export const useCalendar = () => {
   const toggleUserRole = async (targetUser) => {
     const makeAdmin = targetUser.role !== 'admin';
     const targetId = String(targetUser._id || targetUser.id);
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_ROLE', payload: { targetUserId: targetId, makeAdmin, adminName: userName }}) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_ROLE', payload: { targetUserId: targetId, makeAdmin }}) });
     fetchData();
   };
 
@@ -165,7 +202,7 @@ export const useCalendar = () => {
   const submitPasswordChange = async (values) => {
     const uId = String(selectedUserForPassword._id || selectedUserForPassword.id);
     try {
-      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'CHANGE_USER_PASSWORD', payload: { userId: uId, newPassword: values.newPassword, adminName: userName } }) });
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'CHANGE_USER_PASSWORD', payload: { userId: uId, newPassword: values.newPassword } }) });
       const result = await response.json();
       if (result.error) { messageApi.error(result.error); return; }
       messageApi.success("Jelszó sikeresen felülírva!"); setIsPasswordModalOpen(false);
@@ -173,21 +210,21 @@ export const useCalendar = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId), adminName: userName } }) });
+    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId) } }) });
     messageApi.success("Felhasználó törölve."); fetchData();
   };
 
+  // Képfeltöltés átirányítva a biztonságos backend szerverünkhöz!
   const handleImageUpload = async (info, targetForm) => {
-    if (IMGBB_API_KEY === "IDE_JON_AZ_IMGBB_KULCSOD") { messageApi.error("ImgBB API kulcs hiányzik!"); return; }
     const file = info.file.originFileObj || info.file; if (!file) return;
     setIsUploading(true);
     const formData = new FormData(); formData.append('image', file);
     try {
-      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
-      if (data.success) { targetForm.setFieldsValue({ imageUrl: data.data.url }); messageApi.success('Kép feltöltve!'); } 
-      else { messageApi.error('Hiba a feltöltésnél.'); }
-    } catch (err) { }
+      if (data.success) { targetForm.setFieldsValue({ imageUrl: data.url }); messageApi.success('Kép feltöltve!'); } 
+      else { messageApi.error(`Hiba: ${data.error}`); }
+    } catch (err) { messageApi.error('Hálózati hiba a feltöltésnél.'); }
     setIsUploading(false);
   };
 
@@ -199,9 +236,7 @@ export const useCalendar = () => {
         max_players: parseInt(formValues.max_players) || 16, 
         external_url: formValues.external_url || "", 
         imageUrl: formValues.imageUrl || "", 
-        isExternalEvent: !!formValues.external_url, 
-        userRole: userName, 
-        adminName: userName 
+        isExternalEvent: !!formValues.external_url
       };
       
       if (editingEventId) { 
@@ -217,7 +252,7 @@ export const useCalendar = () => {
   };
 
   const handleDeleteTournament = async (tournamentId) => { 
-     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId), adminName: userName }}) }); 
+     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId) }}) }); 
      messageApi.success("Esemény törölve."); fetchData(); 
    };
 
@@ -254,7 +289,7 @@ export const useCalendar = () => {
 
   const handleRemoveRegistration = async (registrationId) => {
     try {
-      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REMOVE_REGISTRATION', payload: { registrationId, adminName: userName } }) });
+      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REMOVE_REGISTRATION', payload: { registrationId } }) });
       messageApi.success("Jelentkező törölve."); fetchData(); 
     } catch (err) {}
   };
@@ -267,7 +302,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
-    selectedStore, handleSelectStore, // ÚJ EXPORT
+    selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isSyncing, handleSync,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,

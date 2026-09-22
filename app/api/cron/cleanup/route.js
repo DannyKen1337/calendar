@@ -5,7 +5,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  
+  // Szigorúbb feltétel, ami nem engedi át, ha hiányzik a környezeti változó
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
@@ -13,7 +15,6 @@ export async function GET(request) {
     const client = await clientPromise;
     const db = client.db();
     
-    // Kiszámoljuk a pontos 2 hónappal ezelőtti dátumot
     const twoMonthsAgo = new Date();
     twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
@@ -23,14 +24,10 @@ export async function GET(request) {
       .map(evt => evt._id);
 
     if (oldEventIds.length > 0) {
-      // Töröljük a régi eseményeket
       await db.collection('tournaments').deleteMany({ _id: { $in: oldEventIds } });
-      
-      // Töröljük a hozzájuk tartozó regisztrációkat is
       const stringIds = oldEventIds.map(id => String(id));
       await db.collection('registrations').deleteMany({ tournamentId: { $in: stringIds } });
       
-      // Naplózzuk az automata akciót
       await db.collection('audit_logs').insertOne({
         adminName: 'Vercel Automata',
         action: 'AUTOMATA TAKARÍTÁS',
