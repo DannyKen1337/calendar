@@ -29,7 +29,6 @@ const tavernTheme = {
 
 const defaultLogoUrl = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
 
-// ÚJ: BOLTOK KONFIGURÁCIÓJA
 export const STORES = {
   debrecen: { id: 'debrecen', name: 'Tavern Debrecen', color: '#E5B15D', icon: '🏰' },
   miskolc: { id: 'miskolc', name: 'Tavern Miskolc', color: '#8b5cf6', icon: '⛰️' },
@@ -54,7 +53,6 @@ export const getCategoryImage = (category) => {
   return getGameConfig(category).logo || defaultLogoUrl;
 };
 
-// ÚJ KOMPONENS: A KEZDŐFELÜLET
 export const StoreSelector = ({ onSelect }) => {
   return (
     <ConfigProvider theme={tavernTheme}>
@@ -63,19 +61,12 @@ export const StoreSelector = ({ onSelect }) => {
           <h1 className="text-5xl font-bold text-[#E5B15D] font-serif mb-4 tracking-wider">Közösségi Naptár</h1>
           <p className="text-[#baaaac] text-lg">Kérlek válaszd ki, melyik helyszín eseményeire vagy kíváncsi!</p>
         </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
           {Object.values(STORES).map(store => (
-            <div 
-              key={store.id} 
-              onClick={() => onSelect(store.id)}
-              className="bg-[#1a1012] border-2 border-[#4A2E33] hover:border-[#E5B15D] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#E5B15D]/20 group"
-            >
+            <div key={store.id} onClick={() => onSelect(store.id)} className="bg-[#1a1012] border-2 border-[#4A2E33] hover:border-[#E5B15D] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#E5B15D]/20 group">
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">{store.icon}</div>
               <h2 className="text-2xl font-bold font-serif text-center" style={{ color: store.color }}>{store.name}</h2>
-              <div className="mt-6 px-6 py-2 rounded-full border border-gray-700 group-hover:border-[#E5B15D] text-gray-400 group-hover:text-[#E5B15D] transition-colors font-bold uppercase text-sm tracking-widest">
-                Belépés
-              </div>
+              <div className="mt-6 px-6 py-2 rounded-full border border-gray-700 group-hover:border-[#E5B15D] text-gray-400 group-hover:text-[#E5B15D] transition-colors font-bold uppercase text-sm tracking-widest">Belépés</div>
             </div>
           ))}
         </div>
@@ -86,12 +77,7 @@ export const StoreSelector = ({ onSelect }) => {
 
 export const PublicModals = ({ app }) => {
   if (!app) return null;
-  const { 
-    isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin,
-    isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin,
-    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, submitUnsubscribe
-  } = app;
-
+  const { isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin, isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin, isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, submitUnsubscribe } = app;
   return (
     <>
       <Modal title={<span style={{ fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>} open={isEventDetailsModalOpen} onCancel={() => setIsEventDetailsModalOpen(false)} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} footer={[
@@ -119,14 +105,12 @@ export const PublicModals = ({ app }) => {
           </div>
         )}
       </Modal>
-
       <Modal title={<span style={{ fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>} open={isJoinModalOpen} onCancel={() => setIsJoinModalOpen(false)} onOk={() => joinForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Jelentkezem" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
         <Form form={joinForm} layout="vertical" onFinish={submitJoin} className="mt-4">
           <Form.Item name="name" label="Neved" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Teszt Elek" /></Form.Item>
           <Form.Item name="email" label="E-mail címed" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input placeholder="pelda@email.com" /></Form.Item>
         </Form>
       </Modal>
-
       <Modal title={<span style={{ color: '#ff4d4f', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Leiratkozás</span>} open={isUnsubscribeModalOpen} onCancel={() => setIsUnsubscribeModalOpen(false)} onOk={() => unsubscribeForm.submit()} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />} okText="Leiratkozás" cancelText="Mégse" okButtonProps={{ danger: true }}>
         <Form form={unsubscribeForm} layout="vertical" onFinish={submitUnsubscribe} className="mt-4">
           <p style={{ marginBottom: 15, color: '#baaaac' }}>Add meg az e-mail címed, amivel jelentkeztél a(z) <b style={{color: '#E5B15D'}}>{selectedEventToJoin?.name}</b> eseményre:</p>
@@ -148,6 +132,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
       else if (isFull) { btnText = "Várólista"; btnType = "dashed"; btnIcon = <UsergroupAddOutlined />; }
       
       const eventColor = evt.color || getGameConfig(evt.category).color;
+      const storeInfo = STORES[evt.store || 'debrecen'];
 
       return (
         <List.Item style={S.eventItem}>
@@ -161,6 +146,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                 <div style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
                 <div>
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
+                  {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
                   {evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}</> )}
                 </div>
@@ -198,7 +184,9 @@ export const CalendarView = ({ app }) => {
   firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyCells = Array.from({ length: firstDayOfMonth }, (_, i) => i);
-  const days = ["Hét", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"];
+  
+  // JAVÍTVA: A "Hét" átírva "Hétfő"-re
+  const days = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"];
   const months = ["Január", "Február", "Március", "Április", "Május", "Június", "Július", "Augusztus", "Szeptember", "Október", "November", "December"];
 
   const getEventsForDay = (day) => {
@@ -219,7 +207,6 @@ export const CalendarView = ({ app }) => {
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6); weekEnd.setHours(23, 59, 59, 999);
   const formatMobileDateRange = (start, end) => `${start.getFullYear()}. ${String(start.getMonth() + 1).padStart(2, '0')}. ${String(start.getDate()).padStart(2, '0')}. - ${end.getFullYear()}. ${String(end.getMonth() + 1).padStart(2, '0')}. ${String(end.getDate()).padStart(2, '0')}.`;
   
-  const weekDaysHu = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"];
   const eventsByDay = Array(7).fill().map(() => []);
   (tournaments || []).forEach(evt => {
      if(!evt.date) return; const d = new Date(evt.date);
@@ -244,7 +231,7 @@ export const CalendarView = ({ app }) => {
               <Button icon={<RightOutlined />} onClick={nextWeek} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {weekDaysHu.map((dayName, idx) => {
+              {days.map((dayName, idx) => {
                 const dayEvents = eventsByDay[idx];
                 const currentDayDate = new Date(weekStart); currentDayDate.setDate(currentDayDate.getDate() + idx);
                 const isToday = realToday && realToday.getDate() === currentDayDate.getDate() && realToday.getMonth() === currentDayDate.getMonth() && realToday.getFullYear() === currentDayDate.getFullYear();
@@ -302,13 +289,12 @@ export const CalendarView = ({ app }) => {
 
 export const AdminEvents = ({ app: v }) => {
   const [adminCatFilter, setAdminCatFilter] = useState('Mind');
-  const [adminStoreFilter, setAdminStoreFilter] = useState('debrecen'); // Admin szűrő boltokra
+  const [adminStoreFilter, setAdminStoreFilter] = useState('Mind'); // JAVÍTVA: Alapból "Összes" nézet van
   
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
   
   const filteredAndSortedTournaments = (v.tournaments || [])
     .filter(evt => {
-      // Visszafelé kompatibilitás: a régi (üres store) események automatikusan Debrecenhez tartoznak
       const evtStore = evt.store || 'debrecen';
       const isStoreMatch = adminStoreFilter === 'Mind' || evtStore === adminStoreFilter;
       const isCatMatch = adminCatFilter === 'Mind' || evt.category === adminCatFilter;
@@ -359,35 +345,43 @@ export const AdminEvents = ({ app: v }) => {
           </div>
         )}
 
-        <div style={S.tabHeader}>
-          <Title level={3} style={S.tabTitle}>Naptár Kezelése</Title>
+        {/* JAVÍTVA ÉS MODERNIZÁLVA: A fő admin toolbar! Itt kapott helyet a bolt és játék szűrő is! */}
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6 bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33] shadow-md">
+          <div className="flex flex-wrap items-center gap-4">
+            <Title level={3} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Vezérlőpult</Title>
+            <div className="hidden md:block w-px h-8 bg-[#4A2E33]"></div>
+            
+            <div className="flex items-center gap-2 bg-[#2B1A1C] px-3 py-1.5 rounded-lg border border-[#4A2E33]">
+              <EnvironmentOutlined className="text-[#E5B15D]" />
+              <Select value={adminStoreFilter} onChange={setAdminStoreFilter} style={{ width: 160 }} bordered={false} dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
+                <Select.Option value="Mind">Összes helyszín</Select.Option>
+                {Object.values(STORES).map(s => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 bg-[#2B1A1C] px-3 py-1.5 rounded-lg border border-[#4A2E33]">
+              <Select value={adminCatFilter} onChange={setAdminCatFilter} style={{ width: 150 }} bordered={false} dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
+                <Select.Option value="Mind">Minden játék</Select.Option>
+                {Object.keys(GAME_CONFIG).map(g => <Select.Option key={g} value={g}>{g}</Select.Option>)}
+              </Select>
+            </div>
+          </div>
+
           <Space style={{ flexWrap: 'wrap' }}>
             <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
-            <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { v.eventForm.resetFields(); v.eventForm.setFieldsValue({ store: adminStoreFilter !== 'Mind' ? adminStoreFilter : 'debrecen' }); v.setEditingEventId(null); v.setIsExternalForm(false); v.setIsEventModalOpen(true); }}>Új Esemény</Button>
-            <Button type="dashed" shape="round" icon={<CalendarOutlined />} style={{ color: '#E5B15D', borderColor: '#E5B15D', background: 'transparent' }} onClick={() => window.location.href = '/admin/generator'}>Ismétlődő Generátor</Button>
-            <Button type="default" shape="round" icon={<EyeOutlined />} style={{ color: '#fff', borderColor: '#4A2E33', background: '#2B1A1C' }} onClick={() => window.open('/', '_blank')}>Publikus Naptár</Button>
+            
+            {/* JAVÍTVA: Az új esemény gomb dinamikusan rántja be a helyszínt a filterből! */}
+            <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { 
+                v.eventForm.resetFields(); 
+                v.eventForm.setFieldsValue({ store: adminStoreFilter !== 'Mind' ? adminStoreFilter : undefined }); 
+                v.setEditingEventId(null); 
+                v.setIsExternalForm(false); 
+                v.setIsEventModalOpen(true); 
+            }}>Új Esemény</Button>
+
+            <Button type="dashed" shape="round" icon={<CalendarOutlined />} style={{ color: '#E5B15D', borderColor: '#E5B15D', background: 'transparent' }} onClick={() => window.location.href = '/admin/generator'}>Generátor</Button>
+            <Button type="default" shape="round" icon={<EyeOutlined />} style={{ color: '#fff', borderColor: '#4A2E33', background: '#2B1A1C' }} onClick={() => window.open('/', '_blank')}>Naptár</Button>
           </Space>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 mb-6 bg-[#2B1A1C] p-3 rounded-xl border border-[#4A2E33] w-fit">
-          <div className="flex items-center gap-2">
-            <EnvironmentOutlined className="text-[#E5B15D] text-lg" />
-            <span className="text-[#baaaac] font-bold">Helyszín:</span>
-            <Select value={adminStoreFilter} onChange={setAdminStoreFilter} style={{ width: 180 }} dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
-              <Select.Option value="Mind">Összes bolt</Select.Option>
-              {Object.values(STORES).map(store => (<Select.Option key={store.id} value={store.id}>{store.name}</Select.Option>))}
-            </Select>
-          </div>
-          
-          <div className="w-px h-6 bg-[#4A2E33]"></div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[#baaaac] font-bold">Játék:</span>
-            <Select value={adminCatFilter} onChange={setAdminCatFilter} style={{ width: 180 }} dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
-              <Select.Option value="Mind">Minden játék</Select.Option>
-              {Object.keys(GAME_CONFIG).map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}
-            </Select>
-          </div>
         </div>
         
         <EventList tournamentsData={filteredAndSortedTournaments} isAdmin={true} app={v} />
@@ -398,7 +392,7 @@ export const AdminEvents = ({ app: v }) => {
             
             <div className="grid grid-cols-2 gap-4">
               <Form.Item name="store" label="Helyszín" rules={[{ required: true, message: 'Kérlek válassz boltot!' }]}>
-                <Select placeholder="Válassz boltot...">
+                <Select placeholder="Válassz boltot..." allowClear>
                   {Object.values(STORES).map(store => (<Select.Option key={store.id} value={store.id}>{store.name}</Select.Option>))}
                 </Select>
               </Form.Item>
@@ -416,7 +410,7 @@ export const AdminEvents = ({ app: v }) => {
           </Form>
         </Modal>
 
-        {/* ... (Többi Modal maradt érintetlenül, mint a Felhasználók, Jelszó, Jelentkezők, Napló, Feketelista) ... */}
+        {/* --- TOVÁBBI ABLAKOK --- */}
         <Modal title="Szervezős Felhasználók" open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} columns={[
             { title: 'Név', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
