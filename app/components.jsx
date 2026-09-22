@@ -77,7 +77,13 @@ export const StoreSelector = ({ onSelect }) => {
 
 export const PublicModals = ({ app }) => {
   if (!app) return null;
-  const { isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin, isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin, isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, submitUnsubscribe } = app;
+  const { 
+    isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin, 
+    isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin, 
+    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, submitUnsubscribe,
+    isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit
+  } = app;
+  
   return (
     <>
       <Modal title={<span style={{ fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>} open={isEventDetailsModalOpen} onCancel={() => setIsEventDetailsModalOpen(false)} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} footer={[
@@ -105,16 +111,55 @@ export const PublicModals = ({ app }) => {
           </div>
         )}
       </Modal>
+
       <Modal title={<span style={{ fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>} open={isJoinModalOpen} onCancel={() => setIsJoinModalOpen(false)} onOk={() => joinForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Jelentkezem" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
         <Form form={joinForm} layout="vertical" onFinish={submitJoin} className="mt-4">
           <Form.Item name="name" label="Neved" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Teszt Elek" /></Form.Item>
           <Form.Item name="email" label="E-mail címed" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input placeholder="pelda@email.com" /></Form.Item>
         </Form>
       </Modal>
+
       <Modal title={<span style={{ color: '#ff4d4f', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Leiratkozás</span>} open={isUnsubscribeModalOpen} onCancel={() => setIsUnsubscribeModalOpen(false)} onOk={() => unsubscribeForm.submit()} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />} okText="Leiratkozás" cancelText="Mégse" okButtonProps={{ danger: true }}>
         <Form form={unsubscribeForm} layout="vertical" onFinish={submitUnsubscribe} className="mt-4">
           <p style={{ marginBottom: 15, color: '#baaaac' }}>Add meg az e-mail címed, amivel jelentkeztél a(z) <b style={{color: '#E5B15D'}}>{selectedEventToJoin?.name}</b> eseményre:</p>
           <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input placeholder="pelda@email.com" /></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal 
+        title={<span style={{ fontSize: '1.3rem', fontFamily: 'Georgia, serif', color: '#E5B15D' }}>{isRegistering ? 'Új Admin Regisztrálása' : 'Adminisztrátori Belépés'}</span>} 
+        open={isAuthModalOpen} 
+        onCancel={() => { setIsAuthModalOpen(false); authForm.resetFields(); }} 
+        onOk={() => authForm.submit()} 
+        closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} 
+        okText={isRegistering ? 'Regisztráció' : 'Belépés'} 
+        cancelText="Mégse" 
+        okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}
+      >
+        <Form form={authForm} layout="vertical" onFinish={handleAuthSubmit} className="mt-4">
+          {!isRegistering && (
+            <Form.Item name="loginId" label="Felhasználónév vagy E-mail" rules={[{ required: true, message: 'Kötelező megadni!' }]}>
+              <Input placeholder="admin / admin@tavern.hu" size="large" />
+            </Form.Item>
+          )}
+          {isRegistering && (
+            <>
+              <Form.Item name="username" label="Felhasználónév" rules={[{ required: true, message: 'Kötelező megadni!' }]}>
+                <Input placeholder="Pl.: tavern_admin" size="large" />
+              </Form.Item>
+              <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail címet adj meg!' }]}>
+                <Input placeholder="admin@tavern.hu" size="large" />
+              </Form.Item>
+            </>
+          )}
+          <Form.Item name="password" label="Jelszó" rules={[{ required: true, message: 'Kötelező megadni!' }]}>
+            <Input.Password placeholder="********" size="large" />
+          </Form.Item>
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <Button type="link" onClick={() => { setIsRegistering(!isRegistering); authForm.resetFields(); }} style={{ color: '#baaaac', textDecoration: 'underline' }}>
+              {isRegistering ? 'Már van fiókod? Lépj be itt!' : 'Nincs még fiókod? Regisztrálj!'}
+            </Button>
+          </div>
         </Form>
       </Modal>
     </>
@@ -185,7 +230,6 @@ export const CalendarView = ({ app }) => {
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyCells = Array.from({ length: firstDayOfMonth }, (_, i) => i);
   
-  // JAVÍTVA: A "Hét" átírva "Hétfő"-re
   const days = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"];
   const months = ["Január", "Február", "Március", "Április", "Május", "Június", "Július", "Augusztus", "Szeptember", "Október", "November", "December"];
 
@@ -289,7 +333,7 @@ export const CalendarView = ({ app }) => {
 
 export const AdminEvents = ({ app: v }) => {
   const [adminCatFilter, setAdminCatFilter] = useState('Mind');
-  const [adminStoreFilter, setAdminStoreFilter] = useState('Mind'); // JAVÍTVA: Alapból "Összes" nézet van
+  const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
   
@@ -345,7 +389,6 @@ export const AdminEvents = ({ app: v }) => {
           </div>
         )}
 
-        {/* JAVÍTVA ÉS MODERNIZÁLVA: A fő admin toolbar! Itt kapott helyet a bolt és játék szűrő is! */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6 bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33] shadow-md">
           <div className="flex flex-wrap items-center gap-4">
             <Title level={3} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Vezérlőpult</Title>
@@ -370,7 +413,6 @@ export const AdminEvents = ({ app: v }) => {
           <Space style={{ flexWrap: 'wrap' }}>
             <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
             
-            {/* JAVÍTVA: Az új esemény gomb dinamikusan rántja be a helyszínt a filterből! */}
             <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { 
                 v.eventForm.resetFields(); 
                 v.eventForm.setFieldsValue({ store: adminStoreFilter !== 'Mind' ? adminStoreFilter : undefined }); 
@@ -410,7 +452,6 @@ export const AdminEvents = ({ app: v }) => {
           </Form>
         </Modal>
 
-        {/* --- TOVÁBBI ABLAKOK --- */}
         <Modal title="Szervezős Felhasználók" open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} columns={[
             { title: 'Név', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
