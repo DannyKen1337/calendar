@@ -3,7 +3,6 @@ import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 
-// Segédfüggvény a tevékenységek naplózására
 async function addLog(db, adminName, action, details) {
   await db.collection('audit_logs').insertOne({
     adminName: adminName || 'Rendszer',
@@ -55,7 +54,6 @@ export async function POST(request) {
     if (actionType === 'JOIN_TOURNAMENT') {
       const { tournamentId, name, email } = payload;
       
-      // FEKETELISTA ELLENŐRZÉS
       const isBanned = await db.collection('blacklist').findOne({ email: email.toLowerCase() });
       if (isBanned) {
         return NextResponse.json({ error: "Sajnáljuk, de erről az e-mail címről a jelentkezés letiltásra került a Tavern rendszerében." }, { status: 403 });
@@ -74,16 +72,25 @@ export async function POST(request) {
       return NextResponse.json({ success: true, isQueue });
     }
 
+    if (actionType === 'UNSUBSCRIBE_BY_EMAIL') {
+      const { tournamentId, email } = payload;
+      const reg = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: email.toLowerCase() });
+      if (!reg) return NextResponse.json({ error: "Nincs jelentkezés erről az e-mail címről." }, { status: 404 });
+      
+      await db.collection('registrations').deleteOne({ _id: reg._id });
+      await db.collection('tournaments').updateOne(getQuery(tournamentId), { $inc: { [reg.status === 'Aktív' || reg.status === 'Active' ? 'current_players' : 'queue_count']: -1 } });
+      return NextResponse.json({ success: true });
+    }
+
     if (actionType === 'REMOVE_REGISTRATION') {
       const reg = await db.collection('registrations').findOne(getQuery(payload.registrationId));
       if (!reg) return NextResponse.json({ error: "Nem található" }, { status: 404 });
       await db.collection('registrations').deleteOne(getQuery(payload.registrationId));
-      await db.collection('tournaments').updateOne(getQuery(reg.tournamentId), { $inc: { [reg.status === 'Aktív' ? 'current_players' : 'queue_count']: -1 } });
+      await db.collection('tournaments').updateOne(getQuery(reg.tournamentId), { $inc: { [reg.status === 'Aktív' || reg.status === 'Active' ? 'current_players' : 'queue_count']: -1 } });
       await addLog(db, payload.adminName, 'JELENTKEZŐ TÖRLÉSE', `Törölte ${reg.name} jelentkezését (${reg.tournamentName})`);
       return NextResponse.json({ success: true });
     }
 
-    // --- TULAJDONOSI (GOD MODE) FUNKCIÓK ---
     if (actionType === 'TOGGLE_ROLE') {
       const targetId = payload.targetUserId;
       await db.collection('users').updateOne(getQuery(targetId), { $set: { role: payload.makeAdmin ? 'admin' : 'customer' } });
@@ -120,6 +127,25 @@ export async function POST(request) {
       await db.collection('blacklist').deleteOne({ email: payload.email.toLowerCase() });
       await addLog(db, payload.adminName, 'FEKETELISTA', `Feloldotta: ${payload.email}`);
       return NextResponse.json({ success: true });
+    }
+
+    // ÚJ: A kézi gomb takarítási folyamata
+    if (actionType === 'CLEANUP_OLD_EVENTS') {
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      
+      const allEvents = await db.collection('tournaments').find({}).toArray();
+      const oldEventIds = allEvents
+        .filter(evt => new Date(evt.date) < twoMonthsAgo)
+        .map(evt => evt._id);
+
+      if (oldEventIds.length > 0) {
+        await db.collection('tournaments').deleteMany({ _id: { $in: oldEventIds } });
+        const stringIds = oldEventIds.map(id => String(id));
+        await db.collection('registrations').deleteMany({ tournamentId: { $in: stringIds } });
+        await addLog(db, payload.adminName, 'TAKARÍTÁS', `${oldEventIds.length} db 2 hónapnál régebbi esemény törölve.`);
+      }
+      return NextResponse.json({ success: true, count: oldEventIds.length });
     }
 
     return NextResponse.json({ success: true });

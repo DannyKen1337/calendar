@@ -13,7 +13,6 @@ export const useCalendar = () => {
   const [userEmail, setUserEmail] = useState("");
   const [usersList, setUsersList] = useState([]);
   
-  // God Mode állapotok
   const [logs, setLogs] = useState([]);
   const [blacklist, setBlacklist] = useState([]);
   const [isMaintenance, setIsMaintenance] = useState(false);
@@ -115,7 +114,6 @@ export const useCalendar = () => {
     } catch (e) {}
   };
 
-  // --- GOD MODE FUNKCIÓK ---
   const toggleMaintenance = async (newState) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: newState, adminName: userName } }) });
     setIsMaintenance(newState);
@@ -138,6 +136,26 @@ export const useCalendar = () => {
 
   const handleExportDB = () => {
     window.location.href = '/api/export-db';
+  };
+
+  // ÚJ: A Kézi Takarító Gomb funkciója
+  const handleCleanupOldEvents = async () => {
+    try {
+      const response = await fetch('/api/actions', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ actionType: 'CLEANUP_OLD_EVENTS', payload: { adminName: userName } }) 
+      });
+      const result = await response.json();
+      if (result.error) {
+        messageApi.error(result.error);
+      } else {
+        messageApi.success(`${result.count} db régi esemény (és a jelentkezések) törölve!`);
+        fetchData();
+      }
+    } catch (e) {
+      messageApi.error("Hálózati hiba történt.");
+    }
   };
 
   const toggleUserRole = async (targetUser) => {
@@ -172,7 +190,6 @@ export const useCalendar = () => {
     messageApi.success("Felhasználó törölve."); fetchData();
   };
 
-  // --- ESEMÉNY ÉS JELENTKEZÉS KEZELÉS ---
   const handleImageUpload = async (info, targetForm) => {
     if (IMGBB_API_KEY === "IDE_JON_AZ_IMGBB_KULCSOD") { messageApi.error("ImgBB API kulcs hiányzik!"); return; }
     const file = info.file.originFileObj || info.file; if (!file) return;
@@ -282,7 +299,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
-    isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB,
+    isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isSyncing, handleSync,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange, handleDeleteUser,
