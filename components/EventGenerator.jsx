@@ -1,12 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, message, ConfigProvider, theme, Typography } from 'antd';
-import { CopyOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Button, message, ConfigProvider, theme, Typography, InputNumber, Switch } from 'antd';
+import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
-// Ugyanaz a sötét téma, mint a főoldalon és az admin pulton
 const tavernTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
@@ -19,10 +18,10 @@ const tavernTheme = {
   components: {
     Input: { colorBgContainer: '#2B1A1C' },
     Select: { colorBgContainer: '#2B1A1C' },
+    InputNumber: { colorBgContainer: '#2B1A1C' },
   }
 };
 
-// Beimportáljuk ide is a boltokat, hogy mindig szinkronban legyen a fő kóddal
 const STORES = {
   debrecen: { id: 'debrecen', name: 'Tavern Debrecen' },
   miskolc: { id: 'miskolc', name: 'Tavern Miskolc' },
@@ -34,7 +33,11 @@ export default function EventGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [adminName, setAdminName] = useState("Generátor");
 
-  // Kiolvassuk a bejelentkezett admin nevét, hogy a naplóban ő szerepeljen
+  // Élőben figyeljük a form mezőit, hogy tudjuk, mennyi link-mezőt kell kirajzolni
+  const startDateVal = Form.useWatch('startDate', form);
+  const weeksVal = Form.useWatch('weeks', form);
+  const useExternalLinkVal = Form.useWatch('useExternalLink', form);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedSession = localStorage.getItem('tavern_calendar_session');
@@ -50,58 +53,49 @@ export default function EventGenerator() {
   const handleGenerate = async (values) => {
     setIsGenerating(true);
     try {
-      const { name, store, category, startDate, endDate, dayOfWeek, time, max_players, external_url, description } = values;
+      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls } = values;
       
       const start = new Date(startDate);
-      const end = new Date(endDate);
       const [hours, minutes] = time.split(':');
-      const targetDay = parseInt(dayOfWeek);
-
       const eventsToCreate = [];
-      let current = new Date(start);
-      current.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
 
-      // Végigmegyünk a dátumokon, és kikeresjük a megfelelő napokat
-      while (current <= end) {
-          if (current.getDay() === targetDay) {
-              const eventDate = new Date(current);
-              eventDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-              
-              // ISO formátumra alakítás (YYYY-MM-DDTHH:mm), ahogy az adatbázis szereti
-              const pad = (n) => String(n).padStart(2, '0');
-              const dateStr = `${eventDate.getFullYear()}-${pad(eventDate.getMonth()+1)}-${pad(eventDate.getDate())}T${pad(hours)}:${pad(minutes)}`;
+      for (let i = 0; i < weeks; i++) {
+        const eventDate = new Date(start);
+        eventDate.setDate(eventDate.getDate() + (i * 7));
+        eventDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const dateStr = `${eventDate.getFullYear()}-${pad(eventDate.getMonth()+1)}-${pad(eventDate.getDate())}T${pad(hours)}:${pad(minutes)}`;
+        
+        // Dinamikus link hozzárendelés
+        const currentLink = (useExternalLink && external_urls && external_urls[i]) ? external_urls[i] : "";
 
-              eventsToCreate.push({
-                  name,
-                  store,          // ELMENTJÜK A HELYSZÍNT!
-                  category,       // ELMENTJÜK A JÁTÉKOT!
-                  date: dateStr,
-                  max_players: parseInt(max_players) || 16,
-                  external_url: external_url || "",
-                  imageUrl: "",
-                  isExternalEvent: !!external_url,
-                  description: description || "",
-                  adminName: adminName,
-                  userRole: "owner"
-              });
-          }
-          current.setDate(current.getDate() + 1);
+        eventsToCreate.push({
+          name,
+          store,
+          category,
+          date: dateStr,
+          max_players: parseInt(max_players) || 16,
+          external_url: currentLink,
+          imageUrl: "",
+          isExternalEvent: !!currentLink,
+          description: description || "",
+          adminName: adminName,
+          userRole: "owner"
+        });
       }
 
       if (eventsToCreate.length === 0) {
-          message.warning("A megadott időszakban nincs a kiválasztott napra eső dátum!");
-          setIsGenerating(false);
-          return;
+        message.warning("Nem sikerült eseményt generálni!");
+        setIsGenerating(false); return;
       }
 
-      // Végrehajtjuk a mentést a háttérben
       for (const payload of eventsToCreate) {
-          await fetch('/api/actions', { 
-              method: 'POST', 
-              headers: { 'Content-Type': 'application/json' }, 
-              body: JSON.stringify({ actionType: 'ADD_TOURNAMENT', payload }) 
-          });
+        await fetch('/api/actions', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ actionType: 'ADD_TOURNAMENT', payload }) 
+        });
       }
       
       message.success(`${eventsToCreate.length} db esemény sikeresen legenerálva a(z) ${STORES[store].name} naptárába!`);
@@ -123,7 +117,7 @@ export default function EventGenerator() {
           </Title>
         </div>
         
-        <Form form={form} layout="vertical" onFinish={handleGenerate} className="mt-4">
+        <Form form={form} layout="vertical" onFinish={handleGenerate} className="mt-4" initialValues={{ weeks: 4, useExternalLink: false }}>
           <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}>
             <Input placeholder="Pl.: Nexus Night BO1" size="large" />
           </Form.Item>
@@ -146,49 +140,74 @@ export default function EventGenerator() {
             </Form.Item>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item name="startDate" label="Mettől (Kezdő dátum)" rules={[{ required: true, message: 'Kötelező!' }]}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Form.Item name="startDate" label="Kezdő dátum" rules={[{ required: true, message: 'Kötelező!' }]}>
               <Input type="date" size="large" />
-            </Form.Item>
-            <Form.Item name="endDate" label="Meddig (Záró dátum)" rules={[{ required: true, message: 'Kötelező!' }]}>
-              <Input type="date" size="large" />
-            </Form.Item>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item name="dayOfWeek" label="Melyik napokon?" rules={[{ required: true, message: 'Kötelező!' }]}>
-              <Select placeholder="Válassz napot..." size="large">
-                <Select.Option value="1">Hétfő</Select.Option>
-                <Select.Option value="2">Kedd</Select.Option>
-                <Select.Option value="3">Szerda</Select.Option>
-                <Select.Option value="4">Csütörtök</Select.Option>
-                <Select.Option value="5">Péntek</Select.Option>
-                <Select.Option value="6">Szombat</Select.Option>
-                <Select.Option value="0">Vasárnap</Select.Option>
-              </Select>
             </Form.Item>
             <Form.Item name="time" label="Kezdés időpontja" rules={[{ required: true, message: 'Kötelező!' }]}>
               <Input type="time" size="large" />
             </Form.Item>
+            <Form.Item name="weeks" label="Hány hétig?" rules={[{ required: true, message: 'Kötelező!' }]}>
+              <InputNumber min={1} max={52} size="large" style={{ width: '100%' }} />
+            </Form.Item>
           </div>
 
-          <Form.Item name="max_players" label="Max Létszám">
-            <Input type="number" placeholder="Alapértelmezett: 16" size="large" />
-          </Form.Item>
-          
-          <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)">
-            <Input placeholder="https://..." size="large" />
-          </Form.Item>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Form.Item name="max_players" label="Max Létszám">
+              <Input type="number" placeholder="Alapértelmezett: 16" size="large" />
+            </Form.Item>
+          </div>
           
           <Form.Item name="description" label="Leírás (Opcionális)">
-            <Input.TextArea rows={4} placeholder="További részletek a versenyről..." />
+            <Input.TextArea rows={3} placeholder="További részletek a versenyről..." />
           </Form.Item>
+
+          {/* ÚJ: Dinamikus külső link szekció */}
+          <div className="mt-6 mb-6 p-4 border border-[#4A2E33] rounded-xl bg-[#2B1A1C]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <LinkOutlined className="text-[#E5B15D] text-lg" />
+                <Text strong style={{ color: '#E0D6C8', fontSize: '16px' }}>Külső jelentkezési link használata?</Text>
+              </div>
+              <Form.Item name="useExternalLink" valuePropName="checked" noStyle>
+                <Switch />
+              </Form.Item>
+            </div>
+
+            {useExternalLinkVal && startDateVal && weeksVal > 0 && (
+              <div className="mt-4 space-y-3 pt-4 border-t border-[#4A2E33]">
+                <Text type="secondary" style={{ display: 'block', marginBottom: '10px' }}>Kérlek másold be a webshopos linkeket az alábbi hetekhez:</Text>
+                {Array.from({ length: weeksVal }).map((_, i) => {
+                  const d = new Date(startDateVal);
+                  d.setDate(d.getDate() + (i * 7));
+                  const dateString = d.toLocaleDateString('hu-HU', { month: 'long', day: 'numeric' });
+                  return (
+                    <Form.Item 
+                      key={i} 
+                      name={['external_urls', i]} 
+                      label={<span style={{ color: '#E5B15D' }}>{i + 1}. Hét — {dateString}</span>}
+                      rules={[{ required: true, message: 'Kötelező linket megadni!' }]}
+                      style={{ marginBottom: 12 }}
+                    >
+                      <Input placeholder={`https://tavern.hu/termek/het-${i+1}`} />
+                    </Form.Item>
+                  );
+                })}
+              </div>
+            )}
+            
+            {useExternalLinkVal && (!startDateVal || !weeksVal) && (
+              <Text type="warning" style={{ display: 'block', marginTop: '10px' }}>
+                Kérlek előbb válaszd ki a <b>Kezdő dátumot</b> és a <b>Hetek számát</b> a linkek megadásához!
+              </Text>
+            )}
+          </div>
 
           <Button 
             type="primary" 
             htmlType="submit" 
             loading={isGenerating} 
-            className="w-full h-12 text-black font-bold text-lg mt-4" 
+            className="w-full h-12 text-black font-bold text-lg mt-2" 
             style={{ background: '#E5B15D', borderColor: '#E5B15D' }}
           >
             {isGenerating ? 'Generálás folyamatban...' : 'Események Generálása'}
