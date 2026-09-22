@@ -63,23 +63,7 @@ export default function PublicCalendarPage() {
         <span className="font-bold text-sm">Helyszín váltása</span>
       </button>
 
-      {/* ÚJ: Admin Belépés / Vezérlőpult gomb a Jobb Felső Sarokban */}
-      <button 
-        onClick={() => {
-          if (app.userRole) {
-            // Ha már be van jelentkezve, vigye az admin pultra (írd át az URL-t, ha máshol van az adminod!)
-            window.location.href = '/admin'; 
-          } else {
-            // Ha nincs bejelentkezve, nyissa meg a hitelesítő ablakot
-            app.setIsAuthModalOpen(true);
-          }
-        }}
-        className="absolute top-4 right-4 md:top-8 md:right-8 bg-[#1a1012] border border-[#4A2E33] hover:border-[#E5B15D] text-[#baaaac] hover:text-[#E5B15D] px-4 py-2 rounded-full flex items-center gap-2 transition-all duration-300 z-10"
-      >
-        <span className="font-bold text-sm">
-          {app.userRole ? 'Vezérlőpult ⚙️' : 'Admin Belépés 👑'}
-        </span>
-      </button>
+
 
       <div className="max-w-5xl mx-auto pt-16 md:pt-8">
         
