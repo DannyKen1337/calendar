@@ -81,13 +81,34 @@ export const useCalendar = () => {
     }
   };
 
-  // Az isBackground paraméter megakadályozza a képernyő villogását!
+  // KIZÁRÓLAG A KATEGÓRIA (GAME) ALAPJÁN ADJA A SZÍNT
+  const getGameColor = (gameCategory) => {
+    if (!gameCategory) return '#E5B15D';
+    const g = gameCategory.toLowerCase();
+    if (g.includes('riftbound')) return '#8B5CF6'; 
+    if (g.includes('pokemon') || g.includes('pokémon')) return '#F59E0B'; 
+    if (g.includes('star wars') || g.includes('unlimited')) return '#EF4444'; 
+    if (g.includes('lorcana')) return '#10B981'; 
+    if (g.includes('magic') || g.includes('mtg')) return '#3B82F6'; 
+    if (g.includes('flesh') || g.includes('blood') || g.includes('fab')) return '#B91C1C'; 
+    if (g.includes('yu-gi-oh') || g.includes('yugioh')) return '#A855F7';
+    if (g.includes('one piece')) return '#06B6D4';
+    return '#E5B15D'; // Alapértelmezett Tavern arany
+  };
+
   const fetchPublicData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
       const response = await fetch(`/api/public-data?t=${Date.now()}`);
       const data = await response.json();
-      if (data.tournaments) setTournaments(data.tournaments);
+      if (data.tournaments) {
+        // AZ ÖSSZES MEGLÉVŐ ESEMÉNY SZÍNÉT FELÜLÍRJUK A KATEGÓRIA ALAPJÁN!
+        const coloredTournaments = data.tournaments.map(t => ({
+          ...t,
+          color: getGameColor(t.game)
+        }));
+        setTournaments(coloredTournaments);
+      }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
     } catch (e) {}
     if (!isBackground) setLoading(false);
@@ -103,7 +124,14 @@ export const useCalendar = () => {
          return;
       }
       const data = await response.json();
-      if (data.tournaments) setTournaments(data.tournaments);
+      if (data.tournaments) {
+        // ADMINNÁL IS FELÜLÍRJUK A RÉGI SZÍNEKET A KATEGÓRIA ALAPJÁN!
+        const coloredTournaments = data.tournaments.map(t => ({
+          ...t,
+          color: getGameColor(t.game)
+        }));
+        setTournaments(coloredTournaments);
+      }
       if (data.registrations) setRegistrations(data.registrations);
       if (data.users) setUsersList(data.users);
       if (data.logs) setLogs(data.logs);
@@ -222,28 +250,11 @@ export const useCalendar = () => {
     setIsUploading(false);
   };
 
-  // Dinamikus színkiosztó az események kártyáihoz a játék neve alapján
-  // Bővített színkiosztó: több játékot ismer, és a címből is tud olvasni!
-  const getGameColor = (text) => {
-    if (!text) return '#E5B15D';
-    const g = text.toLowerCase();
-    if (g.includes('riftbound')) return '#8B5CF6'; // Lila
-    if (g.includes('pokemon') || g.includes('pokémon')) return '#F59E0B'; // Sárga
-    if (g.includes('star wars') || g.includes('unlimited')) return '#EF4444'; // Piros
-    if (g.includes('lorcana')) return '#10B981'; // Zöld
-    if (g.includes('magic') || g.includes('mtg')) return '#3B82F6'; // Kék
-    if (g.includes('flesh') || g.includes('blood') || g.includes('fab')) return '#B91C1C'; // Sötétpiros
-    if (g.includes('yu-gi-oh') || g.includes('yugioh')) return '#A855F7'; // Lila/Pink
-    if (g.includes('one piece')) return '#06B6D4'; // Ciánkék
-    return '#E5B15D'; // Alapértelmezett Tavern arany
-  };
-
   const saveEvent = async (values) => {
     const formValues = values || eventForm.getFieldsValue(); 
     try {
-      // Itt a trükk: Ha nincs külön "game" mező, akkor a "name" (cím) alapján keresünk rá a színre!
-      const colorSourceText = formValues.game || formValues.name || "";
-      const eventColor = getGameColor(colorSourceText);
+      // Itt már szigorúan csak a game mezőt nézi a színhez
+      const eventColor = getGameColor(formValues.game);
 
       const payload = { 
         ...formValues, 
@@ -251,7 +262,6 @@ export const useCalendar = () => {
         external_url: formValues.external_url || "", 
         imageUrl: formValues.imageUrl || "", 
         isExternalEvent: !!formValues.external_url,
-        // Kőkeményen felülírja a színt a generált színnel
         color: eventColor 
       };
       
