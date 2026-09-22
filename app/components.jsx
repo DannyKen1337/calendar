@@ -96,7 +96,6 @@ export const PublicModals = ({ app }) => {
                   alt={selectedEventDetails.category} 
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                   onError={(e) => { 
-                    // OKOS HIBAJAVÍTÓ: Ha hibás az adatbázisban lévő link, először a kategória frissített logóját próbálja
                     if (e.target.getAttribute('data-retried') !== 'true') {
                       e.target.setAttribute('data-retried', 'true');
                       e.target.src = getCategoryImage(selectedEventDetails.category);
@@ -198,7 +197,6 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                     alt={evt.name} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     onError={(e) => { 
-                      // OKOS HIBAJAVÍTÓ ITT IS
                       if (e.target.getAttribute('data-retried') !== 'true') {
                         e.target.setAttribute('data-retried', 'true');
                         e.target.src = getCategoryImage(evt.category);
@@ -428,6 +426,45 @@ export const AdminEvents = ({ app: v }) => {
     .filter(evt => adminFilter === 'Mind' || evt.category === adminFilter)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+  // ÚJ: OKOS EXPORTÁLÓ FUNKCIÓ (Csak jövőbeli események és csak a szűrt kategória mentése)
+  const handleFilteredExport = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // A mai események is még jövőbelinek számítanak
+
+    // Események szűrése: csak jövőbeliek ÉS a legördülőből kiválasztott játék
+    const exportTournaments = (v.tournaments || []).filter(evt => {
+      const evtDate = new Date(evt.date);
+      const isFuture = evtDate >= today;
+      const matchesFilter = adminFilter === 'Mind' || evt.category === adminFilter;
+      return isFuture && matchesFilter;
+    });
+
+    // Csak a fenti eseményekhez tartozó regisztrációkat mentjük le
+    const exportedIds = exportTournaments.map(t => String(t._id || t.id));
+    const exportRegistrations = (v.registrations || []).filter(r => exportedIds.includes(String(r.tournamentId)));
+
+    const dbDump = {
+      exportDate: new Date(),
+      tournaments: exportTournaments,
+      registrations: exportRegistrations,
+      users: v.usersList || [],
+      logs: v.logs || [],
+      blacklist: v.blacklist || []
+    };
+
+    // Fájl letöltés generálása dinamikus névvel
+    const blob = new Blob([JSON.stringify(dbDump, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const filterName = adminFilter === 'Mind' ? 'osszes' : adminFilter.toLowerCase().replace(/\s+/g, '_');
+    a.download = `tavern_naptar_${filterName}_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <ConfigProvider theme={tavernTheme}>
       <div>
@@ -443,7 +480,8 @@ export const AdminEvents = ({ app: v }) => {
               </div>
               <Button type="primary" style={{ background: '#4b1b54', borderColor: '#4b1b54', color: '#fff' }} onClick={() => v.setIsLogModalOpen(true)}>Tevékenységnapló</Button>
               <Button type="primary" danger onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
-              <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={v.handleExportDB}>💾 Adatbázis Mentés (JSON)</Button>
+              {/* JAVÍTVA: Az új, kliens-oldali okos exportálót hívjuk meg */}
+              <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={handleFilteredExport}>💾 Adatbázis Mentés (JSON)</Button>
             </div>
           </div>
         )}
@@ -478,7 +516,14 @@ export const AdminEvents = ({ app: v }) => {
         <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4">
             <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
-            <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kötelező!' }]}><Select placeholder="Válassz játékot...">{Object.keys(GAME_CONFIG).map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}</Select></Form.Item>
+            
+            {/* JAVÍTVA: Kötelező kategória választás, alapértelmezett érték nélkül (allowClear) */}
+            <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kérlek válassz egy kategóriát!' }]}>
+              <Select placeholder="Válassz játékot..." allowClear>
+                {Object.keys(GAME_CONFIG).map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}
+              </Select>
+            </Form.Item>
+            
             <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]}><Input type="datetime-local" /></Form.Item>
             <Form.Item name="max_players" label="Max Létszám"><Input type="number" placeholder="Alapértelmezett: 16" /></Form.Item>
             <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)"><Input placeholder="https://..." /></Form.Item>
