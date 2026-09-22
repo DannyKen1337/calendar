@@ -12,10 +12,9 @@ export async function GET() {
     }
 
     const client = await clientPromise;
-    
-    // Kifejezetten a 'Tavern' nevű adatbázist célozzuk meg a képed alapján!
+    // A LÉNYEG: A helyes adatbázis
     const db = client.db('Tavern');
-
+    
     const [tournaments, registrations, users, logs, blacklist, settings] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
       db.collection('registrations').find({}).toArray(),
@@ -24,16 +23,16 @@ export async function GET() {
       db.collection('blacklist').find({}).toArray(),
       db.collection('settings').findOne({ _id: 'global_settings' })
     ]);
-
+    
     return NextResponse.json({ 
-        tournaments: tournaments || [], 
-        registrations: registrations || [], 
-        users: users || [], 
+        tournaments, 
+        registrations, 
+        users, 
         logs: logs || [], 
         blacklist: blacklist || [], 
         isMaintenance: settings?.isMaintenance || false 
     });
   } catch (error) {
-    return NextResponse.json({ error: "Adatbázis hiba: " + error.message }, { status: 500 });
+    return NextResponse.json({ error: "Adatbázis hiba" }, { status: 500 });
   }
 }

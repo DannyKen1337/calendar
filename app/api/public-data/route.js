@@ -6,16 +6,16 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const client = await clientPromise;
-    const db = client.db();
-    
-    // Publikusnak csak az események kellenek (vagy esetleg a karbantartás státusz)
+    // ITT IS A LÉNYEG: A helyes adatbázis!
+    const db = client.db('Tavern');
+
     const [tournaments, settings] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
       db.collection('settings').findOne({ _id: 'global_settings' })
     ]);
-    
+
     return NextResponse.json({ 
-        tournaments, 
+        tournaments,
         isMaintenance: settings?.isMaintenance || false 
     });
   } catch (error) {
