@@ -13,6 +13,9 @@ export const useCalendar = () => {
   const [userEmail, setUserEmail] = useState("");
   const [usersList, setUsersList] = useState([]);
   
+  // ÚJ: Bolt választó állapot
+  const [selectedStore, setSelectedStore] = useState(null);
+  
   const [logs, setLogs] = useState([]);
   const [blacklist, setBlacklist] = useState([]);
   const [isMaintenance, setIsMaintenance] = useState(false);
@@ -59,8 +62,24 @@ export const useCalendar = () => {
          setUserRole(userData.role);
        } catch (error) { localStorage.removeItem('tavern_calendar_session'); }
     }
+    
+    // Bolt betöltése a memóriából
+    const storedStore = localStorage.getItem('tavern_selected_store');
+    if (storedStore) {
+      setSelectedStore(storedStore);
+    }
+    
     fetchData();
   }, []);
+
+  const handleSelectStore = (storeId) => {
+    setSelectedStore(storeId);
+    if (storeId) {
+      localStorage.setItem('tavern_selected_store', storeId);
+    } else {
+      localStorage.removeItem('tavern_selected_store');
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -82,15 +101,9 @@ export const useCalendar = () => {
     try {
       const response = await fetch('/api/sync');
       const data = await response.json();
-      if (data.error) {
-        messageApi.error(`Hiba történt: ${data.error}`);
-      } else {
-        messageApi.success(data.message || "Szinkronizálás sikeres!");
-        fetchData();
-      }
-    } catch (e) {
-      messageApi.error("Hálózati hiba a szinkronizáláskor.");
-    }
+      if (data.error) messageApi.error(`Hiba: ${data.error}`);
+      else { messageApi.success(data.message || "Szinkronizálás sikeres!"); fetchData(); }
+    } catch (e) { messageApi.error("Hálózati hiba."); }
     setIsSyncing(false);
   };
 
@@ -116,46 +129,28 @@ export const useCalendar = () => {
 
   const toggleMaintenance = async (newState) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: newState, adminName: userName } }) });
-    setIsMaintenance(newState);
-    messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA.");
-    fetchData();
+    setIsMaintenance(newState); messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA."); fetchData();
   };
 
   const handleBanEmail = async (values) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'BAN_EMAIL', payload: { email: values.email, reason: values.reason, adminName: userName } }) });
-    messageApi.success("E-mail cím feketelistára téve.");
-    blacklistForm.resetFields();
-    fetchData();
+    messageApi.success("E-mail cím feketelistára téve."); blacklistForm.resetFields(); fetchData();
   };
 
   const handleUnbanEmail = async (email) => {
     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNBAN_EMAIL', payload: { email, adminName: userName } }) });
-    messageApi.success("Tiltás feloldva.");
-    fetchData();
+    messageApi.success("Tiltás feloldva."); fetchData();
   };
 
-  const handleExportDB = () => {
-    window.location.href = '/api/export-db';
-  };
+  const handleExportDB = () => window.location.href = '/api/export-db';
 
-  // ÚJ: A Kézi Takarító Gomb funkciója
   const handleCleanupOldEvents = async () => {
     try {
-      const response = await fetch('/api/actions', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ actionType: 'CLEANUP_OLD_EVENTS', payload: { adminName: userName } }) 
-      });
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'CLEANUP_OLD_EVENTS', payload: { adminName: userName } }) });
       const result = await response.json();
-      if (result.error) {
-        messageApi.error(result.error);
-      } else {
-        messageApi.success(`${result.count} db régi esemény (és a jelentkezések) törölve!`);
-        fetchData();
-      }
-    } catch (e) {
-      messageApi.error("Hálózati hiba történt.");
-    }
+      if (result.error) messageApi.error(result.error);
+      else { messageApi.success(`${result.count} db régi esemény törölve!`); fetchData(); }
+    } catch (e) { messageApi.error("Hálózati hiba történt."); }
   };
 
   const toggleUserRole = async (targetUser) => {
@@ -170,19 +165,11 @@ export const useCalendar = () => {
   const submitPasswordChange = async (values) => {
     const uId = String(selectedUserForPassword._id || selectedUserForPassword.id);
     try {
-      const response = await fetch('/api/actions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionType: 'CHANGE_USER_PASSWORD', payload: { userId: uId, newPassword: values.newPassword, adminName: userName } })
-      });
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'CHANGE_USER_PASSWORD', payload: { userId: uId, newPassword: values.newPassword, adminName: userName } }) });
       const result = await response.json();
       if (result.error) { messageApi.error(result.error); return; }
-      
-      messageApi.success("Jelszó sikeresen felülírva!");
-      setIsPasswordModalOpen(false);
-    } catch (e) {
-      messageApi.error("Hálózati hiba történt.");
-    }
+      messageApi.success("Jelszó sikeresen felülírva!"); setIsPasswordModalOpen(false);
+    } catch (e) { messageApi.error("Hálózati hiba történt."); }
   };
 
   const handleDeleteUser = async (userId) => {
@@ -225,11 +212,7 @@ export const useCalendar = () => {
         messageApi.success("Létrehozva!"); 
       }
       
-      setIsEventModalOpen(false); 
-      eventForm.resetFields(); 
-      setEditingEventId(null); 
-      setIsExternalForm(false); 
-      fetchData();
+      setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); fetchData();
     } catch (err) {}
   };
 
@@ -256,31 +239,17 @@ export const useCalendar = () => {
   };
 
   const initiateUnsubscribe = (tournament) => {
-    setIsEventDetailsModalOpen(false);
-    setSelectedEventToJoin(tournament);
-    unsubscribeForm.resetFields();
-    setIsUnsubscribeModalOpen(true);
+    setIsEventDetailsModalOpen(false); setSelectedEventToJoin(tournament); unsubscribeForm.resetFields(); setIsUnsubscribeModalOpen(true);
   };
 
   const submitUnsubscribe = async (values) => {
     const eId = String(selectedEventToJoin._id || selectedEventToJoin.id);
     try {
-      const response = await fetch('/api/actions', { 
-         method: 'POST', 
-         headers: { 'Content-Type': 'application/json' }, 
-         body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email: values.email } }) 
-       });
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email: values.email } }) });
       const result = await response.json();
-      if (result.error) { 
-         messageApi.error(result.error); 
-         return; 
-       }
-      messageApi.success("Sikeresen lejelentkeztél az eseményről.");
-      setIsUnsubscribeModalOpen(false); 
-      fetchData(); 
-    } catch (e) {
-      messageApi.error("Hálózati hiba történt.");
-    }
+      if (result.error) { messageApi.error(result.error); return; }
+      messageApi.success("Sikeresen lejelentkeztél az eseményről."); setIsUnsubscribeModalOpen(false); fetchData(); 
+    } catch (e) { messageApi.error("Hálózati hiba történt."); }
   };
 
   const handleRemoveRegistration = async (registrationId) => {
@@ -292,13 +261,13 @@ export const useCalendar = () => {
 
   const formatEventDate = (dateString) => {
     if (!dateString) return "Hamarosan"; 
-    const d = new Date(dateString); 
-    if (isNaN(d.getTime())) return dateString; 
+    const d = new Date(dateString); if (isNaN(d.getTime())) return dateString; 
     return (d.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' })).replace(/^\w/, c => c.toUpperCase());
   };
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
+    selectedStore, handleSelectStore, // ÚJ EXPORT
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isSyncing, handleSync,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
