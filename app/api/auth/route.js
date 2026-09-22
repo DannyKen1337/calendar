@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
-import { cookies } from 'next/headers';
 
 export async function POST(request) {
   try {
@@ -11,8 +10,12 @@ export async function POST(request) {
     const db = client.db();
 
     if (action === 'register') {
-      const existingUser = await db.collection('users').findOne({ $or: [{ email: email.toLowerCase() }, { username: username.toLowerCase() }] });
-      if (existingUser) return NextResponse.json({ error: "Ez az e-mail vagy felhasználónév már foglalt!" }, { status: 400 });
+      const existingUser = await db.collection('users').findOne({ 
+        $or: [{ email: email.toLowerCase() }, { username: username.toLowerCase() }] 
+      });
+      if (existingUser) {
+        return NextResponse.json({ error: "Ez az e-mail vagy felhasználónév már foglalt!" }, { status: 400 });
+      }
 
       const hashedPassword = await bcrypt.hash(password, 10);
       const isFirstUser = (await db.collection('users').countDocuments()) === 0;
@@ -33,10 +36,14 @@ export async function POST(request) {
         $or: [{ email: loginId.toLowerCase() }, { username: loginId }] 
       });
 
-      if (!user) return NextResponse.json({ error: "Hibás bejelentkezési adatok!" }, { status: 401 });
+      if (!user) {
+        return NextResponse.json({ error: "Hibás bejelentkezési adatok!" }, { status: 401 });
+      }
 
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return NextResponse.json({ error: "Hibás bejelentkezési adatok!" }, { status: 401 });
+      if (!isMatch) {
+        return NextResponse.json({ error: "Hibás bejelentkezési adatok!" }, { status: 401 });
+      }
 
       // JWT Token generálása
       const sessionData = { 
@@ -46,10 +53,15 @@ export async function POST(request) {
         role: user.role 
       };
       
-      const session = await encrypt(sessionData);
+      const sessionToken = await encrypt(sessionData);
 
-      // HttpOnly cookie beállítása (biztonságos!)
-      cookies().set('tavern_session', session, {
+      // Létrehozzuk a választ és beállítjuk rajta a sütit (Itt volt a hiba!)
+      const response = NextResponse.json({ 
+        success: true, 
+        user: { username: user.username, email: user.email, role: user.role } 
+      });
+
+      response.cookies.set('tavern_session', sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -57,14 +69,11 @@ export async function POST(request) {
         maxAge: 60 * 60 * 24 * 14 // 14 nap
       });
 
-      return NextResponse.json({ 
-        success: true, 
-        user: { username: user.username, email: user.email, role: user.role } 
-      });
+      return response;
     }
 
     return NextResponse.json({ error: "Ismeretlen művelet" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ error: "Szerver hiba" }, { status: 500 });
+    return NextResponse.json({ error: "Szerver hiba: " + error.message }, { status: 500 });
   }
 }
