@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { message, Form } from "antd";
+import { getGameColor } from "@/lib/gameConfig";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -79,24 +80,6 @@ export const useCalendar = () => {
     } else {
       localStorage.removeItem('tavern_selected_store');
     }
-  };
-
-  // KIZÁRÓLAG A KATEGÓRIA ALAPJÁN ADJA A SZÍNT
-  const getGameColor = (tournament) => {
-    if (tournament.color && tournament.color !== '#E5B15D') {
-      return tournament.color;
-    }
-    const text = `${tournament.game || ''} ${tournament.category || ''} ${tournament.name || ''}`.toLowerCase();
-    
-    if (text.includes('riftbound')) return '#8B5CF6'; 
-    if (text.includes('pokemon') || text.includes('pokémon')) return '#F59E0B'; 
-    if (text.includes('star wars') || text.includes('unlimited')) return '#EF4444'; 
-    if (text.includes('lorcana')) return '#10B981'; 
-    if (text.includes('magic') || text.includes('mtg')) return '#3B82F6'; 
-    if (text.includes('flesh') || text.includes('blood') || text.includes('fab')) return '#B91C1C'; 
-    if (text.includes('yu-gi-oh') || text.includes('yugioh')) return '#A855F7';
-    if (text.includes('one piece')) return '#06B6D4';
-    return '#E5B15D';
   };
 
   const fetchPublicData = async (isBackground = false) => {
@@ -254,8 +237,12 @@ export const useCalendar = () => {
   const saveEvent = async (values) => {
     const formValues = values || eventForm.getFieldsValue(); 
     try {
-      const dummyObj = { game: formValues.game, category: formValues.category, name: formValues.name };
-      const eventColor = getGameColor(dummyObj);
+      const eventColor = getGameColor({
+        category: formValues.category,
+        name: formValues.name,
+        game: formValues.game,
+        color: formValues.category === 'Egyéb' ? formValues.color : undefined,
+      });
 
       const payload = { 
         ...formValues, 

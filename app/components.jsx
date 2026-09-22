@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { S } from "./styles";
-import { GAME_CONFIG } from '@/lib/gameConfig'; 
+import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -35,19 +35,7 @@ export const STORES = {
   jatekceh: { id: 'jatekceh', name: 'JátékCéh', color: '#10b981', icon: '🎲' }
 };
 
-export const getGameConfig = (category) => {
-  const fallback = GAME_CONFIG["Egyéb"] || { color: '#6b7280', logo: defaultLogoUrl };
-  if (!category) return fallback;
-  if (GAME_CONFIG[category]) return GAME_CONFIG[category];
-  const catStr = category.toLowerCase();
-  for (const key of Object.keys(GAME_CONFIG)) {
-    const kStr = key.toLowerCase();
-    if ((kStr.includes(catStr) || catStr.includes(kStr)) && key !== "Egyéb") {
-      return GAME_CONFIG[key];
-    }
-  }
-  return fallback;
-};
+export { getGameConfig };
 
 export const getCategoryImage = (category) => {
   return getGameConfig(category).logo || defaultLogoUrl;
@@ -90,7 +78,9 @@ export const PublicModals = ({ app }) => {
           <Button key="close" onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
           selectedEventDetails?.external_url ? ( <Button key="ext" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>Tovább a weboldalra</Button> ) : ( <Button key="join" type="primary" style={{ color: '#000', fontWeight: 'bold' }} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>{selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}</Button> )
         ]}>
-        {selectedEventDetails && (
+        {selectedEventDetails && (() => {
+          const detailsTagColor = getGameColor(selectedEventDetails);
+          return (
           <div className="space-y-4 pt-4">
             <div className="flex justify-center mb-6">
               <div className="bg-[#0a0a0a] p-4 rounded-2xl border-2 border-[#4A2E33] shadow-lg flex items-center justify-center" style={{ width: '150px', height: '150px' }}>
@@ -99,7 +89,7 @@ export const PublicModals = ({ app }) => {
             </div>
             <div className="text-center mb-6">
               <Title level={3} style={{ margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
-              <Tag color={getGameConfig(selectedEventDetails.category).color} style={{ background: getGameConfig(selectedEventDetails.category).color, borderColor: getGameConfig(selectedEventDetails.category).color, color: '#fff', fontSize: '14px', padding: '4px 12px' }}>{selectedEventDetails.category}</Tag>
+              <Tag color={detailsTagColor} style={{ background: detailsTagColor, borderColor: detailsTagColor, color: '#fff', fontSize: '14px', padding: '4px 12px' }}>{selectedEventDetails.category}</Tag>
             </div>
             <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
@@ -109,7 +99,8 @@ export const PublicModals = ({ app }) => {
               <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33] mt-4"><strong style={{ color: '#E5B15D' }}>Leírás:</strong><p style={{ whiteSpace: 'pre-wrap', marginTop: 8, color: '#baaaac' }}>{selectedEventDetails.description}</p></div>
             )}
           </div>
-        )}
+          );
+        })()}
       </Modal>
 
       <Modal title={<span style={{ fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>} open={isJoinModalOpen} onCancel={() => setIsJoinModalOpen(false)} onOk={() => joinForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Jelentkezem" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
@@ -176,7 +167,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
       if (evt.external_url) { btnText = "Tovább a weboldalra"; btnType = "default"; btnIcon = <LinkOutlined />; } 
       else if (isFull) { btnText = "Várólista"; btnType = "dashed"; btnIcon = <UsergroupAddOutlined />; }
       
-      const eventColor = evt.color || getGameConfig(evt.category).color;
+      const eventColor = getGameColor(evt);
       const storeInfo = STORES[evt.store || 'debrecen'];
 
       return (
@@ -311,7 +302,7 @@ export const CalendarView = ({ app }) => {
                     <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
                       <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}>{day}</div>
                       {dayEvents.map(evt => {
-                          const eventColor = evt.color || getGameConfig(evt.category).color;
+                          const eventColor = getGameColor(evt);
                           return (
                             <div key={String(evt._id || evt.id)} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={evt.name}>
                               {getEventTime(evt.date)} {evt.category || 'Egyéb'}
