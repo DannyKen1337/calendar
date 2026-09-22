@@ -426,12 +426,10 @@ export const AdminEvents = ({ app: v }) => {
     .filter(evt => adminFilter === 'Mind' || evt.category === adminFilter)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // ÚJ: OKOS EXPORTÁLÓ FUNKCIÓ (Csak jövőbeli események és csak a szűrt kategória mentése)
   const handleFilteredExport = () => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // A mai események is még jövőbelinek számítanak
+    today.setHours(0, 0, 0, 0); 
 
-    // Események szűrése: csak jövőbeliek ÉS a legördülőből kiválasztott játék
     const exportTournaments = (v.tournaments || []).filter(evt => {
       const evtDate = new Date(evt.date);
       const isFuture = evtDate >= today;
@@ -439,7 +437,6 @@ export const AdminEvents = ({ app: v }) => {
       return isFuture && matchesFilter;
     });
 
-    // Csak a fenti eseményekhez tartozó regisztrációkat mentjük le
     const exportedIds = exportTournaments.map(t => String(t._id || t.id));
     const exportRegistrations = (v.registrations || []).filter(r => exportedIds.includes(String(r.tournamentId)));
 
@@ -452,7 +449,6 @@ export const AdminEvents = ({ app: v }) => {
       blacklist: v.blacklist || []
     };
 
-    // Fájl letöltés generálása dinamikus névvel
     const blob = new Blob([JSON.stringify(dbDump, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -478,10 +474,14 @@ export const AdminEvents = ({ app: v }) => {
                   <Button danger={v.isMaintenance} type={v.isMaintenance ? "primary" : "default"} size="small">{v.isMaintenance ? "BEKAPCSOLVA" : "KIKAPCSOLVA"}</Button>
                 </Popconfirm>
               </div>
+              
               <Button type="primary" style={{ background: '#4b1b54', borderColor: '#4b1b54', color: '#fff' }} onClick={() => v.setIsLogModalOpen(true)}>Tevékenységnapló</Button>
               <Button type="primary" danger onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
-              {/* JAVÍTVA: Az új, kliens-oldali okos exportálót hívjuk meg */}
               <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={handleFilteredExport}>💾 Adatbázis Mentés (JSON)</Button>
+              
+              <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={v.handleCleanupOldEvents} okText="Igen" cancelText="Mégse">
+                <Button type="primary" style={{ background: '#7f1d1d', borderColor: '#7f1d1d', color: '#fff' }}>🧹 Régi Események Törlése</Button>
+              </Popconfirm>
             </div>
           </div>
         )}
@@ -517,7 +517,6 @@ export const AdminEvents = ({ app: v }) => {
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4">
             <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
             
-            {/* JAVÍTVA: Kötelező kategória választás, alapértelmezett érték nélkül (allowClear) */}
             <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kérlek válassz egy kategóriát!' }]}>
               <Select placeholder="Válassz játékot..." allowClear>
                 {Object.keys(GAME_CONFIG).map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}
