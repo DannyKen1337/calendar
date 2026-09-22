@@ -81,47 +81,45 @@ export const useCalendar = () => {
     }
   };
 
-  // KIZÁRÓLAG A KATEGÓRIA (GAME) ALAPJÁN ADJA A SZÍNT
-  const getGameColor = (gameCategory) => {
-    if (!gameCategory) return '#E5B15D';
-    const g = gameCategory.toLowerCase();
-    if (g.includes('riftbound')) return '#8B5CF6'; 
-    if (g.includes('pokemon') || g.includes('pokémon')) return '#F59E0B'; 
-    if (g.includes('star wars') || g.includes('unlimited')) return '#EF4444'; 
-    if (g.includes('lorcana')) return '#10B981'; 
-    if (g.includes('magic') || g.includes('mtg')) return '#3B82F6'; 
-    if (g.includes('flesh') || g.includes('blood') || g.includes('fab')) return '#B91C1C'; 
-    if (g.includes('yu-gi-oh') || g.includes('yugioh')) return '#A855F7';
-    if (g.includes('one piece')) return '#06B6D4';
+// Intelligens színkiosztó: vizsgálja a kategóriát, a címet, vagy visszaadja a meglévő színt
+  const getGameColor = (tournament) => {
+    // Ha már van egyedi színe, azt tartjuk meg
+    if (tournament.color && tournament.color !== '#E5B15D') {
+      return tournament.color;
+    }
+    
+    // Összegyűjtünk minden szöveget, amiből kiolvashatjuk a játékot
+    const text = `${tournament.game || ''} ${tournament.category || ''} ${tournament.name || ''}`.toLowerCase();
+    
+    if (text.includes('riftbound')) return '#8B5CF6'; // Lila
+    if (text.includes('pokemon') || text.includes('pokémon')) return '#F59E0B'; // Sárga
+    if (text.includes('star wars') || text.includes('unlimited')) return '#EF4444'; // Piros
+    if (text.includes('lorcana')) return '#10B981'; // Zöld
+    if (text.includes('magic') || text.includes('mtg')) return '#3B82F6'; // Kék
+    if (text.includes('flesh') || text.includes('blood') || text.includes('fab')) return '#B91C1C'; // Sötétpiros
+    if (text.includes('yu-gi-oh') || text.includes('yugioh')) return '#A855F7'; // Lila/Pink
+    if (text.includes('one piece')) return '#06B6D4'; // Ciánkék
+    
     return '#E5B15D'; // Alapértelmezett Tavern arany
   };
 
   const fetchPublicData = async (isBackground = false) => {
-    if (!isBackground) setLoading(true);
-    try {
-      const response = await fetch(`/api/public-data?t=${Date.now()}`);
-      const data = await response.json();
-      if (data.tournaments) {
-        // AZ ÖSSZES MEGLÉVŐ ESEMÉNY SZÍNÉT FELÜLÍRJUK A KATEGÓRIA ALAPJÁN!
+    if (data.tournaments) {
         const coloredTournaments = data.tournaments.map(t => ({
           ...t,
-          color: getGameColor(t.game)
+          color: getGameColor(t)
         }));
         setTournaments(coloredTournaments);
       }
-      if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
-    } catch (e) {}
-    if (!isBackground) setLoading(false);
-  };
 
   const fetchAdminData = async (isBackground = false) => {
-    if (!isBackground) setLoading(true);
-    try {
-      const response = await fetch(`/api/admin-data?t=${Date.now()}`);
-      if (response.status === 401) {
-         setUserRole(null);
-         fetchPublicData(isBackground);
-         return;
+    if (data.tournaments) {
+        const coloredTournaments = data.tournaments.map(t => ({
+          ...t,
+          color: getGameColor(t)
+        }));
+        setTournaments(coloredTournaments);
+      }
       }
       const data = await response.json();
       if (data.tournaments) {
