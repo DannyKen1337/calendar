@@ -8,7 +8,7 @@ export async function POST(request) {
     const { action, loginId, password, email, username } = await request.json();
     const client = await clientPromise;
     // Célzottan a Tavern_DB-t használjuk, hogy biztosan jó helyre kerüljön az user
-    const db = client.db('Tavern_DB'); 
+    const db = client.db('Tavern'); 
 
     // --- REGISZTRÁCIÓ ---
     if (action === 'register') {
