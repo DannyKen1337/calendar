@@ -26,7 +26,7 @@ export async function POST(request) {
         username,
         email: email.toLowerCase(),
         password: hashedPassword,
-        role: isFirstUser ? 'owner' : 'admin', // Az első fiók owner, a többi admin
+        role: isFirstUser ? 'owner' : 'customer', // Az első fiók owner, a többi customer
         createdAt: new Date()
       });
 

@@ -223,28 +223,36 @@ export const useCalendar = () => {
   };
 
   // Dinamikus színkiosztó az események kártyáihoz a játék neve alapján
-  const getGameColor = (gameName) => {
-    if (!gameName) return '#E5B15D';
-    const g = gameName.toLowerCase();
+  // Bővített színkiosztó: több játékot ismer, és a címből is tud olvasni!
+  const getGameColor = (text) => {
+    if (!text) return '#E5B15D';
+    const g = text.toLowerCase();
     if (g.includes('riftbound')) return '#8B5CF6'; // Lila
     if (g.includes('pokemon') || g.includes('pokémon')) return '#F59E0B'; // Sárga
     if (g.includes('star wars') || g.includes('unlimited')) return '#EF4444'; // Piros
     if (g.includes('lorcana')) return '#10B981'; // Zöld
     if (g.includes('magic') || g.includes('mtg')) return '#3B82F6'; // Kék
-    if (g.includes('flesh') || g.includes('blood')) return '#B91C1C'; // Sötétpiros
+    if (g.includes('flesh') || g.includes('blood') || g.includes('fab')) return '#B91C1C'; // Sötétpiros
+    if (g.includes('yu-gi-oh') || g.includes('yugioh')) return '#A855F7'; // Lila/Pink
+    if (g.includes('one piece')) return '#06B6D4'; // Ciánkék
     return '#E5B15D'; // Alapértelmezett Tavern arany
   };
 
   const saveEvent = async (values) => {
     const formValues = values || eventForm.getFieldsValue(); 
     try {
+      // Itt a trükk: Ha nincs külön "game" mező, akkor a "name" (cím) alapján keresünk rá a színre!
+      const colorSourceText = formValues.game || formValues.name || "";
+      const eventColor = getGameColor(colorSourceText);
+
       const payload = { 
         ...formValues, 
         max_players: parseInt(formValues.max_players) || 16, 
         external_url: formValues.external_url || "", 
         imageUrl: formValues.imageUrl || "", 
         isExternalEvent: !!formValues.external_url,
-        color: formValues.game ? getGameColor(formValues.game) : (formValues.color || '#E5B15D') // Szín frissítése
+        // Kőkeményen felülírja a színt a generált színnel
+        color: eventColor 
       };
       
       if (editingEventId) { 
@@ -256,7 +264,7 @@ export const useCalendar = () => {
       }
       
       setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); 
-      fetchData(true); // Láthatatlan háttérfrissítés
+      fetchData(true); 
     } catch (err) {}
   };
 
