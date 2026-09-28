@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined } from "@ant-design/icons";
+import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 
@@ -90,6 +90,7 @@ export const PublicModals = ({ app }) => {
             <div className="text-center mb-6">
               <Title level={3} style={{ margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
               <Tag color={detailsTagColor} style={{ background: detailsTagColor, borderColor: detailsTagColor, color: '#fff', fontSize: '14px', padding: '4px 12px' }}>{selectedEventDetails.category}</Tag>
+              {selectedEventDetails.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ fontSize: '14px', padding: '4px 12px', fontWeight: 'bold', marginLeft: 8 }}>Kiemelt</Tag>}
             </div>
             <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
@@ -174,7 +175,13 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
 
       return (
         <List.Item style={S.eventItem}>
-          <Card size="small" className="cozy-shadow" style={S.eventCard}>
+          <Card
+            size="small"
+            className={evt.isFeatured ? 'cozy-shadow featured-card' : 'cozy-shadow'}
+            style={evt.isFeatured
+              ? { ...S.eventCard, border: '2px solid #FFD700', background: 'linear-gradient(135deg, #3a2a14 0%, #2B1A1C 60%)' }
+              : S.eventCard}
+          >
             <div style={S.eventFlex}>
               <div style={{...S.eventInfo, cursor: 'pointer'}} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }}>
                 <div style={{ width: '64px', height: '64px', minWidth: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1a1012', borderRadius: '8px', border: '1px solid #4A2E33', padding: '4px' }}>
@@ -183,6 +190,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                 
                 <div style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
                 <div>
+                  {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ marginBottom: 5, fontWeight: 'bold' }}>Kiemelt</Tag>}
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
@@ -306,8 +314,8 @@ export const CalendarView = ({ app }) => {
                       {dayEvents.map(evt => {
                           const eventColor = getGameColor(evt);
                           return (
-                            <div key={String(evt._id || evt.id)} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={evt.name}>
-                              {getEventTime(evt.date)} {evt.category || 'Egyéb'}
+                            <div key={String(evt._id || evt.id)} className={evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={evt.name}>
+                              {evt.isFeatured && '⭐ '}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
                             </div>
                           );
                       })}
@@ -443,6 +451,7 @@ export const AdminEvents = ({ app: v }) => {
             <Form.Item name="max_players" label="Max Létszám"><Input type="number" placeholder="Alapértelmezett: 16" /></Form.Item>
             <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)"><Input placeholder="https://..." /></Form.Item>
             <Form.Item name="description" label="Leírás (Opcionális)"><Input.TextArea rows={4} placeholder="További részletek a versenyről..." /></Form.Item>
+            <Form.Item name="isFeatured" valuePropName="checked"><Checkbox>Kiemelt verseny/esemény</Checkbox></Form.Item>
           </Form>
         </Modal>
 

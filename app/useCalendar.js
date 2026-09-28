@@ -280,6 +280,7 @@ export const useCalendar = () => {
         external_url: formValues.external_url || "", 
         imageUrl: formValues.imageUrl || "", 
         isExternalEvent: !!formValues.external_url,
+        isFeatured: !!formValues.isFeatured,
         color: eventColor 
       };
       

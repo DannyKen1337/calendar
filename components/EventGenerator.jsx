@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, message, ConfigProvider, theme, Typography, InputNumber, Switch } from 'antd';
+import { Form, Input, Select, Button, message, ConfigProvider, theme, Typography, InputNumber, Switch, Checkbox } from 'antd';
 import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
 
@@ -53,7 +53,7 @@ export default function EventGenerator() {
   const handleGenerate = async (values) => {
     setIsGenerating(true);
     try {
-      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls } = values;
+      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured } = values;
       
       const start = new Date(startDate);
       const [hours, minutes] = time.split(':');
@@ -80,6 +80,7 @@ export default function EventGenerator() {
           imageUrl: "",
           isExternalEvent: !!currentLink,
           description: description || "",
+          isFeatured: !!isFeatured,
           adminName: adminName,
           userRole: "owner"
         });
@@ -173,6 +174,10 @@ export default function EventGenerator() {
           
           <Form.Item name="description" label="Leírás (Opcionális)">
             <Input.TextArea rows={3} placeholder="További részletek a versenyről..." />
+          </Form.Item>
+
+          <Form.Item name="isFeatured" valuePropName="checked">
+            <Checkbox>Kiemelt verseny/esemény</Checkbox>
           </Form.Item>
 
           {/* ÚJ: Dinamikus külső link szekció */}

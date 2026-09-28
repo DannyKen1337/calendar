@@ -7,7 +7,7 @@ import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
 
 const TOURNAMENT_EDIT_FIELDS = [
   'name', 'store', 'category', 'date', 'max_players', 'external_url',
-  'description', 'imageUrl', 'isExternalEvent', 'color',
+  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured',
 ];
 
 function pickTournamentFields(source) {
