@@ -1,17 +1,35 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import { getTavernDb } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  try {
+    const db = await getTavernDb();
+    const userCount = await db.collection('users').countDocuments();
+    const canRegister =
+      userCount === 0 || process.env.ALLOW_PUBLIC_REGISTER === 'true';
+    return NextResponse.json({ canRegister });
+  } catch {
+    return NextResponse.json({ canRegister: false });
+  }
+}
 
 export async function POST(request) {
   try {
     const { action, loginId, password, email, username } = await request.json();
-    const client = await clientPromise;
-    // Célzottan a Tavern_DB-t használjuk, hogy biztosan jó helyre kerüljön az user
-    const db = client.db('Tavern'); 
+    const db = await getTavernDb();
 
     // --- REGISZTRÁCIÓ ---
     if (action === 'register') {
+      const userCount = await db.collection('users').countDocuments();
+      const isFirstUser = userCount === 0;
+      if (!isFirstUser && process.env.ALLOW_PUBLIC_REGISTER !== 'true') {
+        return NextResponse.json({ error: 'A regisztráció le van tiltva.' }, { status: 403 });
+      }
+
       const existingUser = await db.collection('users').findOne({ 
         $or: [{ email: email.toLowerCase() }, { username: username }] 
       });
@@ -20,7 +38,6 @@ export async function POST(request) {
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      const isFirstUser = (await db.collection('users').countDocuments()) === 0;
 
       await db.collection('users').insertOne({
         username,

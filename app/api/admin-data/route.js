@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -11,9 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
     }
 
-    const client = await clientPromise;
-    // A LÉNYEG: A helyes adatbázis
-    const db = client.db('Tavern');
+    const db = await getTavernDb();
     
     const [tournaments, registrations, users, logs, blacklist, settings] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),

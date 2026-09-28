@@ -42,6 +42,7 @@ export const useCalendar = () => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
   const [isOwnPasswordModalOpen, setIsOwnPasswordModalOpen] = useState(false);
+  const [canRegister, setCanRegister] = useState(false);
   
   const [passwordForm] = Form.useForm();
   const [ownPasswordForm] = Form.useForm();
@@ -54,6 +55,10 @@ export const useCalendar = () => {
 
   useEffect(() => {
     checkSession();
+    fetch('/api/auth')
+      .then((res) => res.json())
+      .then((data) => setCanRegister(!!data.canRegister))
+      .catch(() => setCanRegister(false));
     const storedStore = localStorage.getItem('tavern_selected_store');
     if (storedStore) setSelectedStore(storedStore);
   }, []);
@@ -97,7 +102,10 @@ export const useCalendar = () => {
         setTournaments(coloredTournaments);
       }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
-    } catch (e) {}
+      if (data.error) messageApi.error('Nem sikerült betölteni az eseményeket.');
+    } catch (e) {
+      messageApi.error('Hálózati hiba az események betöltésekor.');
+    }
     if (!isBackground) setLoading(false);
   };
 
@@ -123,8 +131,10 @@ export const useCalendar = () => {
       if (data.logs) setLogs(data.logs);
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
+      if (data.error) messageApi.error(data.error);
     } catch (e) {
-       fetchPublicData(isBackground);
+      messageApi.error('Hálózati hiba az admin adatok betöltésekor.');
+      fetchPublicData(isBackground);
     }
     if (!isBackground) setLoading(false);
   };
@@ -273,17 +283,25 @@ export const useCalendar = () => {
         color: eventColor 
       };
       
-      if (editingEventId) { 
-        await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'EDIT_TOURNAMENT', payload: { id: editingEventId, ...payload } }) }); 
-        messageApi.success("Frissítve!"); 
-      } else { 
-        await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'ADD_TOURNAMENT', payload }) }); 
-        messageApi.success("Létrehozva!"); 
+      const actionType = editingEventId ? 'EDIT_TOURNAMENT' : 'ADD_TOURNAMENT';
+      const actionPayload = editingEventId ? { id: editingEventId, ...payload } : payload;
+      const response = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionType, payload: actionPayload }),
+      });
+      const result = await response.json();
+      if (result.error || !response.ok) {
+        messageApi.error(result.error || 'Mentés sikertelen.');
+        return;
       }
+      messageApi.success(editingEventId ? 'Frissítve!' : 'Létrehozva!');
       
       setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); 
       fetchData(true); 
-    } catch (err) {}
+    } catch (err) {
+      messageApi.error('Nem sikerült menteni az eseményt.');
+    }
   };
 
   const handleDeleteTournament = async (tournamentId) => { 
@@ -352,6 +370,6 @@ export const useCalendar = () => {
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
-    messageApi, contextHolder, formatEventDate, fetchData
+    messageApi, contextHolder, formatEventDate, fetchData, canRegister
   };
 };

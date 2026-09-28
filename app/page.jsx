@@ -14,8 +14,10 @@ export default function PublicCalendarPage() {
     return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-[#E5B15D] font-bold text-xl">Betöltés...</div>;
   }
 
-  // Ha be van kapcsolva a karbantartás, blokkoljuk a teljes rendszert (kivéve az adminokat)
-  if (app.isMaintenance) {
+  const isStaff = app.userRole === 'admin' || app.userRole === 'owner';
+
+  // Karbantartás: látogatók elől rejtve, bejelentkezett adminok látják a naptárt
+  if (app.isMaintenance && !isStaff) {
     return (
       <main className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
         <div className="bg-[#1a1012] p-8 rounded-2xl border-2 border-[#E5B15D] shadow-xl w-full max-w-lg text-center">
@@ -53,6 +55,12 @@ export default function PublicCalendarPage() {
 
   return (
     <main className="min-h-screen bg-[#121212] text-white p-4 md:p-8 relative">
+
+      {app.isMaintenance && isStaff && (
+        <div className="max-w-5xl mx-auto mb-4 px-4 py-3 rounded-xl border border-amber-600/50 bg-amber-950/40 text-amber-200 text-sm text-center">
+          Karbantartás mód be van kapcsolva — a nyilvános látogatók nem látják a naptárt, te igen (admin előnézet).
+        </div>
+      )}
       
       {/* Elegáns Bolt Váltó Gomb a Bal Felső Sarokban */}
       <button 

@@ -1,9 +1,22 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import { getTavernDb } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
-// Behozzuk a stabil hitelesítést!
 import { verifyAdmin, verifyOwner } from '@/lib/auth';
+import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
+
+const TOURNAMENT_EDIT_FIELDS = [
+  'name', 'store', 'category', 'date', 'max_players', 'external_url',
+  'description', 'imageUrl', 'isExternalEvent', 'color',
+];
+
+function pickTournamentFields(source) {
+  const doc = {};
+  for (const key of TOURNAMENT_EDIT_FIELDS) {
+    if (source[key] !== undefined) doc[key] = source[key];
+  }
+  return doc;
+}
 
 async function addLog(db, adminName, action, details) {
   await db.collection('audit_logs').insertOne({
@@ -31,9 +44,7 @@ export async function POST(request) {
       }
     }
 
-    const client = await clientPromise;
-    // JAVÍTÁS: Kifejezetten a Tavern adatbázist célozzuk
-    const db = client.db('Tavern');
+    const db = await getTavernDb();
 
     const getQuery = (id) => {
       try { return { $or: [{ id: String(id) }, { _id: new ObjectId(id) }] }; }
@@ -42,20 +53,29 @@ export async function POST(request) {
 
     // --- ESEMÉNYEK ---
     if (actionType === 'ADD_TOURNAMENT') {
-      const result = await db.collection('tournaments').insertOne({ 
-        ...payload, 
-        current_players: 0, 
-        queue_count: 0, 
-        is_open: true, 
-        created_at: new Date() 
+      const doc = pickTournamentFields(payload);
+      if (!doc.name || !doc.category || !doc.date) {
+        return NextResponse.json({ error: 'Hiányzó kötelező mezők (név, kategória, dátum).' }, { status: 400 });
+      }
+      const result = await db.collection('tournaments').insertOne({
+        ...doc,
+        current_players: 0,
+        queue_count: 0,
+        is_open: true,
+        created_at: new Date(),
       });
-      await addLog(db, session.username, 'ÚJ ESEMÉNY', `Létrehozta: ${payload.name}`);
+      await addLog(db, session.username, 'ÚJ ESEMÉNY', `Létrehozta: ${doc.name}`);
       return NextResponse.json({ success: true, id: result.insertedId });
     }
 
     if (actionType === 'EDIT_TOURNAMENT') {
-      await db.collection('tournaments').updateOne(getQuery(payload.id), { $set: payload });
-      await addLog(db, session.username, 'MÓDOSÍTÁS', `Szerkesztette: ${payload.name}`);
+      const { id, ...rest } = payload;
+      const updates = {};
+      for (const key of TOURNAMENT_EDIT_FIELDS) {
+        if (rest[key] !== undefined) updates[key] = rest[key];
+      }
+      await db.collection('tournaments').updateOne(getQuery(id), { $set: updates });
+      await addLog(db, session.username, 'MÓDOSÍTÁS', `Szerkesztette: ${updates.name ?? payload.name ?? 'esemény'}`);
       return NextResponse.json({ success: true });
     }
 
@@ -75,6 +95,11 @@ export async function POST(request) {
     }
 
     if (actionType === 'CLEANUP_OLD_EVENTS') {
+      const ownerSession = await verifyOwner();
+      if (!ownerSession) {
+        return NextResponse.json({ error: 'Csak Admin2 futtathatja a takarítást!' }, { status: 403 });
+      }
+
       const twoMonthsAgo = new Date();
       twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
       
@@ -95,32 +120,94 @@ export async function POST(request) {
     // --- PUBLIKUS AKCIÓK (JELENTKEZŐKNEK) ---
     if (actionType === 'JOIN_TOURNAMENT') {
       const { tournamentId, name, email } = payload;
-      
-      const isBanned = await db.collection('blacklist').findOne({ email: email.toLowerCase() });
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      const displayName = typeof name === 'string' ? name.trim() : '';
+
+      if (!displayName || displayName.length > 120) {
+        return NextResponse.json({ error: 'Érvényes nevet adj meg.' }, { status: 400 });
+      }
+      if (!isValidEmail(normalizedEmail)) {
+        return NextResponse.json({ error: 'Érvényes e-mail címet adj meg.' }, { status: 400 });
+      }
+
+      const allowed = await consumeRateLimit(db, `join:${normalizedEmail}`, 15, 60 * 60 * 1000);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Túl sok jelentkezési kísérlet. Próbáld újra később.' }, { status: 429 });
+      }
+
+      const isBanned = await db.collection('blacklist').findOne({ email: normalizedEmail });
       if (isBanned) {
         return NextResponse.json({ error: "Sajnáljuk, de erről az e-mail címről a jelentkezés letiltásra került a Tavern rendszerében." }, { status: 403 });
       }
 
-      const tournament = await db.collection('tournaments').findOne(getQuery(tournamentId));
-      if (!tournament) return NextResponse.json({ error: "Esemény nem található" }, { status: 404 });
-      if (!tournament.is_open) return NextResponse.json({ error: "A jelentkezés lezárult" }, { status: 400 });
-
-      const existing = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: email.toLowerCase() });
+      const tQuery = getQuery(tournamentId);
+      const existing = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: normalizedEmail });
       if (existing) return NextResponse.json({ error: "Már jelentkeztél" }, { status: 400 });
 
-      const isQueue = tournament.current_players >= tournament.max_players;
-      await db.collection('registrations').insertOne({ tournamentId: String(tournamentId), tournamentName: tournament.name, name, email: email.toLowerCase(), status: isQueue ? 'Várólista' : 'Aktív', date: new Date() });
-      await db.collection('tournaments').updateOne(getQuery(tournamentId), { $inc: { [isQueue ? 'queue_count' : 'current_players']: 1 } });
+      const activeFilter = {
+        $and: [tQuery, { is_open: true }, { $expr: { $lt: ['$current_players', '$max_players'] } }],
+      };
+      let isQueue = false;
+      let tournament = await db.collection('tournaments').findOneAndUpdate(
+        activeFilter,
+        { $inc: { current_players: 1 } },
+        { returnDocument: 'after' }
+      );
+
+      if (!tournament) {
+        tournament = await db.collection('tournaments').findOneAndUpdate(
+          { $and: [tQuery, { is_open: true }] },
+          { $inc: { queue_count: 1 } },
+          { returnDocument: 'after' }
+        );
+        if (!tournament) {
+          const closed = await db.collection('tournaments').findOne(tQuery);
+          if (!closed) return NextResponse.json({ error: "Esemény nem található" }, { status: 404 });
+          return NextResponse.json({ error: "A jelentkezés lezárult" }, { status: 400 });
+        }
+        isQueue = true;
+      }
+
+      const counterField = isQueue ? 'queue_count' : 'current_players';
+      try {
+        await db.collection('registrations').insertOne({
+          tournamentId: String(tournamentId),
+          tournamentName: tournament.name,
+          name: displayName,
+          email: normalizedEmail,
+          status: isQueue ? 'Várólista' : 'Aktív',
+          date: new Date(),
+        });
+      } catch (insertErr) {
+        await db.collection('tournaments').updateOne(tQuery, { $inc: { [counterField]: -1 } });
+        throw insertErr;
+      }
+
       return NextResponse.json({ success: true, isQueue });
     }
 
     if (actionType === 'UNSUBSCRIBE_BY_EMAIL') {
       const { tournamentId, email } = payload;
-      const reg = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: email.toLowerCase() });
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      if (!isValidEmail(normalizedEmail)) {
+        return NextResponse.json({ error: 'Érvényes e-mail címet adj meg.' }, { status: 400 });
+      }
+
+      const allowed = await consumeRateLimit(db, `unsub:${normalizedEmail}`, 20, 60 * 60 * 1000);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Túl sok kísérlet. Próbáld újra később.' }, { status: 429 });
+      }
+
+      const reg = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: normalizedEmail });
       if (!reg) return NextResponse.json({ error: "Nincs jelentkezés erről az e-mail címről." }, { status: 404 });
-      
+
       await db.collection('registrations').deleteOne({ _id: reg._id });
-      await db.collection('tournaments').updateOne(getQuery(tournamentId), { $inc: { [reg.status === 'Aktív' || reg.status === 'Active' ? 'current_players' : 'queue_count']: -1 } });
+      const isActive = reg.status === 'Aktív' || reg.status === 'Active';
+      const counterField = isActive ? 'current_players' : 'queue_count';
+      await db.collection('tournaments').updateOne(
+        { $and: [getQuery(tournamentId), { [counterField]: { $gt: 0 } }] },
+        { $inc: { [counterField]: -1 } }
+      );
       return NextResponse.json({ success: true });
     }
 
@@ -129,7 +216,11 @@ export async function POST(request) {
       const reg = await db.collection('registrations').findOne(getQuery(payload.registrationId));
       if (!reg) return NextResponse.json({ error: "Nem található" }, { status: 404 });
       await db.collection('registrations').deleteOne(getQuery(payload.registrationId));
-      await db.collection('tournaments').updateOne(getQuery(reg.tournamentId), { $inc: { [reg.status === 'Aktív' || reg.status === 'Active' ? 'current_players' : 'queue_count']: -1 } });
+      const counterField = reg.status === 'Aktív' || reg.status === 'Active' ? 'current_players' : 'queue_count';
+      await db.collection('tournaments').updateOne(
+        { $and: [getQuery(reg.tournamentId), { [counterField]: { $gt: 0 } }] },
+        { $inc: { [counterField]: -1 } }
+      );
       await addLog(db, session.username, 'JELENTKEZŐ TÖRLÉSE', `Törölte ${reg.name} jelentkezését (${reg.tournamentName})`);
       return NextResponse.json({ success: true });
     }
@@ -152,6 +243,9 @@ export async function POST(request) {
     if (actionType === 'CHANGE_USER_PASSWORD') {
       const ownerSession = await verifyOwner();
       if (!ownerSession) return NextResponse.json({ error: 'Csak Tulajdonos cserélhet jelszót!' }, { status: 403 });
+      if (!payload.newPassword || payload.newPassword.length < 6) {
+        return NextResponse.json({ error: 'Az új jelszónak legalább 6 karakter hosszúnak kell lennie.' }, { status: 400 });
+      }
 
       const hashedPassword = await bcrypt.hash(payload.newPassword, 10);
       await db.collection('users').updateOne(getQuery(payload.userId), { $set: { password: hashedPassword } });
@@ -195,19 +289,31 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
-    if (actionType === 'BAN_EMAIL') {
-      await db.collection('blacklist').updateOne({ email: payload.email.toLowerCase() }, { $set: { reason: payload.reason, date: new Date() } }, { upsert: true });
-      await addLog(db, session.username, 'FEKETELISTA', `Letiltotta: ${payload.email}`);
+    if (actionType === 'BAN_EMAIL' || actionType === 'UNBAN_EMAIL') {
+      const ownerSession = await verifyOwner();
+      if (!ownerSession) {
+        return NextResponse.json({ error: 'Csak Admin2 kezelheti a feketelistát!' }, { status: 403 });
+      }
+      const banEmail = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+      if (!isValidEmail(banEmail)) {
+        return NextResponse.json({ error: 'Érvényes e-mail címet adj meg.' }, { status: 400 });
+      }
+
+      if (actionType === 'BAN_EMAIL') {
+        await db.collection('blacklist').updateOne(
+          { email: banEmail },
+          { $set: { reason: payload.reason || '', date: new Date() } },
+          { upsert: true }
+        );
+        await addLog(db, session.username, 'FEKETELISTA', `Letiltotta: ${banEmail}`);
+      } else {
+        await db.collection('blacklist').deleteOne({ email: banEmail });
+        await addLog(db, session.username, 'FEKETELISTA', `Feloldotta: ${banEmail}`);
+      }
       return NextResponse.json({ success: true });
     }
 
-    if (actionType === 'UNBAN_EMAIL') {
-      await db.collection('blacklist').deleteOne({ email: payload.email.toLowerCase() });
-      await addLog(db, session.username, 'FEKETELISTA', `Feloldotta: ${payload.email}`);
-      return NextResponse.json({ success: true });
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ error: 'Ismeretlen művelet.' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

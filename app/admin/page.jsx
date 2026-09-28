@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
 import { AdminEvents } from '@/app/components';
 import { LogoutOutlined, LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
@@ -23,7 +23,15 @@ const tavernTheme = {
 export default function AdminPage() {
   const app = useCalendar(); 
   const [isRegistering, setIsRegistering] = useState(false);
+  const [canRegister, setCanRegister] = useState(false);
   const [localForm] = Form.useForm();
+
+  useEffect(() => {
+    fetch('/api/auth')
+      .then((res) => res.json())
+      .then((data) => setCanRegister(!!data.canRegister))
+      .catch(() => setCanRegister(false));
+  }, []);
 
   // Amíg a React ellenőrzi a böngésző memóriáját (ne villanjon be a login)
   if (app.loading) {
@@ -102,11 +110,13 @@ export default function AdminPage() {
               </Button>
             </Form>
 
-            <div className="text-center mt-6">
-              <Button type="link" onClick={() => { setIsRegistering(!isRegistering); localForm.resetFields(); }} style={{ color: '#baaaac' }}>
-                {isRegistering ? 'Már van fiókod? Lépj be!' : 'Nincs még fiókod? Regisztrálj itt!'}
-              </Button>
-            </div>
+            {canRegister && (
+              <div className="text-center mt-6">
+                <Button type="link" onClick={() => { setIsRegistering(!isRegistering); localForm.resetFields(); }} style={{ color: '#baaaac' }}>
+                  {isRegistering ? 'Már van fiókod? Lépj be!' : 'Nincs még fiókod? Regisztrálj itt!'}
+                </Button>
+              </div>
+            )}
             
           </div>
         </main>

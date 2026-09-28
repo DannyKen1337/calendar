@@ -69,7 +69,7 @@ export const PublicModals = ({ app }) => {
     isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin, 
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin, 
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, submitUnsubscribe,
-    isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit
+    isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, canRegister
   } = app;
   
   return (
@@ -146,11 +146,13 @@ export const PublicModals = ({ app }) => {
           <Form.Item name="password" label="Jelszó" rules={[{ required: true, message: 'Kötelező megadni!' }]}>
             <Input.Password placeholder="********" size="large" />
           </Form.Item>
-          <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <Button type="link" onClick={() => { setIsRegistering(!isRegistering); authForm.resetFields(); }} style={{ color: '#baaaac', textDecoration: 'underline' }}>
-              {isRegistering ? 'Már van fiókod? Lépj be itt!' : 'Nincs még fiókod? Regisztrálj!'}
-            </Button>
-          </div>
+          {canRegister && (
+            <div style={{ textAlign: 'center', marginTop: 20 }}>
+              <Button type="link" onClick={() => { setIsRegistering(!isRegistering); authForm.resetFields(); }} style={{ color: '#baaaac', textDecoration: 'underline' }}>
+                {isRegistering ? 'Már van fiókod? Lépj be itt!' : 'Nincs még fiókod? Regisztrálj!'}
+              </Button>
+            </div>
+          )}
         </Form>
       </Modal>
     </>

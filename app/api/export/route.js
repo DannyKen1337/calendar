@@ -1,4 +1,4 @@
-import clientPromise from '@/lib/mongodb';
+import { getTavernDb } from '@/lib/mongodb';
 
 export async function GET(request) {
   try {
@@ -11,8 +11,7 @@ export async function GET(request) {
       query = { category: { $in: categories } };
     }
 
-    const client = await clientPromise;
-    const db = client.db();
+    const db = await getTavernDb();
     const events = await db.collection('tournaments').find(query).toArray();
 
     // ICS fájl felépítése

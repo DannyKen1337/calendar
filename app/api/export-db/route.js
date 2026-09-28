@@ -1,11 +1,19 @@
-import clientPromise from '@/lib/mongodb';
+import { getTavernDb } from '@/lib/mongodb';
+import { verifyOwner } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request) {
+export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db();
+    const session = await verifyOwner();
+    if (!session) {
+      return new Response(JSON.stringify({ error: 'Csak Admin2 exportálhatja az adatbázist.' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const db = await getTavernDb();
 
     const [tournaments, registrations, users] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),

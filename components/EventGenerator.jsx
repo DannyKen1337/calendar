@@ -90,15 +90,28 @@ export default function EventGenerator() {
         setIsGenerating(false); return;
       }
 
+      let created = 0;
       for (const payload of eventsToCreate) {
-        await fetch('/api/actions', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ actionType: 'ADD_TOURNAMENT', payload }) 
+        const res = await fetch('/api/actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ actionType: 'ADD_TOURNAMENT', payload }),
         });
+        const data = await res.json();
+        if (data.error || !res.ok) {
+          message.error(data.error || `Hiba a(z) ${created + 1}. eseménynél.`);
+          break;
+        }
+        created += 1;
       }
-      
-      message.success(`${eventsToCreate.length} db esemény sikeresen legenerálva a(z) ${STORES[store].name} naptárába!`);
+
+      if (created === 0) {
+        message.warning('Egyetlen esemény sem készült el.');
+      } else if (created === eventsToCreate.length) {
+        message.success(`${created} db esemény sikeresen legenerálva a(z) ${STORES[store].name} naptárába!`);
+      } else {
+        message.warning(`${created} / ${eventsToCreate.length} esemény készült el; a többi kimaradt.`);
+      }
       form.resetFields();
     } catch (error) {
       message.error("Hiba történt a generálás során.");

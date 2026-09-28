@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import { getTavernDb } from '@/lib/mongodb';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,13 +7,13 @@ export async function GET(request) {
   const authHeader = request.headers.get('authorization');
   
   // Szigorúbb feltétel, ami nem engedi át, ha hiányzik a környezeti változó
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 
   try {
-    const client = await clientPromise;
-    const db = client.db();
+    const db = await getTavernDb();
     
     const twoMonthsAgo = new Date();
     twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);

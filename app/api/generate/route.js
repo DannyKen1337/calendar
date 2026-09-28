@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import { getTavernDb } from '@/lib/mongodb';
 import { GAME_CONFIG } from '@/lib/gameConfig';
+import { verifyAdmin } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
+    const session = await verifyAdmin();
+    if (!session) {
+      return NextResponse.json({ error: 'Jogosulatlan hozzáférés!' }, { status: 401 });
+    }
+
     const data = await request.json();
     const { name, category, customColor, startDate, time, weeks, maxPlayers, description, isExternal, externalUrls } = data;
 
-    const client = await clientPromise;
-    const db = client.db();
+    const db = await getTavernDb();
     const eventsToInsert = [];
 
     const weekCount = parseInt(weeks) || 1;
