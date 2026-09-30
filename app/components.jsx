@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 
@@ -382,6 +382,7 @@ export const AdminEvents = ({ app: v }) => {
               </div>
               <Button type="primary" style={{ background: '#4b1b54', borderColor: '#4b1b54', color: '#fff' }} onClick={() => v.setIsLogModalOpen(true)}>Tevékenységnapló</Button>
               <Button type="primary" danger onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
+              <Button type="primary" icon={<UserAddOutlined />} style={{ background: '#E5B15D', borderColor: '#E5B15D', color: '#000', fontWeight: 'bold' }} onClick={() => { v.createUserForm.resetFields(); v.setIsCreateUserModalOpen(true); }}>Új felhasználó</Button>
               <Button type="default" icon={<LockOutlined />} style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={() => { v.ownPasswordForm.resetFields(); v.setIsOwnPasswordModalOpen(true); }}>Saját jelszó</Button>
               <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={handleFilteredExport}>💾 Adatbázis Mentés (JSON)</Button>
               <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={v.handleCleanupOldEvents} okText="Igen" cancelText="Mégse">
@@ -455,9 +456,52 @@ export const AdminEvents = ({ app: v }) => {
           </Form>
         </Modal>
 
+        <Modal
+          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>{v.createdCredentials ? 'Felhasználó létrehozva' : 'Új felhasználó létrehozása'}</span>}
+          open={v.isCreateUserModalOpen}
+          onCancel={v.closeCreateUserModal}
+          onOk={() => v.createUserForm.submit()}
+          okText="Létrehozás"
+          cancelText="Mégse"
+          okButtonProps={{ loading: v.isCreatingUser, style: { color: '#000', fontWeight: 'bold' } }}
+          footer={v.createdCredentials ? [<Button key="done" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={v.closeCreateUserModal}>Kész</Button>] : undefined}
+          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+          forceRender
+        >
+          <Form form={v.createUserForm} layout="vertical" onFinish={v.submitCreateUser} className="mt-4" initialValues={{ role: 'admin' }} style={{ display: v.createdCredentials ? 'none' : 'block' }}>
+            <p style={{ color: '#baaaac', marginBottom: 16 }}>A rendszer egy ideiglenes, egyszer használatos jelszót generál. Az első belépéskor a felhasználónak saját jelszót kell választania.</p>
+            <Form.Item name="username" label="Felhasználónév" rules={[{ required: true, message: 'Kötelező!' }, { pattern: /^[\p{L}\p{N}._-]{3,32}$/u, message: '3-32 karakter: betű, szám, pont, aláhúzás, kötőjel.' }]}>
+              <Input placeholder="Pl.: tavern_szervezo" />
+            </Form.Item>
+            <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
+              <Input placeholder="pelda@email.com" />
+            </Form.Item>
+            <Form.Item name="role" label="Szerep">
+              <Select>
+                <Select.Option value="admin">Admin (szervező)</Select.Option>
+                <Select.Option value="customer">Játékos</Select.Option>
+              </Select>
+            </Form.Item>
+          </Form>
+          {v.createdCredentials && (
+            <div className="space-y-4 pt-2">
+              <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
+                <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Felhasználónév:</strong> {v.createdCredentials.username}</p>
+                <p className="mb-3"><strong style={{ color: '#E5B15D' }}>E-mail:</strong> {v.createdCredentials.email}</p>
+                <strong style={{ color: '#E5B15D' }}>Ideiglenes jelszó:</strong>
+                <div className="flex items-center gap-3 mt-2">
+                  <code style={{ background: '#0a0a0a', border: '1px solid #4A2E33', borderRadius: 8, padding: '8px 14px', fontSize: '1.25rem', letterSpacing: '2px', color: '#E0D6C8', userSelect: 'all' }}>{v.createdCredentials.tempPassword}</code>
+                  <Button icon={<CopyOutlined />} onClick={() => { if (navigator.clipboard) { navigator.clipboard.writeText(v.createdCredentials.tempPassword).then(() => v.messageApi.success('Jelszó a vágólapra másolva!'), () => v.messageApi.error('A másolás nem sikerült, jelöld ki kézzel.')); } else { v.messageApi.error('A másolás nem támogatott, jelöld ki kézzel.'); } }}>Másolás</Button>
+                </div>
+              </div>
+              <p style={{ color: '#ff7875' }}><strong>Ez a jelszó csak most látható</strong>, később nem kérhető le. Add át a felhasználónak biztonságos módon.</p>
+              <p style={{ color: '#baaaac' }}>Egyszer használható, {v.createdCredentials.expiresAt ? `${new Date(v.createdCredentials.expiresAt).toLocaleDateString('hu-HU')}-ig érvényes` : '7 napig érvényes'}. Az /admin oldalon belépve a felhasználónak azonnal új jelszót kell megadnia.</p>
+            </div>
+          )}
+        </Modal>
         <Modal title="Szervezős Felhasználók" open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} columns={[
-            { title: 'Név', dataIndex: 'username', render: (text) => <Text strong style={{ color: '#E0D6C8' }}>{text}</Text> },
+            { title: 'Név', dataIndex: 'username', render: (text, record) => <Space size={6} wrap><Text strong style={{ color: '#E0D6C8' }}>{text}</Text>{record.mustChangePassword && <Tag color="blue">Ideiglenes jelszó</Tag>}</Space> },
             { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
             { title: 'Szerep', dataIndex: 'role', render: (role) => { if (role === 'owner') return <Tag color="purple">Admin2</Tag>; if (role === 'admin') return <Tag color="orange">Admin</Tag>; return <Tag color="green">Játékos</Tag>; }},
             { title: 'Művelet', render: (_, record) => {

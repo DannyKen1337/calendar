@@ -2,8 +2,34 @@ import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
+import { consumeRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+// Belépési süti beállítása a NextResponse-on keresztül (egy helyen, hogy a belépés és a jelszóbeállítás ugyanazt használja)
+async function sessionResponse(user) {
+  const sessionToken = await encrypt({
+    id: user._id.toString(),
+    username: user.username,
+    email: user.email,
+    role: user.role
+  });
+
+  const response = NextResponse.json({ success: true, user: { username: user.username, role: user.role } });
+
+  response.cookies.set('tavern_session', sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 14 // 14 napig érvényes
+  });
+
+  return response;
+}
+
+const isTempPasswordExpired = (user) =>
+  !!user.tempPasswordExpires && new Date(user.tempPasswordExpires) < new Date();
 
 export async function GET() {
   try {
@@ -19,7 +45,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { action, loginId, password, email, username } = await request.json();
+    const { action, loginId, password, email, username, tempPassword, newPassword } = await request.json();
     const db = await getTavernDb();
 
     // --- REGISZTRÁCIÓ ---
@@ -61,25 +87,61 @@ export async function POST(request) {
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
 
-      const sessionToken = await encrypt({ 
-        id: user._id.toString(), 
-        username: user.username, 
-        email: user.email, 
-        role: user.role 
-      });
+      // Ideiglenes jelszóval NEM lehet belépni: csak jelszóbeállításra jogosít (nem készül munkamenet / süti)
+      if (user.mustChangePassword) {
+        if (isTempPasswordExpired(user)) {
+          return NextResponse.json({ error: "Az ideiglenes jelszó lejárt. Kérj újat a tulajdonostól." }, { status: 401 });
+        }
+        return NextResponse.json({ success: true, mustChangePassword: true });
+      }
 
-      const response = NextResponse.json({ success: true, user: { username: user.username, role: user.role } });
-      
-      // A süti stabil beállítása a NextResponse-on keresztül!
-      response.cookies.set('tavern_session', sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 14 // 14 napig érvényes
-      });
+      return await sessionResponse(user);
+    }
 
-      return response;
+    // --- ELSŐ BELÉPÉS: az ideiglenes jelszó lecserélése saját jelszóra (egyszer használatos) ---
+    if (action === 'complete_setup') {
+      if (typeof loginId !== 'string' || typeof tempPassword !== 'string' || typeof newPassword !== 'string') {
+        return NextResponse.json({ error: "Hiányzó adatok!" }, { status: 400 });
+      }
+
+      const allowed = await consumeRateLimit(db, `setup:${loginId.toLowerCase()}`, 10, 60 * 60 * 1000);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Túl sok kísérlet. Próbáld újra később.' }, { status: 429 });
+      }
+
+      const user = await db.collection('users').findOne({
+        $or: [{ email: loginId.toLowerCase() }, { username: loginId }]
+      });
+      if (!user || !user.mustChangePassword) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
+
+      const isMatch = await bcrypt.compare(tempPassword, user.password);
+      if (!isMatch) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
+
+      if (isTempPasswordExpired(user)) {
+        return NextResponse.json({ error: "Az ideiglenes jelszó lejárt. Kérj újat a tulajdonostól." }, { status: 401 });
+      }
+      if (newPassword.length < 8 || newPassword.length > 72) {
+        return NextResponse.json({ error: "Az új jelszó 8 és 72 karakter közötti legyen." }, { status: 400 });
+      }
+      if (newPassword === tempPassword) {
+        return NextResponse.json({ error: "Az új jelszó nem egyezhet meg az ideiglenessel." }, { status: 400 });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // A feltétel (mustChangePassword + régi hash) miatt az ideiglenes jelszó pontosan egyszer használható fel, párhuzamos kérésnél is
+      const result = await db.collection('users').updateOne(
+        { _id: user._id, mustChangePassword: true, password: user.password },
+        {
+          $set: { password: hashedPassword, passwordChangedAt: new Date() },
+          $unset: { mustChangePassword: '', tempPasswordExpires: '' }
+        }
+      );
+      if (result.modifiedCount !== 1) {
+        return NextResponse.json({ error: "Az ideiglenes jelszó már fel lett használva." }, { status: 409 });
+      }
+
+      return await sessionResponse(user);
     }
 
     return NextResponse.json({ error: "Érvénytelen művelet" }, { status: 400 });

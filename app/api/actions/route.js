@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
 import { verifyAdmin, verifyOwner } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
+
+const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
 const TOURNAMENT_EDIT_FIELDS = [
   'name', 'store', 'category', 'date', 'max_players', 'external_url',
@@ -225,6 +228,48 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // --- ÚJ FELHASZNÁLÓ LÉTREHOZÁSA ideiglenes, egyszer használatos jelszóval (OWNER ONLY) ---
+    if (actionType === 'CREATE_USER') {
+      const ownerSession = await verifyOwner();
+      if (!ownerSession) return NextResponse.json({ error: 'Csak Tulajdonos hozhat létre felhasználót!' }, { status: 403 });
+
+      const newUsername = typeof payload?.username === 'string' ? payload.username.trim() : '';
+      const newEmail = typeof payload?.email === 'string' ? payload.email.trim().toLowerCase() : '';
+      const newRole = payload?.role === 'customer' ? 'customer' : 'admin';
+
+      if (!/^[\p{L}\p{N}._-]{3,32}$/u.test(newUsername)) {
+        return NextResponse.json({ error: 'A felhasználónév 3-32 karakter lehet, és csak betűt, számot, pontot, aláhúzást vagy kötőjelet tartalmazhat.' }, { status: 400 });
+      }
+      if (!isValidEmail(newEmail)) {
+        return NextResponse.json({ error: 'Érvényes e-mail címet adj meg.' }, { status: 400 });
+      }
+
+      const usersColl = db.collection('users');
+      const dupEmail = await usersColl.findOne({ email: newEmail });
+      const dupName = await usersColl.findOne({ username: newUsername }, { collation: { locale: 'en', strength: 2 } });
+      if (dupEmail || dupName) {
+        return NextResponse.json({ error: 'Ez az e-mail vagy felhasználónév már foglalt!' }, { status: 400 });
+      }
+
+      const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+      let tempPassword = '';
+      for (let i = 0; i < 12; i++) tempPassword += ALPHABET[randomInt(ALPHABET.length)];
+
+      const expiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
+      await usersColl.insertOne({
+        username: newUsername,
+        email: newEmail,
+        password: await bcrypt.hash(tempPassword, 10),
+        role: newRole,
+        mustChangePassword: true,
+        tempPasswordExpires: expiresAt,
+        createdAt: new Date(),
+        createdBy: ownerSession.username,
+      });
+      await addLog(db, session.username, 'ÚJ FELHASZNÁLÓ', `Létrehozta: ${newUsername} (${newRole === 'admin' ? 'Admin' : 'Játékos'}), ideiglenes jelszóval.`);
+      return NextResponse.json({ success: true, username: newUsername, email: newEmail, tempPassword, expiresAt });
+    }
+
     // --- FELHASZNÁLÓK (OWNER ONLY) ---
     if (actionType === 'TOGGLE_ROLE' || actionType === 'DELETE_USER') {
       const ownerSession = await verifyOwner();
@@ -248,7 +293,7 @@ export async function POST(request) {
       }
 
       const hashedPassword = await bcrypt.hash(payload.newPassword, 10);
-      await db.collection('users').updateOne(getQuery(payload.userId), { $set: { password: hashedPassword } });
+      await db.collection('users').updateOne(getQuery(payload.userId), { $set: { password: hashedPassword }, $unset: { mustChangePassword: '', tempPasswordExpires: '' } });
       await addLog(db, session.username, 'JELSZÓ CSERE', `Kicserélte egy fiók jelszavát.`);
       return NextResponse.json({ success: true });
     }

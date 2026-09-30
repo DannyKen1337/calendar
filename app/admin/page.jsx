@@ -25,6 +25,8 @@ export default function AdminPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [canRegister, setCanRegister] = useState(false);
   const [localForm] = Form.useForm();
+  const [setup, setSetup] = useState(null); // { loginId, tempPassword } ideiglenes jelszóval való első belépéskor
+  const [setupForm] = Form.useForm();
 
   useEffect(() => {
     fetch('/api/auth')
@@ -57,6 +59,12 @@ export default function AdminPage() {
         return;
       }
 
+      if (!isRegistering && data.mustChangePassword) {
+        setSetup({ loginId: values.loginId, tempPassword: values.password });
+        localForm.resetFields();
+        return;
+      }
+
       if (isRegistering) {
         message.success('Sikeres regisztráció! Most már bejelentkezhetsz.');
         setIsRegistering(false);
@@ -70,8 +78,72 @@ export default function AdminPage() {
     }
   };
 
+  // Első belépés: az ideiglenes jelszó lecserélése saját jelszóra
+  const handleSetup = async (values) => {
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete_setup', loginId: setup.loginId, tempPassword: setup.tempPassword, newPassword: values.newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        message.error(data.error || 'Hiba történt!');
+        return;
+      }
+      message.success('Jelszó beállítva, üdv a Tavernben!');
+      window.location.reload();
+    } catch (e) {
+      message.error('Szerverhiba történt.');
+    }
+  };
+
   // BIZTONSÁGI KAPU: Ha nincs bejelentkezve, vagy csak sima játékos
   if (app.userRole !== 'admin' && app.userRole !== 'owner') {
+    if (setup) {
+      return (
+        <ConfigProvider theme={tavernTheme}>
+          {app.contextHolder}
+          <main className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+            <div className="bg-[#1a1012] p-8 rounded-2xl border border-[#4A2E33] shadow-xl w-full max-w-md">
+              <h1 className="text-3xl font-bold text-[#E5B15D] font-serif mb-2 text-center">Jelszó beállítása</h1>
+              <p className="text-[#baaaac] text-center mb-6 border-b border-[#4A2E33] pb-4">
+                Első belépés: az ideiglenes jelszó egyszer használható. Válassz saját jelszót (8-72 karakter)!
+              </p>
+              <Form form={setupForm} layout="vertical" onFinish={handleSetup}>
+                <Form.Item name="newPassword" rules={[{ required: true, message: 'Adj meg új jelszót!' }, { min: 8, message: 'Legalább 8 karakter!' }, { max: 72, message: 'Legfeljebb 72 karakter!' }]}>
+                  <Input.Password prefix={<LockOutlined className="text-gray-500 mr-2" />} placeholder="Új jelszó" size="large" />
+                </Form.Item>
+                <Form.Item
+                  name="confirmPassword"
+                  dependencies={['newPassword']}
+                  rules={[
+                    { required: true, message: 'Erősítsd meg a jelszót!' },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue('newPassword') === value) return Promise.resolve();
+                        return Promise.reject(new Error('A két jelszó nem egyezik.'));
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password prefix={<LockOutlined className="text-gray-500 mr-2" />} placeholder="Új jelszó megerősítése" size="large" />
+                </Form.Item>
+                <Button type="primary" htmlType="submit" className="w-full h-12 text-black font-bold text-lg rounded-xl mt-2" style={{ background: '#E5B15D', borderColor: '#E5B15D' }}>
+                  Jelszó mentése és belépés
+                </Button>
+              </Form>
+              <div className="text-center mt-6">
+                <Button type="link" onClick={() => { setSetup(null); setupForm.resetFields(); }} style={{ color: '#baaaac' }}>
+                  Mégse
+                </Button>
+              </div>
+            </div>
+          </main>
+        </ConfigProvider>
+      );
+    }
+
     return (
       <ConfigProvider theme={tavernTheme}>
         {app.contextHolder}

@@ -43,6 +43,9 @@ export const useCalendar = () => {
   const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
   const [isOwnPasswordModalOpen, setIsOwnPasswordModalOpen] = useState(false);
   const [canRegister, setCanRegister] = useState(false);
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   
   const [passwordForm] = Form.useForm();
   const [ownPasswordForm] = Form.useForm();
@@ -51,6 +54,7 @@ export const useCalendar = () => {
   const [unsubscribeForm] = Form.useForm();
   const [authForm] = Form.useForm();
   const [blacklistForm] = Form.useForm();
+  const [createUserForm] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
@@ -170,7 +174,9 @@ export const useCalendar = () => {
       const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...values }) });
       const data = await response.json();
       if (data.error) messageApi.error(data.error);
-      else if (action === 'login') {
+      else if (action === 'login' && data.mustChangePassword) {
+        messageApi.info('Első belépés: az ideiglenes jelszó lecseréléséhez használd az /admin oldalt.');
+      } else if (action === 'login') {
         messageApi.success(`Üdvözlünk, ${data.user.username}!`);
         setUserName(data.user.username); setUserEmail(data.user.email); setUserRole(data.user.role);
         setIsAuthModalOpen(false); authForm.resetFields();
@@ -352,6 +358,31 @@ export const useCalendar = () => {
     } catch (err) {}
   };
 
+  const closeCreateUserModal = () => {
+    setIsCreateUserModalOpen(false);
+    setCreatedCredentials(null);
+    createUserForm.resetFields();
+  };
+
+  const submitCreateUser = async (values) => {
+    setIsCreatingUser(true);
+    try {
+      const response = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionType: 'CREATE_USER', payload: { username: values.username, email: values.email, role: values.role } }),
+      });
+      const result = await response.json();
+      if (result.error || !response.ok) { messageApi.error(result.error || 'A felhasználó létrehozása sikertelen.'); }
+      else {
+        setCreatedCredentials({ username: result.username, email: result.email, tempPassword: result.tempPassword, expiresAt: result.expiresAt });
+        messageApi.success('Felhasználó létrehozva!');
+        fetchData(true);
+      }
+    } catch (err) { messageApi.error('Hálózati hiba történt.'); }
+    setIsCreatingUser(false);
+  };
+
   const formatEventDate = (dateString) => {
     if (!dateString) return "Hamarosan"; 
     const d = new Date(dateString); if (isNaN(d.getTime())) return dateString; 
@@ -371,6 +402,7 @@ export const useCalendar = () => {
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
-    messageApi, contextHolder, formatEventDate, fetchData, canRegister
+    messageApi, contextHolder, formatEventDate, fetchData, canRegister,
+    isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };
 };
