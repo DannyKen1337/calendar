@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useCalendar } from '@/app/useCalendar';
 import { CalendarView, StoreSelector, STORES } from '@/app/components';
 import CalendarFilters from '@/components/CalendarFilters';
-import { EnvironmentOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, SwapOutlined } from '@ant-design/icons';
 
 export default function PublicCalendarPage() {
   const app = useCalendar();
@@ -62,18 +62,7 @@ export default function PublicCalendarPage() {
         </div>
       )}
       
-      {/* Elegáns Bolt Váltó Gomb a Bal Felső Sarokban */}
-      <button 
-        onClick={() => app.handleSelectStore(null)}
-        className="absolute top-4 left-4 md:top-8 md:left-8 bg-[#1a1012] border border-[#4A2E33] hover:border-[#E5B15D] text-[#baaaac] hover:text-[#E5B15D] px-4 py-2 rounded-full flex items-center gap-2 transition-all duration-300 z-10"
-      >
-        <EnvironmentOutlined />
-        <span className="font-bold text-sm">Helyszín váltása</span>
-      </button>
-
-
-
-      <div className="max-w-5xl mx-auto pt-16 md:pt-8">
+      <div className="max-w-5xl mx-auto pt-8">
         
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-[#E5B15D] font-serif m-0">
@@ -82,6 +71,19 @@ export default function PublicCalendarPage() {
           <p className="text-[#baaaac] text-lg mt-2 font-serif italic">Eseménynaptár</p>
         </div>
         
+        {/* Helyszín váltása: középen, a cím alatt */}
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={() => app.handleSelectStore(null)}
+            className="group inline-flex items-center gap-3 px-7 py-3 rounded-full border-2 border-[#E5B15D]/60 text-[#E5B15D] font-bold tracking-wide cursor-pointer shadow-[0_0_14px_rgba(229,177,93,0.12)] hover:border-[#E5B15D] hover:text-[#f3cf8c] hover:shadow-[0_0_28px_rgba(229,177,93,0.35)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+            style={{ background: 'linear-gradient(135deg, #2B1A1C 0%, #1a1012 100%)' }}
+          >
+            <EnvironmentOutlined className="text-lg" />
+            <span>Helyszín váltása</span>
+            <SwapOutlined className="text-base transition-transform duration-500 group-hover:rotate-180" />
+          </button>
+        </div>
+
         <CalendarFilters 
           events={storeTournaments} 
           activeFilters={activeFilters}
