@@ -10,8 +10,18 @@ const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7
 
 const TOURNAMENT_EDIT_FIELDS = [
   'name', 'store', 'category', 'date', 'max_players', 'external_url',
-  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured',
+  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured', 'isOpenAttendance',
 ];
+
+// Kötetlen létszámú esemény: nincs max. létszám, nincs jelentkezés, nincs külső jelentkezési link
+function applyOpenAttendance(doc) {
+  if (doc.isOpenAttendance === true) {
+    doc.max_players = 0;
+    doc.external_url = '';
+    doc.isExternalEvent = false;
+  }
+  return doc;
+}
 
 function pickTournamentFields(source) {
   const doc = {};
@@ -56,7 +66,7 @@ export async function POST(request) {
 
     // --- ESEMÉNYEK ---
     if (actionType === 'ADD_TOURNAMENT') {
-      const doc = pickTournamentFields(payload);
+      const doc = applyOpenAttendance(pickTournamentFields(payload));
       if (!doc.name || !doc.category || !doc.date) {
         return NextResponse.json({ error: 'Hiányzó kötelező mezők (név, kategória, dátum).' }, { status: 400 });
       }
@@ -77,6 +87,7 @@ export async function POST(request) {
       for (const key of TOURNAMENT_EDIT_FIELDS) {
         if (rest[key] !== undefined) updates[key] = rest[key];
       }
+      applyOpenAttendance(updates);
       await db.collection('tournaments').updateOne(getQuery(id), { $set: updates });
       await addLog(db, session.username, 'MÓDOSÍTÁS', `Szerkesztette: ${updates.name ?? payload.name ?? 'esemény'}`);
       return NextResponse.json({ success: true });
@@ -144,6 +155,11 @@ export async function POST(request) {
       }
 
       const tQuery = getQuery(tournamentId);
+      const targetEvent = await db.collection('tournaments').findOne(tQuery);
+      if (!targetEvent) return NextResponse.json({ error: "Esemény nem található" }, { status: 404 });
+      if (targetEvent.isOpenAttendance) {
+        return NextResponse.json({ error: "Ehhez az eseményhez nincs jelentkezés (kötetlen létszám)." }, { status: 400 });
+      }
       const existing = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: normalizedEmail });
       if (existing) return NextResponse.json({ error: "Már jelentkeztél" }, { status: 400 });
 

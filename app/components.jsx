@@ -77,7 +77,7 @@ export const PublicModals = ({ app }) => {
     <>
       <Modal title={<span style={{ fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>} open={isEventDetailsModalOpen} onCancel={() => setIsEventDetailsModalOpen(false)} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} footer={[
           <Button key="close" onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
-          selectedEventDetails?.external_url ? ( <Button key="ext" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>Tovább a weboldalra</Button> ) : ( <Button key="join" type="primary" style={{ color: '#000', fontWeight: 'bold' }} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>{selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}</Button> )
+          selectedEventDetails?.isOpenAttendance ? null : selectedEventDetails?.external_url ? ( <Button key="ext" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>Tovább a weboldalra</Button> ) : ( <Button key="join" type="primary" style={{ color: '#000', fontWeight: 'bold' }} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>{selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}</Button> )
         ]}>
         {selectedEventDetails && (() => {
           const detailsTagColor = getGameColor(selectedEventDetails);
@@ -95,7 +95,8 @@ export const PublicModals = ({ app }) => {
             </div>
             <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
-              {!selectedEventDetails.external_url && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p> )}
+              {selectedEventDetails.isOpenAttendance && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> Kötetlen, jelentkezni nem kell</p> )}
+              {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p> )}
             </div>
             {selectedEventDetails.description && (
               <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33] mt-4"><strong style={{ color: '#E5B15D' }}>Leírás:</strong><p style={{ whiteSpace: 'pre-wrap', marginTop: 8, color: '#baaaac' }}>{selectedEventDetails.description}</p></div>
@@ -195,18 +196,22 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
-                  {evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}</> )}
+                  {evt.isOpenAttendance ? ( <Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>Kötetlen</Text></Text> ) : evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}</> )}
                 </div>
               </div>
               {!isAdmin ? (
+                evt.isOpenAttendance ? (
+                  <Tag color="green" style={{ fontSize: '14px', padding: '6px 14px', borderRadius: 999, margin: 0 }}>Kötetlen létszám · jelentkezni nem kell</Tag>
+                ) : (
                 <Button type={btnType} icon={btnIcon} shape="round" size="large" disabled={!evt.is_open && !evt.external_url} onClick={() => initiateJoin(evt)} style={btnType === 'primary' ? S.primaryBtn : { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }}>
                   {(!evt.is_open && !evt.external_url) ? "Lezárva" : btnText}
                 </Button>
+                )
               ) : (
                 <Space style={{ flexWrap: 'wrap' }}>
-                  {!evt.external_url && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
+                  {!evt.external_url && !evt.isOpenAttendance && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8, store: evt.store || 'debrecen'}); setIsEventModalOpen(true); }} />
-                  <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} loading={togglingGateId === eId} onClick={() => handleToggleGate(eId, !evt.is_open)}>{evt.is_open ? 'Zárás' : 'Megnyitás'}</Button>
+                  {!evt.isOpenAttendance && <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} loading={togglingGateId === eId} onClick={() => handleToggleGate(eId, !evt.is_open)}>{evt.is_open ? 'Zárás' : 'Megnyitás'}</Button>}
                   <Popconfirm title="Biztosan törlöd?" onConfirm={() => handleDeleteTournament(eId)} okText="Igen" cancelText="Mégse"><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm>
                 </Space>
               )}
@@ -482,8 +487,18 @@ export const AdminEvents = ({ app: v }) => {
             </div>
             
             <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]}><Input type="datetime-local" /></Form.Item>
-            <Form.Item name="max_players" label="Max Létszám"><Input type="number" placeholder="Alapértelmezett: 16" /></Form.Item>
-            <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)"><Input placeholder="https://..." /></Form.Item>
+            <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az esemény csak tájékoztatásul jelenik meg a naptárban."><Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox></Form.Item>
+            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance}>
+              {({ getFieldValue }) => {
+                const isOpenAttendance = !!getFieldValue('isOpenAttendance');
+                return (
+                  <>
+                    <Form.Item name="max_players" label="Max Létszám"><Input type="number" placeholder={isOpenAttendance ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} disabled={isOpenAttendance} /></Form.Item>
+                    <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)"><Input placeholder="https://..." disabled={isOpenAttendance} /></Form.Item>
+                  </>
+                );
+              }}
+            </Form.Item>
             <Form.Item name="description" label="Leírás (Opcionális)"><Input.TextArea rows={4} placeholder="További részletek a versenyről..." /></Form.Item>
             <Form.Item name="isFeatured" valuePropName="checked"><Checkbox>Kiemelt verseny/esemény</Checkbox></Form.Item>
           </Form>

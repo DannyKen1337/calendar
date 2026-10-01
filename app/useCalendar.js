@@ -281,12 +281,14 @@ export const useCalendar = () => {
         color: formValues.category === 'Egyéb' ? formValues.color : undefined,
       });
 
+      const isOpenAttendance = !!formValues.isOpenAttendance;
       const payload = { 
         ...formValues, 
-        max_players: parseInt(formValues.max_players) || 16, 
-        external_url: formValues.external_url || "", 
+        max_players: isOpenAttendance ? 0 : (parseInt(formValues.max_players) || 16), 
+        external_url: isOpenAttendance ? "" : (formValues.external_url || ""), 
         imageUrl: formValues.imageUrl || "", 
-        isExternalEvent: !!formValues.external_url,
+        isExternalEvent: isOpenAttendance ? false : !!formValues.external_url,
+        isOpenAttendance,
         isFeatured: !!formValues.isFeatured,
         color: eventColor 
       };
@@ -320,6 +322,7 @@ export const useCalendar = () => {
 
   const initiateJoin = (tournament) => {
     setIsEventDetailsModalOpen(false);
+    if (tournament.isOpenAttendance) return; // kötetlen létszámú eseményre nincs jelentkezés
     if (tournament.external_url) { window.open(tournament.external_url, '_blank'); return; }
     setSelectedEventToJoin(tournament); joinForm.setFieldsValue({ name: userName || "", email: userEmail || "" }); setIsJoinModalOpen(true);
   };

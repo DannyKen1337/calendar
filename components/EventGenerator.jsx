@@ -37,6 +37,7 @@ export default function EventGenerator() {
   const startDateVal = Form.useWatch('startDate', form);
   const weeksVal = Form.useWatch('weeks', form);
   const useExternalLinkVal = Form.useWatch('useExternalLink', form);
+  const isOpenAttendanceVal = Form.useWatch('isOpenAttendance', form);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -53,7 +54,7 @@ export default function EventGenerator() {
   const handleGenerate = async (values) => {
     setIsGenerating(true);
     try {
-      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured } = values;
+      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured, isOpenAttendance } = values;
       
       const start = new Date(startDate);
       const [hours, minutes] = time.split(':');
@@ -75,12 +76,13 @@ export default function EventGenerator() {
           store,
           category,
           date: dateStr,
-          max_players: parseInt(max_players) || 16,
-          external_url: currentLink,
+          max_players: isOpenAttendance ? 0 : (parseInt(max_players) || 16),
+          external_url: isOpenAttendance ? "" : currentLink,
           imageUrl: "",
-          isExternalEvent: !!currentLink,
+          isExternalEvent: isOpenAttendance ? false : !!currentLink,
           description: description || "",
           isFeatured: !!isFeatured,
+          isOpenAttendance: !!isOpenAttendance,
           adminName: adminName,
           userRole: "owner"
         });
@@ -168,10 +170,14 @@ export default function EventGenerator() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item name="max_players" label="Max Létszám">
-              <Input type="number" placeholder="Alapértelmezett: 16" size="large" />
+              <Input type="number" placeholder={isOpenAttendanceVal ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} size="large" disabled={!!isOpenAttendanceVal} />
             </Form.Item>
           </div>
           
+          <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az események csak tájékoztatásul jelennek meg a naptárban.">
+            <Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox>
+          </Form.Item>
+
           <Form.Item name="description" label="Leírás (Opcionális)">
             <Input.TextArea rows={3} placeholder="További részletek a versenyről..." />
           </Form.Item>
@@ -181,6 +187,7 @@ export default function EventGenerator() {
           </Form.Item>
 
           {/* ÚJ: Dinamikus külső link szekció */}
+          {!isOpenAttendanceVal && (
           <div className="mt-6 mb-6 p-4 border border-[#4A2E33] rounded-xl bg-[#2B1A1C]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -220,6 +227,7 @@ export default function EventGenerator() {
               </Text>
             )}
           </div>
+          )}
 
           <Button 
             type="primary" 
