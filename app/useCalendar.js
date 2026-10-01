@@ -46,6 +46,7 @@ export const useCalendar = () => {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [togglingGateId, setTogglingGateId] = useState(null);
   
   const [passwordForm] = Form.useForm();
   const [ownPasswordForm] = Form.useForm();
@@ -358,6 +359,31 @@ export const useCalendar = () => {
     } catch (err) {}
   };
 
+  const handleToggleGate = async (tournamentId, newState) => {
+    const id = String(tournamentId);
+    if (togglingGateId === id) return; // dupla kattintás ellen
+    const isTarget = (t) => String(t._id || t.id) === id;
+    const setOpen = (value) => setTournaments(prev => prev.map(t => isTarget(t) ? { ...t, is_open: value } : t));
+    setTogglingGateId(id);
+    // Azonnali (optimista) frissítés: nincs teljes oldalas betöltés, a szűrők, a keresés és a görgetés megmarad
+    setOpen(newState);
+    try {
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_GATE', payload: { tournamentId: id, newState } }) });
+      const result = await response.json();
+      if (result.error || !response.ok) {
+        setOpen(!newState);
+        messageApi.error(result.error || 'A művelet nem sikerült.');
+      } else {
+        messageApi.success(newState ? 'Jelentkezés megnyitva.' : 'Jelentkezés lezárva.');
+        fetchData(true);
+      }
+    } catch (err) {
+      setOpen(!newState);
+      messageApi.error('Hálózati hiba történt.');
+    }
+    setTogglingGateId(null);
+  };
+
   const closeCreateUserModal = () => {
     setIsCreateUserModalOpen(false);
     setCreatedCredentials(null);
@@ -402,7 +428,7 @@ export const useCalendar = () => {
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
-    messageApi, contextHolder, formatEventDate, fetchData, canRegister,
+    messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };
 };

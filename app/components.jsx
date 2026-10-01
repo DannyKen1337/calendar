@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
 import { S } from "./styles";
+import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 
 const { Title, Text, Paragraph } = Typography;
@@ -161,9 +162,9 @@ export const PublicModals = ({ app }) => {
 };
 
 export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
-  const { formatEventDate, initiateJoin, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, fetchData, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
+  const { formatEventDate, initiateJoin, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, handleToggleGate, togglingGateId, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
   return (
-    <List dataSource={tournamentsData || []} renderItem={(evt) => {
+    <List locale={{ emptyText: <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs megjeleníthető esemény.</Text> }} dataSource={tournamentsData || []} renderItem={(evt) => {
       const eId = String(evt._id || evt.id);
       const isFull = evt.current_players >= evt.max_players;
       let btnText = "Csatlakozom!"; let btnType = "primary"; let btnIcon = <TeamOutlined />;
@@ -205,7 +206,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                 <Space style={{ flexWrap: 'wrap' }}>
                   {!evt.external_url && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8, store: evt.store || 'debrecen'}); setIsEventModalOpen(true); }} />
-                  <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} onClick={() => fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_GATE', payload: { tournamentId: eId, newState: !evt.is_open }}) }).then(()=>fetchData())}>{evt.is_open ? 'Zárás' : 'Megnyitás'}</Button>
+                  <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} loading={togglingGateId === eId} onClick={() => handleToggleGate(eId, !evt.is_open)}>{evt.is_open ? 'Zárás' : 'Megnyitás'}</Button>
                   <Popconfirm title="Biztosan törlöd?" onConfirm={() => handleDeleteTournament(eId)} okText="Igen" cancelText="Mégse"><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm>
                 </Space>
               )}
@@ -332,9 +333,37 @@ export const CalendarView = ({ app }) => {
   );
 };
 
+export const SearchResults = ({ app, query }) => {
+  const [now] = useState(() => Date.now());
+  const events = app.tournaments || [];
+  const time = (e) => new Date(e.date).getTime() || 0;
+  // Előbb a közelgő események (legkorábbi elöl), utána a múltbeliek (legfrissebb elöl)
+  const upcoming = events.filter(e => time(e) >= now).sort((a, b) => time(a) - time(b));
+  const past = events.filter(e => time(e) < now).sort((a, b) => time(b) - time(a));
+  const sorted = [...upcoming, ...past];
+
+  return (
+    <ConfigProvider theme={tavernTheme}>
+      <div>
+        <Title level={2} style={S.sectionTitle}><SearchOutlined style={S.titleIcon} /> Keresési találatok</Title>
+        <Divider style={S.divider} />
+        {sorted.length > 0 ? (
+          <EventList tournamentsData={sorted} app={app} />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '30px 0' }}>
+            <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs találat a(z) „{query}” keresésre.</Text>
+          </div>
+        )}
+        <PublicModals app={app} />
+      </div>
+    </ConfigProvider>
+  );
+};
+
 export const AdminEvents = ({ app: v }) => {
   const [adminCatFilter, setAdminCatFilter] = useState('Mind');
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
+  const [adminSearch, setAdminSearch] = useState('');
   
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
   
@@ -343,7 +372,7 @@ export const AdminEvents = ({ app: v }) => {
       const evtStore = evt.store || 'debrecen';
       const isStoreMatch = adminStoreFilter === 'Mind' || evtStore === adminStoreFilter;
       const isCatMatch = adminCatFilter === 'Mind' || evt.category === adminCatFilter;
-      return isStoreMatch && isCatMatch;
+      return isStoreMatch && isCatMatch && eventMatchesQuery(evt, adminSearch, eventExtraSearchText(evt, STORES[evtStore]?.name));
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -410,6 +439,10 @@ export const AdminEvents = ({ app: v }) => {
                 <Select.Option value="Mind">Minden játék</Select.Option>
                 {Object.keys(GAME_CONFIG).map(g => <Select.Option key={g} value={g}>{g}</Select.Option>)}
               </Select>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: név, játék, dátum, helyszín..." value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} style={{ width: 300 }} />
+              <Text style={{ color: '#baaaac' }}>{filteredAndSortedTournaments.length} esemény</Text>
             </div>
           </div>
 
