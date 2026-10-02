@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { message, Form } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
+import { resolveAttendance } from "@/lib/attendance";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -281,10 +282,10 @@ export const useCalendar = () => {
         color: formValues.category === 'Egyéb' ? formValues.color : undefined,
       });
 
-      const isOpenAttendance = !!formValues.isOpenAttendance;
+      const { isOpenAttendance, max_players: resolvedMaxPlayers } = resolveAttendance(formValues.max_players, formValues.isOpenAttendance);
       const payload = { 
         ...formValues, 
-        max_players: isOpenAttendance ? 0 : (parseInt(formValues.max_players) || 16), 
+        max_players: resolvedMaxPlayers, 
         external_url: isOpenAttendance ? "" : (formValues.external_url || ""), 
         imageUrl: formValues.imageUrl || "", 
         isExternalEvent: isOpenAttendance ? false : !!formValues.external_url,

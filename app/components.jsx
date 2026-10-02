@@ -4,6 +4,7 @@ import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, D
 import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
+import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 
 const { Title, Text, Paragraph } = Typography;
@@ -95,7 +96,7 @@ export const PublicModals = ({ app }) => {
             </div>
             <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
-              {selectedEventDetails.isOpenAttendance && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> Kötetlen, jelentkezni nem kell</p> )}
+              
               {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p> )}
             </div>
             {selectedEventDetails.description && (
@@ -196,12 +197,12 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
-                  {evt.isOpenAttendance ? ( <Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>Kötetlen</Text></Text> ) : evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}</> )}
+                  {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}</> )}
                 </div>
               </div>
               {!isAdmin ? (
                 evt.isOpenAttendance ? (
-                  <Tag color="green" style={{ fontSize: '14px', padding: '6px 14px', borderRadius: 999, margin: 0 }}>Kötetlen létszám · jelentkezni nem kell</Tag>
+                  null
                 ) : (
                 <Button type={btnType} icon={btnIcon} shape="round" size="large" disabled={!evt.is_open && !evt.external_url} onClick={() => initiateJoin(evt)} style={btnType === 'primary' ? S.primaryBtn : { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }}>
                   {(!evt.is_open && !evt.external_url) ? "Lezárva" : btnText}
@@ -488,12 +489,13 @@ export const AdminEvents = ({ app: v }) => {
             
             <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]}><Input type="datetime-local" /></Form.Item>
             <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az esemény csak tájékoztatásul jelenik meg a naptárban."><Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox></Form.Item>
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance}>
+            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance || prev.max_players !== cur.max_players}>
               {({ getFieldValue }) => {
-                const isOpenAttendance = !!getFieldValue('isOpenAttendance');
+                const isOpenChecked = !!getFieldValue('isOpenAttendance');
+                const isOpenAttendance = resolveAttendance(getFieldValue('max_players'), isOpenChecked).isOpenAttendance;
                 return (
                   <>
-                    <Form.Item name="max_players" label="Max Létszám"><Input type="number" placeholder={isOpenAttendance ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} disabled={isOpenAttendance} /></Form.Item>
+                    <Form.Item name="max_players" label="Max Létszám" extra="0 = kötetlen létszám (nincs jelentkezés)"><Input type="number" min={0} placeholder={isOpenChecked ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} disabled={isOpenChecked} /></Form.Item>
                     <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)"><Input placeholder="https://..." disabled={isOpenAttendance} /></Form.Item>
                   </>
                 );

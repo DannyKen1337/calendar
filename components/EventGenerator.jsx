@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Input, Select, Button, message, ConfigProvider, theme, Typography, InputNumber, Switch, Checkbox } from 'antd';
 import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
+import { resolveAttendance } from '@/lib/attendance';
 
 const { Title, Text } = Typography;
 
@@ -38,6 +39,8 @@ export default function EventGenerator() {
   const weeksVal = Form.useWatch('weeks', form);
   const useExternalLinkVal = Form.useWatch('useExternalLink', form);
   const isOpenAttendanceVal = Form.useWatch('isOpenAttendance', form);
+  const maxPlayersVal = Form.useWatch('max_players', form);
+  const isOpenForm = resolveAttendance(maxPlayersVal, isOpenAttendanceVal).isOpenAttendance; // jelölőnégyzet vagy 0 a létszámnál
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -54,7 +57,8 @@ export default function EventGenerator() {
   const handleGenerate = async (values) => {
     setIsGenerating(true);
     try {
-      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured, isOpenAttendance } = values;
+      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured, isOpenAttendance: openChecked } = values;
+      const { isOpenAttendance, max_players: resolvedMax } = resolveAttendance(max_players, openChecked);
       
       const start = new Date(startDate);
       const [hours, minutes] = time.split(':');
@@ -76,7 +80,7 @@ export default function EventGenerator() {
           store,
           category,
           date: dateStr,
-          max_players: isOpenAttendance ? 0 : (parseInt(max_players) || 16),
+          max_players: resolvedMax,
           external_url: isOpenAttendance ? "" : currentLink,
           imageUrl: "",
           isExternalEvent: isOpenAttendance ? false : !!currentLink,
@@ -169,8 +173,8 @@ export default function EventGenerator() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item name="max_players" label="Max Létszám">
-              <Input type="number" placeholder={isOpenAttendanceVal ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} size="large" disabled={!!isOpenAttendanceVal} />
+            <Form.Item name="max_players" label="Max Létszám" extra="0 = kötetlen létszám (nincs jelentkezés)">
+              <Input type="number" min={0} placeholder={isOpenAttendanceVal ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} size="large" disabled={!!isOpenAttendanceVal} />
             </Form.Item>
           </div>
           
@@ -187,7 +191,7 @@ export default function EventGenerator() {
           </Form.Item>
 
           {/* ÚJ: Dinamikus külső link szekció */}
-          {!isOpenAttendanceVal && (
+          {!isOpenForm && (
           <div className="mt-6 mb-6 p-4 border border-[#4A2E33] rounded-xl bg-[#2B1A1C]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
