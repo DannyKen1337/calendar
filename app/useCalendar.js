@@ -48,6 +48,8 @@ export const useCalendar = () => {
   const [createdCredentials, setCreatedCredentials] = useState(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [togglingGateId, setTogglingGateId] = useState(null);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
   
   const [passwordForm] = Form.useForm();
   const [ownPasswordForm] = Form.useForm();
@@ -325,19 +327,35 @@ export const useCalendar = () => {
     setIsEventDetailsModalOpen(false);
     if (tournament.isOpenAttendance) return; // kötetlen létszámú eseményre nincs jelentkezés
     if (tournament.external_url) { window.open(tournament.external_url, '_blank'); return; }
-    setSelectedEventToJoin(tournament); joinForm.setFieldsValue({ name: userName || "", email: userEmail || "" }); setIsJoinModalOpen(true);
+    setSelectedEventToJoin(tournament); joinForm.setFieldsValue({ name: userName || "", email: userEmail || "" }); setJoinError(''); setIsJoinModalOpen(true);
   };
 
   const submitJoin = async (values) => {
+    if (isJoining) return; // dupla kattintás ellen
     const eId = String(selectedEventToJoin._id || selectedEventToJoin.id);
+    const payload = { tournamentId: eId, name: String(values.name || '').trim(), email: String(values.email || '').trim().toLowerCase() };
+    setIsJoining(true);
+    setJoinError('');
     try {
-      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'JOIN_TOURNAMENT', payload: { tournamentId: eId, ...values }}) });
-      const result = await response.json();
-      if (result.error) { messageApi.error(result.error); return; }
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'JOIN_TOURNAMENT', payload }) });
+      let result = null;
+      try { result = await response.json(); } catch (e) { result = null; }
+      if (!response.ok || !result || result.error) {
+        const msg = (result && result.error) || 'A jelentkezés most nem sikerült. Kérlek próbáld újra, vagy szólj a szervezőnek.';
+        setJoinError(msg);
+        messageApi.error(msg);
+        return;
+      }
       messageApi.success(result.isQueue ? "Várólistára kerültél!" : "Hely biztosítva!");
-      setIsJoinModalOpen(false); joinForm.resetFields(); 
+      setIsJoinModalOpen(false); joinForm.resetFields();
       fetchData(true);
-    } catch (e) {}
+    } catch (e) {
+      const msg = 'Hálózati hiba történt. Ellenőrizd az internetkapcsolatot, és próbáld újra.';
+      setJoinError(msg);
+      messageApi.error(msg);
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   const initiateUnsubscribe = (tournament) => {
@@ -432,7 +450,7 @@ export const useCalendar = () => {
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
-    messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId,
+    messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId, isJoining, joinError, setJoinError,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };
 };

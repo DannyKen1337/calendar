@@ -2,13 +2,16 @@
 
 import { useState } from 'react';
 import { useCalendar } from '@/app/useCalendar';
-import { CalendarView, StoreSelector, STORES } from '@/app/components';
+import { CalendarView, SearchResults, StoreSelector, STORES } from '@/app/components';
 import CalendarFilters from '@/components/CalendarFilters';
+import SearchBar from '@/components/SearchBar';
+import { eventMatchesQuery } from '@/lib/eventSearch';
 import { EnvironmentOutlined, SwapOutlined } from '@ant-design/icons';
 
 export default function PublicCalendarPage() {
   const app = useCalendar();
   const [activeFilters, setActiveFilters] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   if (app.loading) {
     return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-[#E5B15D] font-bold text-xl">Betöltés...</div>;
@@ -46,15 +49,20 @@ export default function PublicCalendarPage() {
     : storeTournaments.filter(e => activeFilters.includes(e.category));
 
   // Létrehozunk egy módosított app objektumot, amit átadunk a naptárnak, így csak a szűrt eseményeket látja
+  const trimmedQuery = searchQuery.trim();
+  const isSearching = trimmedQuery.length > 0;
+  const searchResults = isSearching ? finalTournaments.filter(e => eventMatchesQuery(e, trimmedQuery)) : finalTournaments;
+
   const appWithFilteredEvents = {
     ...app,
-    tournaments: finalTournaments
+    tournaments: searchResults
   };
 
   const currentStore = STORES[app.selectedStore];
 
   return (
     <main className="min-h-screen bg-[#121212] text-white p-4 md:p-8 relative">
+      {app.contextHolder}
 
       {app.isMaintenance && isStaff && (
         <div className="max-w-5xl mx-auto mb-4 px-4 py-3 rounded-xl border border-amber-600/50 bg-amber-950/40 text-amber-200 text-sm text-center">
@@ -74,7 +82,7 @@ export default function PublicCalendarPage() {
         {/* Helyszín váltása: középen, a cím alatt */}
         <div className="flex justify-center mb-8">
           <button
-            onClick={() => app.handleSelectStore(null)}
+            onClick={() => { setSearchQuery(''); app.handleSelectStore(null); }}
             className="group inline-flex items-center gap-3 px-7 py-3 rounded-full border-2 border-[#E5B15D]/60 text-[#E5B15D] font-bold tracking-wide cursor-pointer shadow-[0_0_14px_rgba(229,177,93,0.12)] hover:border-[#E5B15D] hover:text-[#f3cf8c] hover:shadow-[0_0_28px_rgba(229,177,93,0.35)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
             style={{ background: 'linear-gradient(135deg, #2B1A1C 0%, #1a1012 100%)' }}
           >
@@ -84,13 +92,19 @@ export default function PublicCalendarPage() {
           </button>
         </div>
 
+        <SearchBar value={searchQuery} onChange={setSearchQuery} resultCount={searchResults.length} placeholder={`Keresés a(z) ${currentStore?.name || ''} eseményei között...`} />
+
         <CalendarFilters 
           events={storeTournaments} 
           activeFilters={activeFilters}
           setActiveFilters={setActiveFilters}
         />
         
-        <CalendarView app={appWithFilteredEvents} />
+        {isSearching ? (
+          <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
+        ) : (
+          <CalendarView app={appWithFilteredEvents} />
+        )}
         
       </div>
     </main>
