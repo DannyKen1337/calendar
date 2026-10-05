@@ -161,7 +161,7 @@ export async function POST(request) {
         return NextResponse.json({ error: "Ehhez az eseményhez nincs jelentkezés (kötetlen létszám)." }, { status: 400 });
       }
       const existing = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: normalizedEmail });
-      if (existing) return NextResponse.json({ error: "Már jelentkeztél" }, { status: 400 });
+      if (existing) return NextResponse.json({ error: "Már jelentkeztél erre az eseményre.", code: 'ALREADY_REGISTERED' }, { status: 400 });
 
       const activeFilter = {
         $and: [tQuery, { is_open: true }, { $expr: { $lt: ['$current_players', '$max_players'] } }],
@@ -199,6 +199,9 @@ export async function POST(request) {
         });
       } catch (insertErr) {
         await db.collection('tournaments').updateOne(tQuery, { $inc: { [counterField]: -1 } });
+        if (insertErr?.code === 11000) {
+          return NextResponse.json({ error: "Már jelentkeztél erre az eseményre.", code: 'ALREADY_REGISTERED' }, { status: 400 });
+        }
         throw insertErr;
       }
 
@@ -291,6 +294,11 @@ export async function POST(request) {
       const ownerSession = await verifyOwner();
       if (!ownerSession) return NextResponse.json({ error: 'Csak Tulajdonos módosíthatja a fiókokat!' }, { status: 403 });
 
+      // Tulajdonosi fiókot (a sajátot sem) nem lehet innen visszafokozni vagy törölni, különben elveszhet az egyetlen tulajdonos
+      const target = await db.collection('users').findOne(getQuery(actionType === 'TOGGLE_ROLE' ? payload.targetUserId : payload.userId));
+      if (!target) return NextResponse.json({ error: 'Felhasználó nem található.' }, { status: 404 });
+      if (target.role === 'owner') return NextResponse.json({ error: 'Tulajdonosi fiók nem módosítható.' }, { status: 403 });
+
       if (actionType === 'TOGGLE_ROLE') {
         await db.collection('users').updateOne(getQuery(payload.targetUserId), { $set: { role: payload.makeAdmin ? 'admin' : 'customer' } });
         await addLog(db, session.username, 'JOGOSULTSÁG', `Jogosultságot módosított egy felhasználónál.`);
@@ -307,6 +315,10 @@ export async function POST(request) {
       if (!payload.newPassword || payload.newPassword.length < 6) {
         return NextResponse.json({ error: 'Az új jelszónak legalább 6 karakter hosszúnak kell lennie.' }, { status: 400 });
       }
+
+      const target = await db.collection('users').findOne(getQuery(payload.userId));
+      if (!target) return NextResponse.json({ error: 'Felhasználó nem található.' }, { status: 404 });
+      if (target.role === 'owner') return NextResponse.json({ error: 'Tulajdonosi fiók jelszava itt nem módosítható.' }, { status: 403 });
 
       const hashedPassword = await bcrypt.hash(payload.newPassword, 10);
       await db.collection('users').updateOne(getQuery(payload.userId), { $set: { password: hashedPassword }, $unset: { mustChangePassword: '', tempPasswordExpires: '' } });
@@ -376,6 +388,7 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Ismeretlen művelet.' }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('actions error:', error);
+    return NextResponse.json({ error: 'Szerverhiba történt.' }, { status: 500 });
   }
 }

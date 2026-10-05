@@ -1,7 +1,7 @@
 "use client";
 import { GAME_CONFIG } from '@/lib/gameConfig';
 
-export default function CalendarFilters({ events, activeFilters, setActiveFilters }) {
+export default function CalendarFilters({ events, activeFilters, setActiveFilters, store }) {
 
   const toggleFilter = (game) => {
     if (activeFilters.includes(game)) {
@@ -12,11 +12,11 @@ export default function CalendarFilters({ events, activeFilters, setActiveFilter
   };
 
   const handleExportICS = () => {
-    let url = '/api/export';
-    if (activeFilters.length > 0) {
-      url += `?categories=${activeFilters.join(',')}`;
-    }
-    window.location.href = url; 
+    const params = new URLSearchParams();
+    if (store) params.set('store', store);
+    if (activeFilters.length > 0) params.set('categories', activeFilters.join(','));
+    const query = params.toString();
+    window.location.href = `/api/export${query ? `?${query}` : ''}`;
   };
 
   return (

@@ -38,7 +38,8 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   }
 
   // 1. LÉPÉS: Kezdőképernyő (Boltválasztó)
-  const selectedStore = (fixedStore && STORES[fixedStore]) ? fixedStore : app.selectedStore;
+  // Ismeretlen (pl. régi, localStorage-ban maradt) bolt azonosítót figyelmen kívül hagyunk
+  const selectedStore = [fixedStore, app.selectedStore].find(s => s && STORES[s]) || null;
   if (!selectedStore) {
     return <>{embed && <EmbedBridge />}<StoreSelector onSelect={app.handleSelectStore} embed={embed} /></>;
   }
@@ -109,6 +110,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
           events={storeTournaments} 
           activeFilters={activeFilters}
           setActiveFilters={setActiveFilters}
+          store={selectedStore}
         />
         </div>
 

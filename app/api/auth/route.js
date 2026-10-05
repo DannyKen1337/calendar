@@ -50,6 +50,9 @@ export async function POST(request) {
 
     // --- REGISZTRÁCIÓ ---
     if (action === 'register') {
+      if (typeof username !== 'string' || !username.trim() || typeof email !== 'string' || typeof password !== 'string' || password.length < 8) {
+        return NextResponse.json({ error: "Adj meg felhasználónevet, e-mail címet és legalább 8 karakteres jelszót!" }, { status: 400 });
+      }
       const userCount = await db.collection('users').countDocuments();
       const isFirstUser = userCount === 0;
       if (!isFirstUser && process.env.ALLOW_PUBLIC_REGISTER !== 'true') {
@@ -78,6 +81,16 @@ export async function POST(request) {
 
     // --- BEJELENTKEZÉS ---
     if (action === 'login') {
+      if (typeof loginId !== 'string' || typeof password !== 'string') {
+        return NextResponse.json({ error: "Hiányzó adatok!" }, { status: 400 });
+      }
+      // Jelszópróbálgatás ellen: IP-címenként korlátozzuk a belépési kísérleteket
+      const ip = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+      const allowed = await consumeRateLimit(db, `login:${ip}`, 20, 15 * 60 * 1000);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Túl sok belépési kísérlet. Próbáld újra 15 perc múlva.' }, { status: 429 });
+      }
+
       const user = await db.collection('users').findOne({ 
         $or: [{ email: loginId.toLowerCase() }, { username: loginId }] 
       });

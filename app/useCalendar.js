@@ -69,8 +69,11 @@ export const useCalendar = () => {
       .then((res) => res.json())
       .then((data) => setCanRegister(!!data.canRegister))
       .catch(() => setCanRegister(false));
-    const storedStore = localStorage.getItem('tavern_selected_store');
-    if (storedStore) setSelectedStore(storedStore);
+    // Beágyazott (harmadik féltől származó) iframe-ben a böngésző letilthatja a localStorage-ot: ilyenkor kivételt dob
+    try {
+      const storedStore = localStorage.getItem('tavern_selected_store');
+      if (storedStore) setSelectedStore(storedStore);
+    } catch {}
   }, []);
 
   const checkSession = async () => {
@@ -92,11 +95,10 @@ export const useCalendar = () => {
 
   const handleSelectStore = (storeId) => {
     setSelectedStore(storeId);
-    if (storeId) {
-      localStorage.setItem('tavern_selected_store', storeId);
-    } else {
-      localStorage.removeItem('tavern_selected_store');
-    }
+    try {
+      if (storeId) localStorage.setItem('tavern_selected_store', storeId);
+      else localStorage.removeItem('tavern_selected_store');
+    } catch {}
   };
 
   const fetchPublicData = async (isBackground = false) => {
@@ -195,18 +197,35 @@ export const useCalendar = () => {
     } catch (e) { messageApi.error("Szerver hiba történt."); }
   };
 
+  // Admin művelet küldése; hiba esetén üzenetet mutat és null-t ad vissza, így sikert csak valódi siker után jelzünk
+  const postAction = async (actionType, payload) => {
+    try {
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType, payload }) });
+      let result = null;
+      try { result = await response.json(); } catch { result = null; }
+      if (!response.ok || !result || result.error) {
+        messageApi.error((result && result.error) || 'A művelet nem sikerült.');
+        return null;
+      }
+      return result;
+    } catch {
+      messageApi.error('Hálózati hiba történt.');
+      return null;
+    }
+  };
+
   const toggleMaintenance = async (newState) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: newState } }) });
+    if (!(await postAction('TOGGLE_MAINTENANCE', { isMaintenance: newState }))) return;
     setIsMaintenance(newState); messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA."); fetchData(true);
   };
 
   const handleBanEmail = async (values) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'BAN_EMAIL', payload: { email: values.email, reason: values.reason } }) });
+    if (!(await postAction('BAN_EMAIL', { email: values.email, reason: values.reason }))) return;
     messageApi.success("E-mail cím feketelistára téve."); blacklistForm.resetFields(); fetchData(true);
   };
 
   const handleUnbanEmail = async (email) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNBAN_EMAIL', payload: { email } }) });
+    if (!(await postAction('UNBAN_EMAIL', { email }))) return;
     messageApi.success("Tiltás feloldva."); fetchData(true);
   };
 
@@ -224,7 +243,7 @@ export const useCalendar = () => {
   const toggleUserRole = async (targetUser) => {
     const makeAdmin = targetUser.role !== 'admin';
     const targetId = String(targetUser._id || targetUser.id);
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'TOGGLE_ROLE', payload: { targetUserId: targetId, makeAdmin }}) });
+    if (!(await postAction('TOGGLE_ROLE', { targetUserId: targetId, makeAdmin }))) return;
     fetchData(true);
   };
 
@@ -259,7 +278,7 @@ export const useCalendar = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_USER', payload: { userId: String(userId) } }) });
+    if (!(await postAction('DELETE_USER', { userId: String(userId) }))) return;
     messageApi.success("Felhasználó törölve."); fetchData(true);
   };
 
@@ -320,7 +339,7 @@ export const useCalendar = () => {
   };
 
   const handleDeleteTournament = async (tournamentId) => { 
-     await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: String(tournamentId), id: String(tournamentId) }}) }); 
+     if (!(await postAction('DELETE_TOURNAMENT', { tournamentId: String(tournamentId), id: String(tournamentId) }))) return;
      messageApi.success("Esemény törölve."); 
      fetchData(true); 
    };
@@ -386,11 +405,9 @@ export const useCalendar = () => {
   };
 
   const handleRemoveRegistration = async (registrationId) => {
-    try {
-      await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REMOVE_REGISTRATION', payload: { registrationId } }) });
-      messageApi.success("Jelentkező törölve."); 
-      fetchData(true); 
-    } catch (err) {}
+    if (!(await postAction('REMOVE_REGISTRATION', { registrationId }))) return;
+    messageApi.success("Jelentkező törölve.");
+    fetchData(true);
   };
 
   const handleToggleGate = async (tournamentId, newState) => {

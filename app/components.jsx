@@ -639,14 +639,12 @@ export const AdminEvents = ({ app: v }) => {
             { title: 'Szerep', dataIndex: 'role', render: (role) => { if (role === 'owner') return <Tag color="purple">Admin2</Tag>; if (role === 'admin') return <Tag color="orange">Admin</Tag>; return <Tag color="green">Játékos</Tag>; }},
             { title: 'Művelet', render: (_, record) => {
                 if (record.email === v.userEmail || record.role === 'owner') return <Text type="secondary">Védett fiók</Text>;
+                if (v.userRole !== 'owner') return <Text type="secondary">—</Text>;
                 return (
                   <Space style={{ flexWrap: 'wrap' }}>
                     <Button type={record.role === 'admin' ? 'default' : 'primary'} style={record.role === 'admin' ? {} : {color: '#000', fontWeight: 'bold'}} size="small" onClick={() => v.toggleUserRole(record)}>{record.role === 'admin' ? 'Visszafokozás' : 'Admin jog'}</Button>
-                    {v.userRole === 'owner' && (
-                      <><Button size="small" onClick={() => v.initiatePasswordChange(record)}>Új Jelszó</Button>
-                        <Popconfirm title="Biztosan törlöd a felhasználót?" onConfirm={() => v.handleDeleteUser(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
-                      </>
-                    )}
+                    <Button size="small" onClick={() => v.initiatePasswordChange(record)}>Új Jelszó</Button>
+                    <Popconfirm title="Biztosan törlöd a felhasználót?" onConfirm={() => v.handleDeleteUser(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
                   </Space>
                 )
             }}
