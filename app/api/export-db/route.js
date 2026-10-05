@@ -15,17 +15,23 @@ export async function GET() {
 
     const db = await getTavernDb();
 
-    const [tournaments, registrations, users] = await Promise.all([
+    const [tournaments, registrations, users, logs, blacklist, settings] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
       db.collection('registrations').find({}).toArray(),
-      db.collection('users').find({}, { projection: { password: 0 } }).toArray() // Jelszavakat sosem exportálunk!
+      db.collection('users').find({}, { projection: { password: 0 } }).toArray(), // Jelszavakat sosem exportálunk!
+      db.collection('audit_logs').find({}).sort({ date: -1 }).toArray(),
+      db.collection('blacklist').find({}).toArray(),
+      db.collection('settings').find({}).toArray(),
     ]);
 
     const dbDump = {
       exportDate: new Date(),
       tournaments,
       registrations,
-      users
+      users,
+      logs,
+      blacklist,
+      settings
     };
 
     return new Response(JSON.stringify(dbDump, null, 2), {
@@ -36,6 +42,6 @@ export async function GET() {
       }
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Az exportálás nem sikerült.' }), { status: 500 });
   }
 }

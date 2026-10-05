@@ -7,7 +7,6 @@ import { resolveAttendance } from "@/lib/attendance";
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false); 
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -157,17 +156,6 @@ export const useCalendar = () => {
     } else {
       fetchPublicData(isBackground);
     }
-  };
-
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      const response = await fetch('/api/sync');
-      const data = await response.json();
-      if (data.error) messageApi.error(`Hiba: ${data.error}`);
-      else { messageApi.success(data.message || "Szinkronizálás sikeres!"); fetchData(true); }
-    } catch (e) { messageApi.error("Hálózati hiba."); }
-    setIsSyncing(false);
   };
 
   const handleLogout = async () => {
@@ -470,7 +458,6 @@ export const useCalendar = () => {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
-    isSyncing, handleSync,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,

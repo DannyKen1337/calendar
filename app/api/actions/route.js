@@ -31,6 +31,39 @@ function pickTournamentFields(source) {
   return doc;
 }
 
+const isActiveStatus = (status) => status === 'Aktív' || status === 'Active';
+
+// Felszabadult helyekre a várólista legkorábbi jelentkezői lépnek elő (leiratkozás, jelentkező törlése, létszámemelés után).
+// Előbb atomikusan foglal helyet az eseményen, csak utána állítja át a jelentkezést, így párhuzamos kérésnél sem lépi túl a max. létszámot.
+async function promoteFromQueue(db, tournamentId) {
+  const tournaments = db.collection('tournaments');
+  const registrations = db.collection('registrations');
+  const tId = String(tournamentId);
+  let tQuery;
+  try { tQuery = { $or: [{ id: tId }, { _id: new ObjectId(tId) }] }; } catch { tQuery = { id: tId }; }
+  const promoted = [];
+
+  for (let i = 0; i < 500; i++) {
+    const next = await registrations.findOne({ tournamentId: tId, status: { $nin: ['Aktív', 'Active'] } }, { sort: { date: 1 } });
+    if (!next) break;
+
+    const seat = await tournaments.findOneAndUpdate(
+      { $and: [tQuery, { isOpenAttendance: { $ne: true } }, { $expr: { $lt: ['$current_players', '$max_players'] } }] },
+      [{ $set: { current_players: { $add: ['$current_players', 1] }, queue_count: { $max: [0, { $subtract: ['$queue_count', 1] }] } } }]
+    );
+    if (!seat) break; // nincs szabad hely
+
+    const updated = await registrations.updateOne({ _id: next._id, status: next.status }, { $set: { status: 'Aktív', promotedAt: new Date() } });
+    if (updated.modifiedCount !== 1) {
+      // Közben valaki más módosította ezt a jelentkezést (pl. leiratkozott): a lefoglalt helyet visszaadjuk
+      await tournaments.updateOne(tQuery, [{ $set: { current_players: { $max: [0, { $subtract: ['$current_players', 1] }] }, queue_count: { $add: ['$queue_count', 1] } } }]);
+      continue;
+    }
+    promoted.push(next.name);
+  }
+  return promoted;
+}
+
 async function addLog(db, adminName, action, details) {
   await db.collection('audit_logs').insertOne({
     adminName: adminName || 'Rendszer',
@@ -90,6 +123,9 @@ export async function POST(request) {
       applyOpenAttendance(updates);
       await db.collection('tournaments').updateOne(getQuery(id), { $set: updates });
       await addLog(db, session.username, 'MÓDOSÍTÁS', `Szerkesztette: ${updates.name ?? payload.name ?? 'esemény'}`);
+      // Ha nőtt a max. létszám, a várólistáról előlépnek a következők
+      const promoted = await promoteFromQueue(db, id);
+      if (promoted.length > 0) await addLog(db, 'Rendszer', 'VÁRÓLISTA', `Előléptetve (létszámváltozás): ${promoted.join(', ')}`);
       return NextResponse.json({ success: true });
     }
 
@@ -144,7 +180,11 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Érvényes e-mail címet adj meg.' }, { status: 400 });
       }
 
-      const allowed = await consumeRateLimit(db, `join:${normalizedEmail}`, 15, 60 * 60 * 1000);
+      // Kitalált e-mail címekkel való tömeges jelentkezés ellen IP-címenként is korlátozunk.
+      // Bőkezű határ: egy bolt wifijéről egy versenyestén sokan jelentkezhetnek ugyanarról az IP-ről.
+      const ip = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+      const allowed = await consumeRateLimit(db, `join-ip:${ip}`, 60, 60 * 60 * 1000)
+        && await consumeRateLimit(db, `join:${normalizedEmail}`, 15, 60 * 60 * 1000);
       if (!allowed) {
         return NextResponse.json({ error: 'Túl sok jelentkezési kísérlet. Próbáld újra később.' }, { status: 429 });
       }
@@ -224,12 +264,16 @@ export async function POST(request) {
       if (!reg) return NextResponse.json({ error: "Nincs jelentkezés erről az e-mail címről." }, { status: 404 });
 
       await db.collection('registrations').deleteOne({ _id: reg._id });
-      const isActive = reg.status === 'Aktív' || reg.status === 'Active';
+      const isActive = isActiveStatus(reg.status);
       const counterField = isActive ? 'current_players' : 'queue_count';
       await db.collection('tournaments').updateOne(
         { $and: [getQuery(tournamentId), { [counterField]: { $gt: 0 } }] },
         { $inc: { [counterField]: -1 } }
       );
+      if (isActive) {
+        const promoted = await promoteFromQueue(db, tournamentId);
+        if (promoted.length > 0) await addLog(db, 'Rendszer', 'VÁRÓLISTA', `Előléptetve leiratkozás után (${reg.tournamentName}): ${promoted.join(', ')}`);
+      }
       return NextResponse.json({ success: true });
     }
 
@@ -238,12 +282,17 @@ export async function POST(request) {
       const reg = await db.collection('registrations').findOne(getQuery(payload.registrationId));
       if (!reg) return NextResponse.json({ error: "Nem található" }, { status: 404 });
       await db.collection('registrations').deleteOne(getQuery(payload.registrationId));
-      const counterField = reg.status === 'Aktív' || reg.status === 'Active' ? 'current_players' : 'queue_count';
+      const isActive = isActiveStatus(reg.status);
+      const counterField = isActive ? 'current_players' : 'queue_count';
       await db.collection('tournaments').updateOne(
         { $and: [getQuery(reg.tournamentId), { [counterField]: { $gt: 0 } }] },
         { $inc: { [counterField]: -1 } }
       );
       await addLog(db, session.username, 'JELENTKEZŐ TÖRLÉSE', `Törölte ${reg.name} jelentkezését (${reg.tournamentName})`);
+      if (isActive) {
+        const promoted = await promoteFromQueue(db, reg.tournamentId);
+        if (promoted.length > 0) await addLog(db, 'Rendszer', 'VÁRÓLISTA', `Előléptetve (${reg.tournamentName}): ${promoted.join(', ')}`);
+      }
       return NextResponse.json({ success: true });
     }
 

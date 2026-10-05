@@ -502,7 +502,8 @@ export const AdminEvents = ({ app: v }) => {
               <Button type="primary" danger onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
               <Button type="primary" icon={<UserAddOutlined />} style={{ background: '#E5B15D', borderColor: '#E5B15D', color: '#000', fontWeight: 'bold' }} onClick={() => { v.createUserForm.resetFields(); v.setIsCreateUserModalOpen(true); }}>Új felhasználó</Button>
               <Button type="default" icon={<LockOutlined />} style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={() => { v.ownPasswordForm.resetFields(); v.setIsOwnPasswordModalOpen(true); }}>Saját jelszó</Button>
-              <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={handleFilteredExport}>💾 Adatbázis Mentés (JSON)</Button>
+              <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={v.handleExportDB}>💾 Teljes adatbázis mentés (JSON)</Button>
+              <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={handleFilteredExport} title="Csak a jövőbeli, a lenti helyszín- és játékszűrőnek megfelelő események és jelentkezőik">📤 Szűrt események exportja (JSON)</Button>
               <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={v.handleCleanupOldEvents} okText="Igen" cancelText="Mégse">
                 <Button type="primary" style={{ background: '#7f1d1d', borderColor: '#7f1d1d', color: '#fff' }}>🧹 Régi Események Törlése</Button>
               </Popconfirm>
