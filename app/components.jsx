@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Alert } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -10,7 +10,7 @@ import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig';
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
 
-const tavernTheme = {
+export const tavernTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
     colorPrimary: '#E5B15D',       
@@ -65,6 +65,26 @@ export const StoreSelector = ({ onSelect, embed = false }) => {
   );
 };
 
+export const eventShareUrl = (evt) => `${window.location.origin}/esemeny/${encodeURIComponent(String(evt._id || evt.id))}`;
+
+// Esemény megosztása: telefonon a rendszer megosztó menüje, gépen a link vágólapra másolása
+export const ShareEventButton = ({ evt, messageApi, ...buttonProps }) => {
+  const share = async () => {
+    const url = eventShareUrl(evt);
+    if (navigator.share) {
+      try { await navigator.share({ title: evt.name, url }); return; }
+      catch (e) { if (e?.name === 'AbortError') return; /* egyébként vágólapra másolunk */ }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      messageApi?.success('Link vágólapra másolva!');
+    } catch {
+      messageApi?.info({ content: url, duration: 10 });
+    }
+  };
+  return <Button icon={<ShareAltOutlined />} onClick={share} {...buttonProps}>Megosztás</Button>;
+};
+
 // Jelentkezők rövidített nevei (Vezetéknév + kezdőbetű); `max` felett "+N" jelzéssel
 export const AttendeeNames = ({ attendees, max = Infinity, size = 'default' }) => {
   const list = attendees || [];
@@ -95,6 +115,7 @@ export const PublicModals = ({ app }) => {
     <>
       <Modal title={<span style={{ fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>} open={isEventDetailsModalOpen} onCancel={() => setIsEventDetailsModalOpen(false)} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} footer={[
           <Button key="close" onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
+          selectedEventDetails ? <ShareEventButton key="share" evt={selectedEventDetails} messageApi={app.messageApi} /> : null,
           selectedEventDetails?.isOpenAttendance ? null : selectedEventDetails?.external_url ? ( <Button key="ext" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { window.open(selectedEventDetails.external_url, '_blank', 'noopener,noreferrer'); setIsEventDetailsModalOpen(false); }}>Tovább a weboldalra</Button> ) : ( <Button key="join" type="primary" style={{ color: '#000', fontWeight: 'bold' }} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>{selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}</Button> )
         ]}>
         {selectedEventDetails && (() => {
@@ -147,7 +168,7 @@ export const PublicModals = ({ app }) => {
           <Form.Item name="email" label="E-mail címed" normalize={(v) => (typeof v === 'string' ? v.trim() : v)} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input type="email" inputMode="email" autoComplete="email" placeholder="pelda@email.com" /></Form.Item>
           {/* Adatkezelési tájékoztató (GDPR) */}
           <p style={{ color: '#9a8a8c', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-            A megadott nevet és e-mail címet kizárólag az esemény szervezéséhez (jelentkezés, visszaigazolás, leiratkozás) használjuk, harmadik félnek nem adjuk át. A nevedből csak rövidített forma (pl. „Teszt E.”) jelenik meg nyilvánosan. Az adatokat az esemény után legfeljebb 2 hónappal automatikusan töröljük.
+            A megadott nevet és e-mail címet kizárólag az esemény szervezéséhez (jelentkezés, visszaigazolás, leiratkozás) használjuk, harmadik félnek nem adjuk át. A nevedből csak rövidített forma (pl. „Teszt E.”) jelenik meg nyilvánosan. Az adatokat az esemény után legfeljebb 2 hónappal automatikusan töröljük. A helyszíni megjelenést (megjelent / nem jelent meg) a szervezők rögzíthetik; ezt az e-mail címedhez kötve legfeljebb 1 évig őrizzük, kizárólag a meg nem jelenések kezeléséhez.
             {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#E5B15D' }}>Adatkezelési tájékoztató</a></>}
           </p>
         </Form>
@@ -470,6 +491,18 @@ export const SearchResults = ({ app, query }) => {
   );
 };
 
+// Megbízhatóság a check-in előzmények alapján: zöld = mindig eljött, narancs = 1-2 kihagyás, piros = 3+ kihagyás
+const ReliabilityTag = ({ stats }) => {
+  if (!stats || stats.attended + stats.noShow === 0) return <span style={{ color: '#6b7280', fontSize: 12 }}>Még nincs check-in adat</span>;
+  const total = stats.attended + stats.noShow;
+  const color = stats.noShow >= 3 ? 'red' : stats.noShow > 0 ? 'orange' : 'green';
+  return (
+    <Tag color={color} style={{ marginTop: 4 }} title={`Megjelent: ${stats.attended} · Nem jelent meg: ${stats.noShow} (összesen ${total} esemény)`}>
+      {stats.noShow > 0 ? `Nem jött el: ${stats.noShow} / ${total} alkalom` : `Mindig eljött (${total} / ${total})`}
+    </Tag>
+  );
+};
+
 // Admin eseménylista napokra bontva: nap fejléc ("Ma", "Holnap", dátum) + az aznapi események kártyarácsban
 const AdminDayGroups = ({ events, app, emptyText }) => {
   if (events.length === 0) {
@@ -540,7 +573,12 @@ export const AdminEvents = ({ app: v }) => {
   };
   const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
 
-  const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
+  // Előbb az aktív jelentkezők, utána a várólista, mindkettő jelentkezési sorrendben
+  const isActiveReg = (r) => r.status === 'Aktív' || r.status === 'Active';
+  const currentAttendees = (v.registrations || [])
+    .filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees))
+    .sort((a, b) => (isActiveReg(b) - isActiveReg(a)) || (new Date(a.date) - new Date(b.date)));
+  const checkedInCount = currentAttendees.filter(r => r.attended === true).length;
   
   const filteredAndSortedTournaments = (v.tournaments || [])
     .filter(evt => {
@@ -839,12 +877,54 @@ export const AdminEvents = ({ app: v }) => {
             </Form.Item>
           </Form>
         </Modal>
-        <Modal title="Jelentkezők kezelése" open={v.isAttendeesModalOpen} onCancel={() => v.setIsAttendeesModalOpen(false)} footer={null} width={750} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-          <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} columns={[
-            { title: 'Név', dataIndex: 'name', key: 'name', render: text => <span style={{color: '#E0D6C8'}}>{text}</span> }, 
-            { title: 'Email', dataIndex: 'email', key: 'email', render: text => <span style={{color: '#baaaac'}}>{text}</span> }, 
-            { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> }, 
-            { title: 'Művelet', key: 'action', render: (_, record) => (<Popconfirm title="Törlöd?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>) }
+        <Modal
+          title={<span style={{ fontFamily: 'Georgia, serif' }}>Jelentkezők · <span style={{ color: '#baaaac', fontSize: '0.9em' }}>{checkedInCount} / {currentAttendees.length} megjelent</span></span>}
+          open={v.isAttendeesModalOpen}
+          onCancel={() => v.setIsAttendeesModalOpen(false)}
+          footer={null}
+          width={980}
+          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+        >
+          <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗). Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
+          <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 760 }} columns={[
+            { title: 'Név', dataIndex: 'name', key: 'name', render: (text, record) => <div><div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{text}</div><ReliabilityTag stats={v.attendanceStats?.[record.email]} /></div> },
+            { title: 'E-mail', dataIndex: 'email', key: 'email', render: text => <span style={{ color: '#baaaac' }}>{text}</span> },
+            { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> },
+            { title: 'Megjelent?', key: 'attended', render: (_, record) => {
+                const id = record._id || record.id;
+                return (
+                  <Space.Compact>
+                    <Button
+                      icon={<CheckOutlined />}
+                      type={record.attended === true ? 'primary' : 'default'}
+                      style={record.attended === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
+                      onClick={() => v.setAttendance(id, record.attended === true ? null : true)}
+                      aria-label="Megjelent"
+                    />
+                    <Button
+                      icon={<CloseOutlined />}
+                      type={record.attended === false ? 'primary' : 'default'}
+                      danger={record.attended === false}
+                      onClick={() => v.setAttendance(id, record.attended === false ? null : false)}
+                      aria-label="Nem jelent meg"
+                    />
+                  </Space.Compact>
+                );
+            }},
+            { title: 'Művelet', key: 'action', render: (_, record) => {
+                const stats = v.attendanceStats?.[record.email];
+                const isBanned = (v.blacklist || []).some(b => b.email === record.email);
+                return (
+                  <Space size={0} wrap>
+                    <Popconfirm title="Törlöd a jelentkezést?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>
+                    {v.userRole === 'owner' && (isBanned
+                      ? <Tag color="red" style={{ margin: 0 }}>Tiltva</Tag>
+                      : <Popconfirm title="Feketelistára teszed ezt az e-mail címet?" onConfirm={() => v.handleBanEmail({ email: record.email, reason: stats?.noShow ? `Nem jelent meg: ${stats.noShow} / ${stats.attended + stats.noShow} alkalom` : 'Admin tiltás' })} okText="Igen" cancelText="Mégse">
+                          <Button type="link" danger icon={<StopOutlined />}>Tiltás</Button>
+                        </Popconfirm>)}
+                  </Space>
+                );
+            }}
           ]} />
         </Modal>
         <Modal title={<span style={{ color: '#E5B15D' }}>Tevékenységnapló (Audit Log)</span>} open={v.isLogModalOpen} onCancel={() => v.setIsLogModalOpen(false)} footer={null} width={900} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>

@@ -3,6 +3,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { canManageEvent } from '@/lib/permissions';
+import { getAttendanceStats } from '@/lib/attendanceHistory';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,9 +32,13 @@ export async function GET() {
     const manageableIds = new Set(tournaments.filter(t => canManageEvent(session, t)).map(t => String(t._id || t.id)));
     const visibleRegistrations = isOwner ? registrations : registrations.filter(r => manageableIds.has(String(r.tournamentId)));
 
+    // Megbízhatósági statisztika (megjelent / nem jelent meg) a látható jelentkezők e-mail címeire, az összes eseményből számolva
+    const attendanceStats = await getAttendanceStats(db, visibleRegistrations.map(r => r.email));
+
     return NextResponse.json({
         tournaments: attachPublicAttendees(tournaments, registrations),
         registrations: visibleRegistrations,
+        attendanceStats,
         users,
         logs,
         blacklist,

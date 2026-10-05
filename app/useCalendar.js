@@ -40,6 +40,7 @@ export const useCalendar = () => {
   const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
   const [selectedEventIdForAttendees, setSelectedEventIdForAttendees] = useState(null);
   const [registrations, setRegistrations] = useState([]);
+  const [attendanceStats, setAttendanceStats] = useState({}); // e-mail => { attended, noShow }
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
@@ -141,6 +142,7 @@ export const useCalendar = () => {
         setTournaments(coloredTournaments);
       }
       if (data.registrations) setRegistrations(data.registrations);
+      if (data.attendanceStats) setAttendanceStats(data.attendanceStats);
       if (data.users) setUsersList(data.users);
       if (data.logs) setLogs(data.logs);
       if (data.blacklist) setBlacklist(data.blacklist);
@@ -396,6 +398,16 @@ export const useCalendar = () => {
     finally { setIsUnsubscribing(false); }
   };
 
+  // Check-in: azonnal (optimistán) jelöljük, hiba esetén visszaállítjuk; utána frissítjük a statisztikát
+  const setAttendance = async (registrationId, attended) => {
+    const id = String(registrationId);
+    const prev = registrations.find(r => String(r._id || r.id) === id)?.attended;
+    const apply = (value) => setRegistrations(list => list.map(r => String(r._id || r.id) === id ? { ...r, attended: value ?? undefined } : r));
+    apply(attended);
+    if (!(await postAction('SET_ATTENDANCE', { registrationId: id, attended }))) { apply(prev); return; }
+    fetchData(true);
+  };
+
   const handleRemoveRegistration = async (registrationId) => {
     if (!(await postAction('REMOVE_REGISTRATION', { registrationId }))) return;
     messageApi.success("Jelentkező törölve.");
@@ -482,7 +494,7 @@ export const useCalendar = () => {
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,
-    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
+    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration, attendanceStats, setAttendance,
     messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId, isJoining, joinError, joinErrorType, setJoinError,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };

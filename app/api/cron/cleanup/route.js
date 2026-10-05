@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
+import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,8 @@ export async function GET(request) {
         date: new Date()
       });
     }
+
+    await deleteOldAttendanceHistory(db);
 
     return NextResponse.json({ success: true, deletedCount: oldEventIds.length });
   } catch (error) {

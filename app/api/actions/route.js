@@ -7,6 +7,7 @@ import { verifyAdmin, verifyOwner } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
 import { canManageCategory, canManageEvent, sanitizeCategories } from '@/lib/permissions';
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
+import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
@@ -241,6 +242,7 @@ export async function POST(request) {
         await db.collection('registrations').deleteMany({ tournamentId: { $in: stringIds } });
         await addLog(db, session.username, 'TAKARÍTÁS', `${oldEventIds.length} db 2 hónapnál régebbi esemény törölve.`);
       }
+      await deleteOldAttendanceHistory(db);
       return NextResponse.json({ success: true, count: oldEventIds.length });
     }
 
@@ -398,6 +400,33 @@ export async function POST(request) {
       if (event && !canManageEvent(session, event)) return noPermission();
       await removeRegistration(db, reg);
       await addLog(db, session.username, 'JELENTKEZŐ TÖRLÉSE', `Törölte ${reg.name} jelentkezését (${reg.tournamentName})`);
+      return NextResponse.json({ success: true });
+    }
+
+    // --- CHECK-IN: megjelent / nem jelent meg / visszavonás (attended: true | false | null) ---
+    // A jelentkezésen kívül külön előzménybe is mentjük, mert a régi jelentkezések a takarításkor törlődnek,
+    // a megbízhatósági statisztika (pl. "10-ből 3-szor nem jött el") viszont 1 évig megmarad.
+    if (actionType === 'SET_ATTENDANCE') {
+      const attended = payload.attended === true ? true : payload.attended === false ? false : null;
+      const reg = await db.collection('registrations').findOne(getQuery(payload.registrationId));
+      if (!reg) return NextResponse.json({ error: 'Jelentkezés nem található.' }, { status: 404 });
+      const event = await db.collection('tournaments').findOne(getQuery(reg.tournamentId));
+      if (!event) return NextResponse.json({ error: 'Esemény nem található.' }, { status: 404 });
+      if (!canManageEvent(session, event)) return noPermission();
+
+      const regId = String(reg._id);
+      if (attended === null) {
+        await db.collection('registrations').updateOne({ _id: reg._id }, { $unset: { attended: '', attendanceAt: '' } });
+        await db.collection('attendance_history').deleteOne({ registrationId: regId });
+      } else {
+        const now = new Date();
+        await db.collection('registrations').updateOne({ _id: reg._id }, { $set: { attended, attendanceAt: now } });
+        await db.collection('attendance_history').updateOne(
+          { registrationId: regId },
+          { $set: { email: reg.email, name: reg.name, tournamentId: String(reg.tournamentId), tournamentName: event.name, category: event.category, eventDate: event.date, attended, recordedAt: now, recordedBy: session.username } },
+          { upsert: true }
+        );
+      }
       return NextResponse.json({ success: true });
     }
 

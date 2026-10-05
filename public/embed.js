@@ -13,6 +13,7 @@
   var iframe = document.createElement('iframe');
   iframe.src = origin + '/embed' + (store ? '?store=' + encodeURIComponent(store) : '');
   iframe.title = 'Eseménynaptár';
+  iframe.allow = 'clipboard-write; web-share'; // a "Megosztás" gombhoz (link másolása / telefonos megosztás)
   iframe.style.cssText = 'display:block;width:100%;height:700px;border:0;background:#121212;border-radius:12px;';
   script.parentNode.insertBefore(iframe, script.nextSibling);
 
