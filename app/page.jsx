@@ -70,8 +70,8 @@ export default function PublicCalendarPage() {
         </div>
       )}
       
-      <div className="max-w-5xl mx-auto pt-8">
-        
+      <div className="max-w-[1600px] mx-auto pt-8">
+        <div className="max-w-5xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-[#E5B15D] font-serif m-0">
             {currentStore?.name}
@@ -99,9 +99,13 @@ export default function PublicCalendarPage() {
           activeFilters={activeFilters}
           setActiveFilters={setActiveFilters}
         />
-        
+        </div>
+
+        {/* A naptár szélesebb, mint a fejléc, hogy a napok kényelmesen elférjenek */}
         {isSearching ? (
-          <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
+          <div className="max-w-5xl mx-auto">
+            <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
+          </div>
         ) : (
           <CalendarView app={appWithFilteredEvents} />
         )}

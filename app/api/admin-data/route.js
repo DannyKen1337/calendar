@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
+import { attachPublicAttendees } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +23,8 @@ export async function GET() {
       db.collection('settings').findOne({ _id: 'global_settings' })
     ]);
     
-    return NextResponse.json({ 
-        tournaments, 
+    return NextResponse.json({
+        tournaments: attachPublicAttendees(tournaments, registrations),
         registrations, 
         users, 
         logs: logs || [], 

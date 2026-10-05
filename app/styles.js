@@ -28,11 +28,12 @@ export const S = {
   queueTag: { marginLeft: '10px', background: '#592424', color: '#ff7875', border: 'none' },
 
   calendarScroll: { overflowX: 'auto', paddingBottom: '15px' },
-  calendarGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', minWidth: '800px', gap: '8px' }, 
+  // minmax(0, 1fr): minden oszlop pontosan egyforma széles, a hosszú feliratok nem nyújtják szét
+  calendarGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', minWidth: '900px', gap: '10px' },
   calHeaderCell: { textAlign: 'center', fontWeight: 'bold', color: '#E5B15D', padding: '10px 0', borderBottom: '1px solid #4A2E33' },
-  calDayCell: { background: '#2B1A1C', minHeight: '110px', borderRadius: '8px', padding: '8px', border: '1px solid #4A2E33', display: 'flex', flexDirection: 'column', gap: '5px' },
-  calDayNum: { fontSize: '14px', fontWeight: 'bold', textAlign: 'right', marginBottom: '5px' },
-  calEventStrip: { background: '#E5B15D', color: '#000', fontSize: '11px', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.1s' },
+  calDayCell: { background: '#2B1A1C', minHeight: '150px', minWidth: 0, borderRadius: '10px', padding: '8px', border: '1px solid #4A2E33', display: 'flex', flexDirection: 'column', gap: '6px' },
+  calDayNum: { fontSize: '14px', fontWeight: 'bold', textAlign: 'right', marginBottom: '2px' },
+  calEventStrip: { background: '#E5B15D', color: '#000', fontSize: '12px', padding: '5px 8px', borderRadius: '5px', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.1s', flexShrink: 0 },
 
   adminHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' },
   adminTitleMargin: { color: '#E5B15D', margin: 0, fontFamily: 'Georgia, serif' },

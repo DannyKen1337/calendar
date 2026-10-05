@@ -61,3 +61,26 @@ body {
   color: #E5B15D;
   outline: none;
 }
+
+.cal-more-btn {
+  margin-top: auto;
+  background: transparent;
+  border: 1px dashed #6b4f22;
+  border-radius: 5px;
+  color: #E5B15D;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cal-more-btn:hover,
+.cal-more-btn:focus-visible {
+  background: #3a2a14;
+  border-color: #E5B15D;
+  outline: none;
+}

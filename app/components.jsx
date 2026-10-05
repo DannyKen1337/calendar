@@ -65,6 +65,23 @@ export const StoreSelector = ({ onSelect }) => {
   );
 };
 
+// Jelentkezők rövidített nevei (Vezetéknév + kezdőbetű); `max` felett "+N" jelzéssel
+export const AttendeeNames = ({ attendees, max = Infinity, size = 'default' }) => {
+  const list = attendees || [];
+  if (list.length === 0) return null;
+  const shown = list.slice(0, max);
+  const rest = list.length - shown.length;
+  const fontSize = size === 'small' ? '12px' : '14px';
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      {shown.map((a, i) => (
+        <Tag key={i} style={{ margin: 0, fontSize, background: a.queue ? 'transparent' : '#3a2a14', color: a.queue ? '#baaaac' : '#E5B15D', borderColor: a.queue ? '#4A2E33' : '#6b4f22', borderStyle: a.queue ? 'dashed' : 'solid' }} title={a.queue ? 'Várólistán' : undefined}>{a.name}</Tag>
+      ))}
+      {rest > 0 && <Tag style={{ margin: 0, fontSize, background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' }}>+{rest}</Tag>}
+    </div>
+  );
+};
+
 export const PublicModals = ({ app }) => {
   if (!app) return null;
   const { 
@@ -99,6 +116,17 @@ export const PublicModals = ({ app }) => {
               
               {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p> )}
             </div>
+            {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && (selectedEventDetails.attendees || []).length > 0 && (() => {
+              const active = selectedEventDetails.attendees.filter(a => !a.queue);
+              const queued = selectedEventDetails.attendees.filter(a => a.queue);
+              return (
+                <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33] mt-4">
+                  <strong style={{ color: '#E5B15D' }}>Jelentkeztek ({active.length}):</strong>
+                  {active.length > 0 ? <AttendeeNames attendees={active} /> : <p style={{ color: '#6b7280', fontStyle: 'italic', margin: '6px 0 0' }}>Még senki.</p>}
+                  {queued.length > 0 && (<><strong style={{ color: '#baaaac', display: 'block', marginTop: 12 }}>Várólistán ({queued.length}):</strong><AttendeeNames attendees={queued} /></>)}
+                </div>
+              );
+            })()}
             {selectedEventDetails.description && (
               <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33] mt-4"><strong style={{ color: '#E5B15D' }}>Leírás:</strong><p style={{ whiteSpace: 'pre-wrap', marginTop: 8, color: '#baaaac' }}>{selectedEventDetails.description}</p></div>
             )}
@@ -115,7 +143,7 @@ export const PublicModals = ({ app }) => {
       <Modal title={<span style={{ fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>} open={isJoinModalOpen} onCancel={() => setIsJoinModalOpen(false)} onOk={() => joinForm.submit()} confirmLoading={isJoining} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Jelentkezem" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
         <Form form={joinForm} layout="vertical" onFinish={submitJoin} className="mt-4">
           {joinError && <Alert type={joinErrorType || 'error'} showIcon style={{ marginBottom: 16 }} message={joinError} />}
-          <Form.Item name="name" label="Neved" rules={[{ required: true, whitespace: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Teszt Elek" autoComplete="name" /></Form.Item>
+          <Form.Item name="name" label="Neved" extra={<span style={{ color: '#baaaac' }}>A neved rövidítve (pl. „Teszt E.”) megjelenik a jelentkezők között.</span>} rules={[{ required: true, whitespace: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Teszt Elek" autoComplete="name" /></Form.Item>
           <Form.Item name="email" label="E-mail címed" normalize={(v) => (typeof v === 'string' ? v.trim() : v)} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input type="email" inputMode="email" autoComplete="email" placeholder="pelda@email.com" /></Form.Item>
         </Form>
       </Modal>
@@ -203,7 +231,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
-                  {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}</> )}
+                  {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}<AttendeeNames attendees={evt.attendees} max={8} size="small" /></> )}
                 </div>
               </div>
               {!isAdmin ? (
@@ -232,6 +260,8 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
     }} />
   );
 };
+
+const MAX_STRIPS_PER_DAY = 3;
 
 export const CalendarView = ({ app }) => {
   const { tournaments, setSelectedEventDetails, setIsEventDetailsModalOpen, selectedStore } = app;
@@ -328,14 +358,18 @@ export const CalendarView = ({ app }) => {
                   return (
                     <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
                       <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}><span className="cal-day-num" role="button" tabIndex={0} title="Napi események" onClick={() => setSelectedDay(day)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDay(day); } }}>{day}</span></div>
-                      {dayEvents.map(evt => {
+                      {/* Zsúfolt napokon csak az első néhány esemény fér ki, a többi a napi felugró ablakban látható */}
+                      {(dayEvents.length > MAX_STRIPS_PER_DAY ? dayEvents.slice(0, MAX_STRIPS_PER_DAY - 1) : dayEvents).map(evt => {
                           const eventColor = getGameColor(evt);
                           return (
-                            <div key={String(evt._id || evt.id)} className={evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={evt.name}>
+                            <div key={String(evt._id || evt.id)} className={evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${evt.name}`}>
                               {evt.isFeatured && '⭐ '}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
                             </div>
                           );
                       })}
+                      {dayEvents.length > MAX_STRIPS_PER_DAY && (
+                        <button type="button" className="cal-more-btn" onClick={() => setSelectedDay(day)}>+{dayEvents.length - MAX_STRIPS_PER_DAY + 1} további esemény</button>
+                      )}
                     </div>
                   )
                 })}
@@ -367,6 +401,12 @@ export const CalendarView = ({ app }) => {
                       </div>
                       <Title level={4} style={{ margin: '0 0 6px 0', color: '#E0D6C8' }}>{evt.name}</Title>
                       {evt.description && <Paragraph ellipsis={{ rows: 3 }} style={{ color: '#baaaac', fontSize: '1rem', margin: 0, whiteSpace: 'pre-wrap' }}>{evt.description}</Paragraph>}
+                      {!evt.isOpenAttendance && !evt.external_url && (
+                        <div style={{ marginTop: 8 }}>
+                          <Text style={{ color: '#baaaac' }}>Létszám: <Text strong style={{ color: '#E0D6C8' }}>{evt.current_players} / {evt.max_players}</Text></Text>
+                          <AttendeeNames attendees={evt.attendees} max={10} size="small" />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
