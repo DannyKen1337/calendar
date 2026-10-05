@@ -95,7 +95,7 @@ export const PublicModals = ({ app }) => {
     <>
       <Modal title={<span style={{ fontSize: '1.4rem', fontFamily: 'Georgia, serif' }}>Esemény részletei</span>} open={isEventDetailsModalOpen} onCancel={() => setIsEventDetailsModalOpen(false)} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} footer={[
           <Button key="close" onClick={() => setIsEventDetailsModalOpen(false)}>Bezárás</Button>,
-          selectedEventDetails?.isOpenAttendance ? null : selectedEventDetails?.external_url ? ( <Button key="ext" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { window.open(selectedEventDetails.external_url, '_blank'); setIsEventDetailsModalOpen(false); }}>Tovább a weboldalra</Button> ) : ( <Button key="join" type="primary" style={{ color: '#000', fontWeight: 'bold' }} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>{selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}</Button> )
+          selectedEventDetails?.isOpenAttendance ? null : selectedEventDetails?.external_url ? ( <Button key="ext" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { window.open(selectedEventDetails.external_url, '_blank', 'noopener,noreferrer'); setIsEventDetailsModalOpen(false); }}>Tovább a weboldalra</Button> ) : ( <Button key="join" type="primary" style={{ color: '#000', fontWeight: 'bold' }} disabled={!selectedEventDetails?.is_open} onClick={() => initiateJoin(selectedEventDetails)}>{selectedEventDetails?.is_open ? 'Jelentkezés' : 'Lezárva'}</Button> )
         ]}>
         {selectedEventDetails && (() => {
           const detailsTagColor = getGameColor(selectedEventDetails);
@@ -145,6 +145,11 @@ export const PublicModals = ({ app }) => {
           {joinError && <Alert type={joinErrorType || 'error'} showIcon style={{ marginBottom: 16 }} message={joinError} />}
           <Form.Item name="name" label="Neved" extra={<span style={{ color: '#baaaac' }}>A neved rövidítve (pl. „Teszt E.”) megjelenik a jelentkezők között.</span>} rules={[{ required: true, whitespace: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Teszt Elek" autoComplete="name" /></Form.Item>
           <Form.Item name="email" label="E-mail címed" normalize={(v) => (typeof v === 'string' ? v.trim() : v)} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input type="email" inputMode="email" autoComplete="email" placeholder="pelda@email.com" /></Form.Item>
+          {/* Adatkezelési tájékoztató (GDPR) */}
+          <p style={{ color: '#9a8a8c', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
+            A megadott nevet és e-mail címet kizárólag az esemény szervezéséhez (jelentkezés, visszaigazolás, leiratkozás) használjuk, harmadik félnek nem adjuk át. A nevedből csak rövidített forma (pl. „Teszt E.”) jelenik meg nyilvánosan. Az adatokat az esemény után legfeljebb 2 hónappal automatikusan töröljük.
+            {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#E5B15D' }}>Adatkezelési tájékoztató</a></>}
+          </p>
         </Form>
       </Modal>
 
@@ -245,6 +250,9 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                   {!evt.external_url && <Button type="link" danger size="small" onClick={() => initiateUnsubscribe(evt)}>Leiratkozás</Button>}
                 </div>
                 )
+              ) : !app.canManage(evt) ? (
+                // Más játék eseménye: a szervező látja, de nem szerkesztheti és a jelentkezőit sem látja
+                <Tag icon={<EyeOutlined />} style={{ background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' }}>Csak megtekintés</Tag>
               ) : (
                 <Space style={{ flexWrap: 'wrap' }}>
                   {!evt.external_url && !evt.isOpenAttendance && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
@@ -453,7 +461,25 @@ export const AdminEvents = ({ app: v }) => {
   const [adminCatFilter, setAdminCatFilter] = useState('Mind');
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   const [adminSearch, setAdminSearch] = useState('');
-  
+  const [permUser, setPermUser] = useState(null); // akinek a játék-jogosultságát épp szerkesztjük
+  const [permAll, setPermAll] = useState(true);
+  const [permCategories, setPermCategories] = useState([]);
+  const [permSaving, setPermSaving] = useState(false);
+
+  const openPermissions = (user) => {
+    const restricted = Array.isArray(user.allowedCategories);
+    setPermUser(user);
+    setPermAll(!restricted);
+    setPermCategories(restricted ? user.allowedCategories : []);
+  };
+  const savePermissions = async () => {
+    setPermSaving(true);
+    const ok = await v.setAdminCategories(permUser._id || permUser.id, permAll ? null : permCategories);
+    setPermSaving(false);
+    if (ok) setPermUser(null);
+  };
+  const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
+
   const currentAttendees = (v.registrations || []).filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees));
   
   const filteredAndSortedTournaments = (v.tournaments || [])
@@ -537,7 +563,7 @@ export const AdminEvents = ({ app: v }) => {
           </div>
 
           <Space style={{ flexWrap: 'wrap' }}>
-            <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
+            {v.userRole === 'owner' && <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>}
             
             <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { 
                 v.eventForm.resetFields(); 
@@ -566,7 +592,7 @@ export const AdminEvents = ({ app: v }) => {
               </Form.Item>
               <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kérlek válassz játékot!' }]}>
                 <Select placeholder="Válassz játékot..." allowClear>
-                  {Object.keys(GAME_CONFIG).map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}
+                  {manageableGames.map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}
                 </Select>
               </Form.Item>
             </div>
@@ -638,6 +664,17 @@ export const AdminEvents = ({ app: v }) => {
             { title: 'Név', dataIndex: 'username', render: (text, record) => <Space size={6} wrap><Text strong style={{ color: '#E0D6C8' }}>{text}</Text>{record.mustChangePassword && <Tag color="blue">Ideiglenes jelszó</Tag>}</Space> },
             { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
             { title: 'Szerep', dataIndex: 'role', render: (role) => { if (role === 'owner') return <Tag color="purple">Admin2</Tag>; if (role === 'admin') return <Tag color="orange">Admin</Tag>; return <Tag color="green">Játékos</Tag>; }},
+            { title: 'Kezelt játékok', render: (_, record) => {
+                if (record.role === 'owner') return <Tag color="purple">Minden</Tag>;
+                if (record.role !== 'admin') return <Text type="secondary">—</Text>;
+                const games = Array.isArray(record.allowedCategories) ? record.allowedCategories : null;
+                return (
+                  <Space size={4} wrap>
+                    {games === null ? <Tag color="gold">Minden játék</Tag> : games.length === 0 ? <Tag color="red">Egyik sem</Tag> : games.map(g => <Tag key={g} style={{ background: getGameColor({ category: g }), borderColor: getGameColor({ category: g }), color: '#fff', margin: 0 }}>{g}</Tag>)}
+                    {v.userRole === 'owner' && <Button size="small" type="link" icon={<EditOutlined />} onClick={() => openPermissions(record)}>Módosítás</Button>}
+                  </Space>
+                );
+            }},
             { title: 'Művelet', render: (_, record) => {
                 if (record.email === v.userEmail || record.role === 'owner') return <Text type="secondary">Védett fiók</Text>;
                 if (v.userRole !== 'owner') return <Text type="secondary">—</Text>;
@@ -650,6 +687,25 @@ export const AdminEvents = ({ app: v }) => {
                 )
             }}
           ]} />
+        </Modal>
+        <Modal
+          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Kezelt játékok: {permUser?.username}</span>}
+          open={!!permUser}
+          onCancel={() => setPermUser(null)}
+          onOk={savePermissions}
+          okText="Mentés"
+          cancelText="Mégse"
+          okButtonProps={{ loading: permSaving, disabled: !permAll && permCategories.length === 0, style: { color: '#000', fontWeight: 'bold' } }}
+          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+        >
+          <p style={{ color: '#baaaac' }}>A szervező minden eseményt lát a naptárban, de csak a kiválasztott játékok eseményeit hozhatja létre, szerkesztheti, nyithatja/zárhatja és törölheti, és csak ezek jelentkezőit látja.</p>
+          <Checkbox checked={permAll} onChange={(e) => setPermAll(e.target.checked)} style={{ marginBottom: 12 }}>Minden játékot kezelhet</Checkbox>
+          {!permAll && (
+            <Checkbox.Group value={permCategories} onChange={setPermCategories} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+              {Object.keys(GAME_CONFIG).map(g => <Checkbox key={g} value={g}>{g}</Checkbox>)}
+            </Checkbox.Group>
+          )}
+          {!permAll && permCategories.length === 0 && <p style={{ color: '#ff7875', marginTop: 12 }}>Válassz legalább egy játékot (vagy fokozd vissza a felhasználót játékossá).</p>}
         </Modal>
         <Modal title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Jelszó módosítása: {v.selectedUserForPassword?.username}</span>} open={v.isPasswordModalOpen} onCancel={() => v.setIsPasswordModalOpen(false)} onOk={() => v.passwordForm.submit()} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Form form={v.passwordForm} layout="vertical" onFinish={v.submitPasswordChange} className="mt-4"><Form.Item name="newPassword" label="Új jelszó" rules={[{ required: true, message: 'Kötelező megadni!', min: 6 }]}><Input.Password placeholder="Új jelszó beírása..." /></Form.Item></Form>

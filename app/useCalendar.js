@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { message, Form } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
+import { canManageEvent, canManageCategory } from "@/lib/permissions";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -10,6 +11,7 @@ export const useCalendar = () => {
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
   const [usersList, setUsersList] = useState([]);
   
   const [selectedStore, setSelectedStore] = useState(null);
@@ -83,6 +85,7 @@ export const useCalendar = () => {
         setUserName(data.user.username);
         setUserEmail(data.user.email);
         setUserRole(data.user.role);
+        setAllowedCategories(Array.isArray(data.user.allowedCategories) ? data.user.allowedCategories : null);
         fetchAdminData(false); 
       } else {
         fetchPublicData(false);
@@ -160,7 +163,7 @@ export const useCalendar = () => {
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setUserRole(null); setUserName(""); setUserEmail("");
+    setUserRole(null); setUserName(""); setUserEmail(""); setAllowedCategories(null);
     fetchPublicData(false);
   };
 
@@ -174,9 +177,8 @@ export const useCalendar = () => {
         messageApi.info('Első belépés: az ideiglenes jelszó lecseréléséhez használd az /admin oldalt.');
       } else if (action === 'login') {
         messageApi.success(`Üdvözlünk, ${data.user.username}!`);
-        setUserName(data.user.username); setUserEmail(data.user.email); setUserRole(data.user.role);
         setIsAuthModalOpen(false); authForm.resetFields();
-        fetchAdminData(false);
+        checkSession(); // a játék-jogosultságokat is betölti
       } else {
         messageApi.success('Sikeres regisztráció! Most jelentkezz be.');
         setIsRegistering(false);
@@ -335,7 +337,7 @@ export const useCalendar = () => {
   const initiateJoin = (tournament) => {
     setIsEventDetailsModalOpen(false);
     if (tournament.isOpenAttendance) return; // kötetlen létszámú eseményre nincs jelentkezés
-    if (tournament.external_url) { window.open(tournament.external_url, '_blank'); return; }
+    if (tournament.external_url) { window.open(tournament.external_url, '_blank', 'noopener,noreferrer'); return; }
     setSelectedEventToJoin(tournament); joinForm.setFieldsValue({ name: userName || "", email: userEmail || "" }); setJoinError(''); setIsJoinModalOpen(true);
   };
 
@@ -358,7 +360,7 @@ export const useCalendar = () => {
         if (isDuplicate) messageApi.warning(msg); else messageApi.error(msg);
         return;
       }
-      messageApi.success(result.isQueue ? "Várólistára kerültél!" : "Hely biztosítva!");
+      messageApi.success((result.isQueue ? "Várólistára kerültél!" : "Hely biztosítva!") + (result.mailSent ? " A visszaigazolást elküldtük e-mailben." : ""));
       setIsJoinModalOpen(false); joinForm.resetFields();
       fetchData(true);
     } catch (e) {
@@ -386,7 +388,9 @@ export const useCalendar = () => {
       let result = null;
       try { result = await response.json(); } catch (e) { result = null; }
       if (!response.ok || !result || result.error) { messageApi.error((result && result.error) || 'A leiratkozás most nem sikerült. Kérlek próbáld újra.'); return; }
-      messageApi.success("Sikeresen lejelentkeztél az eseményről."); setIsUnsubscribeModalOpen(false); unsubscribeForm.resetFields();
+      if (result.emailSent) messageApi.success({ content: "Ha erről a címről van jelentkezés, elküldtük e-mailben a leiratkozó linket. Nézd meg a postafiókod (a spam mappát is)!", duration: 8 });
+      else messageApi.success("Sikeresen lejelentkeztél az eseményről.");
+      setIsUnsubscribeModalOpen(false); unsubscribeForm.resetFields();
       fetchData(true);
     } catch (e) { messageApi.error("Hálózati hiba történt."); }
     finally { setIsUnsubscribing(false); }
@@ -448,6 +452,18 @@ export const useCalendar = () => {
     setIsCreatingUser(false);
   };
 
+  // Játék-jogosultság a felületen (a szerver is ellenőrzi): a tulajdonos mindent, a korlátozott szervező csak a saját játékait kezelheti
+  const currentUser = { role: userRole, allowedCategories };
+  const canManage = (evt) => canManageEvent(currentUser, evt);
+  const canManageGame = (category) => canManageCategory(currentUser, category);
+
+  const setAdminCategories = async (userId, categories) => {
+    if (!(await postAction('SET_ADMIN_CATEGORIES', { userId: String(userId), categories }))) return false;
+    messageApi.success('Jogosultság mentve.');
+    fetchData(true);
+    return true;
+  };
+
   const formatEventDate = (dateString) => {
     if (!dateString) return "Hamarosan"; 
     const d = new Date(dateString); if (isNaN(d.getTime())) return dateString; 
@@ -456,6 +472,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
+    allowedCategories, canManage, canManageGame, setAdminCategories,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,

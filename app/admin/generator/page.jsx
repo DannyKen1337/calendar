@@ -28,7 +28,7 @@ export default function GeneratorPage() {
         </div>
 
         <div className="flex justify-center mt-8">
-          <EventGenerator />
+          <EventGenerator canManageGame={app.canManageGame} />
         </div>
 
       </div>

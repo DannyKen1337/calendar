@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const session = await getSession();
-  if (session) {
-    return NextResponse.json({ user: session });
+  const user = await getCurrentUser();
+  if (user) {
+    const { id, username, email, role, allowedCategories } = user;
+    return NextResponse.json({ user: { id, username, email, role, allowedCategories } });
   }
   return NextResponse.json({ user: null });
 }

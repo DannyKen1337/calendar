@@ -29,7 +29,8 @@ const STORES = {
   jatekceh: { id: 'jatekceh', name: 'JátékCéh' }
 };
 
-export default function EventGenerator() {
+// canManageGame: a bejelentkezett szervező kezelheti-e az adott játékot (korlátozott szervezőnél csak a saját játékai jelennek meg)
+export default function EventGenerator({ canManageGame = () => true }) {
   const [form] = Form.useForm();
   const [isGenerating, setIsGenerating] = useState(false);
   const [adminName, setAdminName] = useState("Generátor");
@@ -153,7 +154,7 @@ export default function EventGenerator() {
 
             <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kérlek válassz játékot!' }]}>
               <Select placeholder="Válassz játékot..." size="large" allowClear>
-                {Object.keys(GAME_CONFIG).map(game => (
+                {Object.keys(GAME_CONFIG).filter(canManageGame).map(game => (
                   <Select.Option key={game} value={game}>{game}</Select.Option>
                 ))}
               </Select>
