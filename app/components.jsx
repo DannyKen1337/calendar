@@ -202,10 +202,10 @@ export const PublicModals = ({ app }) => {
   );
 };
 
-export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
+// grid: az események kártyarácsban, annyi oszlopban, amennyi kifér (admin felület); egyébként egyoszlopos lista
+export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false }) => {
   const { formatEventDate, initiateJoin, initiateUnsubscribe, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, handleToggleGate, togglingGateId, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
-  return (
-    <List locale={{ emptyText: <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs megjeleníthető esemény.</Text> }} dataSource={tournamentsData || []} renderItem={(evt) => {
+  const renderCard = (evt) => {
       const eId = String(evt._id || evt.id);
       const isFull = evt.current_players >= evt.max_players;
       let btnText = "Csatlakozom!"; let btnType = "primary"; let btnIcon = <TeamOutlined />;
@@ -216,13 +216,15 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
       const storeInfo = STORES[evt.store || 'debrecen'];
 
       return (
-        <List.Item style={S.eventItem}>
           <Card
             size="small"
             className={evt.isFeatured ? 'cozy-shadow featured-card' : 'cozy-shadow'}
-            style={evt.isFeatured
-              ? { ...S.eventCard, border: '2px solid #FFD700', background: 'linear-gradient(135deg, #3a2a14 0%, #2B1A1C 60%)' }
-              : S.eventCard}
+            style={{
+              ...(evt.isFeatured
+                ? { ...S.eventCard, border: '2px solid #FFD700', background: 'linear-gradient(135deg, #3a2a14 0%, #2B1A1C 60%)' }
+                : S.eventCard),
+              ...(grid && { height: '100%' }),
+            }}
           >
             <div style={S.eventFlex}>
               <div style={{...S.eventInfo, cursor: 'pointer'}} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }}>
@@ -263,9 +265,20 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
               )}
             </div>
           </Card>
-        </List.Item>
       );
-    }} />
+  };
+
+  const items = tournamentsData || [];
+  if (grid) {
+    if (items.length === 0) return <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs megjeleníthető esemény.</Text>;
+    return (
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 480px), 1fr))' }}>
+        {items.map(evt => <div key={String(evt._id || evt.id)}>{renderCard(evt)}</div>)}
+      </div>
+    );
+  }
+  return (
+    <List locale={{ emptyText: <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs megjeleníthető esemény.</Text> }} dataSource={items} renderItem={(evt) => <List.Item style={S.eventItem}>{renderCard(evt)}</List.Item>} />
   );
 };
 
@@ -457,10 +470,57 @@ export const SearchResults = ({ app, query }) => {
   );
 };
 
+// Admin eseménylista napokra bontva: nap fejléc ("Ma", "Holnap", dátum) + az aznapi események kártyarácsban
+const AdminDayGroups = ({ events, app, emptyText }) => {
+  if (events.length === 0) {
+    return <div className="bg-[#1a1012] rounded-xl border border-[#4A2E33] p-8 text-center"><Text style={{ color: '#6b7280', fontStyle: 'italic' }}>{emptyText}</Text></div>;
+  }
+
+  const dayKey = (e) => {
+    const d = new Date(e.date);
+    if (isNaN(d.getTime())) return 'nincs-datum';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const groups = [];
+  const byKey = new Map();
+  events.forEach(e => {
+    const key = dayKey(e);
+    if (!byKey.has(key)) { const g = { key, date: new Date(e.date), events: [] }; byKey.set(key, g); groups.push(g); }
+    byKey.get(key).events.push(e);
+  });
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dayLabel = (g) => {
+    if (g.key === 'nincs-datum') return { title: 'Dátum nélkül', badge: null };
+    const d = new Date(g.date); d.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((d - today) / 86400000);
+    const opts = { month: 'long', day: 'numeric', weekday: 'long', ...(d.getFullYear() !== today.getFullYear() && { year: 'numeric' }) };
+    const title = d.toLocaleDateString('hu-HU', opts).replace(/^./, c => c.toUpperCase());
+    const badge = diffDays === 0 ? 'Ma' : diffDays === 1 ? 'Holnap' : null;
+    return { title, badge };
+  };
+
+  return groups.map(g => {
+    const { title, badge } = dayLabel(g);
+    return (
+      <div key={g.key}>
+        <div className="flex items-center gap-3 mb-3">
+          <Title level={4} style={{ margin: 0, color: badge === 'Ma' ? '#E5B15D' : '#E0D6C8', fontFamily: 'Georgia, serif' }}>{title}</Title>
+          {badge && <Tag color="gold" style={{ margin: 0 }}>{badge}</Tag>}
+          <Text style={{ color: '#9a8a8c' }}>{g.events.length} esemény</Text>
+          <div className="flex-1 h-px bg-[#4A2E33]" />
+        </div>
+        <EventList tournamentsData={g.events} isAdmin={true} app={app} grid />
+      </div>
+    );
+  });
+};
+
 export const AdminEvents = ({ app: v }) => {
   const [adminCatFilter, setAdminCatFilter] = useState('Mind');
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   const [adminSearch, setAdminSearch] = useState('');
+  const [showPast, setShowPast] = useState(false);
   const [permUser, setPermUser] = useState(null); // akinek a játék-jogosultságát épp szerkesztjük
   const [permAll, setPermAll] = useState(true);
   const [permCategories, setPermCategories] = useState([]);
@@ -491,6 +551,27 @@ export const AdminEvents = ({ app: v }) => {
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+  // Közelgő (ma vagy később) és múltbeli események külön; a múltbeliek alapból rejtve, a legfrissebb elöl
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const evtTime = (e) => new Date(e.date).getTime();
+  const upcomingEvents = filteredAndSortedTournaments.filter(e => !(evtTime(e) < startOfToday.getTime()));
+  const pastEvents = filteredAndSortedTournaments.filter(e => evtTime(e) < startOfToday.getTime()).reverse();
+
+  const stats = {
+    events: upcomingEvents.length,
+    players: upcomingEvents.reduce((sum, e) => sum + (e.isOpenAttendance || e.external_url ? 0 : (e.current_players || 0)), 0),
+    queue: upcomingEvents.reduce((sum, e) => sum + (e.queue_count || 0), 0),
+    closed: upcomingEvents.filter(e => !e.is_open && !e.isOpenAttendance && !e.external_url).length,
+  };
+
+  const openNewEvent = () => {
+    v.eventForm.resetFields();
+    v.eventForm.setFieldsValue({ store: adminStoreFilter !== 'Mind' ? adminStoreFilter : undefined });
+    v.setEditingEventId(null);
+    v.setIsExternalForm(false);
+    v.setIsEventModalOpen(true);
+  };
+
   const handleFilteredExport = () => {
     const today = new Date(); today.setHours(0, 0, 0, 0); 
     const exportTournaments = (v.tournaments || []).filter(evt => {
@@ -511,74 +592,96 @@ export const AdminEvents = ({ app: v }) => {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
+  const panel = "bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]";
+  const panelTitle = { color: '#E5B15D', margin: '0 0 12px 0', fontFamily: 'Georgia, serif' };
+  const sideBtn = { color: '#E0D6C8', borderColor: '#4A2E33', background: '#2B1A1C' };
+
   return (
     <ConfigProvider theme={tavernTheme}>
-      <div>
-        {v.userRole === 'owner' && (
-          <div className="bg-[#1a1012] p-4 rounded-xl border-2 border-purple-900 mb-8 shadow-lg">
-            <Title level={4} style={{ color: '#d8b4e2', margin: '0 0 15px 0', fontFamily: 'Georgia, serif' }}>👑 Tulajdonosi Eszközök (God Mode)</Title>
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center gap-2 bg-[#2B1A1C] px-4 py-2 rounded-lg border border-[#4A2E33]">
-                <strong className={v.isMaintenance ? "text-red-500" : "text-green-500"}>Karbantartás Mód:</strong>
-                <Popconfirm title={`Biztosan ${v.isMaintenance ? 'kikapcsolod' : 'bekapcsolod'} a karbantartást?`} onConfirm={() => v.toggleMaintenance(!v.isMaintenance)} okText="Igen" cancelText="Mégse">
-                  <Button danger={v.isMaintenance} type={v.isMaintenance ? "primary" : "default"} size="small">{v.isMaintenance ? "BEKAPCSOLVA" : "KIKAPCSOLVA"}</Button>
-                </Popconfirm>
-              </div>
-              <Button type="primary" style={{ background: '#4b1b54', borderColor: '#4b1b54', color: '#fff' }} onClick={() => v.setIsLogModalOpen(true)}>Tevékenységnapló</Button>
-              <Button type="primary" danger onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
-              <Button type="primary" icon={<UserAddOutlined />} style={{ background: '#E5B15D', borderColor: '#E5B15D', color: '#000', fontWeight: 'bold' }} onClick={() => { v.createUserForm.resetFields(); v.setIsCreateUserModalOpen(true); }}>Új felhasználó</Button>
-              <Button type="default" icon={<LockOutlined />} style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={() => { v.ownPasswordForm.resetFields(); v.setIsOwnPasswordModalOpen(true); }}>Saját jelszó</Button>
-              <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={v.handleExportDB}>💾 Teljes adatbázis mentés (JSON)</Button>
-              <Button type="default" style={{ color: '#E0D6C8', borderColor: '#E0D6C8' }} onClick={handleFilteredExport} title="Csak a jövőbeli, a lenti helyszín- és játékszűrőnek megfelelő események és jelentkezőik">📤 Szűrt események exportja (JSON)</Button>
-              <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={v.handleCleanupOldEvents} okText="Igen" cancelText="Mégse">
-                <Button type="primary" style={{ background: '#7f1d1d', borderColor: '#7f1d1d', color: '#fff' }}>🧹 Régi Események Törlése</Button>
-              </Popconfirm>
+      <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)] items-start">
+
+        {/* OLDALSÁV: műveletek, szűrők, áttekintés, tulajdonosi eszközök (széles képernyőn görgetéskor is látszik) */}
+        <aside className="flex flex-col gap-4 xl:sticky xl:top-4">
+          <div className={panel}>
+            <Button type="primary" block size="large" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold', marginBottom: 8 }} onClick={openNewEvent}>Új esemény</Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button block icon={<CalendarOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => window.location.href = '/admin/generator'}>Generátor</Button>
+              <Button block icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/', '_blank', 'noopener')}>Naptár</Button>
             </div>
           </div>
-        )}
 
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6 bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33] shadow-md">
-          <div className="flex flex-wrap items-center gap-4">
-            <Title level={3} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Vezérlőpult</Title>
-            <div className="hidden md:block w-px h-8 bg-[#4A2E33]"></div>
-            
-            <div className="flex items-center gap-2 bg-[#2B1A1C] px-3 py-1.5 rounded-lg border border-[#4A2E33]">
-              <EnvironmentOutlined className="text-[#E5B15D]" />
-              <Select value={adminStoreFilter} onChange={setAdminStoreFilter} style={{ width: 160 }} bordered={false} dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
+          <div className={panel}>
+            <Title level={5} style={panelTitle}><SearchOutlined /> Szűrés</Title>
+            <div className="flex flex-col gap-2">
+              <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Név, játék, dátum, helyszín..." value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} />
+              <Select value={adminStoreFilter} onChange={setAdminStoreFilter} prefix={<EnvironmentOutlined style={{ color: '#E5B15D' }} />} style={{ width: '100%' }}>
                 <Select.Option value="Mind">Összes helyszín</Select.Option>
                 {Object.values(STORES).map(s => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
               </Select>
-            </div>
-
-            <div className="flex items-center gap-2 bg-[#2B1A1C] px-3 py-1.5 rounded-lg border border-[#4A2E33]">
-              <Select value={adminCatFilter} onChange={setAdminCatFilter} style={{ width: 150 }} bordered={false} dropdownStyle={{ background: '#2B1A1C', color: '#fff' }}>
+              <Select value={adminCatFilter} onChange={setAdminCatFilter} style={{ width: '100%' }}>
                 <Select.Option value="Mind">Minden játék</Select.Option>
                 {Object.keys(GAME_CONFIG).map(g => <Select.Option key={g} value={g}>{g}</Select.Option>)}
               </Select>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: név, játék, dátum, helyszín..." value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} style={{ width: 300 }} />
-              <Text style={{ color: '#baaaac' }}>{filteredAndSortedTournaments.length} esemény</Text>
+              <Checkbox checked={showPast} onChange={(e) => setShowPast(e.target.checked)} style={{ marginTop: 4 }}>Múltbeli események mutatása ({pastEvents.length})</Checkbox>
             </div>
           </div>
 
-          <Space style={{ flexWrap: 'wrap' }}>
-            {v.userRole === 'owner' && <Button type="default" shape="round" icon={<SafetyCertificateOutlined />} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>}
-            
-            <Button type="primary" shape="round" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { 
-                v.eventForm.resetFields(); 
-                v.eventForm.setFieldsValue({ store: adminStoreFilter !== 'Mind' ? adminStoreFilter : undefined }); 
-                v.setEditingEventId(null); 
-                v.setIsExternalForm(false); 
-                v.setIsEventModalOpen(true); 
-            }}>Új Esemény</Button>
+          <div className={panel}>
+            <Title level={5} style={panelTitle}>Közelgő események</Title>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['Esemény', stats.events, '#E5B15D'],
+                ['Jelentkező', stats.players, '#E0D6C8'],
+                ['Várólistán', stats.queue, '#faad14'],
+                ['Lezárva', stats.closed, '#ff7875'],
+              ].map(([label, value, color]) => (
+                <div key={label} className="bg-[#2B1A1C] rounded-lg border border-[#4A2E33] px-3 py-2">
+                  <div style={{ color, fontSize: 22, fontWeight: 'bold', lineHeight: 1.2 }}>{value}</div>
+                  <div style={{ color: '#9a8a8c', fontSize: 12 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-            <Button type="dashed" shape="round" icon={<CalendarOutlined />} style={{ color: '#E5B15D', borderColor: '#E5B15D', background: 'transparent' }} onClick={() => window.location.href = '/admin/generator'}>Generátor</Button>
-            <Button type="default" shape="round" icon={<EyeOutlined />} style={{ color: '#fff', borderColor: '#4A2E33', background: '#2B1A1C' }} onClick={() => window.open('/', '_blank')}>Naptár</Button>
-          </Space>
-        </div>
-        
-        <EventList tournamentsData={filteredAndSortedTournaments} isAdmin={true} app={v} />
+          {v.userRole === 'owner' && (
+            <div className="bg-[#1a1012] p-4 rounded-xl border-2 border-purple-900">
+              <Title level={5} style={{ ...panelTitle, color: '#d8b4e2' }}>👑 Tulajdonosi eszközök</Title>
+              <div className="flex items-center justify-between gap-2 bg-[#2B1A1C] px-3 py-2 rounded-lg border border-[#4A2E33] mb-2">
+                <strong className={v.isMaintenance ? "text-red-500" : "text-green-500"}>Karbantartás</strong>
+                <Popconfirm title={`Biztosan ${v.isMaintenance ? 'kikapcsolod' : 'bekapcsolod'} a karbantartást?`} onConfirm={() => v.toggleMaintenance(!v.isMaintenance)} okText="Igen" cancelText="Mégse">
+                  <Button danger={v.isMaintenance} type={v.isMaintenance ? "primary" : "default"} size="small">{v.isMaintenance ? "BE" : "KI"}</Button>
+                </Popconfirm>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button block icon={<SafetyCertificateOutlined />} style={sideBtn} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
+                <Button block icon={<UserAddOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => { v.createUserForm.resetFields(); v.setIsCreateUserModalOpen(true); }}>Új fiók</Button>
+                <Button block style={sideBtn} onClick={() => v.setIsLogModalOpen(true)}>Napló</Button>
+                <Button block danger style={{ background: '#2B1A1C' }} onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
+              </div>
+              <Divider style={{ ...S.divider, margin: '12px 0' }} />
+              <div className="flex flex-col gap-2">
+                <Button block style={sideBtn} onClick={v.handleExportDB}>💾 Teljes adatbázis mentés</Button>
+                <Button block style={sideBtn} onClick={handleFilteredExport} title="Csak a jövőbeli, a szűrőknek megfelelő események és jelentkezőik">📤 Szűrt események exportja</Button>
+                <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={v.handleCleanupOldEvents} okText="Igen" cancelText="Mégse">
+                  <Button block style={{ background: '#7f1d1d', borderColor: '#7f1d1d', color: '#fff' }}>🧹 Régi események törlése</Button>
+                </Popconfirm>
+              </div>
+            </div>
+          )}
+        </aside>
+
+        {/* ESEMÉNYEK: napokra csoportosítva, kártyarácsban */}
+        <section className="min-w-0 flex flex-col gap-6">
+          <AdminDayGroups events={upcomingEvents} app={v} emptyText={adminSearch || adminCatFilter !== 'Mind' || adminStoreFilter !== 'Mind' ? 'Nincs a szűrőknek megfelelő közelgő esemény.' : 'Nincs közelgő esemény.'} />
+          {showPast && (
+            <>
+              <Divider style={{ ...S.divider, margin: 0 }}><span style={{ color: '#9a8a8c' }}>Múltbeli események</span></Divider>
+              <AdminDayGroups events={pastEvents} app={v} emptyText="Nincs múltbeli esemény." />
+            </>
+          )}
+        </section>
+      </div>
+      <div>
         
         <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4">

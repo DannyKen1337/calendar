@@ -198,14 +198,20 @@ export default function AdminPage() {
 
   // HA BE VAN JELENTKEZVE, betölt a megszokott admin pult
   return (
-    <main className="min-h-screen bg-[#121212] text-white p-4 md:p-8">
+    <main className="min-h-screen bg-[#121212] text-white px-4 py-4 md:px-6 2xl:px-10">
       {app.contextHolder}
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        <div className="flex justify-between items-center border-b border-[#4A2E33] pb-4">
-          <h1 className="text-3xl font-bold text-[#E5B15D] font-serif m-0">
-            Admin Vezérlőpult
-          </h1>
+      <div className="max-w-[2200px] mx-auto space-y-6">
+
+        <div className="flex flex-wrap justify-between items-center gap-4 border-b border-[#4A2E33] pb-4">
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <h1 className="text-3xl font-bold text-[#E5B15D] font-serif m-0">
+              Admin Vezérlőpult
+            </h1>
+            <span className="text-[#9a8a8c]">
+              Bejelentkezve: <b className="text-[#E0D6C8]">{app.userName}</b>
+              {app.userRole === 'owner' ? ' (tulajdonos)' : Array.isArray(app.allowedCategories) ? ` · ${app.allowedCategories.join(', ') || 'nincs kezelt játék'}` : ''}
+            </span>
+          </div>
           <div className="flex items-center gap-4">
             {app.userRole === 'owner' && (
               <button
@@ -227,10 +233,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="bg-[#2B1A1C] p-6 rounded-2xl border border-[#4A2E33]">
-          {/* Most már megkapja az app propot, ahogy a régi kód is! */}
-          <AdminEvents app={app} />
-        </div>
+        <AdminEvents app={app} />
 
       </div>
     </main>
