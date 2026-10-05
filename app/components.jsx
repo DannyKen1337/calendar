@@ -237,7 +237,8 @@ export const CalendarView = ({ app }) => {
   const { tournaments, setSelectedEventDetails, setIsEventDetailsModalOpen, selectedStore } = app;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [realToday, setRealToday] = useState(null);
-  
+  const [selectedDay, setSelectedDay] = useState(null); // napi események felugró ablak
+
   useEffect(() => { setRealToday(new Date()); setCurrentDate(new Date()); }, []);
   const screens = useBreakpoint(); const isMobile = screens.md === false;
   
@@ -326,7 +327,7 @@ export const CalendarView = ({ app }) => {
                   const isToday = realToday && realToday.getDate() === day && realToday.getMonth() === currentDate.getMonth() && realToday.getFullYear() === currentDate.getFullYear();
                   return (
                     <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
-                      <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}>{day}</div>
+                      <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}><span className="cal-day-num" role="button" tabIndex={0} title="Napi események" onClick={() => setSelectedDay(day)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDay(day); } }}>{day}</span></div>
                       {dayEvents.map(evt => {
                           const eventColor = getGameColor(evt);
                           return (
@@ -342,6 +343,37 @@ export const CalendarView = ({ app }) => {
             </div>
           </>
         )}
+        <Modal
+          title={selectedDay && (() => { const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay); return <span style={{ fontSize: '1.4rem', fontFamily: 'Georgia, serif', color: '#E5B15D' }}>{d.getFullYear()}. {months[d.getMonth()].toLowerCase()} {selectedDay}. – {days[(d.getDay() + 6) % 7]}</span>; })()}
+          open={selectedDay !== null}
+          onCancel={() => setSelectedDay(null)}
+          footer={null}
+          width={700}
+          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+        >
+          {selectedDay !== null && (() => {
+            const dayEvents = getEventsForDay(selectedDay);
+            if (dayEvents.length === 0) return <div style={{ textAlign: 'center', padding: '30px 0' }}><Text style={{ color: '#6b7280', fontStyle: 'italic', fontSize: '1.1rem' }}>Nincs kiírt esemény ezen a napon.</Text></div>;
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 10 }}>
+                {dayEvents.map(evt => {
+                  const eventColor = getGameColor(evt);
+                  return (
+                    <div key={String(evt._id || evt.id)} role="button" tabIndex={0} onClick={() => { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); } }} style={{ cursor: 'pointer', background: '#2B1A1C', border: evt.isFeatured ? '2px solid #FFD700' : '1px solid #4A2E33', borderLeft: `6px solid ${eventColor}`, borderRadius: 12, padding: '14px 18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                        <Text strong style={{ color: '#E5B15D', fontSize: '1.25rem' }}>{getEventTime(evt.date)}</Text>
+                        <Tag color={eventColor} style={{ background: eventColor, borderColor: eventColor, color: '#fff', fontSize: '13px', padding: '2px 10px', margin: 0 }}>{evt.category || 'Egyéb'}</Tag>
+                        {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ margin: 0, fontWeight: 'bold' }}>Kiemelt</Tag>}
+                      </div>
+                      <Title level={4} style={{ margin: '0 0 6px 0', color: '#E0D6C8' }}>{evt.name}</Title>
+                      {evt.description && <Paragraph ellipsis={{ rows: 3 }} style={{ color: '#baaaac', fontSize: '1rem', margin: 0, whiteSpace: 'pre-wrap' }}>{evt.description}</Paragraph>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </Modal>
         <PublicModals app={app} />
       </div>
     </ConfigProvider>

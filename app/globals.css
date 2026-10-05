@@ -42,3 +42,22 @@ body {
 .featured-card {
   animation: featuredPulse 2.5s ease-in-out infinite;
 }
+
+.cal-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cal-day-num:hover,
+.cal-day-num:focus-visible {
+  background: #4A2E33;
+  color: #E5B15D;
+  outline: none;
+}
