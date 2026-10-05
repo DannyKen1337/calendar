@@ -50,6 +50,7 @@ export const useCalendar = () => {
   const [togglingGateId, setTogglingGateId] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState('');
+  const [joinErrorType, setJoinErrorType] = useState('error'); // 'error' | 'warning' (pl. már jelentkezett)
   
   const [passwordForm] = Form.useForm();
   const [ownPasswordForm] = Form.useForm();
@@ -336,14 +337,17 @@ export const useCalendar = () => {
     const payload = { tournamentId: eId, name: String(values.name || '').trim(), email: String(values.email || '').trim().toLowerCase() };
     setIsJoining(true);
     setJoinError('');
+    setJoinErrorType('error');
     try {
       const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'JOIN_TOURNAMENT', payload }) });
       let result = null;
       try { result = await response.json(); } catch (e) { result = null; }
       if (!response.ok || !result || result.error) {
         const msg = (result && result.error) || 'A jelentkezés most nem sikerült. Kérlek próbáld újra, vagy szólj a szervezőnek.';
+        const isDuplicate = !!result && result.code === 'ALREADY_REGISTERED'; // már jelentkezett: nem hiba, csak tájékoztatás
+        setJoinErrorType(isDuplicate ? 'warning' : 'error');
         setJoinError(msg);
-        messageApi.error(msg);
+        if (isDuplicate) messageApi.warning(msg); else messageApi.error(msg);
         return;
       }
       messageApi.success(result.isQueue ? "Várólistára kerültél!" : "Hely biztosítva!");
@@ -450,7 +454,7 @@ export const useCalendar = () => {
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
-    messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId, isJoining, joinError, setJoinError,
+    messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId, isJoining, joinError, joinErrorType, setJoinError,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };
 };
