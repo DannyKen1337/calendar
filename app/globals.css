@@ -55,8 +55,20 @@ body {
   transition: background 0.15s, color 0.15s;
 }
 
-.cal-day-num:hover,
-.cal-day-num:focus-visible {
+.cal-day-cell {
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.cal-day-cell:hover,
+.cal-day-cell:focus-visible {
+  background: #3a2326 !important;
+  box-shadow: inset 0 0 0 1px #6b4f22;
+  outline: none;
+}
+
+.cal-day-cell:hover .cal-day-num,
+.cal-day-cell:focus-visible .cal-day-num {
   background: #4A2E33;
   color: #E5B15D;
   outline: none;

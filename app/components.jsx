@@ -356,19 +356,20 @@ export const CalendarView = ({ app }) => {
                   const dayEvents = getEventsForDay(day);
                   const isToday = realToday && realToday.getDate() === day && realToday.getMonth() === currentDate.getMonth() && realToday.getFullYear() === currentDate.getFullYear();
                   return (
-                    <div key={day} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
-                      <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}><span className="cal-day-num" role="button" tabIndex={0} title="Napi események" onClick={() => setSelectedDay(day)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDay(day); } }}>{day}</span></div>
+                    // Az egész nap cella kattintható (napi események ablak); az eseménysávok a saját részleteiket nyitják meg
+                    <div key={day} className="cal-day-cell" role="button" tabIndex={0} title="Napi események" onClick={() => setSelectedDay(day)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedDay(day); } }} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
+                      <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}><span className="cal-day-num">{day}</span></div>
                       {/* Zsúfolt napokon csak az első néhány esemény fér ki, a többi a napi felugró ablakban látható */}
                       {(dayEvents.length > MAX_STRIPS_PER_DAY ? dayEvents.slice(0, MAX_STRIPS_PER_DAY - 1) : dayEvents).map(evt => {
                           const eventColor = getGameColor(evt);
                           return (
-                            <div key={String(evt._id || evt.id)} className={evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={() => { setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${evt.name}`}>
+                            <div key={String(evt._id || evt.id)} className={evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={(e) => { e.stopPropagation(); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${evt.name}`}>
                               {evt.isFeatured && '⭐ '}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
                             </div>
                           );
                       })}
                       {dayEvents.length > MAX_STRIPS_PER_DAY && (
-                        <button type="button" className="cal-more-btn" onClick={() => setSelectedDay(day)}>+{dayEvents.length - MAX_STRIPS_PER_DAY + 1} további esemény</button>
+                        <button type="button" className="cal-more-btn" onClick={(e) => { e.stopPropagation(); setSelectedDay(day); }}>+{dayEvents.length - MAX_STRIPS_PER_DAY + 1} további esemény</button>
                       )}
                     </div>
                   )
