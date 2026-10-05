@@ -96,3 +96,17 @@ body {
   border-color: #E5B15D;
   outline: none;
 }
+
+/* Beágyazott (iframe) nézet – lásd components/EmbedBridge.jsx és public/embed.js */
+html.tavern-embed,
+html.tavern-embed body {
+  height: auto;
+  min-height: 0 !important;
+  background: #121212;
+}
+
+/* A felugró ablakok a szülő oldalon éppen látható részen nyíljanak meg, ne a (magas) iframe közepén */
+html.tavern-embed .ant-modal {
+  top: calc(var(--tc-vtop, 0px) + 16px) !important;
+  padding-bottom: 16px;
+}

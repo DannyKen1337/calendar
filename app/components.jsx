@@ -43,12 +43,12 @@ export const getCategoryImage = (category) => {
   return getGameConfig(category).logo || defaultLogoUrl;
 };
 
-export const StoreSelector = ({ onSelect }) => {
+export const StoreSelector = ({ onSelect, embed = false }) => {
   return (
     <ConfigProvider theme={tavernTheme}>
-      <main className="min-h-screen bg-[#121212] flex flex-col items-center justify-center p-4">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-[#E5B15D] font-serif mb-4 tracking-wider">Közösségi Naptár</h1>
+      <main className={`${embed ? 'py-10' : 'min-h-screen'} bg-[#121212] flex flex-col items-center justify-center p-4`}>
+        <div className={`text-center ${embed ? 'mb-8' : 'mb-12'}`}>
+          <h1 className={`${embed ? 'text-3xl' : 'text-5xl'} font-bold text-[#E5B15D] font-serif mb-4 tracking-wider`}>Közösségi Naptár</h1>
           <p className="text-[#baaaac] text-lg">Kérlek válaszd ki, melyik helyszín eseményeire vagy kíváncsi!</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
@@ -263,7 +263,8 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
 
 const MAX_STRIPS_PER_DAY = 3;
 
-export const CalendarView = ({ app }) => {
+// compact: beágyazott (iframe) nézet – nincs dupla cím, keskenyebb rács, alacsonyabb cellák
+export const CalendarView = ({ app, compact = false }) => {
   const { tournaments, setSelectedEventDetails, setIsEventDetailsModalOpen, selectedStore } = app;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [realToday, setRealToday] = useState(null);
@@ -341,15 +342,15 @@ export const CalendarView = ({ app }) => {
           </div>
         ) : (
           <>
-            <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Havi Naptár - {STORES[selectedStore]?.name}</Title>
-            <Divider style={S.divider} />
+            {!compact && <Title level={2} style={S.sectionTitle}><CalendarOutlined style={S.titleIcon}/> Havi Naptár - {STORES[selectedStore]?.name}</Title>}
+            {!compact && <Divider style={S.divider} />}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <Button size="large" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>&lt; Előző</Button>
               <Title level={2} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>{months[currentDate.getMonth()]} {currentDate.getFullYear()}</Title>
               <Button size="large" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>Következő &gt;</Button>
             </div>
             <div style={S.calendarScroll}>
-              <div style={S.calendarGrid}>
+              <div style={compact ? { ...S.calendarGrid, minWidth: 0, gap: '6px' } : S.calendarGrid}>
                 {days.map(day => <div key={day} style={S.calHeaderCell}>{day}</div>)}
                 {emptyCells.map(i => <div key={`empty-${i}`} />)}
                 {daysArray.map(day => {
@@ -357,7 +358,7 @@ export const CalendarView = ({ app }) => {
                   const isToday = realToday && realToday.getDate() === day && realToday.getMonth() === currentDate.getMonth() && realToday.getFullYear() === currentDate.getFullYear();
                   return (
                     // Az egész nap cella kattintható (napi események ablak); az eseménysávok a saját részleteiket nyitják meg
-                    <div key={day} className="cal-day-cell" role="button" tabIndex={0} title="Napi események" onClick={() => setSelectedDay(day)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedDay(day); } }} style={{...S.calDayCell, borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
+                    <div key={day} className="cal-day-cell" role="button" tabIndex={0} title="Napi események" onClick={() => setSelectedDay(day)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedDay(day); } }} style={{...S.calDayCell, ...(compact && { minHeight: '120px', padding: '6px' }), borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
                       <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}><span className="cal-day-num">{day}</span></div>
                       {/* Zsúfolt napokon csak az első néhány esemény fér ki, a többi a napi felugró ablakban látható */}
                       {(dayEvents.length > MAX_STRIPS_PER_DAY ? dayEvents.slice(0, MAX_STRIPS_PER_DAY - 1) : dayEvents).map(evt => {
