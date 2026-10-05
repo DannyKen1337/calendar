@@ -49,6 +49,7 @@ export const useCalendar = () => {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [togglingGateId, setTogglingGateId] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [isUnsubscribing, setIsUnsubscribing] = useState(false);
   const [joinError, setJoinError] = useState('');
   const [joinErrorType, setJoinErrorType] = useState('error'); // 'error' | 'warning' (pl. már jelentkezett)
   
@@ -363,18 +364,25 @@ export const useCalendar = () => {
   };
 
   const initiateUnsubscribe = (tournament) => {
-    setIsEventDetailsModalOpen(false); setSelectedEventToJoin(tournament); unsubscribeForm.resetFields(); setIsUnsubscribeModalOpen(true);
+    setIsEventDetailsModalOpen(false); setSelectedEventToJoin(tournament); unsubscribeForm.resetFields();
+    if (userEmail) unsubscribeForm.setFieldsValue({ email: userEmail });
+    setIsUnsubscribeModalOpen(true);
   };
 
   const submitUnsubscribe = async (values) => {
+    if (isUnsubscribing || !selectedEventToJoin) return; // dupla kattintás ellen
     const eId = String(selectedEventToJoin._id || selectedEventToJoin.id);
+    const email = String(values.email || '').trim().toLowerCase();
+    setIsUnsubscribing(true);
     try {
-      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email: values.email } }) });
-      const result = await response.json();
-      if (result.error) { messageApi.error(result.error); return; }
-      messageApi.success("Sikeresen lejelentkeztél az eseményről."); setIsUnsubscribeModalOpen(false); 
-      fetchData(true); 
+      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email } }) });
+      let result = null;
+      try { result = await response.json(); } catch (e) { result = null; }
+      if (!response.ok || !result || result.error) { messageApi.error((result && result.error) || 'A leiratkozás most nem sikerült. Kérlek próbáld újra.'); return; }
+      messageApi.success("Sikeresen lejelentkeztél az eseményről."); setIsUnsubscribeModalOpen(false); unsubscribeForm.resetFields();
+      fetchData(true);
     } catch (e) { messageApi.error("Hálózati hiba történt."); }
+    finally { setIsUnsubscribing(false); }
   };
 
   const handleRemoveRegistration = async (registrationId) => {
@@ -452,7 +460,7 @@ export const useCalendar = () => {
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
-    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe,
+    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration,
     messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId, isJoining, joinError, joinErrorType, setJoinError,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal

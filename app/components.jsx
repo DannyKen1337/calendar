@@ -70,7 +70,7 @@ export const PublicModals = ({ app }) => {
   const { 
     isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin, 
     isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin, isJoining, joinError, joinErrorType, 
-    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, submitUnsubscribe,
+    isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, canRegister
   } = app;
   
@@ -102,6 +102,11 @@ export const PublicModals = ({ app }) => {
             {selectedEventDetails.description && (
               <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33] mt-4"><strong style={{ color: '#E5B15D' }}>Leírás:</strong><p style={{ whiteSpace: 'pre-wrap', marginTop: 8, color: '#baaaac' }}>{selectedEventDetails.description}</p></div>
             )}
+            {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && (
+              <div style={{ textAlign: 'center', marginTop: 10 }}>
+                <Button type="link" danger onClick={() => initiateUnsubscribe(selectedEventDetails)}>Már jelentkeztem, de le szeretnék iratkozni</Button>
+              </div>
+            )}
           </div>
           );
         })()}
@@ -115,10 +120,10 @@ export const PublicModals = ({ app }) => {
         </Form>
       </Modal>
 
-      <Modal title={<span style={{ color: '#ff4d4f', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Leiratkozás</span>} open={isUnsubscribeModalOpen} onCancel={() => setIsUnsubscribeModalOpen(false)} onOk={() => unsubscribeForm.submit()} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />} okText="Leiratkozás" cancelText="Mégse" okButtonProps={{ danger: true }}>
+      <Modal title={<span style={{ color: '#ff4d4f', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Leiratkozás</span>} open={isUnsubscribeModalOpen} onCancel={() => setIsUnsubscribeModalOpen(false)} onOk={() => unsubscribeForm.submit()} confirmLoading={isUnsubscribing} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />} okText="Leiratkozás" cancelText="Mégse" okButtonProps={{ danger: true }}>
         <Form form={unsubscribeForm} layout="vertical" onFinish={submitUnsubscribe} className="mt-4">
           <p style={{ marginBottom: 15, color: '#baaaac' }}>Add meg az e-mail címed, amivel jelentkeztél a(z) <b style={{color: '#E5B15D'}}>{selectedEventToJoin?.name}</b> eseményre:</p>
-          <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input placeholder="pelda@email.com" /></Form.Item>
+          <Form.Item name="email" label="E-mail cím" normalize={(v) => (typeof v === 'string' ? v.trim() : v)} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input type="email" inputMode="email" autoComplete="email" placeholder="pelda@email.com" /></Form.Item>
         </Form>
       </Modal>
 
@@ -165,7 +170,7 @@ export const PublicModals = ({ app }) => {
 };
 
 export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
-  const { formatEventDate, initiateJoin, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, handleToggleGate, togglingGateId, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
+  const { formatEventDate, initiateJoin, initiateUnsubscribe, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, handleToggleGate, togglingGateId, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
   return (
     <List locale={{ emptyText: <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs megjeleníthető esemény.</Text> }} dataSource={tournamentsData || []} renderItem={(evt) => {
       const eId = String(evt._id || evt.id);
@@ -205,9 +210,12 @@ export const EventList = ({ tournamentsData, isAdmin = false, app }) => {
                 evt.isOpenAttendance ? (
                   null
                 ) : (
-                <Button type={btnType} icon={btnIcon} shape="round" size="large" disabled={!evt.is_open && !evt.external_url} onClick={() => initiateJoin(evt)} style={btnType === 'primary' ? S.primaryBtn : { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }}>
-                  {(!evt.is_open && !evt.external_url) ? "Lezárva" : btnText}
-                </Button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <Button type={btnType} icon={btnIcon} shape="round" size="large" disabled={!evt.is_open && !evt.external_url} onClick={() => initiateJoin(evt)} style={btnType === 'primary' ? S.primaryBtn : { background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }}>
+                    {(!evt.is_open && !evt.external_url) ? "Lezárva" : btnText}
+                  </Button>
+                  {!evt.external_url && <Button type="link" danger size="small" onClick={() => initiateUnsubscribe(evt)}>Leiratkozás</Button>}
+                </div>
                 )
               ) : (
                 <Space style={{ flexWrap: 'wrap' }}>
