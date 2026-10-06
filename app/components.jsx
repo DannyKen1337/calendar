@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Alert } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
 import { S } from "./styles";
@@ -308,11 +308,10 @@ const MAX_STRIPS_PER_DAY = 3;
 // compact: beágyazott (iframe) nézet – nincs dupla cím, keskenyebb rács, alacsonyabb cellák
 export const CalendarView = ({ app, compact = false }) => {
   const { tournaments, setSelectedEventDetails, setIsEventDetailsModalOpen, selectedStore } = app;
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [realToday, setRealToday] = useState(null);
+  // A naptár csak kliensoldalon renderelődik (betöltés után), így a mai dátum közvetlenül beállítható
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [realToday] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(null); // napi események felugró ablak
-
-  useEffect(() => { setRealToday(new Date()); setCurrentDate(new Date()); }, []);
   const screens = useBreakpoint(); const isMobile = screens.md === false;
   
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
