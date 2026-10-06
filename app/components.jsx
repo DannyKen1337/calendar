@@ -571,6 +571,10 @@ export const AdminEvents = ({ app: v }) => {
     if (ok) setPermUser(null);
   };
   const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
+  // Korlátozott szervezőnél egy kattintással a saját játékaira szűr (aki mindent kezelhet, annak ez = nincs szűrő)
+  const hasRestrictedGames = manageableGames.length > 0 && manageableGames.length < Object.keys(GAME_CONFIG).length;
+  const isOwnGamesFilter = adminCatFilter.length === manageableGames.length && manageableGames.every(g => adminCatFilter.includes(g));
+  const toggleOwnGamesFilter = () => setAdminCatFilter(isOwnGamesFilter ? [] : manageableGames);
 
   // Előbb az aktív jelentkezők, utána a várólista, mindkettő jelentkezési sorrendben
   const isActiveReg = (r) => r.status === 'Aktív' || r.status === 'Active';
@@ -583,7 +587,7 @@ export const AdminEvents = ({ app: v }) => {
     .filter(evt => {
       const evtStore = evt.store || 'debrecen';
       const isStoreMatch = adminStoreFilter === 'Mind' || evtStore === adminStoreFilter;
-      const isCatMatch = adminCatFilter.length === 0 || adminCatFilter.includes(evt.category);
+      const isCatMatch = adminCatFilter.length === 0 || adminCatFilter.includes(evt.category || 'Egyéb');
       return isStoreMatch && isCatMatch && eventMatchesQuery(evt, adminSearch, eventExtraSearchText(evt, STORES[evtStore]?.name));
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -615,7 +619,7 @@ export const AdminEvents = ({ app: v }) => {
       const evtDate = new Date(evt.date); const isFuture = evtDate >= today;
       const evtStore = evt.store || 'debrecen';
       const isStoreMatch = adminStoreFilter === 'Mind' || evtStore === adminStoreFilter;
-      const matchesFilter = adminCatFilter.length === 0 || adminCatFilter.includes(evt.category);
+      const matchesFilter = adminCatFilter.length === 0 || adminCatFilter.includes(evt.category || 'Egyéb');
       return isFuture && matchesFilter && isStoreMatch;
     });
 
@@ -658,6 +662,11 @@ export const AdminEvents = ({ app: v }) => {
               <Select mode="multiple" allowClear value={adminCatFilter} onChange={setAdminCatFilter} placeholder="Minden játék" maxTagCount="responsive" style={{ width: '100%' }}>
                 {Object.keys(GAME_CONFIG).map(g => <Select.Option key={g} value={g}>{g}</Select.Option>)}
               </Select>
+              {hasRestrictedGames && (
+                <Button block type={isOwnGamesFilter ? 'primary' : 'default'} icon={<SafetyCertificateOutlined />} onClick={toggleOwnGamesFilter} style={isOwnGamesFilter ? { color: '#000', fontWeight: 'bold' } : sideBtn}>
+                  Saját játékaim{isOwnGamesFilter ? ' ✓' : ''}
+                </Button>
+              )}
               <Checkbox checked={showPast} onChange={(e) => setShowPast(e.target.checked)} style={{ marginTop: 4 }}>Múltbeli események mutatása ({pastEvents.length})</Checkbox>
             </div>
           </div>
