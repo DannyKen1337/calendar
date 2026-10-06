@@ -550,7 +550,7 @@ const AdminDayGroups = ({ events, app, emptyText }) => {
 };
 
 export const AdminEvents = ({ app: v }) => {
-  const [adminCatFilter, setAdminCatFilter] = useState('Mind');
+  const [adminCatFilter, setAdminCatFilter] = useState([]); // üres = minden játék
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   const [adminSearch, setAdminSearch] = useState('');
   const [showPast, setShowPast] = useState(false);
@@ -584,7 +584,7 @@ export const AdminEvents = ({ app: v }) => {
     .filter(evt => {
       const evtStore = evt.store || 'debrecen';
       const isStoreMatch = adminStoreFilter === 'Mind' || evtStore === adminStoreFilter;
-      const isCatMatch = adminCatFilter === 'Mind' || evt.category === adminCatFilter;
+      const isCatMatch = adminCatFilter.length === 0 || adminCatFilter.includes(evt.category);
       return isStoreMatch && isCatMatch && eventMatchesQuery(evt, adminSearch, eventExtraSearchText(evt, STORES[evtStore]?.name));
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -616,7 +616,7 @@ export const AdminEvents = ({ app: v }) => {
       const evtDate = new Date(evt.date); const isFuture = evtDate >= today;
       const evtStore = evt.store || 'debrecen';
       const isStoreMatch = adminStoreFilter === 'Mind' || evtStore === adminStoreFilter;
-      const matchesFilter = adminCatFilter === 'Mind' || evt.category === adminCatFilter;
+      const matchesFilter = adminCatFilter.length === 0 || adminCatFilter.includes(evt.category);
       return isFuture && matchesFilter && isStoreMatch;
     });
 
@@ -625,7 +625,7 @@ export const AdminEvents = ({ app: v }) => {
     const dbDump = { exportDate: new Date(), tournaments: exportTournaments, registrations: exportRegistrations, users: v.usersList || [], logs: v.logs || [], blacklist: v.blacklist || [] };
     const blob = new Blob([JSON.stringify(dbDump, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
-    const filterName = adminCatFilter === 'Mind' ? 'osszes' : adminCatFilter.toLowerCase().replace(/\s+/g, '_');
+    const filterName = adminCatFilter.length === 0 ? 'osszes' : adminCatFilter.map(c => c.toLowerCase().replace(/\s+/g, '_')).join('-');
     a.download = `tavern_naptar_${adminStoreFilter}_${filterName}_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };
@@ -656,8 +656,7 @@ export const AdminEvents = ({ app: v }) => {
                 <Select.Option value="Mind">Összes helyszín</Select.Option>
                 {Object.values(STORES).map(s => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
               </Select>
-              <Select value={adminCatFilter} onChange={setAdminCatFilter} style={{ width: '100%' }}>
-                <Select.Option value="Mind">Minden játék</Select.Option>
+              <Select mode="multiple" allowClear value={adminCatFilter} onChange={setAdminCatFilter} placeholder="Minden játék" maxTagCount="responsive" style={{ width: '100%' }}>
                 {Object.keys(GAME_CONFIG).map(g => <Select.Option key={g} value={g}>{g}</Select.Option>)}
               </Select>
               <Checkbox checked={showPast} onChange={(e) => setShowPast(e.target.checked)} style={{ marginTop: 4 }}>Múltbeli események mutatása ({pastEvents.length})</Checkbox>
@@ -710,7 +709,7 @@ export const AdminEvents = ({ app: v }) => {
 
         {/* ESEMÉNYEK: napokra csoportosítva, kártyarácsban */}
         <section className="min-w-0 flex flex-col gap-6">
-          <AdminDayGroups events={upcomingEvents} app={v} emptyText={adminSearch || adminCatFilter !== 'Mind' || adminStoreFilter !== 'Mind' ? 'Nincs a szűrőknek megfelelő közelgő esemény.' : 'Nincs közelgő esemény.'} />
+          <AdminDayGroups events={upcomingEvents} app={v} emptyText={adminSearch || adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' ? 'Nincs a szűrőknek megfelelő közelgő esemény.' : 'Nincs közelgő esemény.'} />
           {showPast && (
             <>
               <Divider style={{ ...S.divider, margin: 0 }}><span style={{ color: '#9a8a8c' }}>Múltbeli események</span></Divider>
