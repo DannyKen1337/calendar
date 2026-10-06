@@ -553,6 +553,7 @@ export const AdminEvents = ({ app: v }) => {
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   const [adminSearch, setAdminSearch] = useState('');
   const [showPast, setShowPast] = useState(false);
+  const [adminMonth, setAdminMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }); // a megjelenített hónap (= oldal)
   const [permUser, setPermUser] = useState(null); // akinek a játék-jogosultságát épp szerkesztjük
   const [permAll, setPermAll] = useState(true);
   const [permCategories, setPermCategories] = useState([]);
@@ -598,6 +599,34 @@ export const AdminEvents = ({ app: v }) => {
   const upcomingEvents = filteredAndSortedTournaments.filter(e => !(evtTime(e) < startOfToday.getTime()));
   const pastEvents = filteredAndSortedTournaments.filter(e => evtTime(e) < startOfToday.getTime()).reverse();
 
+  // Hónaponkénti lapozás: egyszerre egy hónap eseményei látszanak. Keresésnél az összes hónap találata megjelenik.
+  const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const monthLabel = (d) => d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long' });
+  const currentMonthStart = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1);
+  const isCurrentMonth = monthKey(adminMonth) === monthKey(currentMonthStart);
+  const isSearching = adminSearch.trim() !== '';
+  const visibleEvents = showPast ? filteredAndSortedTournaments : upcomingEvents;
+  const monthCounts = new Map();
+  visibleEvents.forEach(e => { const d = new Date(e.date); if (!isNaN(d.getTime())) monthCounts.set(monthKey(d), (monthCounts.get(monthKey(d)) || 0) + 1); });
+  // Dátum nélküli események az aktuális hónap oldalán jelennek meg, hogy ne vesszenek el
+  const monthEvents = isSearching ? visibleEvents : visibleEvents.filter(e => {
+    const d = new Date(e.date);
+    return isNaN(d.getTime()) ? isCurrentMonth : monthKey(d) === monthKey(adminMonth);
+  });
+  const monthOptions = [...new Set([...monthCounts.keys(), monthKey(adminMonth), monthKey(currentMonthStart)])].sort().map(k => {
+    const [y, m] = k.split('-').map(Number);
+    return { value: k, label: `${monthLabel(new Date(y, m - 1, 1))} (${monthCounts.get(k) || 0})` };
+  });
+  const canGoPrev = showPast || adminMonth > currentMonthStart;
+  const goToMonth = (d, scroll = false) => {
+    setAdminMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const handleShowPastChange = (checked) => {
+    setShowPast(checked);
+    if (!checked && adminMonth < currentMonthStart) setAdminMonth(currentMonthStart);
+  };
+
   const stats = {
     events: upcomingEvents.length,
     players: upcomingEvents.reduce((sum, e) => sum + (e.isOpenAttendance || e.external_url ? 0 : (e.current_players || 0)), 0),
@@ -637,6 +666,18 @@ export const AdminEvents = ({ app: v }) => {
   const panelTitle = { color: '#E5B15D', margin: '0 0 12px 0', fontFamily: 'Georgia, serif' };
   const sideBtn = { color: '#E0D6C8', borderColor: '#4A2E33', background: '#2B1A1C' };
 
+  // Nem komponensként (hanem függvényhívásként) renderelve, hogy ne jöjjön létre minden rendernél új komponens típus
+  const renderMonthPager = (scroll = false) => (
+    <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1a1012] p-3 rounded-xl border border-[#4A2E33]">
+      <Button icon={<LeftOutlined />} disabled={!canGoPrev} style={canGoPrev ? sideBtn : undefined} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() - 1, 1), scroll)}>Előző hónap</Button>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Select value={monthKey(adminMonth)} options={monthOptions} style={{ minWidth: 200 }} onChange={(k) => { const [y, m] = k.split('-').map(Number); goToMonth(new Date(y, m - 1, 1), scroll); }} />
+        {!isCurrentMonth && <Button style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => goToMonth(currentMonthStart, scroll)}>Aktuális hónap</Button>}
+      </div>
+      <Button style={sideBtn} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() + 1, 1), scroll)}>Következő hónap <RightOutlined /></Button>
+    </div>
+  );
+
   return (
     <ConfigProvider theme={tavernTheme}>
       <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)] items-start">
@@ -667,7 +708,7 @@ export const AdminEvents = ({ app: v }) => {
                   Saját játékaim{isOwnGamesFilter ? ' ✓' : ''}
                 </Button>
               )}
-              <Checkbox checked={showPast} onChange={(e) => setShowPast(e.target.checked)} style={{ marginTop: 4 }}>Múltbeli események mutatása ({pastEvents.length})</Checkbox>
+              <Checkbox checked={showPast} onChange={(e) => handleShowPastChange(e.target.checked)} style={{ marginTop: 4 }}>Múltbeli események mutatása ({pastEvents.length})</Checkbox>
             </div>
           </div>
 
@@ -717,13 +758,13 @@ export const AdminEvents = ({ app: v }) => {
 
         {/* ESEMÉNYEK: napokra csoportosítva, kártyarácsban */}
         <section className="min-w-0 flex flex-col gap-6">
-          <AdminDayGroups events={upcomingEvents} app={v} emptyText={adminSearch || adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' ? 'Nincs a szűrőknek megfelelő közelgő esemény.' : 'Nincs közelgő esemény.'} />
-          {showPast && (
-            <>
-              <Divider style={{ ...S.divider, margin: 0 }}><span style={{ color: '#9a8a8c' }}>Múltbeli események</span></Divider>
-              <AdminDayGroups events={pastEvents} app={v} emptyText="Nincs múltbeli esemény." />
-            </>
+          {isSearching ? (
+            <div className={panel}><Text style={{ color: '#baaaac' }}>Keresési találatok az összes hónapból: <strong style={{ color: '#E5B15D' }}>{monthEvents.length}</strong> esemény</Text></div>
+          ) : (
+            renderMonthPager()
           )}
+          <AdminDayGroups events={monthEvents} app={v} emptyText={isSearching ? 'Nincs a keresésnek megfelelő esemény.' : adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' ? 'Nincs a szűrőknek megfelelő esemény ebben a hónapban.' : 'Nincs esemény ebben a hónapban.'} />
+          {!isSearching && monthEvents.length > 0 && renderMonthPager(true)}
         </section>
       </div>
       <div>
