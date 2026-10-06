@@ -593,38 +593,46 @@ export const AdminEvents = ({ app: v }) => {
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // Közelgő (ma vagy később) és múltbeli események külön; a múltbeliek alapból rejtve, a legfrissebb elöl
+  // Közelgő (ma vagy később) események – az oldalsáv statisztikájához
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const evtTime = (e) => new Date(e.date).getTime();
   const upcomingEvents = filteredAndSortedTournaments.filter(e => !(evtTime(e) < startOfToday.getTime()));
-  const pastEvents = filteredAndSortedTournaments.filter(e => evtTime(e) < startOfToday.getTime()).reverse();
 
-  // Hónaponkénti lapozás: egyszerre egy hónap eseményei látszanak. Keresésnél az összes hónap találata megjelenik.
+  // Hónaponkénti lapozás: egyszerre egy hónap eseményei látszanak, 2026 januárjától bármelyik hónap kiválasztható.
+  // Keresésnél az összes hónap találata megjelenik.
+  const FIRST_YEAR = 2026;
+  const firstMonthStart = new Date(FIRST_YEAR, 0, 1);
+  const MONTH_NAMES = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
   const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  const monthLabel = (d) => d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long' });
   const currentMonthStart = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1);
   const isCurrentMonth = monthKey(adminMonth) === monthKey(currentMonthStart);
   const isSearching = adminSearch.trim() !== '';
-  const visibleEvents = showPast ? filteredAndSortedTournaments : upcomingEvents;
+  // Az aktuális hónapban a mai nap előtti események alapból rejtve; a múltbeli hónapok oldalán minden esemény látszik
+  const hideEarlierToday = (e) => !showPast && evtTime(e) < startOfToday.getTime();
+  const pastInCurrentMonth = filteredAndSortedTournaments.filter(e => { const d = new Date(e.date); return !isNaN(d.getTime()) && monthKey(d) === monthKey(currentMonthStart) && evtTime(e) < startOfToday.getTime(); }).length;
   const monthCounts = new Map();
-  visibleEvents.forEach(e => { const d = new Date(e.date); if (!isNaN(d.getTime())) monthCounts.set(monthKey(d), (monthCounts.get(monthKey(d)) || 0) + 1); });
+  filteredAndSortedTournaments.forEach(e => {
+    const d = new Date(e.date); if (isNaN(d.getTime())) return;
+    const k = monthKey(d);
+    if (k === monthKey(currentMonthStart) && hideEarlierToday(e)) return;
+    monthCounts.set(k, (monthCounts.get(k) || 0) + 1);
+  });
   // Dátum nélküli események az aktuális hónap oldalán jelennek meg, hogy ne vesszenek el
-  const monthEvents = isSearching ? visibleEvents : visibleEvents.filter(e => {
+  const monthEvents = isSearching ? filteredAndSortedTournaments : filteredAndSortedTournaments.filter(e => {
     const d = new Date(e.date);
-    return isNaN(d.getTime()) ? isCurrentMonth : monthKey(d) === monthKey(adminMonth);
+    if (isNaN(d.getTime())) return isCurrentMonth;
+    return monthKey(d) === monthKey(adminMonth) && !(isCurrentMonth && hideEarlierToday(e));
   });
-  const monthOptions = [...new Set([...monthCounts.keys(), monthKey(adminMonth), monthKey(currentMonthStart)])].sort().map(k => {
-    const [y, m] = k.split('-').map(Number);
-    return { value: k, label: `${monthLabel(new Date(y, m - 1, 1))} (${monthCounts.get(k) || 0})` };
-  });
-  const canGoPrev = showPast || adminMonth > currentMonthStart;
+  const yearCount = (y) => [...monthCounts].reduce((sum, [k, n]) => sum + (k.startsWith(`${y}-`) ? n : 0), 0);
+  const eventYears = [...monthCounts.keys()].map(k => Number(k.slice(0, 4)));
+  const lastYear = Math.max(startOfToday.getFullYear() + 1, adminMonth.getFullYear(), ...eventYears);
+  const yearOptions = Array.from({ length: lastYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i).map(y => ({ value: y, label: `${y} (${yearCount(y)})` }));
+  const monthOptions = MONTH_NAMES.map((name, i) => ({ value: i, label: `${name} (${monthCounts.get(monthKey(new Date(adminMonth.getFullYear(), i, 1))) || 0})` }));
+  const canGoPrev = adminMonth > firstMonthStart;
   const goToMonth = (d, scroll = false) => {
-    setAdminMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    const target = new Date(d.getFullYear(), d.getMonth(), 1);
+    setAdminMonth(target < firstMonthStart ? firstMonthStart : target);
     if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  const handleShowPastChange = (checked) => {
-    setShowPast(checked);
-    if (!checked && adminMonth < currentMonthStart) setAdminMonth(currentMonthStart);
   };
 
   const stats = {
@@ -671,7 +679,8 @@ export const AdminEvents = ({ app: v }) => {
     <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1a1012] p-3 rounded-xl border border-[#4A2E33]">
       <Button icon={<LeftOutlined />} disabled={!canGoPrev} style={canGoPrev ? sideBtn : undefined} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() - 1, 1), scroll)}>Előző hónap</Button>
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <Select value={monthKey(adminMonth)} options={monthOptions} style={{ minWidth: 200 }} onChange={(k) => { const [y, m] = k.split('-').map(Number); goToMonth(new Date(y, m - 1, 1), scroll); }} />
+        <Select value={adminMonth.getFullYear()} options={yearOptions} style={{ minWidth: 110 }} onChange={(y) => goToMonth(new Date(y, adminMonth.getMonth(), 1), scroll)} />
+        <Select value={adminMonth.getMonth()} options={monthOptions} style={{ minWidth: 160 }} onChange={(m) => goToMonth(new Date(adminMonth.getFullYear(), m, 1), scroll)} />
         {!isCurrentMonth && <Button style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => goToMonth(currentMonthStart, scroll)}>Aktuális hónap</Button>}
       </div>
       <Button style={sideBtn} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() + 1, 1), scroll)}>Következő hónap <RightOutlined /></Button>
@@ -708,7 +717,7 @@ export const AdminEvents = ({ app: v }) => {
                   Saját játékaim{isOwnGamesFilter ? ' ✓' : ''}
                 </Button>
               )}
-              <Checkbox checked={showPast} onChange={(e) => handleShowPastChange(e.target.checked)} style={{ marginTop: 4 }}>Múltbeli események mutatása ({pastEvents.length})</Checkbox>
+              <Checkbox checked={showPast} onChange={(e) => setShowPast(e.target.checked)} style={{ marginTop: 4 }}>Mai nap előtti események az aktuális hónapban ({pastInCurrentMonth})</Checkbox>
             </div>
           </div>
 
