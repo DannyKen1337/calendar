@@ -11,7 +11,7 @@ export async function GET() {
     const [tournaments, registrations, settings] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
       // Csak a megjelenítéshez szükséges mezők: e-mail cím nem kerül ki a nyilvános oldalra
-      db.collection('registrations').find({}, { projection: { _id: 0, tournamentId: 1, name: 1, status: 1, date: 1 } }).toArray(),
+      db.collection('registrations').find({}, { projection: { _id: 0, tournamentId: 1, name: 1, username: 1, status: 1, date: 1 } }).toArray(),
       db.collection('settings').findOne({ _id: 'global_settings' })
     ]);
 

@@ -1,5 +1,5 @@
 import { getTavernDb } from '@/lib/mongodb';
-import { shortName } from '@/lib/attendance';
+import { publicName } from '@/lib/attendance';
 import UnsubscribeConfirm from '@/components/UnsubscribeConfirm';
 
 export const metadata = { title: 'Leiratkozás – Tavern Calendar', robots: { index: false } };
@@ -12,7 +12,7 @@ export default async function UnsubscribePage({ searchParams }) {
   if (typeof token === 'string' && token.length >= 20 && token.length <= 100) {
     try {
       const db = await getTavernDb();
-      reg = await db.collection('registrations').findOne({ cancelToken: token }, { projection: { tournamentName: 1, name: 1 } });
+      reg = await db.collection('registrations').findOne({ cancelToken: token }, { projection: { tournamentName: 1, name: 1, username: 1 } });
     } catch {
       reg = null;
     }
@@ -23,7 +23,7 @@ export default async function UnsubscribePage({ searchParams }) {
       <div className="bg-[#1a1012] p-8 rounded-2xl border-2 border-[#4A2E33] shadow-xl w-full max-w-lg text-center">
         <h1 className="text-3xl font-bold text-[#E5B15D] font-serif mb-4">Leiratkozás</h1>
         {reg ? (
-          <UnsubscribeConfirm token={token} tournamentName={reg.tournamentName} name={shortName(reg.name)} />
+          <UnsubscribeConfirm token={token} tournamentName={reg.tournamentName} name={publicName(reg)} />
         ) : (
           <p className="text-[#E0D6C8]">Ez a link már nem érvényes – lehet, hogy már leiratkoztál, vagy az esemény törlésre került.</p>
         )}

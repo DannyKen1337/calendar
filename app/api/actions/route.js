@@ -8,6 +8,7 @@ import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
 import { canManageCategory, canManageEvent, sanitizeCategories } from '@/lib/permissions';
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
+import { normalizeUsername } from '@/lib/attendance';
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
@@ -250,10 +251,14 @@ export async function POST(request) {
     if (actionType === 'JOIN_TOURNAMENT') {
       const { tournamentId, name, email } = payload;
       const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-      const displayName = typeof name === 'string' ? name.trim() : '';
+      const displayName = typeof name === 'string' ? name.trim() : ''; // teljes név: csak a szervezők látják
+      const username = normalizeUsername(payload.username);           // nyilvános felhasználónév
 
+      if (!username) {
+        return NextResponse.json({ error: 'A felhasználónév 2-24 karakter lehet (betű, szám, szóköz, pont, aláhúzás, kötőjel).', field: 'username' }, { status: 400 });
+      }
       if (!displayName || displayName.length > 120) {
-        return NextResponse.json({ error: 'Érvényes nevet adj meg.' }, { status: 400 });
+        return NextResponse.json({ error: 'Érvényes teljes nevet adj meg.', field: 'name' }, { status: 400 });
       }
       if (!isValidEmail(normalizedEmail)) {
         return NextResponse.json({ error: 'Érvényes e-mail címet adj meg.' }, { status: 400 });
@@ -281,6 +286,12 @@ export async function POST(request) {
       }
       const existing = await db.collection('registrations').findOne({ tournamentId: String(tournamentId), email: normalizedEmail });
       if (existing) return NextResponse.json({ error: "Már jelentkeztél erre az eseményre.", code: 'ALREADY_REGISTERED' }, { status: 400 });
+      // Egy eseményen belül a felhasználónév egyedi (kis- és nagybetű, ékezet nem számít), hogy a listában ne legyen két egyforma név
+      const nameTaken = await db.collection('registrations').findOne(
+        { tournamentId: String(tournamentId), username },
+        { collation: { locale: 'hu', strength: 1 } }
+      );
+      if (nameTaken) return NextResponse.json({ error: 'Ez a felhasználónév már foglalt ennél az eseménynél. Válassz másikat!', field: 'username' }, { status: 400 });
 
       const activeFilter = {
         $and: [tQuery, { is_open: true }, { $expr: { $lt: ['$current_players', '$max_players'] } }],
@@ -312,6 +323,7 @@ export async function POST(request) {
         await db.collection('registrations').insertOne({
           tournamentId: String(tournamentId),
           tournamentName: tournament.name,
+          username,
           name: displayName,
           email: normalizedEmail,
           status: isQueue ? 'Várólista' : 'Aktív',
@@ -337,7 +349,7 @@ export async function POST(request) {
         }
       }
 
-      return NextResponse.json({ success: true, isQueue, mailSent });
+      return NextResponse.json({ success: true, isQueue, mailSent, username });
     }
 
     if (actionType === 'UNSUBSCRIBE_BY_EMAIL') {
@@ -423,7 +435,7 @@ export async function POST(request) {
         await db.collection('registrations').updateOne({ _id: reg._id }, { $set: { attended, attendanceAt: now } });
         await db.collection('attendance_history').updateOne(
           { registrationId: regId },
-          { $set: { email: reg.email, name: reg.name, tournamentId: String(reg.tournamentId), tournamentName: event.name, category: event.category, eventDate: event.date, attended, recordedAt: now, recordedBy: session.username } },
+          { $set: { email: reg.email, name: reg.name, username: reg.username, tournamentId: String(reg.tournamentId), tournamentName: event.name, category: event.category, eventDate: event.date, attended, recordedAt: now, recordedBy: session.username } },
           { upsert: true }
         );
       }

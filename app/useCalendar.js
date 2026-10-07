@@ -33,7 +33,6 @@ export const useCalendar = () => {
   const [isEventDetailsModalOpen, setIsEventDetailsModalOpen] = useState(false);
   const [selectedEventDetails, setSelectedEventDetails] = useState(null);
   
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [selectedEventToJoin, setSelectedEventToJoin] = useState(null);
   const [isUnsubscribeModalOpen, setIsUnsubscribeModalOpen] = useState(false);
   
@@ -50,15 +49,11 @@ export const useCalendar = () => {
   const [createdCredentials, setCreatedCredentials] = useState(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [togglingGateId, setTogglingGateId] = useState(null);
-  const [isJoining, setIsJoining] = useState(false);
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
-  const [joinError, setJoinError] = useState('');
-  const [joinErrorType, setJoinErrorType] = useState('error'); // 'error' | 'warning' (pl. már jelentkezett)
   
   const [passwordForm] = Form.useForm();
   const [ownPasswordForm] = Form.useForm();
   const [eventForm] = Form.useForm();
-  const [joinForm] = Form.useForm();
   const [unsubscribeForm] = Form.useForm();
   const [authForm] = Form.useForm();
   const [blacklistForm] = Form.useForm();
@@ -340,38 +335,9 @@ export const useCalendar = () => {
     setIsEventDetailsModalOpen(false);
     if (tournament.isOpenAttendance) return; // kötetlen létszámú eseményre nincs jelentkezés
     if (tournament.external_url) { window.open(tournament.external_url, '_blank', 'noopener,noreferrer'); return; }
-    setSelectedEventToJoin(tournament); joinForm.setFieldsValue({ name: userName || "", email: userEmail || "" }); setJoinError(''); setIsJoinModalOpen(true);
-  };
-
-  const submitJoin = async (values) => {
-    if (isJoining) return; // dupla kattintás ellen
-    const eId = String(selectedEventToJoin._id || selectedEventToJoin.id);
-    const payload = { tournamentId: eId, name: String(values.name || '').trim(), email: String(values.email || '').trim().toLowerCase() };
-    setIsJoining(true);
-    setJoinError('');
-    setJoinErrorType('error');
-    try {
-      const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'JOIN_TOURNAMENT', payload }) });
-      let result = null;
-      try { result = await response.json(); } catch (e) { result = null; }
-      if (!response.ok || !result || result.error) {
-        const msg = (result && result.error) || 'A jelentkezés most nem sikerült. Kérlek próbáld újra, vagy szólj a szervezőnek.';
-        const isDuplicate = !!result && result.code === 'ALREADY_REGISTERED'; // már jelentkezett: nem hiba, csak tájékoztatás
-        setJoinErrorType(isDuplicate ? 'warning' : 'error');
-        setJoinError(msg);
-        if (isDuplicate) messageApi.warning(msg); else messageApi.error(msg);
-        return;
-      }
-      messageApi.success((result.isQueue ? "Várólistára kerültél!" : "Hely biztosítva!") + (result.mailSent ? " A visszaigazolást elküldtük e-mailben." : ""));
-      setIsJoinModalOpen(false); joinForm.resetFields();
-      fetchData(true);
-    } catch (e) {
-      const msg = 'Hálózati hiba történt. Ellenőrizd az internetkapcsolatot, és próbáld újra.';
-      setJoinError(msg);
-      messageApi.error(msg);
-    } finally {
-      setIsJoining(false);
-    }
+    // Jelentkezés külön, játékhoz tematikus oldalon. Beágyazva (webshop iframe) az iframe-en belül nyílik meg, kompakt nézetben.
+    const embedded = document.documentElement.classList.contains('tavern-embed');
+    window.location.href = `/jelentkezes/${encodeURIComponent(String(tournament._id || tournament.id))}${embedded ? '?embed=1' : ''}`;
   };
 
   const initiateUnsubscribe = (tournament) => {
@@ -492,10 +458,10 @@ export const useCalendar = () => {
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,
     isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
-    isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, initiateJoin, submitJoin,
+    selectedEventToJoin, initiateJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,
     isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration, attendanceStats, setAttendance,
-    messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId, isJoining, joinError, joinErrorType, setJoinError,
+    messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };
 };

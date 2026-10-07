@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Alert } from "antd";
+import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
@@ -106,7 +106,7 @@ export const PublicModals = ({ app }) => {
   if (!app) return null;
   const { 
     isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, formatEventDate, initiateJoin, 
-    isJoinModalOpen, setIsJoinModalOpen, selectedEventToJoin, joinForm, submitJoin, isJoining, joinError, joinErrorType, 
+    selectedEventToJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, canRegister
   } = app;
@@ -159,19 +159,6 @@ export const PublicModals = ({ app }) => {
           </div>
           );
         })()}
-      </Modal>
-
-      <Modal title={<span style={{ fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Jelentkezés: {selectedEventToJoin?.name}</span>} open={isJoinModalOpen} onCancel={() => setIsJoinModalOpen(false)} onOk={() => joinForm.submit()} confirmLoading={isJoining} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Jelentkezem" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
-        <Form form={joinForm} layout="vertical" onFinish={submitJoin} className="mt-4">
-          {joinError && <Alert type={joinErrorType || 'error'} showIcon style={{ marginBottom: 16 }} message={joinError} />}
-          <Form.Item name="name" label="Neved" extra={<span style={{ color: '#baaaac' }}>A neved rövidítve (pl. „Teszt E.”) megjelenik a jelentkezők között.</span>} rules={[{ required: true, whitespace: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Teszt Elek" autoComplete="name" /></Form.Item>
-          <Form.Item name="email" label="E-mail címed" normalize={(v) => (typeof v === 'string' ? v.trim() : v)} rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}><Input type="email" inputMode="email" autoComplete="email" placeholder="pelda@email.com" /></Form.Item>
-          {/* Adatkezelési tájékoztató (GDPR) */}
-          <p style={{ color: '#9a8a8c', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-            A megadott nevet és e-mail címet kizárólag az esemény szervezéséhez (jelentkezés, visszaigazolás, leiratkozás) használjuk, harmadik félnek nem adjuk át. A nevedből csak rövidített forma (pl. „Teszt E.”) jelenik meg nyilvánosan. Az adatokat az esemény után legfeljebb 2 hónappal automatikusan töröljük. A helyszíni megjelenést (megjelent / nem jelent meg) a szervezők rögzíthetik; ezt az e-mail címedhez kötve legfeljebb 1 évig őrizzük, kizárólag a meg nem jelenések kezeléséhez.
-            {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#E5B15D' }}>Adatkezelési tájékoztató</a></>}
-          </p>
-        </Form>
       </Modal>
 
       <Modal title={<span style={{ color: '#ff4d4f', fontSize: '1.2rem', fontFamily: 'Georgia, serif' }}>Leiratkozás</span>} open={isUnsubscribeModalOpen} onCancel={() => setIsUnsubscribeModalOpen(false)} onOk={() => unsubscribeForm.submit()} confirmLoading={isUnsubscribing} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />} okText="Leiratkozás" cancelText="Mégse" okButtonProps={{ danger: true }}>
@@ -944,7 +931,14 @@ export const AdminEvents = ({ app: v }) => {
         >
           <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗). Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
           <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 760 }} columns={[
-            { title: 'Név', dataIndex: 'name', key: 'name', render: (text, record) => <div><div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{text}</div><ReliabilityTag stats={v.attendanceStats?.[record.email]} /></div> },
+            { title: 'Felhasználónév / Teljes név', dataIndex: 'name', key: 'name', render: (text, record) => (
+                <div>
+                  {record.username
+                    ? <><div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{record.username}</div><div style={{ color: '#E0D6C8' }}>{text}</div></>
+                    : <div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{text}</div>}
+                  <ReliabilityTag stats={v.attendanceStats?.[record.email]} />
+                </div>
+            ) },
             { title: 'E-mail', dataIndex: 'email', key: 'email', render: text => <span style={{ color: '#baaaac' }}>{text}</span> },
             { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> },
             { title: 'Megjelent?', key: 'attended', render: (_, record) => {
