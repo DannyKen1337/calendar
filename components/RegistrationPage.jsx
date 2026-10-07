@@ -172,22 +172,22 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
 
         <label className="flex flex-col gap-2">
           <span className="font-bold text-white">1. Felhasználónév</span>
-          <span className="text-xs text-[#cfc6b8]">Ez jelenik meg nyilvánosan a jelentkezők között (pl. a játékbeli neved).</span>
-          <input className={inputClass} style={fieldBorder('username')} value={values.username} onChange={set('username')} placeholder="Pl.: KártyaMester" maxLength={24} autoComplete="nickname" autoFocus />
+          <span className="text-xs text-[#cfc6b8]">Ez jelenik meg nyilvánosan a jelentkezők között.</span>
+          <input className={inputClass} style={fieldBorder('username')} value={values.username} onChange={set('username')} placeholder="A játékbeli vagy közösségi neved" maxLength={24} autoComplete="nickname" autoFocus />
           {errors.username && <span className="text-sm text-[#ff6b6b]">{errors.username}</span>}
         </label>
 
         <label className="flex flex-col gap-2">
           <span className="font-bold text-white">2. Teljes név</span>
           <span className="text-xs text-[#cfc6b8]">Csak a szervezők látják.</span>
-          <input className={inputClass} style={fieldBorder('name')} value={values.name} onChange={set('name')} placeholder="Pl.: Teszt Elek" maxLength={120} autoComplete="name" />
+          <input className={inputClass} style={fieldBorder('name')} value={values.name} onChange={set('name')} placeholder="Vezetéknév Keresztnév" maxLength={120} autoComplete="name" />
           {errors.name && <span className="text-sm text-[#ff6b6b]">{errors.name}</span>}
         </label>
 
         <label className="flex flex-col gap-2">
           <span className="font-bold text-white">3. E-mail cím</span>
           <span className="text-xs text-[#cfc6b8]">Csak a szervezők látják. Ezzel tudsz később leiratkozni.</span>
-          <input className={inputClass} style={fieldBorder('email')} type="email" inputMode="email" value={values.email} onChange={set('email')} placeholder="pelda@email.com" autoComplete="email" />
+          <input className={inputClass} style={fieldBorder('email')} type="email" inputMode="email" value={values.email} onChange={set('email')} placeholder="nev@pelda.hu" autoComplete="email" />
           {errors.email && <span className="text-sm text-[#ff6b6b]">{errors.email}</span>}
         </label>
 
@@ -199,7 +199,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
           className="w-full rounded-full py-4 text-lg font-bold cursor-pointer border-none transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-wait"
           style={{ background: theme.accent, color: theme.accentText, boxShadow: `0 8px 30px ${theme.accent}55` }}
         >
-          {submitting ? 'Jelentkezés...' : isFull ? 'Jelentkezés várólistára' : theme.cta}
+          {submitting ? 'Jelentkezés...' : isFull ? 'Jelentkezés várólistára' : 'Jelentkezem'}
         </button>
 
         <p className="text-xs text-[#9a9186] m-0 leading-relaxed">
