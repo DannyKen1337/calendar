@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
-import { AdminEvents } from '@/app/components';
+import { AdminEvents, ChangelogModal } from '@/app/components';
+import { CHANGELOG, LATEST_CHANGELOG_ID, unseenReleases } from '@/lib/changelog';
 import { LogoutOutlined, LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
 import { Form, Input, Button, ConfigProvider, theme, message } from 'antd';
 
@@ -27,6 +28,10 @@ export default function AdminPage() {
   const [localForm] = Form.useForm();
   const [setup, setSetup] = useState(null); // { loginId, tempPassword } ideiglenes jelszóval való első belépéskor
   const [setupForm] = Form.useForm();
+  const [showAllChangelog, setShowAllChangelog] = useState(false);
+  // Olvasatlan újdonságok: csak bejelentkezett szervezőnek, a munkamenet betöltése után
+  const isStaff = app.userRole === 'admin' || app.userRole === 'owner';
+  const unseen = isStaff && !app.loading ? unseenReleases(app.lastSeenChangelog) : [];
 
   useEffect(() => {
     fetch('/api/auth')
@@ -213,6 +218,13 @@ export default function AdminPage() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowAllChangelog(true)}
+              className="text-[#E0D6C8] hover:text-[#E5B15D] flex items-center gap-2 font-bold transition text-lg cursor-pointer bg-transparent border-none"
+            >
+              ✨ Újdonságok
+            </button>
             {app.userRole === 'owner' && (
               <button
                 type="button"
@@ -236,6 +248,16 @@ export default function AdminPage() {
         <AdminEvents app={app} />
 
       </div>
+      {/* Magától felugrik, ha van olvasatlan újdonság; a fejléc gombjával bármikor újra megnyitható (ilyenkor az összes látszik) */}
+      <ChangelogModal
+        open={showAllChangelog || unseen.length > 0}
+        releases={showAllChangelog ? CHANGELOG : unseen}
+        isOwner={app.userRole === 'owner'}
+        onClose={() => {
+          setShowAllChangelog(false);
+          if (unseen.length > 0 && app.lastSeenChangelog !== LATEST_CHANGELOG_ID) app.markChangelogSeen(LATEST_CHANGELOG_ID);
+        }}
+      />
     </main>
   );
 }

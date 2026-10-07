@@ -477,6 +477,40 @@ export const SearchResults = ({ app, query }) => {
   );
 };
 
+// "Újdonságok" ablak az adminoknak (tartalom: lib/changelog.js). Az ownerOnly pontokat csak a tulajdonos látja.
+export const ChangelogModal = ({ open, releases, isOwner, onClose }) => (
+  <ConfigProvider theme={tavernTheme}>
+    <Modal
+      open={open}
+      onCancel={onClose}
+      width={720}
+      closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+      title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.4rem', color: '#E5B15D' }}>✨ Újdonságok a naptárban</span>}
+      footer={[<Button key="ok" type="primary" size="large" style={{ color: '#000', fontWeight: 'bold' }} onClick={onClose}>Rendben, értem</Button>]}
+    >
+      {(releases || []).map(release => (
+        <div key={release.id} style={{ marginTop: 12 }}>
+          <Text style={{ color: '#9a8a8c' }}>{release.date} · {release.title}</Text>
+          <div className="flex flex-col gap-3 mt-3">
+            {release.items.filter(item => isOwner || !item.ownerOnly).map(item => (
+              <div key={item.title} className="flex gap-3 bg-[#2B1A1C] rounded-xl border border-[#4A2E33] p-3">
+                <div style={{ fontSize: 24, lineHeight: 1.2 }}>{item.icon}</div>
+                <div>
+                  <div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>
+                    {item.title}
+                    {item.ownerOnly && <Tag color="purple" style={{ marginLeft: 8 }}>Csak tulajdonos</Tag>}
+                  </div>
+                  <div style={{ color: '#baaaac', marginTop: 2 }}>{item.text}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </Modal>
+  </ConfigProvider>
+);
+
 // Megbízhatóság a check-in előzmények alapján: zöld = mindig eljött, narancs = 1-2 kihagyás, piros = 3+ kihagyás
 const ReliabilityTag = ({ stats }) => {
   if (!stats || stats.attended + stats.noShow === 0) return <span style={{ color: '#6b7280', fontSize: 12 }}>Még nincs check-in adat</span>;

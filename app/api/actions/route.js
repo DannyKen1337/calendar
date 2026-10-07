@@ -9,6 +9,7 @@ import { canManageCategory, canManageEvent, sanitizeCategories } from '@/lib/per
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
+import { isValidChangelogId } from '@/lib/changelog';
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
@@ -439,6 +440,13 @@ export async function POST(request) {
           { upsert: true }
         );
       }
+      return NextResponse.json({ success: true });
+    }
+
+    // --- ÚJDONSÁGOK ABLAK: a bejelentkezett admin megjelöli, hogy elolvasta (felhasználónként, minden eszközön érvényes) ---
+    if (actionType === 'MARK_CHANGELOG_SEEN') {
+      if (!isValidChangelogId(payload.id)) return NextResponse.json({ error: 'Ismeretlen verzió.' }, { status: 400 });
+      await db.collection('users').updateOne({ _id: new ObjectId(String(session.id)) }, { $set: { lastSeenChangelog: payload.id } });
       return NextResponse.json({ success: true });
     }
 

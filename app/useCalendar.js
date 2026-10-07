@@ -12,6 +12,7 @@ export const useCalendar = () => {
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
+  const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
   const [usersList, setUsersList] = useState([]);
   
   const [selectedStore, setSelectedStore] = useState(null);
@@ -82,6 +83,7 @@ export const useCalendar = () => {
         setUserEmail(data.user.email);
         setUserRole(data.user.role);
         setAllowedCategories(Array.isArray(data.user.allowedCategories) ? data.user.allowedCategories : null);
+        setLastSeenChangelog(data.user.lastSeenChangelog || null);
         fetchAdminData(false); 
       } else {
         fetchPublicData(false);
@@ -435,6 +437,12 @@ export const useCalendar = () => {
   const canManage = (evt) => canManageEvent(currentUser, evt);
   const canManageGame = (category) => canManageCategory(currentUser, category);
 
+  // Újdonságok ablak bezárásakor: azonnal elrejtjük, és elmentjük, hogy ez a verzió már olvasott
+  const markChangelogSeen = async (id) => {
+    setLastSeenChangelog(id);
+    await postAction('MARK_CHANGELOG_SEEN', { id });
+  };
+
   const setAdminCategories = async (userId, categories) => {
     if (!(await postAction('SET_ADMIN_CATEGORIES', { userId: String(userId), categories }))) return false;
     messageApi.success('Jogosultság mentve.');
@@ -450,7 +458,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
-    allowedCategories, canManage, canManageGame, setAdminCategories,
+    allowedCategories, canManage, canManageGame, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
