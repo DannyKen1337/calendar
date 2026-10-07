@@ -416,6 +416,77 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // --- VERSENYZŐ HOZZÁADÁSA AZ ADMIN ÁLTAL (pl. helyszíni vagy telefonos jelentkezés) ---
+    // A lezárt jelentkezés nem akadály; az e-mail opcionális. Ha betelt: várólista, vagy kérésre létszámon felül aktív.
+    if (actionType === 'ADMIN_ADD_REGISTRATION') {
+      const tId = String(payload.tournamentId || '');
+      const event = await db.collection('tournaments').findOne(getQuery(tId));
+      if (!event) return NextResponse.json({ error: 'Esemény nem található.' }, { status: 404 });
+      if (!canManageEvent(session, event)) return noPermission();
+      if (event.isOpenAttendance || event.external_url) {
+        return NextResponse.json({ error: 'Ehhez az eseményhez nincs jelentkezés (kötetlen létszám vagy külső jelentkezés).' }, { status: 400 });
+      }
+
+      const rawUsername = String(payload.username ?? '').trim();
+      const username = rawUsername ? normalizeUsername(rawUsername) : null;
+      const fullName = String(payload.name ?? '').trim().slice(0, 120);
+      const email = String(payload.email ?? '').trim().toLowerCase();
+      if (rawUsername && !username) {
+        return NextResponse.json({ error: 'A felhasználónév 2-24 karakter lehet (betű, szám, szóköz, pont, aláhúzás, kötőjel).', field: 'username' }, { status: 400 });
+      }
+      if (!username && !fullName) return NextResponse.json({ error: 'Adj meg legalább felhasználónevet vagy teljes nevet.', field: 'username' }, { status: 400 });
+      if (email && !isValidEmail(email)) return NextResponse.json({ error: 'Érvénytelen e-mail cím.', field: 'email' }, { status: 400 });
+
+      if (email && await db.collection('registrations').findOne({ tournamentId: tId, email })) {
+        return NextResponse.json({ error: 'Erről az e-mail címről már van jelentkezés erre az eseményre.', field: 'email' }, { status: 400 });
+      }
+      if (username && await db.collection('registrations').findOne({ tournamentId: tId, username }, { collation: { locale: 'hu', strength: 1 } })) {
+        return NextResponse.json({ error: 'Ez a felhasználónév már foglalt ennél az eseménynél.', field: 'username' }, { status: 400 });
+      }
+
+      // Hely foglalása: szabad helyre aktív; ha betelt, várólista – vagy kérésre létszámon felül aktív
+      let isQueue = false;
+      const seat = await db.collection('tournaments').findOneAndUpdate(
+        { $and: [getQuery(tId), { $expr: { $lt: ['$current_players', '$max_players'] } }] },
+        { $inc: { current_players: 1 } }
+      );
+      if (!seat) {
+        if (payload.overCapacity === true) await db.collection('tournaments').updateOne(getQuery(tId), { $inc: { current_players: 1 } });
+        else { isQueue = true; await db.collection('tournaments').updateOne(getQuery(tId), { $inc: { queue_count: 1 } }); }
+      }
+
+      const now = new Date();
+      const attended = payload.attended === true;
+      const doc = {
+        tournamentId: tId,
+        tournamentName: event.name,
+        ...(username && { username }),
+        name: fullName || username,
+        ...(email && { email, cancelToken: newCancelToken() }),
+        status: isQueue ? 'Várólista' : 'Aktív',
+        date: now,
+        addedBy: session.username,
+        ...(attended && { attended: true, attendanceAt: now }),
+      };
+      try {
+        const inserted = await db.collection('registrations').insertOne(doc);
+        if (attended) {
+          await db.collection('attendance_history').updateOne(
+            { registrationId: String(inserted.insertedId) },
+            { $set: { email: email || null, name: doc.name, username: username || null, tournamentId: tId, tournamentName: event.name, category: event.category, eventDate: event.date, attended: true, recordedAt: now, recordedBy: session.username } },
+            { upsert: true }
+          );
+        }
+      } catch (insertErr) {
+        await db.collection('tournaments').updateOne(getQuery(tId), { $inc: { [isQueue ? 'queue_count' : 'current_players']: -1 } });
+        if (insertErr?.code === 11000) return NextResponse.json({ error: 'Erről az e-mail címről már van jelentkezés erre az eseményre.', field: 'email' }, { status: 400 });
+        throw insertErr;
+      }
+
+      await addLog(db, session.username, 'JELENTKEZŐ HOZZÁADÁSA', `Hozzáadta: ${username || fullName} (${event.name})${isQueue ? ' – várólistára' : ''}`);
+      return NextResponse.json({ success: true, isQueue });
+    }
+
     // --- CHECK-IN: megjelent / nem jelent meg / visszavonás (attended: true | false | null) ---
     // A jelentkezésen kívül külön előzménybe is mentjük, mert a régi jelentkezések a takarításkor törlődnek,
     // a megbízhatósági statisztika (pl. "10-ből 3-szor nem jött el") viszont 1 évig megmarad.

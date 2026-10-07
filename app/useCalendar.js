@@ -366,6 +366,15 @@ export const useCalendar = () => {
     finally { setIsUnsubscribing(false); }
   };
 
+  // Versenyző hozzáadása az admin által (helyszíni / telefonos jelentkezés). Sikerkor true.
+  const adminAddRegistration = async (tournamentId, values) => {
+    const result = await postAction('ADMIN_ADD_REGISTRATION', { tournamentId: String(tournamentId), ...values });
+    if (!result) return false;
+    messageApi.success(result.isQueue ? 'Versenyző hozzáadva a várólistához.' : 'Versenyző hozzáadva.');
+    fetchData(true);
+    return true;
+  };
+
   // Check-in: azonnal (optimistán) jelöljük, hiba esetén visszaállítjuk; utána frissítjük a statisztikát
   const setAttendance = async (registrationId, attended) => {
     const id = String(registrationId);
@@ -468,7 +477,7 @@ export const useCalendar = () => {
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     selectedEventToJoin, initiateJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,
-    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration, attendanceStats, setAttendance,
+    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration, attendanceStats, setAttendance, adminAddRegistration,
     messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };
