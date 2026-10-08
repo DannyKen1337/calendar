@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Form, Input, Select, Button, message, ConfigProvider, theme, Typography, InputNumber, Switch, Checkbox } from 'antd';
 import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
@@ -33,7 +33,6 @@ const STORES = {
 export default function EventGenerator({ canManageGame = () => true }) {
   const [form] = Form.useForm();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [adminName, setAdminName] = useState("Generátor");
 
   // Élőben figyeljük a form mezőit, hogy tudjuk, mennyi link-mezőt kell kirajzolni
   const startDateVal = Form.useWatch('startDate', form);
@@ -42,18 +41,6 @@ export default function EventGenerator({ canManageGame = () => true }) {
   const isOpenAttendanceVal = Form.useWatch('isOpenAttendance', form);
   const maxPlayersVal = Form.useWatch('max_players', form);
   const isOpenForm = resolveAttendance(maxPlayersVal, isOpenAttendanceVal).isOpenAttendance; // jelölőnégyzet vagy 0 a létszámnál
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedSession = localStorage.getItem('tavern_calendar_session');
-      if (storedSession) {
-        try {
-           const userData = JSON.parse(storedSession);
-           if (userData.username) setAdminName(userData.username);
-         } catch (error) {}
-      }
-    }
-  }, []);
 
   const handleGenerate = async (values) => {
     setIsGenerating(true);
@@ -88,8 +75,6 @@ export default function EventGenerator({ canManageGame = () => true }) {
           description: description || "",
           isFeatured: !!isFeatured,
           isOpenAttendance: !!isOpenAttendance,
-          adminName: adminName,
-          userRole: "owner"
         });
       }
 

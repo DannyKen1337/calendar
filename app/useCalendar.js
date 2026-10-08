@@ -16,7 +16,11 @@ export const useCalendar = () => {
   const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
   const [usersList, setUsersList] = useState([]);
   
-  const [selectedStore, setSelectedStore] = useState(null);
+  // A legutóbb választott helyszín. Szerveren null – ez nem okoz hidratálási eltérést, mert betöltés közben a helyszínt még semmi nem jeleníti meg.
+  // Beágyazott (harmadik féltől származó) iframe-ben a böngésző letilthatja a localStorage-ot: ilyenkor kivételt dob
+  const [selectedStore, setSelectedStore] = useState(() => {
+    try { return typeof window !== 'undefined' ? localStorage.getItem('tavern_selected_store') : null; } catch { return null; }
+  });
   
   const [logs, setLogs] = useState([]);
   const [blacklist, setBlacklist] = useState([]);
@@ -62,23 +66,11 @@ export const useCalendar = () => {
   const [createUserForm] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
-  useEffect(() => {
-    checkSession();
-    fetch('/api/auth')
-      .then((res) => res.json())
-      .then((data) => setCanRegister(!!data.canRegister))
-      .catch(() => setCanRegister(false));
-    // Beágyazott (harmadik féltől származó) iframe-ben a böngésző letilthatja a localStorage-ot: ilyenkor kivételt dob
-    try {
-      const storedStore = localStorage.getItem('tavern_selected_store');
-      if (storedStore) setSelectedStore(storedStore);
-    } catch {}
-  }, []);
-
-  const checkSession = async () => {
-    try {
-      const res = await fetch('/api/auth/session');
-      const data = await res.json();
+  // Munkamenet betöltése: bejelentkezve az admin, egyébként a nyilvános adatok töltődnek be.
+  // Promise-lánc (nem async/await), hogy indításkor az effektből hívva se tűnjön szinkron állapotállításnak.
+  const checkSession = () => fetch('/api/auth/session')
+    .then((res) => res.json())
+    .then((data) => {
       if (data.user) {
         setUserName(data.user.username);
         setUserEmail(data.user.email);
@@ -89,10 +81,8 @@ export const useCalendar = () => {
       } else {
         fetchPublicData(false);
       }
-    } catch (e) {
-      fetchPublicData(false);
-    }
-  };
+    })
+    .catch(() => fetchPublicData(false));
 
   const handleSelectStore = (storeId) => {
     setSelectedStore(storeId);
@@ -152,6 +142,15 @@ export const useCalendar = () => {
     }
     if (!isBackground) setLoading(false);
   };
+
+  // Indításkor: munkamenet és adatok betöltése (a függvények után, hogy deklarálva legyenek)
+  useEffect(() => {
+    checkSession();
+    fetch('/api/auth')
+      .then((res) => res.json())
+      .then((data) => setCanRegister(!!data.canRegister))
+      .catch(() => setCanRegister(false));
+  }, []);
 
   const fetchData = (isBackground = false) => {
     if (userRole === 'admin' || userRole === 'owner') {

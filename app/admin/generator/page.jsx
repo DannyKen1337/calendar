@@ -3,6 +3,7 @@ import EventGenerator from '@/components/EventGenerator';
 import { useCalendar } from '@/app/useCalendar';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 export default function GeneratorPage() {
   const app = useCalendar();
@@ -13,8 +14,7 @@ export default function GeneratorPage() {
 
   // BIZTONSÁGI KAPU: Ha nincs bejelentkezve, visszadobjuk az admin gyökérkönyvtárába (a Login képernyőre)
   if (app.userRole !== 'admin' && app.userRole !== 'owner') {
-    if (typeof window !== 'undefined') window.location.href = '/admin';
-    return null;
+    redirect('/admin');
   }
 
   return (
