@@ -1,4 +1,5 @@
 import { getTavernDb } from '@/lib/mongodb';
+import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,7 +84,7 @@ export async function GET(request) {
         `DTSTAMP:${stamp}`,
         `DTSTART${times.start}`,
         `DTEND${times.end}`,
-        `SUMMARY:${escapeText(`${event.name} (${event.category})`)}`,
+        `SUMMARY:${escapeText(`${isSpecialEvent(event) ? `${getEventTypeConfig(event).label}: ` : ''}${event.name} (${event.category})`)}`,
         `DESCRIPTION:${escapeText(event.description)}`,
         `LOCATION:${escapeText(STORE_LOCATIONS[event.store] || STORE_LOCATIONS.debrecen)}`,
         'END:VEVENT',

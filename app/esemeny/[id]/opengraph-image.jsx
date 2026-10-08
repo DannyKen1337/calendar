@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { getPublicEvent, formatEventDateHu } from '@/lib/events';
+import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 import { getGameColor } from '@/lib/gameConfig';
 
 // Facebook / Discord előnézeti kép az eseményoldalhoz.
@@ -24,6 +25,7 @@ export default async function Image({ params }) {
 
   const name = event?.name || 'Tavern Calendar';
   const color = event ? getGameColor(event) : '#E5B15D';
+  const special = event && isSpecialEvent(event) ? getEventTypeConfig(event) : null;
   const store = event ? (STORE_NAMES[event.store || 'debrecen'] || 'Tavern') : 'Eseménynaptár';
   const when = event ? formatEventDateHu(event.date) : '';
   const seats = event && !event.isOpenAttendance && !event.external_url && event.max_players
@@ -37,6 +39,7 @@ export default async function Image({ params }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '56px 64px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             <div style={{ fontSize: 34, color: '#E5B15D', letterSpacing: 4, textTransform: 'uppercase' }}>{store}</div>
+            {special && <div style={{ fontSize: 26, color: '#fff', background: special.color, padding: '6px 18px', borderRadius: 999 }}>{special.label}</div>}
             {event?.isFeatured && <div style={{ fontSize: 26, color: '#000', background: '#FFD700', padding: '6px 18px', borderRadius: 999 }}>Kiemelt</div>}
           </div>
 

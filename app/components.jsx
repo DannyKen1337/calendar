@@ -6,6 +6,7 @@ import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
+import { EVENT_TYPES, getEventType, getEventTypeConfig, isSpecialEvent } from '@/lib/eventTypes';
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -69,11 +70,12 @@ export const registrationPageUrl = (evt) => `/jelentkezes/${encodeURIComponent(S
 
 export const eventShareUrl = (evt) => `${window.location.origin}/esemeny/${encodeURIComponent(String(evt._id || evt.id))}`;
 
-// Esemény megosztása: telefonon a rendszer megosztó menüje, gépen a link vágólapra másolása
-export const ShareEventButton = ({ evt, messageApi, ...buttonProps }) => {
+// Esemény megosztása: telefonon a rendszer megosztó menüje, gépen a link vágólapra másolása.
+// copyOnly: mindig azonnal vágólapra másol (admin felület); iconOnly: csak ikon, felirat nélkül
+export const ShareEventButton = ({ evt, messageApi, copyOnly = false, iconOnly = false, ...buttonProps }) => {
   const share = async () => {
     const url = eventShareUrl(evt);
-    if (navigator.share) {
+    if (!copyOnly && navigator.share) {
       try { await navigator.share({ title: evt.name, url }); return; }
       catch (e) { if (e?.name === 'AbortError') return; /* egyébként vágólapra másolunk */ }
     }
@@ -84,8 +86,23 @@ export const ShareEventButton = ({ evt, messageApi, ...buttonProps }) => {
       messageApi?.info({ content: url, duration: 10 });
     }
   };
-  return <Button icon={<ShareAltOutlined />} onClick={share} {...buttonProps}>Megosztás</Button>;
+  return <Button icon={<ShareAltOutlined />} onClick={share} title={copyOnly ? 'Megosztás – link másolása' : undefined} {...buttonProps}>{iconOnly ? null : 'Megosztás'}</Button>;
 };
+
+// Különleges esemény (szett megjelenés, expo...) címkéje; versenynél nem jelenik meg
+export const EventTypeTag = ({ evt, size = 'default' }) => {
+  if (!isSpecialEvent(evt)) return null;
+  const t = getEventTypeConfig(evt);
+  const big = size === 'large';
+  return (
+    <Tag style={{ background: t.gradient, border: `1px solid ${t.color}`, color: '#fff', fontWeight: 'bold', fontSize: big ? 14 : 12, padding: big ? '4px 12px' : '1px 8px', textShadow: '0 1px 2px rgba(0,0,0,0.5)', boxShadow: `0 0 8px ${t.color}88` }}>
+      {t.icon} {t.label}
+    </Tag>
+  );
+};
+
+// A különleges események megjelenéséhez (keret, fény) a globals.css a --special-color változót használja
+const specialVars = (evt) => (isSpecialEvent(evt) ? { '--special-color': getEventTypeConfig(evt).color } : {});
 
 // Jelentkezők rövidített nevei (Vezetéknév + kezdőbetű); `max` felett "+N" jelzéssel
 export const AttendeeNames = ({ attendees, max = Infinity, size = 'default' }) => {
@@ -133,6 +150,7 @@ export const PublicModals = ({ app }) => {
               <Title level={3} style={{ margin: '0 0 10px 0' }}>{selectedEventDetails.name}</Title>
               <Tag color={detailsTagColor} style={{ background: detailsTagColor, borderColor: detailsTagColor, color: '#fff', fontSize: '14px', padding: '4px 12px' }}>{selectedEventDetails.category}</Tag>
               {selectedEventDetails.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ fontSize: '14px', padding: '4px 12px', fontWeight: 'bold', marginLeft: 8 }}>Kiemelt</Tag>}
+              {isSpecialEvent(selectedEventDetails) && <div className="mt-2"><EventTypeTag evt={selectedEventDetails} size="large" /></div>}
             </div>
             <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
@@ -224,13 +242,16 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
       
       const eventColor = getGameColor(evt);
       const storeInfo = STORES[evt.store || 'debrecen'];
+      const special = isSpecialEvent(evt) ? getEventTypeConfig(evt) : null;
 
       return (
           <Card
             size="small"
-            className={evt.isFeatured ? 'cozy-shadow featured-card' : 'cozy-shadow'}
+            className={special ? 'cozy-shadow special-card' : evt.isFeatured ? 'cozy-shadow featured-card' : 'cozy-shadow'}
             style={{
-              ...(evt.isFeatured
+              ...(special
+                ? { ...S.eventCard, ...specialVars(evt), border: `2px solid ${special.color}`, background: `linear-gradient(135deg, ${special.color}2e 0%, #2B1A1C 55%)` }
+                : evt.isFeatured
                 ? { ...S.eventCard, border: '2px solid #FFD700', background: 'linear-gradient(135deg, #3a2a14 0%, #2B1A1C 60%)' }
                 : S.eventCard),
               ...(grid && { height: '100%' }),
@@ -244,6 +265,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                 
                 <div style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
                 <div>
+                  <EventTypeTag evt={evt} />
                   {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ marginBottom: 5, fontWeight: 'bold' }}>Kiemelt</Tag>}
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
@@ -266,13 +288,15 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                 // Más játék eseménye: a szervező látja, de nem szerkesztheti és a jelentkezőit sem látja
                 <Space style={{ flexWrap: 'wrap' }}>
                   <Tag icon={<EyeOutlined />} style={{ background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' }}>Csak megtekintés</Tag>
+                  <ShareEventButton evt={evt} messageApi={app.messageApi} copyOnly iconOnly size="small" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
                   {!evt.external_url && !evt.isOpenAttendance && <Button size="small" icon={<FormOutlined />} title="Jelentkezési oldal megnyitása" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(registrationPageUrl(evt), '_blank', 'noopener')} />}
                 </Space>
               ) : (
                 <Space style={{ flexWrap: 'wrap' }}>
                   {!evt.external_url && !evt.isOpenAttendance && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   {!evt.external_url && !evt.isOpenAttendance && <Button icon={<FormOutlined />} title="Jelentkezési oldal megnyitása" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(registrationPageUrl(evt), '_blank', 'noopener')} />}
-                  <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8, store: evt.store || 'debrecen'}); setIsEventModalOpen(true); }} />
+                  <ShareEventButton evt={evt} messageApi={app.messageApi} copyOnly iconOnly style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
+                  <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8, store: evt.store || 'debrecen', eventType: getEventType(evt)}); setIsEventModalOpen(true); }} />
                   {!evt.isOpenAttendance && <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} loading={togglingGateId === eId} onClick={() => handleToggleGate(eId, !evt.is_open)}>{evt.is_open ? 'Zárás' : 'Megnyitás'}</Button>}
                   <Popconfirm title="Biztosan törlöd?" onConfirm={() => handleDeleteTournament(eId)} okText="Igen" cancelText="Mégse"><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm>
                 </Space>
@@ -395,11 +419,13 @@ export const CalendarView = ({ app, compact = false }) => {
                     <div key={day} className="cal-day-cell" role="button" tabIndex={0} title="Napi események" onClick={() => setSelectedDay(day)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedDay(day); } }} style={{...S.calDayCell, ...(compact && { minHeight: '120px', padding: '6px' }), borderColor: isToday ? '#E5B15D' : '#4A2E33'}}>
                       <div style={{...S.calDayNum, color: isToday ? '#E5B15D' : '#baaaac'}}><span className="cal-day-num">{day}</span></div>
                       {/* Zsúfolt napokon csak az első néhány esemény fér ki, a többi a napi felugró ablakban látható */}
-                      {(dayEvents.length > MAX_STRIPS_PER_DAY ? dayEvents.slice(0, MAX_STRIPS_PER_DAY - 1) : dayEvents).map(evt => {
+                      {/* A különleges események (szett megjelenés, expo...) kerülnek előre, így sosem tűnnek el a "+N további" mögött */}
+                      {(() => { const ordered = [...dayEvents.filter(isSpecialEvent), ...dayEvents.filter(e => !isSpecialEvent(e))]; return dayEvents.length > MAX_STRIPS_PER_DAY ? ordered.slice(0, MAX_STRIPS_PER_DAY - 1) : ordered; })().map(evt => {
                           const eventColor = getGameColor(evt);
+                          const special = isSpecialEvent(evt) ? getEventTypeConfig(evt) : null;
                           return (
-                            <div key={String(evt._id || evt.id)} className={evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, backgroundColor: eventColor, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={(e) => { e.stopPropagation(); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${evt.name}`}>
-                              {evt.isFeatured && '⭐ '}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
+                            <div key={String(evt._id || evt.id)} className={special ? 'special-strip' : evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, ...(special ? { ...specialVars(evt), background: special.gradient } : { backgroundColor: eventColor }), color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={(e) => { e.stopPropagation(); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${special ? `${special.label}: ` : ''}${evt.name}`}>
+                              {special ? `${special.icon} ${special.short} · ` : evt.isFeatured ? '⭐ ' : ''}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
                             </div>
                           );
                       })}
@@ -429,9 +455,10 @@ export const CalendarView = ({ app, compact = false }) => {
                 {dayEvents.map(evt => {
                   const eventColor = getGameColor(evt);
                   return (
-                    <div key={String(evt._id || evt.id)} role="button" tabIndex={0} onClick={() => { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); } }} style={{ cursor: 'pointer', background: '#2B1A1C', border: evt.isFeatured ? '2px solid #FFD700' : '1px solid #4A2E33', borderLeft: `6px solid ${eventColor}`, borderRadius: 12, padding: '14px 18px' }}>
+                    <div key={String(evt._id || evt.id)} role="button" tabIndex={0} onClick={() => { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); } }} className={isSpecialEvent(evt) ? 'special-card' : undefined} style={{ cursor: 'pointer', ...specialVars(evt), background: isSpecialEvent(evt) ? `linear-gradient(135deg, ${getEventTypeConfig(evt).color}2e 0%, #2B1A1C 55%)` : '#2B1A1C', border: isSpecialEvent(evt) ? `2px solid ${getEventTypeConfig(evt).color}` : evt.isFeatured ? '2px solid #FFD700' : '1px solid #4A2E33', borderLeft: `6px solid ${eventColor}`, borderRadius: 12, padding: '14px 18px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
                         <Text strong style={{ color: '#E5B15D', fontSize: '1.25rem' }}>{getEventTime(evt.date)}</Text>
+                        <EventTypeTag evt={evt} />
                         <Tag color={eventColor} style={{ background: eventColor, borderColor: eventColor, color: '#fff', fontSize: '13px', padding: '2px 10px', margin: 0 }}>{evt.category || 'Egyéb'}</Tag>
                         {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ margin: 0, fontWeight: 'bold' }}>Kiemelt</Tag>}
                       </div>
@@ -873,6 +900,9 @@ export const AdminEvents = ({ app: v }) => {
         <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4">
             <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
+            <Form.Item name="eventType" label="Esemény típusa" initialValue="tournament" extra="A szett megjelenés, az expo és a különleges esemény feltűnőbb, saját megjelenést kap a naptárban. Ha nincs rá jelentkezés, pipáld be a „Kötetlen létszám” opciót.">
+              <Select options={Object.entries(EVENT_TYPES).map(([value, t]) => ({ value, label: `${t.icon ? `${t.icon} ` : ''}${t.label}` }))} />
+            </Form.Item>
             
             <div className="grid grid-cols-2 gap-4">
               <Form.Item name="store" label="Helyszín" rules={[{ required: true, message: 'Kérlek válassz boltot!' }]}>

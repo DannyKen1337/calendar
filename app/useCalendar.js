@@ -4,6 +4,7 @@ import { message, Form } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
 import { canManageEvent, canManageCategory } from "@/lib/permissions";
+import { sanitizeEventType } from "@/lib/eventTypes";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -303,6 +304,7 @@ export const useCalendar = () => {
         isExternalEvent: isOpenAttendance ? false : !!formValues.external_url,
         isOpenAttendance,
         isFeatured: !!formValues.isFeatured,
+        eventType: sanitizeEventType(formValues.eventType),
         color: eventColor 
       };
       

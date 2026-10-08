@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { ConfigProvider, Button, Tag } from 'antd';
 import { ArrowLeftOutlined, CalendarOutlined, EnvironmentOutlined, LinkOutlined, StarFilled, TeamOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { useCalendar } from '@/app/useCalendar';
-import { PublicModals, AttendeeNames, ShareEventButton, STORES, tavernTheme, getCategoryImage } from '@/app/components';
+import { PublicModals, AttendeeNames, ShareEventButton, EventTypeTag, STORES, tavernTheme, getCategoryImage } from '@/app/components';
+import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 import { getGameColor } from '@/lib/gameConfig';
 
 // Megosztható eseményoldal (/esemeny/[id]). A szerver által betöltött adatokkal azonnal megjelenik,
@@ -63,8 +64,8 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
           <ArrowLeftOutlined /> Vissza a naptárhoz
         </Link>
 
-        <article className="bg-[#1a1012] rounded-2xl border-2 overflow-hidden" style={{ borderColor: evt.isFeatured ? '#FFD700' : '#4A2E33' }}>
-          <div style={{ height: 8, background: color }} />
+        <article className="bg-[#1a1012] rounded-2xl border-2 overflow-hidden" style={{ borderColor: isSpecialEvent(evt) ? getEventTypeConfig(evt).color : evt.isFeatured ? '#FFD700' : '#4A2E33' }}>
+          <div style={{ height: 8, background: isSpecialEvent(evt) ? getEventTypeConfig(evt).gradient : color }} />
           <div className="p-6 md:p-8 flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
               <div className="w-28 h-28 shrink-0 bg-[#0a0a0a] rounded-2xl border-2 border-[#4A2E33] p-3 flex items-center justify-center">
@@ -72,6 +73,7 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap gap-2 mb-2">
+                  <EventTypeTag evt={evt} />
                   <Tag style={{ background: color, borderColor: color, color: '#fff', margin: 0 }}>{evt.category || 'Egyéb'}</Tag>
                   {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ margin: 0, fontWeight: 'bold' }}>Kiemelt</Tag>}
                 </div>

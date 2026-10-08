@@ -43,6 +43,34 @@ body {
   animation: featuredPulse 2.5s ease-in-out infinite;
 }
 
+/* Különleges események (szett megjelenés, expo...) – a színt a --special-color adja (lásd lib/eventTypes.js) */
+@keyframes specialShine {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes specialGlow {
+  0%, 100% { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--special-color) 55%, transparent); }
+  50% { box-shadow: 0 0 18px 5px color-mix(in srgb, var(--special-color) 90%, transparent); }
+}
+
+.special-strip {
+  border: 2px solid var(--special-color) !important;
+  font-size: 12px !important;
+  position: relative;
+  z-index: 1;
+  background-size: 200% 100% !important;
+  animation: specialShine 4s linear infinite, specialGlow 2s ease-in-out infinite;
+}
+
+.special-card {
+  animation: specialGlow 2.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .featured-strip, .featured-card, .special-strip, .special-card { animation: none; }
+}
+
 .cal-day-num {
   display: inline-flex;
   align-items: center;

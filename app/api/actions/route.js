@@ -10,12 +10,13 @@ import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton 
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
 import { isValidChangelogId } from '@/lib/changelog';
+import { sanitizeEventType } from '@/lib/eventTypes';
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
 const TOURNAMENT_EDIT_FIELDS = [
   'name', 'store', 'category', 'date', 'max_players', 'external_url',
-  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured', 'isOpenAttendance',
+  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured', 'isOpenAttendance', 'eventType',
 ];
 
 // Kötetlen létszámú esemény: nincs max. létszám, nincs jelentkezés, nincs külső jelentkezési link
@@ -48,6 +49,7 @@ function pickTournamentFields(source) {
   }
   if (doc.external_url !== undefined) doc.external_url = safeUrl(doc.external_url);
   if (doc.imageUrl !== undefined) doc.imageUrl = safeUrl(doc.imageUrl);
+  if (doc.eventType !== undefined) doc.eventType = sanitizeEventType(doc.eventType);
   return doc;
 }
 
