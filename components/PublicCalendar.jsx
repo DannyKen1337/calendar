@@ -107,7 +107,6 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
         <SearchBar value={searchQuery} onChange={setSearchQuery} resultCount={searchResults.length} placeholder={`Keresés a(z) ${currentStore?.name || ''} eseményei között...`} />
 
         <CalendarFilters 
-          events={storeTournaments} 
           activeFilters={activeFilters}
           setActiveFilters={setActiveFilters}
           store={selectedStore}

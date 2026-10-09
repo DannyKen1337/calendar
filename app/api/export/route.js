@@ -1,5 +1,6 @@
 import { getTavernDb } from '@/lib/mongodb';
 import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
+import { EVENT_LENGTH_HOURS } from '@/lib/hostConflicts';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,8 +9,6 @@ const STORE_LOCATIONS = {
   miskolc: 'Tavern Miskolc',
   jatekceh: 'JátékCéh',
 };
-
-const EVENT_LENGTH_HOURS = 3; // Feltételezzük, hogy egy verseny átlagosan 3 órás
 
 // Az események dátuma magyar helyi idő ("2026-10-05T18:00", időzóna nélkül), ezért Europe/Budapest időzónával exportáljuk.
 // (A Vercel szervere UTC-ben fut: ha new Date()-tel értelmeznénk, az idő 1-2 órával eltolódna.)
@@ -101,6 +100,7 @@ export async function GET(request) {
       }
     });
   } catch (error) {
+    console.error('export error:', error);
     return new Response(JSON.stringify({ error: 'Az exportálás nem sikerült.' }), { status: 500 });
   }
 }

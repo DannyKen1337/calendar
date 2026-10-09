@@ -106,7 +106,7 @@ export default function EventGenerator({ canManageGame = () => true }) {
         message.warning(`${created} / ${eventsToCreate.length} esemény készült el; a többi kimaradt.`);
       }
       form.resetFields();
-    } catch (error) {
+    } catch {
       message.error("Hiba történt a generálás során.");
     }
     setIsGenerating(false);

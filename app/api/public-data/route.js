@@ -21,6 +21,7 @@ export async function GET() {
         isMaintenance: settings?.isMaintenance || false 
     });
   } catch (error) {
+    console.error('public-data error:', error);
     return NextResponse.json({ error: "Adatbázis hiba" }, { status: 500 });
   }
 }

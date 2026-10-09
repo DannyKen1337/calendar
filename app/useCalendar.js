@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { message, Form } from "antd";
+import { message, Form, Modal } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
 import { canManageEvent, canManageCategory } from "@/lib/permissions";
-import { sanitizeEventType } from "@/lib/eventTypes";
+import { sanitizeEventType, getEventType } from "@/lib/eventTypes";
+import { findHostConflicts } from "@/lib/hostConflicts";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -12,6 +13,7 @@ export const useCalendar = () => {
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userId, setUserId] = useState(null);
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
   const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
   const [usersList, setUsersList] = useState([]);
@@ -35,6 +37,7 @@ export const useCalendar = () => {
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isExternalForm, setIsExternalForm] = useState(false);
   const [editingEventId, setEditingEventId] = useState(null);
+  const [isCopyingEvent, setIsCopyingEvent] = useState(false); // az űrlap egy meglévő esemény másolatát tartalmazza
   const [isUploading, setIsUploading] = useState(false);
   
   const [isEventDetailsModalOpen, setIsEventDetailsModalOpen] = useState(false);
@@ -65,7 +68,9 @@ export const useCalendar = () => {
   const [authForm] = Form.useForm();
   const [blacklistForm] = Form.useForm();
   const [createUserForm] = Form.useForm();
-  const [messageApi, contextHolder] = message.useMessage();
+  const [messageApi, messageHolder] = message.useMessage();
+  const [modalApi, modalHolder] = Modal.useModal();
+  const contextHolder = <>{messageHolder}{modalHolder}</>;
 
   // Munkamenet betöltése: bejelentkezve az admin, egyébként a nyilvános adatok töltődnek be.
   // Promise-lánc (nem async/await), hogy indításkor az effektből hívva se tűnjön szinkron állapotállításnak.
@@ -74,6 +79,7 @@ export const useCalendar = () => {
     .then((data) => {
       if (data.user) {
         setUserName(data.user.username);
+        setUserId(data.user.id ? String(data.user.id) : null);
         setUserEmail(data.user.email);
         setUserRole(data.user.role);
         setAllowedCategories(Array.isArray(data.user.allowedCategories) ? data.user.allowedCategories : null);
@@ -107,7 +113,7 @@ export const useCalendar = () => {
       }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.error) messageApi.error('Nem sikerült betölteni az eseményeket.');
-    } catch (e) {
+    } catch {
       messageApi.error('Hálózati hiba az események betöltésekor.');
     }
     if (!isBackground) setLoading(false);
@@ -138,7 +144,7 @@ export const useCalendar = () => {
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.error) messageApi.error(data.error);
-    } catch (e) {
+    } catch {
       messageApi.error('Hálózati hiba az admin adatok betöltésekor.');
       fetchPublicData(isBackground);
     }
@@ -156,15 +162,14 @@ export const useCalendar = () => {
 
   const fetchData = (isBackground = false) => {
     if (userRole === 'admin' || userRole === 'owner') {
-      fetchAdminData(isBackground);
-    } else {
-      fetchPublicData(isBackground);
+      return fetchAdminData(isBackground);
     }
+    return fetchPublicData(isBackground);
   };
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setUserRole(null); setUserName(""); setUserEmail(""); setAllowedCategories(null);
+    setUserRole(null); setUserName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null);
     fetchPublicData(false);
   };
 
@@ -185,7 +190,7 @@ export const useCalendar = () => {
         setIsRegistering(false);
         authForm.resetFields();
       }
-    } catch (e) { messageApi.error("Szerver hiba történt."); }
+    } catch { messageApi.error("Szerver hiba történt."); }
   };
 
   // Admin művelet küldése; hiba esetén üzenetet mutat és null-t ad vissza, így sikert csak valódi siker után jelzünk
@@ -228,7 +233,7 @@ export const useCalendar = () => {
       const result = await response.json();
       if (result.error) messageApi.error(result.error);
       else { messageApi.success(`${result.count} db régi esemény törölve!`); fetchData(true); }
-    } catch (e) { messageApi.error("Hálózati hiba történt."); }
+    } catch { messageApi.error("Hálózati hiba történt."); }
   };
 
   const toggleUserRole = async (targetUser) => {
@@ -247,7 +252,7 @@ export const useCalendar = () => {
       const result = await response.json();
       if (result.error) { messageApi.error(result.error); return; }
       messageApi.success("Jelszó sikeresen felülírva!"); setIsPasswordModalOpen(false);
-    } catch (e) { messageApi.error("Hálózati hiba történt."); }
+    } catch { messageApi.error("Hálózati hiba történt."); }
   };
 
   const submitOwnPasswordChange = async (values) => {
@@ -265,7 +270,7 @@ export const useCalendar = () => {
       messageApi.success("Saját jelszavad sikeresen megváltozott!");
       setIsOwnPasswordModalOpen(false);
       ownPasswordForm.resetFields();
-    } catch (e) { messageApi.error("Hálózati hiba történt."); }
+    } catch { messageApi.error("Hálózati hiba történt."); }
   };
 
   const handleDeleteUser = async (userId) => {
@@ -282,18 +287,20 @@ export const useCalendar = () => {
       const data = await res.json();
       if (data.success) { targetForm.setFieldsValue({ imageUrl: data.url }); messageApi.success('Kép feltöltve!'); } 
       else { messageApi.error(`Hiba: ${data.error}`); }
-    } catch (err) { messageApi.error('Hálózati hiba a feltöltésnél.'); }
+    } catch { messageApi.error('Hálózati hiba a feltöltésnél.'); }
     setIsUploading(false);
   };
 
   const saveEvent = async (values) => {
-    const formValues = values || eventForm.getFieldsValue(); 
+    const formValues = values || eventForm.getFieldsValue();
+    // Az űrlapon nem szereplő mezők (kép, egyedi szín) szerkesztéskor a meglévő eseményből maradnak meg
+    const existing = editingEventId ? tournaments.find(t => String(t._id || t.id) === String(editingEventId)) : null;
     try {
       const eventColor = getGameColor({
         category: formValues.category,
         name: formValues.name,
         game: formValues.game,
-        color: formValues.category === 'Egyéb' ? formValues.color : undefined,
+        color: formValues.category === 'Egyéb' ? (formValues.color ?? existing?.color) : undefined,
       });
 
       const { isOpenAttendance, max_players: resolvedMaxPlayers } = resolveAttendance(formValues.max_players, formValues.isOpenAttendance);
@@ -301,7 +308,7 @@ export const useCalendar = () => {
         ...formValues, 
         max_players: resolvedMaxPlayers, 
         external_url: isOpenAttendance ? "" : (formValues.external_url || ""), 
-        imageUrl: formValues.imageUrl || "", 
+        imageUrl: formValues.imageUrl || existing?.imageUrl || "",
         isExternalEvent: isOpenAttendance ? false : !!formValues.external_url,
         isOpenAttendance,
         isFeatured: !!formValues.isFeatured,
@@ -310,6 +317,29 @@ export const useCalendar = () => {
         color: eventColor 
       };
       
+      // Szervezői ütközés: ugyanaz a szervező egy időben másik eseményt is tart – mentés előtt rákérdezünk
+      const conflicts = findHostConflicts(tournaments, { id: editingEventId, date: payload.date, hosts: payload.hosts });
+      if (conflicts.length > 0) {
+        const confirmed = await modalApi.confirm({
+          title: 'Szervezői ütközés',
+          content: (
+            <div>
+              <p>Ebben az időpontban már másik eseményt is tart:</p>
+              <ul style={{ paddingLeft: 18 }}>
+                {conflicts.map(({ hostId, event }) => (
+                  <li key={`${hostId}-${event._id || event.id}`}><b>{staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'}</b>: {event.name} ({formatEventDate(event.date)})</li>
+                ))}
+              </ul>
+              <p>Mégis mented?</p>
+            </div>
+          ),
+          okText: 'Mentés így is',
+          cancelText: 'Vissza',
+          okButtonProps: { style: { color: '#000', fontWeight: 'bold' } },
+        });
+        if (!confirmed) return;
+      }
+
       const actionType = editingEventId ? 'EDIT_TOURNAMENT' : 'ADD_TOURNAMENT';
       const actionPayload = editingEventId ? { id: editingEventId, ...payload } : payload;
       const response = await fetch('/api/actions', {
@@ -326,9 +356,30 @@ export const useCalendar = () => {
       
       setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); 
       fetchData(true); 
-    } catch (err) {
+    } catch {
       messageApi.error('Nem sikerült menteni az eseményt.');
     }
+  };
+
+  // Az űrlap mezői egy meglévő eseményből (szerkesztéshez és másoláshoz)
+  const eventFormValues = (evt) => ({
+    name: evt.name, store: evt.store || 'debrecen', category: evt.category, date: evt.date,
+    max_players: evt.isOpenAttendance ? undefined : (evt.max_players || 8), external_url: evt.external_url || '', description: evt.description || '',
+    isFeatured: !!evt.isFeatured, isOpenAttendance: !!evt.isOpenAttendance, eventType: getEventType(evt),
+    hosts: (evt.hosts || []).map(String).filter(id => eligibleHosts(evt.category).some(u => u.id === id)),
+  });
+
+  const openEditEvent = (evt) => {
+    eventForm.resetFields();
+    eventForm.setFieldsValue(eventFormValues(evt));
+    setEditingEventId(String(evt._id || evt.id)); setIsCopyingEvent(false); setIsExternalForm(!!evt.external_url); setIsEventModalOpen(true);
+  };
+
+  // Másolás: ugyanazokkal az adatokkal új esemény, csak az időpontot kell megadni
+  const openCopyEvent = (evt) => {
+    eventForm.resetFields();
+    eventForm.setFieldsValue({ ...eventFormValues(evt), date: undefined });
+    setEditingEventId(null); setIsCopyingEvent(true); setIsExternalForm(!!evt.external_url); setIsEventModalOpen(true);
   };
 
   const handleDeleteTournament = async (tournamentId) => { 
@@ -360,13 +411,13 @@ export const useCalendar = () => {
     try {
       const response = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'UNSUBSCRIBE_BY_EMAIL', payload: { tournamentId: eId, email } }) });
       let result = null;
-      try { result = await response.json(); } catch (e) { result = null; }
+      try { result = await response.json(); } catch { result = null; }
       if (!response.ok || !result || result.error) { messageApi.error((result && result.error) || 'A leiratkozás most nem sikerült. Kérlek próbáld újra.'); return; }
       if (result.emailSent) messageApi.success({ content: "Ha erről a címről van jelentkezés, elküldtük e-mailben a leiratkozó linket. Nézd meg a postafiókod (a spam mappát is)!", duration: 8 });
       else messageApi.success("Sikeresen lejelentkeztél az eseményről.");
       setIsUnsubscribeModalOpen(false); unsubscribeForm.resetFields();
       fetchData(true);
-    } catch (e) { messageApi.error("Hálózati hiba történt."); }
+    } catch { messageApi.error("Hálózati hiba történt."); }
     finally { setIsUnsubscribing(false); }
   };
 
@@ -413,7 +464,7 @@ export const useCalendar = () => {
         messageApi.success(newState ? 'Jelentkezés megnyitva.' : 'Jelentkezés lezárva.');
         fetchData(true);
       }
-    } catch (err) {
+    } catch {
       setOpen(!newState);
       messageApi.error('Hálózati hiba történt.');
     }
@@ -441,7 +492,7 @@ export const useCalendar = () => {
         messageApi.success('Felhasználó létrehozva!');
         fetchData(true);
       }
-    } catch (err) { messageApi.error('Hálózati hiba történt.'); }
+    } catch { messageApi.error('Hálózati hiba történt.'); }
     setIsCreatingUser(false);
   };
 
@@ -474,14 +525,14 @@ export const useCalendar = () => {
   };
 
   return {
-    tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
+    tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
     allowedCategories, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,
-    isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, eventForm, saveEvent, handleDeleteTournament,
+    isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, isCopyingEvent, setIsCopyingEvent, eventForm, saveEvent, handleDeleteTournament,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     selectedEventToJoin, initiateJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,

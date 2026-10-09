@@ -1,12 +1,14 @@
 "use client";
 import React, { useState } from "react";
+import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
-import { EVENT_TYPES, getEventType, getEventTypeConfig, isSpecialEvent } from '@/lib/eventTypes';
+import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent } from '@/lib/eventTypes';
+import { findHostConflicts } from '@/lib/hostConflicts';
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -67,6 +69,7 @@ export const StoreSelector = ({ onSelect, embed = false }) => {
 };
 
 export const registrationPageUrl = (evt) => `/jelentkezes/${encodeURIComponent(String(evt._id || evt.id))}`;
+export const checkinPageUrl = (evt) => `/admin/checkin?event=${encodeURIComponent(String(evt._id || evt.id))}`;
 
 export const eventShareUrl = (evt) => `${window.location.origin}/esemeny/${encodeURIComponent(String(evt._id || evt.id))}`;
 
@@ -232,7 +235,7 @@ export const PublicModals = ({ app }) => {
 
 // grid: az események kártyarácsban, annyi oszlopban, amennyi kifér (admin felület); egyébként egyoszlopos lista
 export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false }) => {
-  const { formatEventDate, initiateJoin, initiateUnsubscribe, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, setEditingEventId, setIsExternalForm, eventForm, setIsEventModalOpen, handleToggleGate, togglingGateId, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
+  const { formatEventDate, initiateJoin, initiateUnsubscribe, setSelectedEventIdForAttendees, setIsAttendeesModalOpen, handleToggleGate, togglingGateId, handleDeleteTournament, setSelectedEventDetails, setIsEventDetailsModalOpen } = app;
   const renderCard = (evt) => {
       const eId = String(evt._id || evt.id);
       const isFull = evt.current_players >= evt.max_players;
@@ -296,8 +299,10 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                 <Space style={{ flexWrap: 'wrap' }}>
                   {!evt.external_url && !evt.isOpenAttendance && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   {!evt.external_url && !evt.isOpenAttendance && <Button icon={<FormOutlined />} title="Jelentkezési oldal megnyitása" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(registrationPageUrl(evt), '_blank', 'noopener')} />}
+                  {!evt.external_url && !evt.isOpenAttendance && <Button icon={<MobileOutlined />} title="Mobilos check-in" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(checkinPageUrl(evt), '_blank', 'noopener')} />}
                   <ShareEventButton evt={evt} messageApi={app.messageApi} copyOnly iconOnly style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
-                  <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8, store: evt.store || 'debrecen', eventType: getEventType(evt), hosts: (evt.hosts || []).filter(id => app.eligibleHosts(evt.category).some(u => u.id === String(id)))}); setIsEventModalOpen(true); }} />
+                  <Button type="default" icon={<EditOutlined />} title="Szerkesztés" style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => app.openEditEvent(evt)} />
+                  <Button icon={<CopyOutlined />} title="Másolás új időpontra" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => app.openCopyEvent(evt)} />
                   {!evt.isOpenAttendance && <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} loading={togglingGateId === eId} onClick={() => handleToggleGate(eId, !evt.is_open)}>{evt.is_open ? 'Zárás' : 'Megnyitás'}</Button>}
                   <Popconfirm title="Biztosan törlöd?" onConfirm={() => handleDeleteTournament(eId)} okText="Igen" cancelText="Mégse"><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm>
                 </Space>
@@ -513,7 +518,7 @@ export const SearchResults = ({ app, query }) => {
 
 // Versenyző gyors hozzáadása a "Jelentkezők" ablakban (helyszíni / telefonos jelentkezés). Az e-mail opcionális.
 // Hozzáadás után az űrlap kiürül és a felhasználónév mezőre ugrik, így egymás után többen is gyorsan felvehetők.
-const AddParticipantForm = ({ event, app }) => {
+export const AddParticipantForm = ({ event, app }) => {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const isFull = event.current_players >= event.max_players;
@@ -672,6 +677,7 @@ export const AdminEvents = ({ app: v }) => {
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   const [adminSearch, setAdminSearch] = useState('');
   const [showPast, setShowPast] = useState(false);
+  const [onlyMine, setOnlyMine] = useState(false); // csak az általam tartott események
   const [adminMonth, setAdminMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }); // a megjelenített hónap (= oldal)
   const [permUser, setPermUser] = useState(null); // akinek a játék-jogosultságát épp szerkesztjük
   const [permAll, setPermAll] = useState(true);
@@ -709,7 +715,10 @@ export const AdminEvents = ({ app: v }) => {
       const evtStore = evt.store || 'debrecen';
       const isStoreMatch = adminStoreFilter === 'Mind' || evtStore === adminStoreFilter;
       const isCatMatch = adminCatFilter.length === 0 || adminCatFilter.includes(evt.category || 'Egyéb');
-      return isStoreMatch && isCatMatch && eventMatchesQuery(evt, adminSearch, eventExtraSearchText(evt, STORES[evtStore]?.name));
+      const isMineMatch = !onlyMine || (evt.hosts || []).map(String).includes(String(v.userId));
+      // A keresés a szervezők nevére is talál
+      const extraText = `${eventExtraSearchText(evt, STORES[evtStore]?.name)} ${v.hostNames(evt).join(' ')}`;
+      return isStoreMatch && isCatMatch && isMineMatch && eventMatchesQuery(evt, adminSearch, extraText);
     })
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -766,6 +775,7 @@ export const AdminEvents = ({ app: v }) => {
     v.eventForm.resetFields();
     v.eventForm.setFieldsValue({ store: adminStoreFilter !== 'Mind' ? adminStoreFilter : undefined });
     v.setEditingEventId(null);
+    v.setIsCopyingEvent(false);
     v.setIsExternalForm(false);
     v.setIsEventModalOpen(true);
   };
@@ -816,15 +826,17 @@ export const AdminEvents = ({ app: v }) => {
           <div className={panel}>
             <Button type="primary" block size="large" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold', marginBottom: 8 }} onClick={openNewEvent}>Új esemény</Button>
             <div className="grid grid-cols-2 gap-2">
-              <Button block icon={<CalendarOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => window.location.href = '/admin/generator'}>Generátor</Button>
+              <Link href="/admin/generator"><Button block icon={<CalendarOutlined />} style={{ ...sideBtn, color: '#E5B15D' }}>Generátor</Button></Link>
               <Button block icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/', '_blank', 'noopener')}>Naptár</Button>
+              <Link href="/admin/statisztika"><Button block icon={<BarChartOutlined />} style={sideBtn}>Statisztika</Button></Link>
+              <Link href="/admin/checkin"><Button block icon={<MobileOutlined />} style={sideBtn}>Check-in</Button></Link>
             </div>
           </div>
 
           <div className={panel}>
             <Title level={5} style={panelTitle}><SearchOutlined /> Szűrés</Title>
             <div className="flex flex-col gap-2">
-              <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Név, játék, dátum, helyszín..." value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} />
+              <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Név, játék, dátum, helyszín, szervező..." value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} />
               <Select value={adminStoreFilter} onChange={setAdminStoreFilter} prefix={<EnvironmentOutlined style={{ color: '#E5B15D' }} />} style={{ width: '100%' }}>
                 <Select.Option value="Mind">Összes helyszín</Select.Option>
                 {Object.values(STORES).map(s => <Select.Option key={s.id} value={s.id}>{s.name}</Select.Option>)}
@@ -832,11 +844,16 @@ export const AdminEvents = ({ app: v }) => {
               <Select mode="multiple" allowClear value={adminCatFilter} onChange={setAdminCatFilter} placeholder="Minden játék" maxTagCount="responsive" style={{ width: '100%' }}>
                 {Object.keys(GAME_CONFIG).map(g => <Select.Option key={g} value={g}>{g}</Select.Option>)}
               </Select>
-              {hasRestrictedGames && (
-                <Button block type={isOwnGamesFilter ? 'primary' : 'default'} icon={<SafetyCertificateOutlined />} onClick={toggleOwnGamesFilter} style={isOwnGamesFilter ? { color: '#000', fontWeight: 'bold' } : sideBtn}>
-                  Saját játékaim{isOwnGamesFilter ? ' ✓' : ''}
+              <div className={hasRestrictedGames ? 'grid grid-cols-2 gap-2' : ''}>
+                {hasRestrictedGames && (
+                  <Button block type={isOwnGamesFilter ? 'primary' : 'default'} icon={<SafetyCertificateOutlined />} onClick={toggleOwnGamesFilter} style={isOwnGamesFilter ? { color: '#000', fontWeight: 'bold' } : sideBtn}>
+                    Saját játékaim{isOwnGamesFilter ? ' ✓' : ''}
+                  </Button>
+                )}
+                <Button block type={onlyMine ? 'primary' : 'default'} icon={<UserOutlined />} onClick={() => setOnlyMine(m => !m)} style={onlyMine ? { color: '#000', fontWeight: 'bold' } : sideBtn} title="Csak azok az események, amelyeknél te vagy a szervező">
+                  Általam tartott{onlyMine ? ' ✓' : ''}
                 </Button>
-              )}
+              </div>
               <Checkbox checked={showPast} onChange={(e) => setShowPast(e.target.checked)} style={{ marginTop: 4 }}>Mai nap előtti események az aktuális hónapban ({pastInCurrentMonth})</Checkbox>
             </div>
           </div>
@@ -892,13 +909,13 @@ export const AdminEvents = ({ app: v }) => {
           ) : (
             renderMonthPager()
           )}
-          <AdminDayGroups events={monthEvents} app={v} emptyText={isSearching ? 'Nincs a keresésnek megfelelő esemény.' : adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' ? 'Nincs a szűrőknek megfelelő esemény ebben a hónapban.' : 'Nincs esemény ebben a hónapban.'} />
+          <AdminDayGroups events={monthEvents} app={v} emptyText={isSearching ? 'Nincs a keresésnek megfelelő esemény.' : adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' || onlyMine ? 'Nincs a szűrőknek megfelelő esemény ebben a hónapban.' : 'Nincs esemény ebben a hónapban.'} />
           {!isSearching && monthEvents.length > 0 && renderMonthPager(true)}
         </section>
       </div>
       <div>
         
-        <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
+        <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : v.isCopyingEvent ? "Esemény másolása" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4" onValuesChange={(changed, all) => {
             if ('category' in changed && Array.isArray(all.hosts)) {
               const eligible = v.eligibleHosts(changed.category);
@@ -923,13 +940,21 @@ export const AdminEvents = ({ app: v }) => {
               </Form.Item>
             </div>
             
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category}>
+            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category || prev.hosts !== cur.hosts || prev.date !== cur.date}>
               {({ getFieldValue }) => {
                 const category = getFieldValue('category');
+                const conflicts = findHostConflicts(v.tournaments, { id: v.editingEventId, date: getFieldValue('date'), hosts: getFieldValue('hosts') });
                 return (
-                  <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot kezelhetik.' : 'Előbb válassz játékot.'}>
-                    <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category).map(u => ({ value: u.id, label: u.username })) : []} />
-                  </Form.Item>
+                  <>
+                    <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot kezelhetik.' : 'Előbb válassz játékot.'} style={conflicts.length > 0 ? { marginBottom: 8 } : undefined}>
+                      <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category).map(u => ({ value: u.id, label: u.username })) : []} />
+                    </Form.Item>
+                    {conflicts.length > 0 && (
+                      <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
+                        <WarningOutlined /> Ütközés: {conflicts.map(({ hostId, event }) => `${v.staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'} ekkor már tartja: ${event.name} (${v.formatEventDate(event.date)})`).join('; ')}
+                      </div>
+                    )}
+                  </>
                 );
               }}
             </Form.Item>
@@ -1086,7 +1111,10 @@ export const AdminEvents = ({ app: v }) => {
             <>
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <Text style={{ color: '#baaaac' }}>Létszám: <b style={{ color: '#E0D6C8' }}>{attendeesEvent.current_players} / {attendeesEvent.max_players}</b>{attendeesEvent.queue_count > 0 ? ` · várólistán: ${attendeesEvent.queue_count}` : ''}</Text>
-                <Button icon={<EyeOutlined />} onClick={() => window.open(registrationPageUrl(attendeesEvent), '_blank', 'noopener')}>Jelentkezési oldal megnyitása</Button>
+                <Space wrap>
+                  <Button icon={<MobileOutlined />} onClick={() => window.open(checkinPageUrl(attendeesEvent), '_blank', 'noopener')}>Mobilos check-in</Button>
+                  <Button icon={<EyeOutlined />} onClick={() => window.open(registrationPageUrl(attendeesEvent), '_blank', 'noopener')}>Jelentkezési oldal megnyitása</Button>
+                </Space>
               </div>
               <AddParticipantForm key={String(attendeesEvent._id || attendeesEvent.id)} event={attendeesEvent} app={v} />
             </>

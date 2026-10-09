@@ -78,7 +78,7 @@ export default function AdminPage() {
         message.success('Sikeres bejelentkezés!');
         window.location.reload(); // Frissíti az oldalt, így a useCalendar hook betölti a munkamenetet!
       }
-    } catch (e) {
+    } catch {
       message.error('Szerverhiba történt.');
     }
   };
@@ -98,7 +98,7 @@ export default function AdminPage() {
       }
       message.success('Jelszó beállítva, üdv a Tavernben!');
       window.location.reload();
-    } catch (e) {
+    } catch {
       message.error('Szerverhiba történt.');
     }
   };

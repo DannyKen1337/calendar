@@ -159,6 +159,7 @@ export async function POST(request) {
 
     return NextResponse.json({ error: "Érvénytelen művelet" }, { status: 400 });
   } catch (error) {
+    console.error('auth error:', error);
     return NextResponse.json({ error: "Szerverhiba történt." }, { status: 500 });
   }
 }

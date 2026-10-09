@@ -42,6 +42,7 @@ export async function GET() {
       }
     });
   } catch (error) {
+    console.error('export-db error:', error);
     return new Response(JSON.stringify({ error: 'Az exportálás nem sikerült.' }), { status: 500 });
   }
 }

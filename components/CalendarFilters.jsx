@@ -1,7 +1,7 @@
 "use client";
 import { GAME_CONFIG } from '@/lib/gameConfig';
 
-export default function CalendarFilters({ events, activeFilters, setActiveFilters, store }) {
+export default function CalendarFilters({ activeFilters, setActiveFilters, store }) {
 
   const toggleFilter = (game) => {
     if (activeFilters.includes(game)) {
