@@ -9,6 +9,7 @@ import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent } from '@/lib/eventTypes';
 import { findHostConflicts } from '@/lib/hostConflicts';
+import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
@@ -959,7 +960,21 @@ export const AdminEvents = ({ app: v }) => {
               }}
             </Form.Item>
 
-            <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]}><Input type="datetime-local" /></Form.Item>
+            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.date !== cur.date || prev.store !== cur.store}>
+              {({ getFieldValue }) => {
+                const hoursWarning = getOpeningHoursWarning(getFieldValue('store'), getFieldValue('date'));
+                return (
+                  <>
+                    <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]} style={hoursWarning ? { marginBottom: 8 } : undefined}><Input type="datetime-local" /></Form.Item>
+                    {hoursWarning && (
+                      <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
+                        <WarningOutlined /> {hoursWarning}
+                      </div>
+                    )}
+                  </>
+                );
+              }}
+            </Form.Item>
             <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az esemény csak tájékoztatásul jelenik meg a naptárban."><Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox></Form.Item>
             <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance || prev.max_players !== cur.max_players}>
               {({ getFieldValue }) => {

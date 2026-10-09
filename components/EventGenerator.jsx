@@ -1,9 +1,10 @@
 "use client";
 import React, { useState } from 'react';
-import { Form, Input, Select, Button, message, ConfigProvider, theme, Typography, InputNumber, Switch, Checkbox } from 'antd';
-import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Button, message, Modal, ConfigProvider, theme, Typography, InputNumber, Switch, Checkbox } from 'antd';
+import { CopyOutlined, LinkOutlined, WarningOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
 import { resolveAttendance } from '@/lib/attendance';
+import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text } = Typography;
 
@@ -40,9 +41,26 @@ export default function EventGenerator({ canManageGame = () => true }) {
   const useExternalLinkVal = Form.useWatch('useExternalLink', form);
   const isOpenAttendanceVal = Form.useWatch('isOpenAttendance', form);
   const maxPlayersVal = Form.useWatch('max_players', form);
+  const storeVal = Form.useWatch('store', form);
+  const timeVal = Form.useWatch('time', form);
+  const [modalApi, modalHolder] = Modal.useModal();
+  // Hetente ugyanazon a napon és időpontban ismétlődik, így az első alkalom alapján minden alkalomra érvényes
+  const hoursWarning = startDateVal && timeVal ? getOpeningHoursWarning(storeVal, `${startDateVal}T${timeVal}`) : null;
   const isOpenForm = resolveAttendance(maxPlayersVal, isOpenAttendanceVal).isOpenAttendance; // jelölőnégyzet vagy 0 a létszámnál
 
   const handleGenerate = async (values) => {
+    // Nyitvatartáson kívüli időpont: engedjük, de előbb rákérdezünk
+    const warning = getOpeningHoursWarning(values.store, `${values.startDate}T${values.time}`);
+    if (warning) {
+      const confirmed = await modalApi.confirm({
+        title: 'Nyitvatartáson kívüli időpont',
+        content: <><p>{warning}</p><p>Mégis legenerálod az eseményeket?</p></>,
+        okText: 'Generálás így is',
+        cancelText: 'Vissza',
+        okButtonProps: { style: { color: '#000', fontWeight: 'bold' } },
+      });
+      if (!confirmed) return;
+    }
     setIsGenerating(true);
     try {
       const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured, isOpenAttendance: openChecked } = values;
@@ -114,6 +132,7 @@ export default function EventGenerator({ canManageGame = () => true }) {
 
   return (
     <ConfigProvider theme={tavernTheme}>
+      {modalHolder}
       <div className="bg-[#1a1012] p-8 rounded-2xl border border-[#4A2E33] shadow-xl w-full max-w-2xl mx-auto">
         
         <div className="flex items-center gap-3 mb-8 border-b border-[#4A2E33] pb-4">
@@ -157,6 +176,11 @@ export default function EventGenerator({ canManageGame = () => true }) {
               <InputNumber min={1} max={52} size="large" style={{ width: '100%' }} />
             </Form.Item>
           </div>
+          {hoursWarning && (
+            <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
+              <WarningOutlined /> {hoursWarning}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item name="max_players" label="Max Létszám" extra="0 = kötetlen létszám (nincs jelentkezés)">

@@ -6,6 +6,7 @@ import { resolveAttendance } from "@/lib/attendance";
 import { canManageEvent, canManageCategory } from "@/lib/permissions";
 import { sanitizeEventType, getEventType } from "@/lib/eventTypes";
 import { findHostConflicts } from "@/lib/hostConflicts";
+import { getOpeningHoursWarning } from "@/lib/storeHours";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -317,19 +318,29 @@ export const useCalendar = () => {
         color: eventColor 
       };
       
-      // Szervezői ütközés: ugyanaz a szervező egy időben másik eseményt is tart – mentés előtt rákérdezünk
+      // Mentés előtti figyelmeztetések (a mentést nem tiltják, csak rákérdezünk):
+      // - nyitvatartás: nyitás előtt / nyitás után 30 percen belül / zárás után / zárva tartó napon kezdődik.
+      //   Szerkesztéskor csak akkor, ha az időpont vagy a helyszín változott, hogy a régi eseményeknél ne zavarjon.
+      // - szervezői ütközés: ugyanaz a szervező egy időben másik eseményt is tart
+      const timeChanged = !existing || existing.date !== payload.date || (existing.store || 'debrecen') !== (payload.store || 'debrecen');
+      const hoursWarning = timeChanged ? getOpeningHoursWarning(payload.store, payload.date) : null;
       const conflicts = findHostConflicts(tournaments, { id: editingEventId, date: payload.date, hosts: payload.hosts });
-      if (conflicts.length > 0) {
+      if (hoursWarning || conflicts.length > 0) {
         const confirmed = await modalApi.confirm({
-          title: 'Szervezői ütközés',
+          title: hoursWarning && conflicts.length > 0 ? 'Figyelmeztetések' : hoursWarning ? 'Nyitvatartáson kívüli időpont' : 'Szervezői ütközés',
           content: (
             <div>
-              <p>Ebben az időpontban már másik eseményt is tart:</p>
-              <ul style={{ paddingLeft: 18 }}>
-                {conflicts.map(({ hostId, event }) => (
-                  <li key={`${hostId}-${event._id || event.id}`}><b>{staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'}</b>: {event.name} ({formatEventDate(event.date)})</li>
-                ))}
-              </ul>
+              {hoursWarning && <p>{hoursWarning}</p>}
+              {conflicts.length > 0 && (
+                <>
+                  <p>Szervezői ütközés, ebben az időpontban már másik eseményt is tart:</p>
+                  <ul style={{ paddingLeft: 18 }}>
+                    {conflicts.map(({ hostId, event }) => (
+                      <li key={`${hostId}-${event._id || event.id}`}><b>{staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'}</b>: {event.name} ({formatEventDate(event.date)})</li>
+                    ))}
+                  </ul>
+                </>
+              )}
               <p>Mégis mented?</p>
             </div>
           ),
