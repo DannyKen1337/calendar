@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, SyncOutlined, CloseOutlined, LogoutOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, LockOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -270,6 +270,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
+                  {isAdmin && app.hostNames(evt).length > 0 && <Text style={{ display: 'block', color: '#baaaac', fontSize: 13, marginBottom: 4 }}><UserOutlined style={{ color: '#E5B15D' }} /> Tartja: <Text strong style={{ color: '#E0D6C8' }}>{app.hostNames(evt).join(', ')}</Text></Text>}
                   {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}<AttendeeNames attendees={evt.attendees} max={8} size="small" /></> )}
                 </div>
               </div>
@@ -296,7 +297,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                   {!evt.external_url && !evt.isOpenAttendance && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   {!evt.external_url && !evt.isOpenAttendance && <Button icon={<FormOutlined />} title="Jelentkezési oldal megnyitása" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(registrationPageUrl(evt), '_blank', 'noopener')} />}
                   <ShareEventButton evt={evt} messageApi={app.messageApi} copyOnly iconOnly style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
-                  <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8, store: evt.store || 'debrecen', eventType: getEventType(evt)}); setIsEventModalOpen(true); }} />
+                  <Button type="default" icon={<EditOutlined />} style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }} onClick={() => { setEditingEventId(eId); setIsExternalForm(!!evt.external_url); eventForm.setFieldsValue({...evt, max_players: evt.max_players || 8, store: evt.store || 'debrecen', eventType: getEventType(evt), hosts: (evt.hosts || []).filter(id => app.eligibleHosts(evt.category).some(u => u.id === String(id)))}); setIsEventModalOpen(true); }} />
                   {!evt.isOpenAttendance && <Button danger={evt.is_open ? true : false} type={evt.is_open ? "primary" : "default"} loading={togglingGateId === eId} onClick={() => handleToggleGate(eId, !evt.is_open)}>{evt.is_open ? 'Zárás' : 'Megnyitás'}</Button>}
                   <Popconfirm title="Biztosan törlöd?" onConfirm={() => handleDeleteTournament(eId)} okText="Igen" cancelText="Mégse"><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm>
                 </Space>
@@ -898,7 +899,12 @@ export const AdminEvents = ({ app: v }) => {
       <div>
         
         <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
-          <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4">
+          <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4" onValuesChange={(changed, all) => {
+            if ('category' in changed && Array.isArray(all.hosts)) {
+              const eligible = v.eligibleHosts(changed.category);
+              v.eventForm.setFieldsValue({ hosts: all.hosts.filter(id => eligible.some(u => u.id === id)) });
+            }
+          }}>
             <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
             <Form.Item name="eventType" label="Esemény típusa" initialValue="tournament" extra="A szett megjelenés, az expo és a különleges esemény feltűnőbb, saját megjelenést kap a naptárban. Ha nincs rá jelentkezés, pipáld be a „Kötetlen létszám” opciót.">
               <Select options={Object.entries(EVENT_TYPES).map(([value, t]) => ({ value, label: `${t.icon ? `${t.icon} ` : ''}${t.label}` }))} />
@@ -917,6 +923,17 @@ export const AdminEvents = ({ app: v }) => {
               </Form.Item>
             </div>
             
+            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category}>
+              {({ getFieldValue }) => {
+                const category = getFieldValue('category');
+                return (
+                  <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot kezelhetik.' : 'Előbb válassz játékot.'}>
+                    <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category).map(u => ({ value: u.id, label: u.username })) : []} />
+                  </Form.Item>
+                );
+              }}
+            </Form.Item>
+
             <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]}><Input type="datetime-local" /></Form.Item>
             <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az esemény csak tájékoztatásul jelenik meg a naptárban."><Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox></Form.Item>
             <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance || prev.max_players !== cur.max_players}>

@@ -17,14 +17,16 @@ export async function GET() {
 
     const db = await getTavernDb();
 
-    const [tournaments, registrations, users, logs, blacklist, settings] = await Promise.all([
+    const [tournaments, registrations, users, logs, blacklist, settings, staff] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
       db.collection('registrations').find({}, { projection: { cancelToken: 0 } }).toArray(),
       // Felhasználók, napló és feketelista: csak a tulajdonosnak (a kezelésük is csak neki engedélyezett)
       isOwner ? db.collection('users').find({}, { projection: { password: 0 } }).toArray() : [],
       isOwner ? db.collection('audit_logs').find({}).sort({ date: -1 }).limit(100).toArray() : [],
       isOwner ? db.collection('blacklist').find({}).toArray() : [],
-      db.collection('settings').findOne({ _id: 'global_settings' })
+      db.collection('settings').findOne({ _id: 'global_settings' }),
+      // Az esemény szervezőjének választható adminok (név + játék-jogosultság): minden adminnak kell az űrlaphoz
+      db.collection('users').find({ role: { $in: ['admin', 'owner'] } }, { projection: { username: 1, role: 1, allowedCategories: 1 } }).sort({ username: 1 }).toArray(),
     ]);
 
     // A szervező minden eseményt lát (a nyilvános, rövidített jelentkezőnevekkel együtt),
@@ -40,6 +42,7 @@ export async function GET() {
         registrations: visibleRegistrations,
         attendanceStats,
         users,
+        staff: staff.map(u => ({ id: String(u._id), username: u.username, role: u.role, allowedCategories: u.allowedCategories })),
         logs,
         blacklist,
         isMaintenance: settings?.isMaintenance || false

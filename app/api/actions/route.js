@@ -53,6 +53,19 @@ function pickTournamentFields(source) {
   return doc;
 }
 
+// Az eseményt tartó szervezők (felhasználó-azonosítók). Csak létező admin / tulajdonos maradhat benne,
+// aki az esemény játékát kezelheti; a nem jogosultakat csendben kihagyjuk. Csak az adminok látják.
+async function sanitizeHosts(db, value, category) {
+  if (!Array.isArray(value)) return [];
+  const ids = [...new Set(value.map(String))].filter(id => ObjectId.isValid(id) && id.length === 24).slice(0, 20);
+  if (ids.length === 0) return [];
+  const users = await db.collection('users')
+    .find({ _id: { $in: ids.map(id => new ObjectId(id)) }, role: { $in: ['admin', 'owner'] } }, { projection: { role: 1, allowedCategories: 1 } })
+    .toArray();
+  const eligible = new Set(users.filter(u => canManageCategory(u, category)).map(u => String(u._id)));
+  return ids.filter(id => eligible.has(id));
+}
+
 const isActiveStatus = (status) => status === 'Aktív' || status === 'Active';
 
 // Felszabadult helyekre a várólista legkorábbi jelentkezői lépnek elő (leiratkozás, jelentkező törlése, létszámemelés után).
@@ -182,6 +195,7 @@ export async function POST(request) {
       if (!canManageCategory(session, doc.category)) return noPermission();
       const result = await db.collection('tournaments').insertOne({
         ...doc,
+        hosts: await sanitizeHosts(db, payload.hosts, doc.category),
         current_players: 0,
         queue_count: 0,
         is_open: true,
@@ -200,6 +214,7 @@ export async function POST(request) {
       if (!canManageEvent(session, existingEvent) || (updates.category !== undefined && !canManageCategory(session, updates.category))) {
         return noPermission();
       }
+      if (rest.hosts !== undefined) updates.hosts = await sanitizeHosts(db, rest.hosts, updates.category ?? existingEvent.category);
       await db.collection('tournaments').updateOne(getQuery(id), { $set: updates });
       await addLog(db, session.username, 'MÓDOSÍTÁS', `Szerkesztette: ${updates.name ?? payload.name ?? 'esemény'}`);
       // Ha nőtt a max. létszám, a várólistáról előlépnek a következők

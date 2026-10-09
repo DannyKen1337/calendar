@@ -15,6 +15,7 @@ export const useCalendar = () => {
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
   const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
   const [usersList, setUsersList] = useState([]);
+  const [staffList, setStaffList] = useState([]); // adminok és tulajdonosok: az esemény szervezőjének választhatók
   
   // A legutóbb választott helyszín. Szerveren null – ez nem okoz hidratálási eltérést, mert betöltés közben a helyszínt még semmi nem jeleníti meg.
   // Beágyazott (harmadik féltől származó) iframe-ben a böngésző letilthatja a localStorage-ot: ilyenkor kivételt dob
@@ -132,6 +133,7 @@ export const useCalendar = () => {
       if (data.registrations) setRegistrations(data.registrations);
       if (data.attendanceStats) setAttendanceStats(data.attendanceStats);
       if (data.users) setUsersList(data.users);
+      if (data.staff) setStaffList(data.staff);
       if (data.logs) setLogs(data.logs);
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
@@ -304,6 +306,7 @@ export const useCalendar = () => {
         isOpenAttendance,
         isFeatured: !!formValues.isFeatured,
         eventType: sanitizeEventType(formValues.eventType),
+        hosts: Array.isArray(formValues.hosts) ? formValues.hosts : [],
         color: eventColor 
       };
       
@@ -446,6 +449,10 @@ export const useCalendar = () => {
   const currentUser = { role: userRole, allowedCategories };
   const canManage = (evt) => canManageEvent(currentUser, evt);
   const canManageGame = (category) => canManageCategory(currentUser, category);
+  // Az esemény szervezőjének választható adminok: akik az adott játékot kezelhetik
+  const eligibleHosts = (category) => staffList.filter(u => canManageCategory(u, category));
+  // Az eseményt tartó szervezők neve (a közben törölt fiókok kimaradnak)
+  const hostNames = (evt) => (Array.isArray(evt?.hosts) ? evt.hosts : []).map(id => staffList.find(u => u.id === String(id))?.username).filter(Boolean);
 
   // Újdonságok ablak bezárásakor: azonnal elrejtjük, és elmentjük, hogy ez a verzió már olvasott
   const markChangelogSeen = async (id) => {
@@ -468,7 +475,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, usersList,
-    allowedCategories, canManage, canManageGame, setAdminCategories, lastSeenChangelog, markChangelogSeen,
+    allowedCategories, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
