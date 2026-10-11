@@ -154,8 +154,11 @@ export default function CheckinView({ app, eventId }) {
           const id = r._id || r.id;
           const yes = r.attended === true;
           const no = r.attended === false;
+          const deckYes = r.decklist === true;
+          const deckNo = r.decklist === false;
           return (
-            <div key={String(id)} className="bg-[#1a1012] rounded-xl border p-3 flex items-center gap-3" style={{ borderColor: yes ? '#389e0d' : no ? '#a8071a' : '#4A2E33' }}>
+            <div key={String(id)} className="bg-[#1a1012] rounded-xl border p-3 flex flex-col gap-3" style={{ borderColor: yes ? '#389e0d' : no ? '#a8071a' : '#4A2E33' }}>
+            <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <div style={{ color: '#E5B15D', fontWeight: 'bold', fontSize: 17, overflowWrap: 'anywhere' }}>{r.username || r.name}</div>
                 {r.username && r.name && r.name !== r.username && <div style={{ color: '#E0D6C8', fontSize: 14, overflowWrap: 'anywhere' }}>{r.name}</div>}
@@ -175,6 +178,21 @@ export default function CheckinView({ app, eventId }) {
                 onClick={() => app.setAttendance(id, no ? null : false)}
                 style={{ width: 56, height: 56, fontSize: 22, ...(no ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
               />
+            </div>
+            {/* Decklist: külön sorban, hogy a megjelenés gombjaival ne lehessen összetéveszteni */}
+            <div className="flex items-center gap-2 border-t border-[#4A2E33] pt-3">
+              <span className="flex-1" style={{ color: '#baaaac', fontSize: 14 }}>Decklist</span>
+              <Button
+                icon={<CheckOutlined />}
+                onClick={() => app.setDecklist(id, deckYes ? null : true)}
+                style={{ height: 40, ...(deckYes ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
+              >Leadta</Button>
+              <Button
+                icon={<CloseOutlined />}
+                onClick={() => app.setDecklist(id, deckNo ? null : false)}
+                style={{ height: 40, ...(deckNo ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
+              >Nem adta le</Button>
+            </div>
             </div>
           );
         })}

@@ -709,6 +709,7 @@ export const AdminEvents = ({ app: v }) => {
     .filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees))
     .sort((a, b) => (isActiveReg(b) - isActiveReg(a)) || (new Date(a.date) - new Date(b.date)));
   const checkedInCount = currentAttendees.filter(r => r.attended === true).length;
+  const decklistCount = currentAttendees.filter(r => r.decklist === true).length;
   const attendeesEvent = (v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedEventIdForAttendees));
   
   const filteredAndSortedTournaments = (v.tournaments || [])
@@ -1114,7 +1115,7 @@ export const AdminEvents = ({ app: v }) => {
           </Form>
         </Modal>
         <Modal
-          title={<span style={{ fontFamily: 'Georgia, serif' }}>Jelentkezők{attendeesEvent ? `: ${attendeesEvent.name}` : ''} · <span style={{ color: '#baaaac', fontSize: '0.9em' }}>{checkedInCount} / {currentAttendees.length} megjelent</span></span>}
+          title={<span style={{ fontFamily: 'Georgia, serif' }}>Jelentkezők{attendeesEvent ? `: ${attendeesEvent.name}` : ''} · <span style={{ color: '#baaaac', fontSize: '0.9em' }}>{checkedInCount} / {currentAttendees.length} megjelent · {decklistCount} decklist</span></span>}
           open={v.isAttendeesModalOpen}
           onCancel={() => v.setIsAttendeesModalOpen(false)}
           footer={null}
@@ -1134,8 +1135,8 @@ export const AdminEvents = ({ app: v }) => {
               <AddParticipantForm key={String(attendeesEvent._id || attendeesEvent.id)} event={attendeesEvent} app={v} />
             </>
           )}
-          <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗). Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
-          <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 760 }} columns={[
+          <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗), illetve ki adta le a decklistet. Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
+          <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 880 }} columns={[
             { title: 'Felhasználónév / Teljes név', dataIndex: 'name', key: 'name', render: (text, record) => (
                 <div>
                   {record.username
@@ -1163,6 +1164,29 @@ export const AdminEvents = ({ app: v }) => {
                       danger={record.attended === false}
                       onClick={() => v.setAttendance(id, record.attended === false ? null : false)}
                       aria-label="Nem jelent meg"
+                    />
+                  </Space.Compact>
+                );
+            }},
+            { title: 'Decklist?', key: 'decklist', render: (_, record) => {
+                const id = record._id || record.id;
+                return (
+                  <Space.Compact>
+                    <Button
+                      icon={<CheckOutlined />}
+                      type={record.decklist === true ? 'primary' : 'default'}
+                      style={record.decklist === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
+                      onClick={() => v.setDecklist(id, record.decklist === true ? null : true)}
+                      aria-label="Leadta a decklistet"
+                      title="Leadta a decklistet"
+                    />
+                    <Button
+                      icon={<CloseOutlined />}
+                      type={record.decklist === false ? 'primary' : 'default'}
+                      danger={record.decklist === false}
+                      onClick={() => v.setDecklist(id, record.decklist === false ? null : false)}
+                      aria-label="Nem adta le a decklistet"
+                      title="Nem adta le a decklistet"
                     />
                   </Space.Compact>
                 );

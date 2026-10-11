@@ -8,6 +8,7 @@ import SearchBar from '@/components/SearchBar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
 import { EnvironmentOutlined, SwapOutlined } from '@ant-design/icons';
 import EmbedBridge from '@/components/EmbedBridge';
+import TodayProgram from '@/components/TodayProgram';
 
 // embed: iframe-be ágyazott nézet (pl. webshopba) – kompakt, nincs teljes képernyős magasság.
 // fixedStore: a beágyazó által rögzített helyszín (?store=...), ilyenkor nincs boltválasztó.
@@ -121,7 +122,9 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
         ) : (
           <CalendarView app={appWithFilteredEvents} compact={embed} />
         )}
-        
+
+        {/* A mai program a helyszín összes mai eseményét mutatja, a játékszűrőtől és a kereséstől függetlenül */}
+        <TodayProgram app={app} events={storeTournaments} compact={embed} />
       </div>
     </main>
   );

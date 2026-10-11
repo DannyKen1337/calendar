@@ -531,6 +531,22 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // --- DECKLIST: leadta / nem adta le / visszavonás (decklist: true | false | null) ---
+    if (actionType === 'SET_DECKLIST') {
+      const decklist = payload.decklist === true ? true : payload.decklist === false ? false : null;
+      const reg = await db.collection('registrations').findOne(getQuery(payload.registrationId));
+      if (!reg) return NextResponse.json({ error: 'Jelentkezés nem található.' }, { status: 404 });
+      const event = await db.collection('tournaments').findOne(getQuery(reg.tournamentId));
+      if (!event) return NextResponse.json({ error: 'Esemény nem található.' }, { status: 404 });
+      if (!canManageEvent(session, event)) return noPermission();
+
+      await db.collection('registrations').updateOne(
+        { _id: reg._id },
+        decklist === null ? { $unset: { decklist: '', decklistAt: '' } } : { $set: { decklist, decklistAt: new Date() } }
+      );
+      return NextResponse.json({ success: true });
+    }
+
     // --- ÚJDONSÁGOK ABLAK: a bejelentkezett admin megjelöli, hogy elolvasta (felhasználónként, minden eszközön érvényes) ---
     if (actionType === 'MARK_CHANGELOG_SEEN') {
       if (!isValidChangelogId(payload.id)) return NextResponse.json({ error: 'Ismeretlen verzió.' }, { status: 400 });

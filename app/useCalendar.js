@@ -451,6 +451,15 @@ export const useCalendar = () => {
     fetchData(true);
   };
 
+  // Decklist leadása: ugyanúgy optimistán jelöljük, mint a megjelenést
+  const setDecklist = async (registrationId, decklist) => {
+    const id = String(registrationId);
+    const prev = registrations.find(r => String(r._id || r.id) === id)?.decklist;
+    const apply = (value) => setRegistrations(list => list.map(r => String(r._id || r.id) === id ? { ...r, decklist: value ?? undefined } : r));
+    apply(decklist);
+    if (!(await postAction('SET_DECKLIST', { registrationId: id, decklist }))) apply(prev);
+  };
+
   const handleRemoveRegistration = async (registrationId) => {
     if (!(await postAction('REMOVE_REGISTRATION', { registrationId }))) return;
     messageApi.success("Jelentkező törölve.");
@@ -547,7 +556,7 @@ export const useCalendar = () => {
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     selectedEventToJoin, initiateJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,
-    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration, attendanceStats, setAttendance, adminAddRegistration,
+    isAttendeesModalOpen, setIsAttendeesModalOpen, selectedEventIdForAttendees, setSelectedEventIdForAttendees, registrations, handleRemoveRegistration, attendanceStats, setAttendance, setDecklist, adminAddRegistration,
     messageApi, contextHolder, formatEventDate, fetchData, canRegister, handleToggleGate, togglingGateId,
     isCreateUserModalOpen, setIsCreateUserModalOpen, createUserForm, createdCredentials, isCreatingUser, submitCreateUser, closeCreateUserModal
   };
