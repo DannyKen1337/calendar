@@ -31,14 +31,16 @@ export async function GET() {
     const db = await getTavernDb();
     const leagues = (await db.collection('leagues').find({}).toArray()).filter(l => canManageCategory(session, l.category));
     const ids = leagues.map(l => String(l._id));
-    const [players, sessions] = ids.length ? await Promise.all([
+    const [players, sessions, seasons] = ids.length ? await Promise.all([
       db.collection('league_players').find({ leagueId: { $in: ids } }).sort({ nickname: 1 }).toArray(),
       db.collection('league_sessions').find({ leagueId: { $in: ids } }).sort({ date: -1, createdAt: -1 }).toArray(),
-    ]) : [[], []];
+      db.collection('league_seasons').find({ leagueId: { $in: ids } }).sort({ closedAt: -1 }).toArray(),
+    ]) : [[], [], []];
     return NextResponse.json({
       leagues: leagues.map(leagueOut),
       players: players.map(playerOut),
       sessions: sessions.map(sessionOut),
+      seasons: seasons.map(s => ({ id: String(s._id), leagueId: s.leagueId, name: s.name, closedAt: s.closedAt, closedBy: s.closedBy || '', players: (s.rows || []).length, winners: (s.rows || []).filter(r => r.rank === 1).map(r => r.nickname) })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
     });
   } catch (error) {
@@ -107,9 +109,9 @@ export async function POST(request) {
       const { league, res } = await loadLeague(payload.id);
       if (res) return res;
       const id = String(league._id);
-      await Promise.all([players.deleteMany({ leagueId: id }), sessions.deleteMany({ leagueId: id })]);
+      await Promise.all([players.deleteMany({ leagueId: id }), sessions.deleteMany({ leagueId: id }), db.collection('league_seasons').deleteMany({ leagueId: id })]);
       await leagues.deleteOne({ _id: league._id });
-      await addLog(db, session.username, 'LIGA TÖRLÉSE', `${league.name} (${league.category}) a játékosokkal és alkalmakkal együtt`);
+      await addLog(db, session.username, 'LIGA TÖRLÉSE', `${league.name} (${league.category}) a játékosokkal, alkalmakkal és korábbi szezonokkal együtt`);
       return NextResponse.json({ success: true });
     }
 
@@ -198,6 +200,42 @@ export async function POST(request) {
       if (upd.matchedCount === 0) return bad('Közben valaki más publikálta a ranglistát. Frissítsd az oldalt, nézd meg az előnézetet, és publikáld újra.', 409);
       await addLog(db, session.username, 'LIGA PUBLIKÁLÁS', `${league.name} (${league.category}): ${rows.length} játékos`);
       return NextResponse.json({ success: true, publishedAt: now, rows });
+    }
+
+    // Szezon lezárása: a jelenlegi (piszkozat) állás végeredményként archiválódik (csak becenevek), az alkalmak törlődnek,
+    // a játékosok kérésre megmaradnak, és új néven, nulláról indul a következő szezon (még publikálatlan ranglistával)
+    if (actionType === 'CLOSE_SEASON') {
+      const { league, res } = await loadLeague(payload.leagueId);
+      if (res) return res;
+      const newName = String(payload.newName ?? '').trim().replace(/\s+/g, ' ');
+      if (!newName || newName.length > LEAGUE_NAME_MAX) return bad(`Add meg az új szezon nevét (legfeljebb ${LEAGUE_NAME_MAX} karakter).`);
+      if (newName === league.name) return bad('Az új szezon neve legyen más, mint a mostanié (pl. évszak vagy év).');
+      const keepPlayers = payload.keepPlayers !== false;
+      const leagueId = String(league._id);
+      const [pl, ss] = await Promise.all([players.find({ leagueId }).toArray(), sessions.find({ leagueId }).toArray()]);
+      if (ss.length === 0) return bad('Ebben a szezonban még nincs rögzített alkalom, nincs mit lezárni.');
+      const standings = computeStandings({ ...DEFAULT_RULES, ...(league.rules || {}) }, pl.map(p => ({ id: String(p._id), nickname: p.nickname })), ss);
+      const rows = buildSnapshot(standings, null).map(r => ({ ...r, delta: 0 }));
+      const now = new Date();
+      // Feltételes váltás: ha közben valaki más már lezárta, ne archiváljunk kétszer
+      const switched = await leagues.updateOne({ _id: league._id, name: league.name }, { $set: { name: newName, seasonStartedAt: now }, $unset: { published: '' } });
+      if (switched.matchedCount === 0) return bad('Közben valaki más módosította a ligát. Frissítsd az oldalt.', 409);
+      await db.collection('league_seasons').insertOne({ leagueId, category: league.category, name: league.name, rules: league.rules, closedAt: now, closedBy: session.username, sessionCount: ss.length, rows });
+      await sessions.deleteMany({ leagueId });
+      if (!keepPlayers) await players.deleteMany({ leagueId });
+      await addLog(db, session.username, 'LIGA SZEZON', `${league.name} (${league.category}) lezárva, ${rows.length} játékos, ${ss.length} alkalom. Új szezon: ${newName}${keepPlayers ? ' (játékosok megtartva)' : ' (játékosok törölve)'}`);
+      return NextResponse.json({ success: true });
+    }
+
+    if (actionType === 'DELETE_SEASON') {
+      const oid = toObjectId(payload.id);
+      const season = oid ? await db.collection('league_seasons').findOne({ _id: oid }) : null;
+      if (!season) return bad('A szezon nem található.', 404);
+      const { res } = await loadLeague(season.leagueId);
+      if (res) return res;
+      await db.collection('league_seasons').deleteOne({ _id: season._id });
+      await addLog(db, session.username, 'LIGA SZEZON', `Archív szezon törölve: ${season.name} (${season.category})`);
+      return NextResponse.json({ success: true });
     }
 
     return bad('Ismeretlen művelet.');

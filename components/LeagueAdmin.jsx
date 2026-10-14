@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Table, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, EyeOutlined, LinkOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TrophyOutlined, CloudUploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, EyeOutlined, LinkOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TrophyOutlined, CloudUploadOutlined, FlagOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
 import Leaderboard, { formatPublishedAt } from '@/components/Leaderboard';
@@ -45,9 +45,11 @@ export default function LeagueAdmin() {
   const [sessionEdit, setSessionEdit] = useState(null); // null: zárva; { id?, date, title, results: {playerId: {...}} }
   const [sessionQuery, setSessionQuery] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false); // szezon lezárása ablak
   const [createForm] = Form.useForm();
   const [settingsForm] = Form.useForm();
   const [playerForm] = Form.useForm();
+  const [closeForm] = Form.useForm();
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +91,7 @@ export default function LeagueAdmin() {
   const league = data?.leagues.find(l => l.category === game) || null;
   const players = useMemo(() => (league ? data.players.filter(p => p.leagueId === league.id) : []), [data, league]);
   const sessions = useMemo(() => (league ? data.sessions.filter(s => s.leagueId === league.id) : []), [data, league]);
+  const seasons = useMemo(() => (league ? (data.seasons || []).filter(s => s.leagueId === league.id) : []), [data, league]);
   const standings = useMemo(() => (league ? computeStandings(league.rules, players, sessions) : []), [league, players, sessions]);
   const snapshot = useMemo(() => buildSnapshot(standings, league?.published?.rows), [standings, league]);
   const statsById = useMemo(() => new Map(standings.map(s => [s.playerId, s])), [standings]);
@@ -160,6 +163,19 @@ export default function LeagueAdmin() {
     messageApi.success('Alkalom törölve.');
     load();
   };
+  const closeSeason = async (values) => {
+    if (!(await post('CLOSE_SEASON', { leagueId: league.id, newName: values.newName, keepPlayers: values.keepPlayers }))) return;
+    messageApi.success('Szezon lezárva és archiválva. Az új szezon ranglistája az első publikáláskor jelenik meg.');
+    setCloseOpen(false);
+    setTab('seasons');
+    load();
+  };
+  const deleteSeason = async (s) => {
+    if (!(await post('DELETE_SEASON', { id: s.id }))) return;
+    messageApi.success('Archív szezon törölve.');
+    load();
+  };
+
   const publish = async () => {
     const res = await post('PUBLISH', { leagueId: league.id });
     if (!res) return;
@@ -291,9 +307,10 @@ export default function LeagueAdmin() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="primary" icon={<EyeOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setPreviewOpen(true)}>Előnézet és publikálás</Button>
-              <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league.category)}`)} disabled={!league.published}>Link másolása</Button>
-              <Button icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open(leagueUrl(league.category), '_blank', 'noopener')} disabled={!league.published}>Nyilvános oldal</Button>
+              <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league.category)}`)} disabled={!league.published && seasons.length === 0}>Link másolása</Button>
+              <Button icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open(leagueUrl(league.category), '_blank', 'noopener')} disabled={!league.published && seasons.length === 0}>Nyilvános oldal</Button>
               <Button icon={<SettingOutlined />} style={sideBtn} onClick={() => { settingsForm.setFieldsValue({ name: league.name, rules: league.rules }); setSettingsOpen(true); }}>Beállítások</Button>
+              <Button icon={<FlagOutlined />} style={sideBtn} disabled={sessions.length === 0} title={sessions.length === 0 ? 'Nincs még rögzített alkalom' : 'A szezon végeredményének archiválása és új szezon indítása'} onClick={() => { closeForm.resetFields(); closeForm.setFieldsValue({ newName: '', keepPlayers: true }); setCloseOpen(true); }}>Szezon lezárása</Button>
             </div>
           </div>
         </div>
@@ -340,6 +357,29 @@ export default function LeagueAdmin() {
                   </div>
                 ),
               },
+              {
+                key: 'seasons',
+                label: `Korábbi szezonok (${seasons.length})`,
+                children: (
+                  <div className="flex flex-col gap-3">
+                    <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A lezárt szezonok végeredménye a nyilvános oldalon is visszanézhető. Csak becenevek szerepelnek benne.</Text>
+                    <Table size="small" dataSource={seasons} rowKey="id" pagination={false} scroll={{ x: 640 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs lezárt szezon.</span> }} columns={[
+                      { title: 'Szezon', dataIndex: 'name', render: (t) => <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{t}</span> },
+                      { title: 'Lezárva', dataIndex: 'closedAt', render: (d, s) => <span style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{formatPublishedAt(d)}{s.closedBy ? ` (${s.closedBy})` : ''}</span> },
+                      { title: 'Győztes', dataIndex: 'winners', render: (w) => <span style={{ color: '#E0D6C8' }}>{w.join(', ') || '—'}</span> },
+                      { title: 'Játékos', dataIndex: 'players', align: 'right' },
+                      { title: '', key: 'actions', width: 96, render: (_, s) => (
+                        <span className="flex">
+                          <Button type="text" icon={<EyeOutlined />} aria-label="Megnyitás" style={{ color: '#E0D6C8' }} onClick={() => window.open(`${leagueUrl(league.category)}?szezon=${encodeURIComponent(s.id)}`, '_blank', 'noopener')} />
+                          <Popconfirm title="Törlöd ezt az archív szezont?" description="A végeredménye a nyilvános oldalról is eltűnik." onConfirm={() => deleteSeason(s)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+                            <Button type="text" danger icon={<DeleteOutlined />} aria-label="Törlés" />
+                          </Popconfirm>
+                        </span>
+                      ) },
+                    ]} />
+                  </div>
+                ),
+              },
             ]}
           />
         </div>
@@ -374,6 +414,36 @@ export default function LeagueAdmin() {
         </div>
       </Modal>
 
+      {/* Szezon lezárása: a végeredmény előnézete, az új szezon neve */}
+      <Modal
+        title={modalTitle('Szezon lezárása')}
+        open={closeOpen}
+        onCancel={() => setCloseOpen(false)}
+        onOk={() => closeForm.submit()}
+        okText="Szezon lezárása"
+        cancelText="Mégse"
+        confirmLoading={busy}
+        okButtonProps={{ danger: true }}
+        width={720}
+        closeIcon={closeIcon}
+        forceRender
+      >
+        <div className="flex flex-col gap-3 pt-2">
+          <Text style={{ color: '#baaaac' }}>
+            Ez lesz a(z) „{league.name}” végeredménye. Lezárás után archiválódik, és a nyilvános oldalon visszanézhető. Az alkalmak törlődnek, az új szezon nulláról indul, a ranglistája pedig az első publikáláskor jelenik meg.
+          </Text>
+          <Leaderboard league={league} rows={snapshot} compact hideDelta subtitle="Végeredmény (előnézet)" />
+          <Form form={closeForm} layout="vertical" requiredMark={false} onFinish={closeSeason}>
+            <Form.Item name="newName" label="Az új szezon neve" rules={[{ required: true, whitespace: true, message: 'Add meg az új szezon nevét!' }]} extra="Pl.: Pokémon liga – 2027 tavasz">
+              <Input maxLength={LEAGUE_NAME_MAX} />
+            </Form.Item>
+            <Form.Item name="keepPlayers" valuePropName="checked" style={{ marginBottom: 0 }} extra="Ha kiveszed a pipát, a játékosok adatai (teljes név, e-mail) is törlődnek, és az új szezonban újra fel kell venni őket.">
+              <Checkbox>Játékosok megtartása az új szezonra</Checkbox>
+            </Form.Item>
+          </Form>
+        </div>
+      </Modal>
+
       {/* Liga beállításai */}
       <Modal title={modalTitle('Liga beállításai')} open={settingsOpen} onCancel={() => setSettingsOpen(false)} onOk={() => settingsForm.submit()} okText="Mentés" cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon} forceRender>
         <Form form={settingsForm} layout="vertical" requiredMark={false} onFinish={saveSettings} className="mt-4">
@@ -394,7 +464,7 @@ export default function LeagueAdmin() {
           <Form.Item name="nickname" label="Becenév" rules={[{ required: true, whitespace: true, message: 'Add meg a becenevet!' }, { min: 2, max: 24, message: '2-24 karakter' }]} extra="Ez látszik a ranglistán.">
             <Input maxLength={24} placeholder="Pl.: PikaMester" autoComplete="off" />
           </Form.Item>
-          <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail címet adj meg!' }]} extra="Csak a szervezők látják. Egy ligában egy e-mail címmel egy játékos lehet.">
+          <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail címet adj meg!' }]} extra="Csak a szervezők látják. Egy ligában egy e-mail címmel egy játékos lehet. Ha a játékos 12 hónapig egy alkalmon sem jelenik meg, az adatai automatikusan törlődnek.">
             <Input type="email" placeholder="nev@pelda.hu" autoComplete="off" />
           </Form.Item>
         </Form>

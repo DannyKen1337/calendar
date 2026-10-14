@@ -30,6 +30,7 @@ export const useCalendar = () => {
   const [logs, setLogs] = useState([]);
   const [blacklist, setBlacklist] = useState([]);
   const [isMaintenance, setIsMaintenance] = useState(false);
+  const [extraLinks, setExtraLinks] = useState({ leagues: false, preorders: false }); // van-e publikált liga / nyitott előrendelés
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
 
@@ -115,6 +116,7 @@ export const useCalendar = () => {
         setTournaments(coloredTournaments);
       }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
+      if (data.extraLinks) setExtraLinks(data.extraLinks);
       if (data.error) messageApi.error('Nem sikerült betölteni az eseményeket.');
     } catch {
       messageApi.error('Hálózati hiba az események betöltésekor.');
@@ -146,6 +148,7 @@ export const useCalendar = () => {
       if (data.logs) setLogs(data.logs);
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
+      if (data.extraLinks) setExtraLinks(data.extraLinks);
       if (data.error) messageApi.error(data.error);
     } catch {
       messageApi.error('Hálózati hiba az admin adatok betöltésekor.');
@@ -315,6 +318,7 @@ export const useCalendar = () => {
         isExternalEvent: isOpenAttendance ? false : !!formValues.external_url,
         isOpenAttendance,
         isFeatured: !!formValues.isFeatured,
+        decklistEnabled: !!formValues.decklistEnabled,
         eventType: sanitizeEventType(formValues.eventType),
         hosts: Array.isArray(formValues.hosts) ? formValues.hosts : [],
         color: eventColor 
@@ -378,7 +382,7 @@ export const useCalendar = () => {
   const eventFormValues = (evt) => ({
     name: evt.name, store: evt.store || 'debrecen', category: evt.category, date: evt.date,
     max_players: evt.isOpenAttendance ? undefined : (evt.max_players || 8), external_url: evt.external_url || '', description: evt.description || '',
-    isFeatured: !!evt.isFeatured, isOpenAttendance: !!evt.isOpenAttendance, eventType: getEventType(evt),
+    isFeatured: !!evt.isFeatured, isOpenAttendance: !!evt.isOpenAttendance, eventType: getEventType(evt), decklistEnabled: !!evt.decklistEnabled,
     hosts: (evt.hosts || []).map(String).filter(id => eligibleHosts(evt.category).some(u => u.id === id)),
   });
 
@@ -551,7 +555,7 @@ export const useCalendar = () => {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
     allowedCategories, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
-    isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
+    isMaintenance, extraLinks, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,

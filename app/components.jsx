@@ -7,7 +7,7 @@ import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
-import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent } from '@/lib/eventTypes';
+import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent, showsDecklist } from '@/lib/eventTypes';
 import { findHostConflicts } from '@/lib/hostConflicts';
 import { FEATURES } from '@/lib/permissions';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
@@ -715,6 +715,7 @@ export const AdminEvents = ({ app: v }) => {
   const checkedInCount = currentAttendees.filter(r => r.attended === true).length;
   const decklistCount = currentAttendees.filter(r => r.decklist === true).length;
   const attendeesEvent = (v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedEventIdForAttendees));
+  const showDecklist = showsDecklist(attendeesEvent, currentAttendees);
   
   const filteredAndSortedTournaments = (v.tournaments || [])
     .filter(evt => {
@@ -996,7 +997,8 @@ export const AdminEvents = ({ app: v }) => {
               }}
             </Form.Item>
             <Form.Item name="description" label="Leírás (Opcionális)"><Input.TextArea rows={4} placeholder="További részletek a versenyről..." /></Form.Item>
-            <Form.Item name="isFeatured" valuePropName="checked"><Checkbox>Kiemelt verseny/esemény</Checkbox></Form.Item>
+            <Form.Item name="isFeatured" valuePropName="checked" style={{ marginBottom: 8 }}><Checkbox>Kiemelt verseny/esemény</Checkbox></Form.Item>
+            <Form.Item name="decklistEnabled" valuePropName="checked" extra="A „Jelentkezők” ablakban és a mobilos check-inben jelölhető, ki adta le a decklistet."><Checkbox>Decklist leadás jelölése</Checkbox></Form.Item>
           </Form>
         </Modal>
 
@@ -1128,7 +1130,7 @@ export const AdminEvents = ({ app: v }) => {
           </Form>
         </Modal>
         <Modal
-          title={<span style={{ fontFamily: 'Georgia, serif' }}>Jelentkezők{attendeesEvent ? `: ${attendeesEvent.name}` : ''} · <span style={{ color: '#baaaac', fontSize: '0.9em' }}>{checkedInCount} / {currentAttendees.length} megjelent · {decklistCount} decklist</span></span>}
+          title={<span style={{ fontFamily: 'Georgia, serif' }}>Jelentkezők{attendeesEvent ? `: ${attendeesEvent.name}` : ''} · <span style={{ color: '#baaaac', fontSize: '0.9em' }}>{checkedInCount} / {currentAttendees.length} megjelent{showDecklist ? ` · ${decklistCount} decklist` : ''}</span></span>}
           open={v.isAttendeesModalOpen}
           onCancel={() => v.setIsAttendeesModalOpen(false)}
           footer={null}
@@ -1148,7 +1150,7 @@ export const AdminEvents = ({ app: v }) => {
               <AddParticipantForm key={String(attendeesEvent._id || attendeesEvent.id)} event={attendeesEvent} app={v} />
             </>
           )}
-          <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗), illetve ki adta le a decklistet. Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
+          <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗){showDecklist ? ', illetve ki adta le a decklistet' : ''}. Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
           <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 880 }} columns={[
             { title: 'Felhasználónév / Teljes név', dataIndex: 'name', key: 'name', render: (text, record) => (
                 <div>
@@ -1181,7 +1183,7 @@ export const AdminEvents = ({ app: v }) => {
                   </Space.Compact>
                 );
             }},
-            { title: 'Decklist?', key: 'decklist', render: (_, record) => {
+            ...(showDecklist ? [{ title: 'Decklist?', key: 'decklist', render: (_, record) => {
                 const id = record._id || record.id;
                 return (
                   <Space.Compact>
@@ -1203,7 +1205,7 @@ export const AdminEvents = ({ app: v }) => {
                     />
                   </Space.Compact>
                 );
-            }},
+            }}] : []),
             { title: 'Művelet', key: 'action', render: (_, record) => {
                 const stats = v.attendanceStats?.[record.email];
                 const isBanned = (v.blacklist || []).some(b => b.email === record.email);

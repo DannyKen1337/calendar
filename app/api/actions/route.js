@@ -16,7 +16,7 @@ const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7
 
 const TOURNAMENT_EDIT_FIELDS = [
   'name', 'store', 'category', 'date', 'max_players', 'external_url',
-  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured', 'isOpenAttendance', 'eventType',
+  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured', 'isOpenAttendance', 'eventType', 'decklistEnabled',
 ];
 
 // Kötetlen létszámú esemény: nincs max. létszám, nincs jelentkezés, nincs külső jelentkezési link
@@ -50,6 +50,7 @@ function pickTournamentFields(source) {
   if (doc.external_url !== undefined) doc.external_url = safeUrl(doc.external_url);
   if (doc.imageUrl !== undefined) doc.imageUrl = safeUrl(doc.imageUrl);
   if (doc.eventType !== undefined) doc.eventType = sanitizeEventType(doc.eventType);
+  if (doc.decklistEnabled !== undefined) doc.decklistEnabled = doc.decklistEnabled === true;
   return doc;
 }
 

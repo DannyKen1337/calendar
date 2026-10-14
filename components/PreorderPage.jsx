@@ -236,7 +236,7 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
           </button>
 
           <p className="text-xs text-[#9a9186] m-0 leading-relaxed">
-            A nevedet, az e-mail címedet és a telefonszámodat csak a bolt munkatársai látják. Kizárólag az előrendelés intézéséhez (értesítés, átvétel) használjuk, harmadik félnek nem adjuk át. A termék törlésekor a hozzá tartozó előrendelések is törlődnek.
+            A nevedet, az e-mail címedet és a telefonszámodat csak a bolt munkatársai látják. Kizárólag az előrendelés intézéséhez (értesítés, átvétel) használjuk, harmadik félnek nem adjuk át, és az előrendelés lezárása után legfeljebb 6 hónappal automatikusan töröljük.
             {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT }}>Adatkezelési tájékoztató</a></>}
           </p>
         </Panel>

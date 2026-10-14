@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
+import { getExtraLinks } from '@/lib/extraLinks';
 import { attachPublicAttendees } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,8 @@ export async function GET() {
 
     return NextResponse.json({
         tournaments: attachPublicAttendees(tournaments, registrations),
-        isMaintenance: settings?.isMaintenance || false 
+        isMaintenance: settings?.isMaintenance || false,
+        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false, preorders: false })) 
     });
   } catch (error) {
     console.error('public-data error:', error);

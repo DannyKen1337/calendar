@@ -63,7 +63,7 @@ export default function EventGenerator({ canManageGame = () => true }) {
     }
     setIsGenerating(true);
     try {
-      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured, isOpenAttendance: openChecked } = values;
+      const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured, decklistEnabled, isOpenAttendance: openChecked } = values;
       const { isOpenAttendance, max_players: resolvedMax } = resolveAttendance(max_players, openChecked);
       
       const start = new Date(startDate);
@@ -92,6 +92,7 @@ export default function EventGenerator({ canManageGame = () => true }) {
           isExternalEvent: isOpenAttendance ? false : !!currentLink,
           description: description || "",
           isFeatured: !!isFeatured,
+          decklistEnabled: !!decklistEnabled,
           isOpenAttendance: !!isOpenAttendance,
         });
       }
@@ -196,8 +197,12 @@ export default function EventGenerator({ canManageGame = () => true }) {
             <Input.TextArea rows={3} placeholder="További részletek a versenyről..." />
           </Form.Item>
 
-          <Form.Item name="isFeatured" valuePropName="checked">
+          <Form.Item name="isFeatured" valuePropName="checked" style={{ marginBottom: 8 }}>
             <Checkbox>Kiemelt verseny/esemény</Checkbox>
+          </Form.Item>
+
+          <Form.Item name="decklistEnabled" valuePropName="checked" extra="A check-innél jelölhető, ki adta le a decklistet.">
+            <Checkbox>Decklist leadás jelölése</Checkbox>
           </Form.Item>
 
           {/* ÚJ: Dinamikus külső link szekció */}

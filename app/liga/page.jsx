@@ -24,6 +24,12 @@ const Shell = ({ children }) => (
   </main>
 );
 
+const seasonLink = (l) => (l.seasons.length > 0 && (
+  <p className="text-center text-sm m-0 -mt-3">
+    <Link href={leagueUrl(l.category)} className="underline text-[#cfc6b8]">Korábbi szezonok ({l.seasons.length})</Link>
+  </p>
+));
+
 export default async function LeaguesPage() {
   if (await isMaintenanceOn().catch(() => false)) {
     return <Shell><p className="text-center text-lg">A ligák átmenetileg nem elérhetők. Kérjük, nézz vissza később!</p></Shell>;
@@ -39,7 +45,18 @@ export default async function LeaguesPage() {
           {leagues.map(l => <Link key={l.id} href={leagueUrl(l.category)} className="px-4 py-2 rounded-full border border-[#4A2E33] bg-[#1a1012] text-[#E0D6C8] text-sm no-underline hover:border-[#E5B15D]">{l.category}</Link>)}
         </nav>
       )}
-      {leagues.map(l => <Leaderboard key={l.id} league={l} rows={l.rows} publishedAt={l.publishedAt} />)}
+      {leagues.map(l => (l.isPublished ? (
+        <div key={l.id} className="flex flex-col gap-6">
+          <Leaderboard league={l} rows={l.rows} publishedAt={l.publishedAt} />
+          {seasonLink(l)}
+        </div>
+      ) : (
+        <Link key={l.id} href={leagueUrl(l.category)} className="rounded-2xl border border-[#4A2E33] bg-[#1a1012] p-5 no-underline text-center">
+          <span className="block text-xs uppercase tracking-[0.2em] text-[#E5B15D]">{l.category}</span>
+          <span className="block text-white font-bold text-lg mt-1">Az új szezon hamarosan indul</span>
+          <span className="block text-sm text-[#cfc6b8] mt-1 underline">Korábbi szezonok ({l.seasons.length})</span>
+        </Link>
+      )))}
       <p className="text-center text-sm m-0"><Link href="/" className="underline text-[#cfc6b8]">Eseménynaptár</Link></p>
     </Shell>
   );

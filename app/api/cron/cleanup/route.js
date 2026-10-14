@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
+import { deleteExpiredPreorders, deleteInactiveLeaguePlayers, PREORDER_RETENTION_MONTHS, LEAGUE_PLAYER_RETENTION_MONTHS } from '@/lib/retention';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +40,17 @@ export async function GET(request) {
 
     await deleteOldAttendanceHistory(db);
 
-    return NextResponse.json({ success: true, deletedCount: oldEventIds.length });
+    // Előrendelések és inaktív ligajátékosok személyes adatainak törlése
+    const preorders = await deleteExpiredPreorders(db);
+    if (preorders.products > 0) {
+      await db.collection('audit_logs').insertOne({ adminName: 'Vercel Automata', action: 'AUTOMATA TAKARÍTÁS', details: `${preorders.products} db, ${PREORDER_RETENTION_MONTHS} hónapja lezárt előrendelési termék törölve ${preorders.preorders} jelentkezéssel (${preorders.names.join(', ')}).`, date: new Date() });
+    }
+    const players = await deleteInactiveLeaguePlayers(db);
+    if (players > 0) {
+      await db.collection('audit_logs').insertOne({ adminName: 'Vercel Automata', action: 'AUTOMATA TAKARÍTÁS', details: `${players} ligajátékos törölve (${LEAGUE_PLAYER_RETENTION_MONTHS} hónapja nem jelent meg).`, date: new Date() });
+    }
+
+    return NextResponse.json({ success: true, deletedCount: oldEventIds.length, preorderProducts: preorders.products, leaguePlayers: players });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

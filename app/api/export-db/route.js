@@ -16,7 +16,7 @@ export async function GET() {
     const db = await getTavernDb();
     await db.collection('audit_logs').insertOne({ adminName: session.username, action: 'ADATBÁZIS MENTÉS', details: 'Teljes adatbázis letöltése', date: new Date() });
 
-    const [tournaments, registrations, users, logs, blacklist, settings, preorderProducts, preorders, leagues, leaguePlayers, leagueSessions] = await Promise.all([
+    const [tournaments, registrations, users, logs, blacklist, settings, preorderProducts, preorders, leagues, leaguePlayers, leagueSessions, leagueSeasons] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
       db.collection('registrations').find({}).toArray(),
       db.collection('users').find({}, { projection: { password: 0 } }).toArray(), // Jelszavakat sosem exportálunk!
@@ -28,6 +28,7 @@ export async function GET() {
       db.collection('leagues').find({}).toArray(),
       db.collection('league_players').find({}).toArray(),
       db.collection('league_sessions').find({}).toArray(),
+      db.collection('league_seasons').find({}).toArray(),
     ]);
 
     const dbDump = {
@@ -43,6 +44,7 @@ export async function GET() {
       leagues,
       leaguePlayers,
       leagueSessions,
+      leagueSeasons,
     };
 
     return new Response(JSON.stringify(dbDump, null, 2), {

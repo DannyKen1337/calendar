@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useCalendar } from '@/app/useCalendar';
 import { CalendarView, SearchResults, StoreSelector, STORES } from '@/app/components';
 import CalendarFilters from '@/components/CalendarFilters';
 import SearchBar from '@/components/SearchBar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
-import { EnvironmentOutlined, SwapOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, SwapOutlined, TrophyOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import EmbedBridge from '@/components/EmbedBridge';
 import TodayProgram from '@/components/TodayProgram';
 
@@ -125,6 +126,22 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
 
         {/* A mai program a helyszín összes mai eseményét mutatja, a játékszűrőtől és a kereséstől függetlenül */}
         <TodayProgram app={app} events={storeTournaments} compact={embed} />
+
+        {/* Ligák és előrendelés: csak akkor, ha van publikált liga / nyitott előrendelés. Beágyazva új lapon nyílnak. */}
+        {(app.extraLinks?.leagues || app.extraLinks?.preorders) && (
+          <nav className={`max-w-5xl mx-auto flex flex-wrap justify-center gap-3 ${embed ? 'mt-4' : 'mt-6'}`} aria-label="További oldalak">
+            {app.extraLinks.leagues && (
+              <Link href="/liga" target={embed ? '_blank' : undefined} rel={embed ? 'noopener' : undefined} className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#4A2E33] bg-[#1a1012] text-[#E0D6C8] no-underline font-bold hover:border-[#E5B15D] hover:text-[#E5B15D] transition-colors">
+                <TrophyOutlined /> Ligák ranglistája
+              </Link>
+            )}
+            {app.extraLinks.preorders && (
+              <Link href="/elorendeles" target={embed ? '_blank' : undefined} rel={embed ? 'noopener' : undefined} className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#4A2E33] bg-[#1a1012] text-[#E0D6C8] no-underline font-bold hover:border-[#E5B15D] hover:text-[#E5B15D] transition-colors">
+                <ShoppingCartOutlined /> Előrendelés
+              </Link>
+            )}
+          </nav>
+        )}
       </div>
     </main>
   );

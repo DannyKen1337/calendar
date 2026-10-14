@@ -14,9 +14,24 @@ function Delta({ value }) {
   return <span className="text-xs md:text-sm whitespace-nowrap tabular-nums w-16 md:w-20 text-right shrink-0" style={{ color }}>{text}</span>;
 }
 
-// Ranglista: helyezés, becenév, pont és a legutóbbi frissítés óta kapott pont.
-// A nyilvános oldal és az admin előnézet is ezt használja, így az előnézet pontosan azt mutatja, amit a játékosok látnak.
-export default function Leaderboard({ league, rows, publishedAt, compact = false }) {
+// Helyezésváltozás a legutóbbi publikáláshoz képest: ▲2 (előrelépett), ▼1 (visszaesett), ÚJ (most került a ranglistára)
+function RankChange({ row }) {
+  if (row.isNew) return <span className="text-[10px] font-bold px-1.5 rounded" style={{ color: '#8fc7ff', border: '1px solid #8fc7ff55' }} title="Új a ranglistán">ÚJ</span>;
+  if (!row.rankChange) return null;
+  const up = row.rankChange > 0;
+  return (
+    <span className="text-xs font-bold tabular-nums" style={{ color: up ? '#8fd18f' : '#ff9b9b' }} title={up ? `${row.rankChange} helyet lépett előre` : `${-row.rankChange} helyet esett vissza`}>
+      {up ? '▲' : '▼'}{Math.abs(row.rankChange)}
+    </span>
+  );
+}
+
+const hasDetails = (r) => r.sessions !== null && r.sessions !== undefined;
+
+// Ranglista: helyezés, becenév, pont és a legutóbbi frissítés óta kapott pont. Egy sorra kattintva (koppintva)
+// lenyílnak a játékos eredményei. A nyilvános oldal és az admin előnézet is ezt használja, így az előnézet
+// pontosan azt mutatja, amit a játékosok látnak. Szándékosan nincs benne JavaScript (a lenyitás <details> elem).
+export default function Leaderboard({ league, rows, publishedAt, compact = false, subtitle = null, hideDelta = false }) {
   const color = getGameColor({ category: league.category });
   const logo = getGameConfig(league.category).logo || DEFAULT_LOGO;
   return (
@@ -27,6 +42,7 @@ export default function Leaderboard({ league, rows, publishedAt, compact = false
         <div className="min-w-0">
           <p className="uppercase tracking-[0.2em] text-xs m-0" style={{ color }}>{league.category}</p>
           <h2 className={`${compact ? 'text-xl' : 'text-2xl md:text-3xl'} font-bold font-serif text-white m-0`} style={{ overflowWrap: 'anywhere' }}>{league.name}</h2>
+          {subtitle && <p className="text-xs m-0 mt-1" style={{ color }}>{subtitle}</p>}
           {publishedAt && <p className="text-xs text-[#9a8a8c] m-0 mt-1">Frissítve: {formatPublishedAt(publishedAt)}</p>}
         </div>
       </div>
@@ -38,16 +54,39 @@ export default function Leaderboard({ league, rows, publishedAt, compact = false
             <span className="w-9 text-center">#</span>
             <span className="flex-1">Játékos</span>
             <span className="w-14 text-right">Pont</span>
-            <span className="w-16 md:w-20" />
+            {!hideDelta && <span className="w-16 md:w-20" />}
           </li>
           {rows.map(r => {
             const medal = MEDALS[r.rank];
-            return (
-              <li key={r.playerId} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: medal ? `${medal}14` : '#2B1A1C' }}>
+            const summary = (
+              <>
                 <span className="w-9 h-9 rounded-full flex items-center justify-center font-bold shrink-0 tabular-nums" style={medal ? { background: medal, color: '#1a1012' } : { color: '#baaaac', border: '1px solid #4A2E33' }}>{r.rank}</span>
-                <span className="flex-1 min-w-0 text-white font-bold md:text-lg truncate">{r.nickname}</span>
+                <span className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className="text-white font-bold md:text-lg truncate">{r.nickname}</span>
+                  <RankChange row={r} />
+                </span>
                 <span className="w-14 text-right font-bold text-lg md:text-xl tabular-nums" style={{ color: medal || '#E0D6C8' }}>{r.points}</span>
-                <Delta value={r.delta} />
+                {!hideDelta && <Delta value={r.delta} />}
+              </>
+            );
+            const rowStyle = { background: medal ? `${medal}14` : '#2B1A1C' };
+            return (
+              <li key={r.playerId} className="rounded-xl" style={rowStyle}>
+                {hasDetails(r) ? (
+                  <details className="group">
+                    <summary className="flex items-center gap-3 px-3 py-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden rounded-xl hover:bg-white/5" title="Részletek">
+                      {summary}
+                    </summary>
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 px-3 pb-3 pl-[3.75rem] text-sm text-[#baaaac]">
+                      <span>Alkalom: <b className="text-[#E0D6C8]">{r.sessions}</b></span>
+                      <span>Győzelem: <b className="text-[#E0D6C8]">{r.wins}</b></span>
+                      {r.draws !== null && r.draws !== undefined && <span>Döntetlen: <b className="text-[#E0D6C8]">{r.draws}</b></span>}
+                      {r.losses !== null && r.losses !== undefined && <span>Vereség: <b className="text-[#E0D6C8]">{r.losses}</b></span>}
+                    </div>
+                  </details>
+                ) : (
+                  <div className="flex items-center gap-3 px-3 py-2.5">{summary}</div>
+                )}
               </li>
             );
           })}

@@ -7,6 +7,7 @@ import { CheckOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, UserAd
 import { tavernTheme, AddParticipantForm } from '@/app/components';
 import { normalizeSearchText } from '@/lib/eventSearch';
 import { getGameColor } from '@/lib/gameConfig';
+import { showsDecklist } from '@/lib/eventTypes';
 
 const { Text } = Typography;
 
@@ -106,6 +107,7 @@ export default function CheckinView({ app, eventId }) {
   const regs = (app.registrations || [])
     .filter(r => String(r.tournamentId) === eventKey(event))
     .sort((a, b) => (isActiveReg(b) - isActiveReg(a)) || (new Date(a.date) - new Date(b.date)));
+  const showDecklist = showsDecklist(event, regs);
   const counts = {
     yes: regs.filter(r => r.attended === true).length,
     no: regs.filter(r => r.attended === false).length,
@@ -179,8 +181,8 @@ export default function CheckinView({ app, eventId }) {
                 style={{ width: 56, height: 56, fontSize: 22, ...(no ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
               />
             </div>
-            {/* Decklist: külön sorban, hogy a megjelenés gombjaival ne lehessen összetéveszteni */}
-            <div className="flex items-center gap-2 border-t border-[#4A2E33] pt-3">
+            {/* Decklist: külön sorban, hogy a megjelenés gombjaival ne lehessen összetéveszteni (csak ha az eseménynél be van kapcsolva) */}
+            {showDecklist && <div className="flex items-center gap-2 border-t border-[#4A2E33] pt-3">
               <span className="flex-1" style={{ color: '#baaaac', fontSize: 14 }}>Decklist</span>
               <Button
                 icon={<CheckOutlined />}
@@ -192,7 +194,7 @@ export default function CheckinView({ app, eventId }) {
                 onClick={() => app.setDecklist(id, deckNo ? null : false)}
                 style={{ height: 40, ...(deckNo ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
               >Nem adta le</Button>
-            </div>
+            </div>}
             </div>
           );
         })}

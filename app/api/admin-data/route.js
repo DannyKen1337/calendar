@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
+import { getExtraLinks } from '@/lib/extraLinks';
 import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { canManageEvent } from '@/lib/permissions';
@@ -46,7 +47,8 @@ export async function GET() {
         staff: staff.map(u => ({ id: String(u._id), username: u.username, role: u.role, allowedCategories: u.allowedCategories })),
         logs,
         blacklist,
-        isMaintenance: settings?.isMaintenance || false
+        isMaintenance: settings?.isMaintenance || false,
+        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false, preorders: false }))
     });
   } catch (error) {
     console.error('admin-data error:', error);
