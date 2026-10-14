@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { message, Form, Modal } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
-import { canManageEvent, canManageCategory } from "@/lib/permissions";
+import { canManageEvent, canManageCategory, hasFeature as userHasFeature } from "@/lib/permissions";
 import { sanitizeEventType, getEventType } from "@/lib/eventTypes";
 import { findHostConflicts } from "@/lib/hostConflicts";
 import { getOpeningHoursWarning } from "@/lib/storeHours";
@@ -16,6 +16,7 @@ export const useCalendar = () => {
   const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState(null);
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
+  const [features, setFeatures] = useState([]); // külön engedélyhez kötött modulok (előrendelés, liga)
   const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
   const [usersList, setUsersList] = useState([]);
   const [staffList, setStaffList] = useState([]); // adminok és tulajdonosok: az esemény szervezőjének választhatók
@@ -84,6 +85,7 @@ export const useCalendar = () => {
         setUserEmail(data.user.email);
         setUserRole(data.user.role);
         setAllowedCategories(Array.isArray(data.user.allowedCategories) ? data.user.allowedCategories : null);
+        setFeatures(Array.isArray(data.user.features) ? data.user.features : []);
         setLastSeenChangelog(data.user.lastSeenChangelog || null);
         fetchAdminData(false); 
       } else {
@@ -170,7 +172,7 @@ export const useCalendar = () => {
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setUserRole(null); setUserName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null);
+    setUserRole(null); setUserName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setFeatures([]);
     fetchPublicData(false);
   };
 
@@ -517,7 +519,8 @@ export const useCalendar = () => {
   };
 
   // Játék-jogosultság a felületen (a szerver is ellenőrzi): a tulajdonos mindent, a korlátozott szervező csak a saját játékait kezelheti
-  const currentUser = { role: userRole, allowedCategories };
+  const currentUser = { role: userRole, allowedCategories, features };
+  const hasFeature = (feature) => userHasFeature(currentUser, feature);
   const canManage = (evt) => canManageEvent(currentUser, evt);
   const canManageGame = (category) => canManageCategory(currentUser, category);
   // Az esemény szervezőjének választható adminok: akik az adott játékot kezelhetik
@@ -531,8 +534,8 @@ export const useCalendar = () => {
     await postAction('MARK_CHANGELOG_SEEN', { id });
   };
 
-  const setAdminCategories = async (userId, categories) => {
-    if (!(await postAction('SET_ADMIN_CATEGORIES', { userId: String(userId), categories }))) return false;
+  const setAdminCategories = async (userId, categories, userFeatures) => {
+    if (!(await postAction('SET_ADMIN_CATEGORIES', { userId: String(userId), categories, ...(Array.isArray(userFeatures) && { features: userFeatures }) }))) return false;
     messageApi.success('Jogosultság mentve.');
     fetchData(true);
     return true;
@@ -546,7 +549,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
-    allowedCategories, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
+    allowedCategories, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,

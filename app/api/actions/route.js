@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { randomInt, randomBytes } from 'crypto';
 import { verifyAdmin, verifyOwner } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
-import { canManageCategory, canManageEvent, sanitizeCategories } from '@/lib/permissions';
+import { canManageCategory, canManageEvent, sanitizeCategories, sanitizeFeatures, FEATURES } from '@/lib/permissions';
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
@@ -564,7 +564,14 @@ export async function POST(request) {
 
       const categories = sanitizeCategories(payload.categories); // null = minden játék
       await db.collection('users').updateOne({ _id: target._id }, categories === null ? { $unset: { allowedCategories: '' } } : { $set: { allowedCategories: categories } });
-      await addLog(db, session.username, 'JOGOSULTSÁG', `${target.username} kezelhető játékai: ${categories === null ? 'minden játék' : (categories.join(', ') || 'egyik sem')}`);
+      let featureText = '';
+      // Külön engedélyhez kötött modulok (előrendelés, liga)
+      if (Array.isArray(payload.features)) {
+        const features = sanitizeFeatures(payload.features);
+        await db.collection('users').updateOne({ _id: target._id }, { $set: { features } });
+        featureText = `; modulok: ${features.map(f => FEATURES[f]).join(', ') || 'nincs'}`;
+      }
+      await addLog(db, session.username, 'JOGOSULTSÁG', `${target.username} kezelhető játékai: ${categories === null ? 'minden játék' : (categories.join(', ') || 'egyik sem')}${featureText}`);
       return NextResponse.json({ success: true });
     }
 

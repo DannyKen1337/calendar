@@ -2,13 +2,14 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined, TrophyOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent } from '@/lib/eventTypes';
 import { findHostConflicts } from '@/lib/hostConflicts';
+import { FEATURES } from '@/lib/permissions';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text, Paragraph } = Typography;
@@ -683,6 +684,8 @@ export const AdminEvents = ({ app: v }) => {
   const [permUser, setPermUser] = useState(null); // akinek a játék-jogosultságát épp szerkesztjük
   const [permAll, setPermAll] = useState(true);
   const [permCategories, setPermCategories] = useState([]);
+  const [permFeatures, setPermFeatures] = useState([]);
+  const [logQuery, setLogQuery] = useState(''); // keresés a tevékenységnaplóban
   const [permSaving, setPermSaving] = useState(false);
 
   const openPermissions = (user) => {
@@ -690,10 +693,11 @@ export const AdminEvents = ({ app: v }) => {
     setPermUser(user);
     setPermAll(!restricted);
     setPermCategories(restricted ? user.allowedCategories : []);
+    setPermFeatures(Array.isArray(user.features) ? user.features : []);
   };
   const savePermissions = async () => {
     setPermSaving(true);
-    const ok = await v.setAdminCategories(permUser._id || permUser.id, permAll ? null : permCategories);
+    const ok = await v.setAdminCategories(permUser._id || permUser.id, permAll ? null : permCategories, permFeatures);
     setPermSaving(false);
     if (ok) setPermUser(null);
   };
@@ -832,7 +836,8 @@ export const AdminEvents = ({ app: v }) => {
               <Button block icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/', '_blank', 'noopener')}>Naptár</Button>
               <Link href="/admin/statisztika"><Button block icon={<BarChartOutlined />} style={sideBtn}>Statisztika</Button></Link>
               <Link href="/admin/checkin"><Button block icon={<MobileOutlined />} style={sideBtn}>Check-in</Button></Link>
-              <Link href="/admin/elorendeles" className="col-span-2"><Button block icon={<ShoppingCartOutlined />} style={sideBtn}>Előrendelések</Button></Link>
+              {v.hasFeature('preorders') && <Link href="/admin/elorendeles"><Button block icon={<ShoppingCartOutlined />} style={sideBtn}>Előrendelés</Button></Link>}
+              {v.hasFeature('leagues') && <Link href="/admin/liga"><Button block icon={<TrophyOutlined />} style={sideBtn}>Ligák</Button></Link>}
             </div>
           </div>
 
@@ -1049,6 +1054,7 @@ export const AdminEvents = ({ app: v }) => {
                 const games = Array.isArray(record.allowedCategories) ? record.allowedCategories : null;
                 return (
                   <Space size={4} wrap>
+                    {(record.features || []).map(f => FEATURES[f] && <Tag key={f} color="cyan" style={{ margin: 0 }}>{FEATURES[f]}</Tag>)}
                     {games === null ? <Tag color="gold">Minden játék</Tag> : games.length === 0 ? <Tag color="red">Egyik sem</Tag> : games.map(g => <Tag key={g} style={{ background: getGameColor({ category: g }), borderColor: getGameColor({ category: g }), color: '#fff', margin: 0 }}>{g}</Tag>)}
                     {v.userRole === 'owner' && <Button size="small" type="link" icon={<EditOutlined />} onClick={() => openPermissions(record)}>Módosítás</Button>}
                   </Space>
@@ -1068,7 +1074,7 @@ export const AdminEvents = ({ app: v }) => {
           ]} />
         </Modal>
         <Modal
-          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Kezelt játékok: {permUser?.username}</span>}
+          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Jogosultságok: {permUser?.username}</span>}
           open={!!permUser}
           onCancel={() => setPermUser(null)}
           onOk={savePermissions}
@@ -1085,6 +1091,12 @@ export const AdminEvents = ({ app: v }) => {
             </Checkbox.Group>
           )}
           {!permAll && permCategories.length === 0 && <p style={{ color: '#ff7875', marginTop: 12 }}>Válassz legalább egy játékot (vagy fokozd vissza a felhasználót játékossá).</p>}
+          <Divider style={{ borderColor: '#4A2E33', margin: '16px 0 12px' }} />
+          <p style={{ color: '#E5B15D', fontWeight: 'bold', margin: '0 0 4px' }}>További modulok</p>
+          <p style={{ color: '#9a8a8c', fontSize: 13, margin: '0 0 8px' }}>Ezekhez csak az fér hozzá, akinek itt engedélyt adsz, és ott is csak a fent kiválasztott játékokat kezelheti.</p>
+          <Checkbox.Group value={permFeatures} onChange={setPermFeatures} style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {Object.entries(FEATURES).map(([key, label]) => <Checkbox key={key} value={key}>{label}</Checkbox>)}
+          </Checkbox.Group>
         </Modal>
         <Modal title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Jelszó módosítása: {v.selectedUserForPassword?.username}</span>} open={v.isPasswordModalOpen} onCancel={() => v.setIsPasswordModalOpen(false)} onOk={() => v.passwordForm.submit()} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Form form={v.passwordForm} layout="vertical" onFinish={v.submitPasswordChange} className="mt-4"><Form.Item name="newPassword" label="Új jelszó" rules={[{ required: true, message: 'Kötelező megadni!', min: 6 }]}><Input.Password placeholder="Új jelszó beírása..." /></Form.Item></Form>
@@ -1209,8 +1221,9 @@ export const AdminEvents = ({ app: v }) => {
           ]} />
         </Modal>
         <Modal title={<span style={{ color: '#E5B15D' }}>Tevékenységnapló (Audit Log)</span>} open={v.isLogModalOpen} onCancel={() => v.setIsLogModalOpen(false)} footer={null} width={900} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-          <Table dataSource={v.logs} rowKey={(record) => record._id} pagination={{ pageSize: 8 }} columns={[
-            { title: 'Dátum', dataIndex: 'date', render: d => <span style={{color: '#baaaac'}}>{new Date(d).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> },
+          <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: szervező, művelet, részletek (pl. LIGA, ELŐRENDELÉS)..." value={logQuery} onChange={(e) => setLogQuery(e.target.value)} style={{ marginBottom: 12 }} />
+          <Table dataSource={(v.logs || []).filter(l => { const q = logQuery.trim().toLowerCase(); return !q || `${l.adminName} ${l.action} ${l.details}`.toLowerCase().includes(q); })} rowKey={(record) => record._id} pagination={{ pageSize: 10, showSizeChanger: false }} columns={[
+            { title: 'Dátum', dataIndex: 'date', render: d => <span style={{color: '#baaaac', whiteSpace: 'nowrap'}}>{new Date(d).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> },
             { title: 'Szervező', dataIndex: 'adminName', render: n => <Tag color="purple">{n}</Tag> },
             { title: 'Művelet', dataIndex: 'action', render: a => <strong style={{color: '#E5B15D'}}>{a}</strong> },
             { title: 'Részletek', dataIndex: 'details', render: text => <span style={{color: '#E0D6C8'}}>{text}</span> }

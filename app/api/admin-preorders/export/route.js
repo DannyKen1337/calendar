@@ -1,6 +1,6 @@
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
-import { canManageCategory } from '@/lib/permissions';
+import { canManageCategory, hasFeature } from '@/lib/permissions';
 import { toObjectId } from '@/lib/preorderData';
 import { groupByGame, productStock, productLimit } from '@/lib/preorders';
 import { buildXlsx } from '@/lib/xlsx';
@@ -10,16 +10,23 @@ export const dynamic = 'force-dynamic';
 const formatHu = (d) => (d ? new Date(d).toLocaleString('hu-HU', { timeZone: 'Europe/Budapest', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
 const slug = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').toLowerCase().slice(0, 40);
 
-// Előrendelések Excel-ben: ?productId=... egy termék, egyébként az összes kezelhető termék.
+// Előrendelések Excel-ben: ?productId=... egy termék, ?category=... egy játék termékei, egyébként az összes kezelhető termék.
 // Két munkalap: összesítés termékenként (rendeléshez) és a jelentkezők listája.
 export async function GET(request) {
   try {
     const session = await verifyAdmin();
     if (!session) return new Response(JSON.stringify({ error: 'Jogosulatlan hozzáférés' }), { status: 401 });
+    if (!hasFeature(session, 'preorders')) return new Response(JSON.stringify({ error: 'Nincs jogosultságod az előrendelésekhez.' }), { status: 403 });
 
-    const productId = new URL(request.url).searchParams.get('productId');
+    const params = new URL(request.url).searchParams;
+    const productId = params.get('productId');
+    const category = params.get('category');
     const db = await getTavernDb();
     const query = {};
+    if (category) {
+      if (!canManageCategory(session, category)) return new Response(JSON.stringify({ error: 'Ennek a játéknak a termékeit nem kezelheted.' }), { status: 403 });
+      query.category = category;
+    }
     if (productId) {
       const oid = toObjectId(productId);
       if (!oid) return new Response(JSON.stringify({ error: 'Hibás termék.' }), { status: 400 });
@@ -51,7 +58,12 @@ export async function GET(request) {
     ]);
 
     const date = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Budapest' });
-    const base = productId ? `elorendeles_${slug(products[0].name) || 'termek'}` : 'elorendelesek';
+    const base = productId ? `elorendeles_${slug(products[0].name) || 'termek'}` : category ? `elorendelesek_${slug(category) || 'jatek'}` : 'elorendelesek';
+    await db.collection('audit_logs').insertOne({
+      adminName: session.username, action: 'ELŐRENDELÉS EXPORT',
+      details: `Excel letöltés: ${productId ? products[0].name : category || 'összes termék'} (${list.length - 1} jelentkezés)`,
+      date: new Date(),
+    });
     return new Response(buffer, {
       status: 200,
       headers: {

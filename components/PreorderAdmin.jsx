@@ -202,7 +202,10 @@ export default function PreorderAdmin() {
                   {game}
                   {all.length > 0 && <span style={{ color: '#9a8a8c', fontSize: 13, fontWeight: 'normal', fontFamily: 'inherit' }}>({all.length} termék)</span>}
                 </Title>
-                <Button size="small" icon={<PlusOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openEditor({ category: game })}>Termék hozzáadása</Button>
+                <span className="flex flex-wrap gap-2">
+                  {all.length > 0 && <Button size="small" icon={<FileExcelOutlined />} style={sideBtn} href={`/api/admin-preorders/export?category=${encodeURIComponent(game)}`} title={`A(z) ${game} összes termékének jelentkezői egy Excel fájlban`}>Excel</Button>}
+                  <Button size="small" icon={<PlusOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openEditor({ category: game })}>Termék hozzáadása</Button>
+                </span>
               </div>
               {items.length > 0
                 ? <div className="flex flex-col gap-3">{items.map(renderProduct)}</div>

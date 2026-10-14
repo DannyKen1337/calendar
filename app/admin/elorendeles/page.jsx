@@ -12,8 +12,8 @@ export default function PreorderAdminPage() {
     return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-[#E5B15D] font-bold">Betöltés...</div>;
   }
 
-  // Csak bejelentkezett szervezőknek
-  if (app.userRole !== 'admin' && app.userRole !== 'owner') {
+  // Csak bejelentkezett szervezőknek, akiknek a tulajdonos engedélyezte ezt a modult
+  if ((app.userRole !== 'admin' && app.userRole !== 'owner') || !app.hasFeature('preorders')) {
     redirect('/admin');
   }
 

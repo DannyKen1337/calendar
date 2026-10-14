@@ -22,7 +22,8 @@ export async function GET() {
       db.collection('registrations').find({}, { projection: { cancelToken: 0 } }).toArray(),
       // Felhasználók, napló és feketelista: csak a tulajdonosnak (a kezelésük is csak neki engedélyezett)
       isOwner ? db.collection('users').find({}, { projection: { password: 0 } }).toArray() : [],
-      isOwner ? db.collection('audit_logs').find({}).sort({ date: -1 }).limit(100).toArray() : [],
+      // A tevékenységnapló (csak a tulajdonos látja): a legutóbbi 500 bejegyzés
+      isOwner ? db.collection('audit_logs').find({}).sort({ date: -1 }).limit(500).toArray() : [],
       isOwner ? db.collection('blacklist').find({}).toArray() : [],
       db.collection('settings').findOne({ _id: 'global_settings' }),
       // Az esemény szervezőjének választható adminok (név + játék-jogosultság): minden adminnak kell az űrlaphoz

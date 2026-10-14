@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
-import { canManageCategory } from '@/lib/permissions';
+import { canManageCategory, hasFeature } from '@/lib/permissions';
 import { sanitizeProductInput, productStock, PREORDER_GAMES } from '@/lib/preorders';
 import { toObjectId } from '@/lib/preorderData';
 
@@ -18,6 +18,7 @@ export async function GET() {
   try {
     const session = await verifyAdmin();
     if (!session) return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
+    if (!hasFeature(session, 'preorders')) return NextResponse.json({ error: 'Nincs jogosultságod az előrendelésekhez. A tulajdonos adhat hozzáférést.' }, { status: 403 });
 
     const db = await getTavernDb();
     const products = (await db.collection('preorder_products').find({}).sort({ createdAt: -1 }).toArray())
@@ -42,6 +43,7 @@ export async function POST(request) {
   try {
     const session = await verifyAdmin();
     if (!session) return NextResponse.json({ error: 'Nincs jogosultságod a művelethez!' }, { status: 401 });
+    if (!hasFeature(session, 'preorders')) return NextResponse.json({ error: 'Nincs jogosultságod az előrendelésekhez. A tulajdonos adhat hozzáférést.' }, { status: 403 });
     const body = await request.json().catch(() => null);
     const { actionType, payload } = body || {};
     if (!payload || typeof payload !== 'object') return NextResponse.json({ error: 'Hiányzó adatok.' }, { status: 400 });
