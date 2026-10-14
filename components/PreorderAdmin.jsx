@@ -4,7 +4,7 @@ import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmen
 import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
-import { preorderLink, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX } from '@/lib/preorders';
+import { preorderLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX } from '@/lib/preorders';
 
 const { Title, Text } = Typography;
 
@@ -68,7 +68,7 @@ export default function PreorderAdmin() {
 
   const openEditor = (product) => {
     setEditing(product);
-    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '', stock: product.stock ?? null, perPersonLimit: product.perPersonLimit ?? null });
+    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '', stock: product.stock ?? null, perPersonLimit: product.perPersonLimit ?? null, price: product.price ?? null });
   };
 
   const save = async (values) => {
@@ -143,6 +143,7 @@ export default function PreorderAdmin() {
               </button>
               <Tag color={p.isOpen ? 'green' : 'default'} style={{ margin: 0 }}>{p.isOpen ? 'Nyitott' : 'Lezárva'}</Tag>
               {soldOut && <Tag color="red" style={{ margin: 0 }}>{total > p.stock ? `Túlfoglalva (+${total - p.stock} db)` : 'Elfogyott'}</Tag>}
+              {p.price !== null && <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{formatPrice(p.price)}</span>}
             </div>
             <div style={{ color: '#9a8a8c', fontSize: 13, marginTop: 2 }}>
               {p.releaseDate ? `Megjelenés: ${p.releaseDate} · ` : ''}Felvette: {p.createdBy || '—'}, {formatHu(p.createdAt)}
@@ -157,6 +158,7 @@ export default function PreorderAdmin() {
           <div className="text-right shrink-0">
             <div style={{ color: soldOut ? '#ff7875' : '#E5B15D', fontSize: 22, fontWeight: 'bold', lineHeight: 1.1 }}>{total}{p.stock !== null ? ` / ${p.stock}` : ''} db</div>
             <div style={{ color: '#9a8a8c', fontSize: 13 }}>{orders.length} jelentkező</div>
+            {p.price !== null && total > 0 && <div style={{ color: '#9a8a8c', fontSize: 13 }} title="Darabszám × ár">≈ {formatPrice(total * p.price)}</div>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
@@ -285,10 +287,13 @@ export default function PreorderAdmin() {
               <InputNumber min={0} max={PRODUCT_LIMIT_MAX} precision={0} suffix="db / fő" placeholder="0 = korlátlan" style={{ width: '100%' }} />
             </Form.Item>
           </div>
+          <Form.Item name="price" label="Ár (nem kötelező)" extra="Darabonkénti ár forintban. A vásárló a termék mellett és a végösszegnél is látja.">
+            <InputNumber min={0} max={PRODUCT_PRICE_MAX} precision={0} step={500} suffix="Ft" placeholder="Pl.: 25000" style={{ width: '100%' }} formatter={(val) => (val === undefined || val === null || val === '' ? '' : String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ' '))} parser={(val) => String(val || '').replace(/\D/g, '')} />
+          </Form.Item>
           <Form.Item name="releaseDate" label="Megjelenés (nem kötelező)">
             <Input maxLength={PRODUCT_RELEASE_MAX} placeholder="Pl.: 2026. november 14." />
           </Form.Item>
-          <Form.Item name="description" label="Leírás (nem kötelező)" extra="Pl. ár, tartalom, átvétel módja. A nyilvános oldalon a termék alatt jelenik meg.">
+          <Form.Item name="description" label="Leírás (nem kötelező)" extra="Pl. tartalom, átvétel módja. A nyilvános oldalon a termék alatt jelenik meg.">
             <Input.TextArea maxLength={PRODUCT_DESC_MAX} autoSize={{ minRows: 3, maxRows: 8 }} />
           </Form.Item>
         </Form>

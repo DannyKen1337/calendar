@@ -2,7 +2,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageCategory, hasFeature } from '@/lib/permissions';
 import { toObjectId } from '@/lib/preorderData';
-import { groupByGame, productStock, productLimit } from '@/lib/preorders';
+import { groupByGame, productStock, productLimit, productPrice } from '@/lib/preorders';
 import { buildXlsx } from '@/lib/xlsx';
 
 export const dynamic = 'force-dynamic';
@@ -44,17 +44,20 @@ export async function GET(request) {
     const byProduct = new Map(ordered.map(p => [String(p._id), []]));
     orders.forEach(o => byProduct.get(o.productId)?.push(o));
 
-    const summary = [['Termék', 'Játék', 'Megjelenés', 'Állapot', 'Jelentkezők', 'Összes darab', 'Elérhető mennyiség', 'Limit / fő']];
-    const list = [['Termék', 'Játék', 'Név', 'E-mail', 'Telefon', 'Darab', 'Leadva', 'Utoljára módosítva']];
+    // Az árak és összegek forintban, számként (az Excelben összeadhatók)
+    const summary = [['Termék', 'Játék', 'Megjelenés', 'Állapot', 'Ár (Ft)', 'Jelentkezők', 'Összes darab', 'Várható összeg (Ft)', 'Elérhető mennyiség', 'Limit / fő']];
+    const list = [['Termék', 'Játék', 'Név', 'E-mail', 'Telefon', 'Darab', 'Ár (Ft)', 'Összeg (Ft)', 'Leadva', 'Utoljára módosítva']];
     ordered.forEach(p => {
       const rows = byProduct.get(String(p._id));
-      summary.push([p.name, p.category, p.releaseDate || '', p.isOpen ? 'Nyitott' : 'Lezárva', rows.length, rows.reduce((s, o) => s + (o.quantity || 0), 0), productStock(p) ?? 'nincs megadva', productLimit(p) || 'korlátlan']);
-      rows.forEach(o => list.push([p.name, p.category, o.name, o.email, o.phone, o.quantity, formatHu(o.date), o.updatedAt && new Date(o.updatedAt).getTime() !== new Date(o.date).getTime() ? formatHu(o.updatedAt) : '']));
+      const price = productPrice(p);
+      const qty = rows.reduce((s, o) => s + (o.quantity || 0), 0);
+      summary.push([p.name, p.category, p.releaseDate || '', p.isOpen ? 'Nyitott' : 'Lezárva', price ?? '', rows.length, qty, price !== null ? price * qty : '', productStock(p) ?? 'nincs megadva', productLimit(p) || 'korlátlan']);
+      rows.forEach(o => list.push([p.name, p.category, o.name, o.email, o.phone, o.quantity, price ?? '', price !== null ? price * (o.quantity || 0) : '', formatHu(o.date), o.updatedAt && new Date(o.updatedAt).getTime() !== new Date(o.date).getTime() ? formatHu(o.updatedAt) : '']));
     });
 
     const buffer = buildXlsx([
-      { name: 'Összesítés', rows: summary, widths: [40, 22, 18, 12, 13, 14, 20, 12] },
-      { name: 'Jelentkezők', rows: list, widths: [40, 22, 28, 32, 20, 8, 18, 20] },
+      { name: 'Összesítés', rows: summary, widths: [40, 22, 18, 12, 12, 13, 14, 20, 20, 12] },
+      { name: 'Jelentkezők', rows: list, widths: [40, 22, 28, 32, 20, 8, 12, 14, 18, 20] },
     ]);
 
     const date = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Budapest' });

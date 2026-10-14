@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getGameConfig, getGameColor } from '@/lib/gameConfig';
-import { groupByGame, maxSelectable } from '@/lib/preorders';
+import { groupByGame, maxSelectable, formatPrice } from '@/lib/preorders';
 
 const ACCENT = '#E5B15D';
 const DEFAULT_LOGO = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
@@ -80,6 +80,10 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
   }
 
   const chosen = shown.filter(p => selected[p.id]);
+  // Végösszeg a kiválasztott, árral rendelkező termékekből (null, ha egyiknek sincs ára)
+  const priced = chosen.filter(p => p.price !== null && p.price !== undefined);
+  const totalPrice = priced.length ? priced.reduce((s, p) => s + p.price * selected[p.id], 0) : null;
+  const hasUnpriced = priced.length > 0 && priced.length < chosen.length;
   const toggle = (id) => {
     setSelected(s => { const next = { ...s }; if (next[id]) delete next[id]; else next[id] = 1; return next; });
     if (errors.items) setErrors(err => ({ ...err, items: '' }));
@@ -126,7 +130,7 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
         else setFormError(msg);
         return;
       }
-      setResult({ items: chosen.map(p => ({ name: p.name, quantity: selected[p.id] })), updated: data.updated, mailSent: data.mailSent });
+      setResult({ items: chosen.map(p => ({ name: p.name, quantity: selected[p.id], price: p.price })), total: totalPrice, updated: data.updated, mailSent: data.mailSent });
     } catch {
       setFormError('Hálózati hiba történt. Ellenőrizd az internetkapcsolatot, és próbáld újra.');
     } finally {
@@ -142,8 +146,9 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
           <div className="text-5xl mb-3">🎉</div>
           <h2 className="text-2xl font-bold font-serif m-0" style={{ color: ACCENT }}>Köszönjük, megkaptuk az előrendelésed!</h2>
           <ul className="list-none p-0 mt-4 mb-0 flex flex-col gap-1">
-            {result.items.map(i => <li key={i.name}><b className="text-white">{i.name}</b> – {i.quantity} db</li>)}
+            {result.items.map(i => <li key={i.name}><b className="text-white">{i.name}</b> – {i.quantity} db{i.price !== null && i.price !== undefined ? ` × ${formatPrice(i.price)}` : ''}</li>)}
           </ul>
+          {result.total !== null && <p className="text-lg mt-3 mb-0">Végösszeg: <b className="text-white">{formatPrice(result.total)}</b></p>}
           {result.updated > 0 && <p className="text-[#cfc6b8] mt-4 mb-0">Erre a termékre ezzel az e-mail címmel már volt előrendelésed, azt frissítettük.</p>}
           <p className="text-[#cfc6b8] mt-4 mb-0">Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? ' A visszaigazolást elküldtük e-mailben.' : ''}</p>
         </Panel>
@@ -183,6 +188,7 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
                           <input type="checkbox" checked={isOn} disabled={soldOut} onChange={() => toggle(p.id)} className="mt-1 w-5 h-5 shrink-0 accent-[#E5B15D] cursor-pointer disabled:cursor-not-allowed" />
                           <span className="min-w-0">
                             <span className="block text-white font-bold text-lg" style={{ overflowWrap: 'anywhere' }}>{p.name}</span>
+                            {p.price !== null && p.price !== undefined && <span className="block font-bold" style={{ color: ACCENT }}>{formatPrice(p.price)}{isOn && selected[p.id] > 1 ? <span className="font-normal text-[#cfc6b8]"> · {selected[p.id]} db: {formatPrice(p.price * selected[p.id])}</span> : null}</span>}
                             {soldOut && <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: '#ff6b6b33', color: '#ffb3b3' }}>Elfogyott</span>}
                             {p.releaseDate && <span className="block text-sm" style={{ color: ACCENT }}>Megjelenés: {p.releaseDate}</span>}
                             {!soldOut && (p.perPersonLimit > 0 || p.remaining !== null) && (
@@ -225,6 +231,13 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
           <input type="text" name="website" value={values.website} onChange={set('website')} tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
 
           {formError && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: '#ff6b6b22', color: '#ffb3b3', border: '1px solid #ff6b6b55' }}>{formError}</div>}
+
+          {totalPrice !== null && (
+            <div className="flex items-baseline justify-between gap-3 rounded-xl px-4 py-3" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
+              <span className="text-[#cfc6b8]">Végösszeg{hasUnpriced ? ' (az ár nélküli termékek nélkül)' : ''}</span>
+              <b className="text-xl" style={{ color: ACCENT }}>{formatPrice(totalPrice)}</b>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageCategory, hasFeature } from '@/lib/permissions';
-import { sanitizeProductInput, productStock, PREORDER_GAMES } from '@/lib/preorders';
+import { sanitizeProductInput, productStock, productPrice, PREORDER_GAMES } from '@/lib/preorders';
 import { toObjectId } from '@/lib/preorderData';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export async function GET() {
       : [];
 
     return NextResponse.json({
-      products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
+      products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), price: productPrice(p), perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
       preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, email: o.email, phone: o.phone, quantity: o.quantity, date: o.date, updatedAt: o.updatedAt })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
     });
