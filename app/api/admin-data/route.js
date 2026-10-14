@@ -28,7 +28,7 @@ export async function GET() {
       isOwner ? db.collection('blacklist').find({}).toArray() : [],
       db.collection('settings').findOne({ _id: 'global_settings' }),
       // Az esemény szervezőjének választható adminok (név + játék-jogosultság): minden adminnak kell az űrlaphoz
-      db.collection('users').find({ role: { $in: ['admin', 'owner'] } }, { projection: { username: 1, role: 1, allowedCategories: 1 } }).sort({ username: 1 }).toArray(),
+      db.collection('users').find({ role: { $in: ['admin', 'owner'] } }, { projection: { username: 1, role: 1, allowedCategories: 1, allowedStores: 1 } }).sort({ username: 1 }).toArray(),
     ]);
 
     // A szervező minden eseményt lát (a nyilvános, rövidített jelentkezőnevekkel együtt),
@@ -44,7 +44,7 @@ export async function GET() {
         registrations: visibleRegistrations,
         attendanceStats,
         users,
-        staff: staff.map(u => ({ id: String(u._id), username: u.username, role: u.role, allowedCategories: u.allowedCategories })),
+        staff: staff.map(u => ({ id: String(u._id), username: u.username, role: u.role, allowedCategories: u.allowedCategories, allowedStores: u.allowedStores })),
         logs,
         blacklist,
         isMaintenance: settings?.isMaintenance || false,

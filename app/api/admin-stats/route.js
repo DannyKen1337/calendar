@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
-import { canManageCategory } from '@/lib/permissions';
+import { canManageCategory, canManageStore } from '@/lib/permissions';
 import { publicName } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
@@ -16,8 +16,14 @@ export async function GET() {
 
     const db = await getTavernDb();
     const history = await db.collection('attendance_history')
-      .find({}, { projection: { email: 1, name: 1, username: 1, tournamentId: 1, tournamentName: 1, category: 1, eventDate: 1, attended: 1 } })
+      .find({}, { projection: { email: 1, name: 1, username: 1, tournamentId: 1, tournamentName: 1, category: 1, store: 1, eventDate: 1, attended: 1 } })
       .toArray();
+    // A bolt nélküli (régebbi) bejegyzések boltja az eseményből (ha még nem törlődött), különben Debrecen
+    const storeOf = new Map();
+    if (Array.isArray(session.allowedStores) && session.role !== 'owner') {
+      const events = await db.collection('tournaments').find({}, { projection: { store: 1, id: 1 } }).toArray();
+      events.forEach(e => { storeOf.set(String(e._id), e.store || 'debrecen'); if (e.id) storeOf.set(String(e.id), e.store || 'debrecen'); });
+    }
 
     // Játékos azonosítása: e-mail cím, ennek hiányában (admin által felvett, e-mail nélküli versenyző) a név
     const playerIndex = new Map();
@@ -26,6 +32,7 @@ export async function GET() {
     history.forEach(h => {
       const category = h.category || 'Egyéb';
       if (!canManageCategory(session, category)) return;
+      if (!canManageStore(session, h.store || storeOf.get(String(h.tournamentId)) || 'debrecen')) return;
       const key = h.email ? `e:${h.email}` : `n:${String(h.username || h.name || '').toLowerCase()}`;
       if (key === 'n:') return;
       if (!playerIndex.has(key)) {

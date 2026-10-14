@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const user = await getCurrentUser();
   if (user) {
-    const { id, username, email, role, allowedCategories, features, lastSeenChangelog } = user;
-    return NextResponse.json({ user: { id, username, email, role, allowedCategories, features, lastSeenChangelog } });
+    const { id, username, email, role, allowedCategories, allowedStores, features, lastSeenChangelog } = user;
+    return NextResponse.json({ user: { id, username, email, role, allowedCategories, allowedStores, features, lastSeenChangelog } });
   }
   return NextResponse.json({ user: null });
 }

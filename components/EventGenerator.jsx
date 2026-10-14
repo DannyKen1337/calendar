@@ -31,7 +31,7 @@ const STORES = {
 };
 
 // canManageGame: a bejelentkezett szervező kezelheti-e az adott játékot (korlátozott szervezőnél csak a saját játékai jelennek meg)
-export default function EventGenerator({ canManageGame = () => true }) {
+export default function EventGenerator({ canManageGame = () => true, canManageStore = () => true }) {
   const [form] = Form.useForm();
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -151,7 +151,7 @@ export default function EventGenerator({ canManageGame = () => true }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item name="store" label="Helyszín" rules={[{ required: true, message: 'Kérlek válassz boltot!' }]}>
               <Select placeholder="Válassz boltot..." size="large" allowClear>
-                {Object.values(STORES).map(store => (
+                {Object.values(STORES).filter(store => canManageStore(store.id)).map(store => (
                   <Select.Option key={store.id} value={store.id}>{store.name}</Select.Option>
                 ))}
               </Select>

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { message, Form, Modal } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
-import { canManageEvent, canManageCategory, hasFeature as userHasFeature } from "@/lib/permissions";
+import { canManageEvent, canManageCategory, canManageStore as userCanManageStore, hasFeature as userHasFeature } from "@/lib/permissions";
 import { sanitizeEventType, getEventType } from "@/lib/eventTypes";
 import { findHostConflicts } from "@/lib/hostConflicts";
 import { getOpeningHoursWarning } from "@/lib/storeHours";
@@ -16,6 +16,7 @@ export const useCalendar = () => {
   const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState(null);
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
+  const [allowedStores, setAllowedStores] = useState(null); // null = minden bolt
   const [features, setFeatures] = useState([]); // külön engedélyhez kötött modulok (előrendelés, liga)
   const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
   const [usersList, setUsersList] = useState([]);
@@ -86,6 +87,7 @@ export const useCalendar = () => {
         setUserEmail(data.user.email);
         setUserRole(data.user.role);
         setAllowedCategories(Array.isArray(data.user.allowedCategories) ? data.user.allowedCategories : null);
+        setAllowedStores(Array.isArray(data.user.allowedStores) ? data.user.allowedStores : null);
         setFeatures(Array.isArray(data.user.features) ? data.user.features : []);
         setLastSeenChangelog(data.user.lastSeenChangelog || null);
         fetchAdminData(false); 
@@ -175,7 +177,7 @@ export const useCalendar = () => {
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setUserRole(null); setUserName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setFeatures([]);
+    setUserRole(null); setUserName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setAllowedStores(null); setFeatures([]);
     fetchPublicData(false);
   };
 
@@ -383,7 +385,7 @@ export const useCalendar = () => {
     name: evt.name, store: evt.store || 'debrecen', category: evt.category, date: evt.date,
     max_players: evt.isOpenAttendance ? undefined : (evt.max_players || 8), external_url: evt.external_url || '', description: evt.description || '',
     isFeatured: !!evt.isFeatured, isOpenAttendance: !!evt.isOpenAttendance, eventType: getEventType(evt), decklistEnabled: !!evt.decklistEnabled,
-    hosts: (evt.hosts || []).map(String).filter(id => eligibleHosts(evt.category).some(u => u.id === id)),
+    hosts: (evt.hosts || []).map(String).filter(id => eligibleHosts(evt.category, evt.store).some(u => u.id === id)),
   });
 
   const openEditEvent = (evt) => {
@@ -393,9 +395,16 @@ export const useCalendar = () => {
   };
 
   // Másolás: ugyanazokkal az adatokkal új esemény, csak az időpontot kell megadni
+  // Új eseménynél előre kitölthető bolt: a kért bolt, ha kezelheti; ha csak egy boltot kezel, akkor az
+  const defaultStoreFor = (store) => {
+    const current = { role: userRole, allowedCategories, allowedStores, features };
+    if (store && userCanManageStore(current, store)) return store;
+    return Array.isArray(allowedStores) && allowedStores.length === 1 && userRole !== 'owner' ? allowedStores[0] : undefined;
+  };
+
   const openCopyEvent = (evt) => {
     eventForm.resetFields();
-    eventForm.setFieldsValue({ ...eventFormValues(evt), date: undefined });
+    eventForm.setFieldsValue({ ...eventFormValues(evt), store: defaultStoreFor(evt.store || 'debrecen'), date: undefined });
     setEditingEventId(null); setIsCopyingEvent(true); setIsExternalForm(!!evt.external_url); setIsEventModalOpen(true);
   };
 
@@ -523,12 +532,14 @@ export const useCalendar = () => {
   };
 
   // Játék-jogosultság a felületen (a szerver is ellenőrzi): a tulajdonos mindent, a korlátozott szervező csak a saját játékait kezelheti
-  const currentUser = { role: userRole, allowedCategories, features };
+  const currentUser = { role: userRole, allowedCategories, allowedStores, features };
+  const canManageStore = (store) => userCanManageStore(currentUser, store);
   const hasFeature = (feature) => userHasFeature(currentUser, feature);
   const canManage = (evt) => canManageEvent(currentUser, evt);
   const canManageGame = (category) => canManageCategory(currentUser, category);
   // Az esemény szervezőjének választható adminok: akik az adott játékot kezelhetik
-  const eligibleHosts = (category) => staffList.filter(u => canManageCategory(u, category));
+  // Azok a szervezők, akik az adott játékú (és boltú) eseményt kezelhetik
+  const eligibleHosts = (category, store) => staffList.filter(u => canManageEvent(u, { category, store }));
   // Az eseményt tartó szervezők neve (a közben törölt fiókok kimaradnak)
   const hostNames = (evt) => (Array.isArray(evt?.hosts) ? evt.hosts : []).map(id => staffList.find(u => u.id === String(id))?.username).filter(Boolean);
 
@@ -538,8 +549,8 @@ export const useCalendar = () => {
     await postAction('MARK_CHANGELOG_SEEN', { id });
   };
 
-  const setAdminCategories = async (userId, categories, userFeatures) => {
-    if (!(await postAction('SET_ADMIN_CATEGORIES', { userId: String(userId), categories, ...(Array.isArray(userFeatures) && { features: userFeatures }) }))) return false;
+  const setAdminCategories = async (userId, categories, userFeatures, stores) => {
+    if (!(await postAction('SET_ADMIN_CATEGORIES', { userId: String(userId), categories, ...(Array.isArray(userFeatures) && { features: userFeatures }), ...(stores !== undefined && { stores }) }))) return false;
     messageApi.success('Jogosultság mentve.');
     fetchData(true);
     return true;
@@ -553,7 +564,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
-    allowedCategories, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
+    allowedCategories, allowedStores, canManageStore, defaultStoreFor, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
     isMaintenance, extraLinks, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,

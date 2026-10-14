@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { randomInt, randomBytes } from 'crypto';
 import { verifyAdmin, verifyOwner } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
-import { canManageCategory, canManageEvent, sanitizeCategories, sanitizeFeatures, FEATURES } from '@/lib/permissions';
+import { canManageEvent, sanitizeCategories, sanitizeStores, sanitizeFeatures, FEATURES, STORE_NAMES } from '@/lib/permissions';
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
@@ -55,15 +55,15 @@ function pickTournamentFields(source) {
 }
 
 // Az eseményt tartó szervezők (felhasználó-azonosítók). Csak létező admin / tulajdonos maradhat benne,
-// aki az esemény játékát kezelheti; a nem jogosultakat csendben kihagyjuk. Csak az adminok látják.
-async function sanitizeHosts(db, value, category) {
+// aki az esemény játékát és boltját kezelheti; a nem jogosultakat csendben kihagyjuk. Csak az adminok látják.
+async function sanitizeHosts(db, value, evt) {
   if (!Array.isArray(value)) return [];
   const ids = [...new Set(value.map(String))].filter(id => ObjectId.isValid(id) && id.length === 24).slice(0, 20);
   if (ids.length === 0) return [];
   const users = await db.collection('users')
-    .find({ _id: { $in: ids.map(id => new ObjectId(id)) }, role: { $in: ['admin', 'owner'] } }, { projection: { role: 1, allowedCategories: 1 } })
+    .find({ _id: { $in: ids.map(id => new ObjectId(id)) }, role: { $in: ['admin', 'owner'] } }, { projection: { role: 1, allowedCategories: 1, allowedStores: 1 } })
     .toArray();
-  const eligible = new Set(users.filter(u => canManageCategory(u, category)).map(u => String(u._id)));
+  const eligible = new Set(users.filter(u => canManageEvent(u, evt)).map(u => String(u._id)));
   return ids.filter(id => eligible.has(id));
 }
 
@@ -185,7 +185,7 @@ export async function POST(request) {
       catch { return { id: String(id) }; }
     };
 
-    const noPermission = () => NextResponse.json({ error: 'Ennek a játéknak az eseményeit nem kezelheted.' }, { status: 403 });
+    const noPermission = () => NextResponse.json({ error: 'Ennek a játéknak vagy boltnak az eseményeit nem kezelheted.' }, { status: 403 });
 
     // --- ESEMÉNYEK ---
     if (actionType === 'ADD_TOURNAMENT') {
@@ -193,10 +193,10 @@ export async function POST(request) {
       if (!doc.name || !doc.category || !doc.date) {
         return NextResponse.json({ error: 'Hiányzó kötelező mezők (név, kategória, dátum).' }, { status: 400 });
       }
-      if (!canManageCategory(session, doc.category)) return noPermission();
+      if (!canManageEvent(session, doc)) return noPermission();
       const result = await db.collection('tournaments').insertOne({
         ...doc,
-        hosts: await sanitizeHosts(db, payload.hosts, doc.category),
+        hosts: await sanitizeHosts(db, payload.hosts, doc),
         current_players: 0,
         queue_count: 0,
         is_open: true,
@@ -211,11 +211,13 @@ export async function POST(request) {
       const existingEvent = await db.collection('tournaments').findOne(getQuery(id));
       if (!existingEvent) return NextResponse.json({ error: 'Esemény nem található.' }, { status: 404 });
       const updates = applyOpenAttendance(pickTournamentFields(rest));
-      // A jelenlegi és (ha változik) az új játékhoz is jogosultság kell, így a szervező nem "viheti át" az eseményt más játékba
-      if (!canManageEvent(session, existingEvent) || (updates.category !== undefined && !canManageCategory(session, updates.category))) {
+      // A jelenlegi és (ha változik) az új játékhoz és bolthoz is jogosultság kell, így a szervező nem "viheti át" az eseményt
+      // más játékba vagy olyan boltba, amelyet nem kezelhet
+      const updatedEvent = { ...existingEvent, ...updates };
+      if (!canManageEvent(session, existingEvent) || !canManageEvent(session, updatedEvent)) {
         return noPermission();
       }
-      if (rest.hosts !== undefined) updates.hosts = await sanitizeHosts(db, rest.hosts, updates.category ?? existingEvent.category);
+      if (rest.hosts !== undefined) updates.hosts = await sanitizeHosts(db, rest.hosts, updatedEvent);
       await db.collection('tournaments').updateOne(getQuery(id), { $set: updates });
       await addLog(db, session.username, 'MÓDOSÍTÁS', `Szerkesztette: ${updates.name ?? payload.name ?? 'esemény'}`);
       // Ha nőtt a max. létszám, a várólistáról előlépnek a következők
@@ -491,7 +493,7 @@ export async function POST(request) {
         if (attended) {
           await db.collection('attendance_history').updateOne(
             { registrationId: String(inserted.insertedId) },
-            { $set: { email: email || null, name: doc.name, username: username || null, tournamentId: tId, tournamentName: event.name, category: event.category, eventDate: event.date, attended: true, recordedAt: now, recordedBy: session.username } },
+            { $set: { email: email || null, name: doc.name, username: username || null, tournamentId: tId, tournamentName: event.name, category: event.category, store: event.store || 'debrecen', eventDate: event.date, attended: true, recordedAt: now, recordedBy: session.username } },
             { upsert: true }
           );
         }
@@ -525,7 +527,7 @@ export async function POST(request) {
         await db.collection('registrations').updateOne({ _id: reg._id }, { $set: { attended, attendanceAt: now } });
         await db.collection('attendance_history').updateOne(
           { registrationId: regId },
-          { $set: { email: reg.email, name: reg.name, username: reg.username, tournamentId: String(reg.tournamentId), tournamentName: event.name, category: event.category, eventDate: event.date, attended, recordedAt: now, recordedBy: session.username } },
+          { $set: { email: reg.email, name: reg.name, username: reg.username, tournamentId: String(reg.tournamentId), tournamentName: event.name, category: event.category, store: event.store || 'debrecen', eventDate: event.date, attended, recordedAt: now, recordedBy: session.username } },
           { upsert: true }
         );
       }
@@ -566,11 +568,17 @@ export async function POST(request) {
       const categories = sanitizeCategories(payload.categories); // null = minden játék
       await db.collection('users').updateOne({ _id: target._id }, categories === null ? { $unset: { allowedCategories: '' } } : { $set: { allowedCategories: categories } });
       let featureText = '';
+      // Kezelhető boltok (null = minden bolt)
+      if (Object.hasOwn(payload, 'stores')) {
+        const stores = sanitizeStores(payload.stores);
+        await db.collection('users').updateOne({ _id: target._id }, stores === null ? { $unset: { allowedStores: '' } } : { $set: { allowedStores: stores } });
+        featureText += `; boltok: ${stores === null ? 'minden bolt' : (stores.map(s => STORE_NAMES[s]).join(', ') || 'egyik sem')}`;
+      }
       // Külön engedélyhez kötött modulok (előrendelés, liga)
       if (Array.isArray(payload.features)) {
         const features = sanitizeFeatures(payload.features);
         await db.collection('users').updateOne({ _id: target._id }, { $set: { features } });
-        featureText = `; modulok: ${features.map(f => FEATURES[f]).join(', ') || 'nincs'}`;
+        featureText += `; modulok: ${features.map(f => FEATURES[f]).join(', ') || 'nincs'}`;
       }
       await addLog(db, session.username, 'JOGOSULTSÁG', `${target.username} kezelhető játékai: ${categories === null ? 'minden játék' : (categories.join(', ') || 'egyik sem')}${featureText}`);
       return NextResponse.json({ success: true });

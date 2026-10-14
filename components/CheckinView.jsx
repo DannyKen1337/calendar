@@ -97,7 +97,7 @@ export default function CheckinView({ app, eventId }) {
         <div className="flex flex-col gap-4">
           {header}
           <div className="bg-[#1a1012] rounded-xl border border-[#4A2E33] p-6 text-center">
-            <Text style={{ color: '#baaaac' }}>{!event ? 'Az esemény nem található.' : !hasRegistration(event) ? 'Ennél az eseménynél nincs jelentkezés.' : 'Ennek a játéknak az eseményeit nem kezelheted.'}</Text>
+            <Text style={{ color: '#baaaac' }}>{!event ? 'Az esemény nem található.' : !hasRegistration(event) ? 'Ennél az eseménynél nincs jelentkezés.' : 'Ennek a játéknak vagy boltnak az eseményeit nem kezelheted.'}</Text>
           </div>
         </div>
       </ConfigProvider>

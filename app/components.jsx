@@ -9,7 +9,7 @@ import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent, showsDecklist } from '@/lib/eventTypes';
 import { findHostConflicts } from '@/lib/hostConflicts';
-import { FEATURES } from '@/lib/permissions';
+import { FEATURES, STORE_NAMES } from '@/lib/permissions';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text, Paragraph } = Typography;
@@ -685,6 +685,8 @@ export const AdminEvents = ({ app: v }) => {
   const [permAll, setPermAll] = useState(true);
   const [permCategories, setPermCategories] = useState([]);
   const [permFeatures, setPermFeatures] = useState([]);
+  const [permAllStores, setPermAllStores] = useState(true);
+  const [permStores, setPermStores] = useState([]);
   const [logQuery, setLogQuery] = useState(''); // keresés a tevékenységnaplóban
   const [usersQuery, setUsersQuery] = useState(''); // keresés a szervezők között
   const [permSaving, setPermSaving] = useState(false);
@@ -695,10 +697,12 @@ export const AdminEvents = ({ app: v }) => {
     setPermAll(!restricted);
     setPermCategories(restricted ? user.allowedCategories : []);
     setPermFeatures(Array.isArray(user.features) ? user.features : []);
+    setPermAllStores(!Array.isArray(user.allowedStores));
+    setPermStores(Array.isArray(user.allowedStores) ? user.allowedStores : []);
   };
   const savePermissions = async () => {
     setPermSaving(true);
-    const ok = await v.setAdminCategories(permUser._id || permUser.id, permAll ? null : permCategories, permFeatures);
+    const ok = await v.setAdminCategories(permUser._id || permUser.id, permAll ? null : permCategories, permFeatures, permAllStores ? null : permStores);
     setPermSaving(false);
     if (ok) setPermUser(null);
   };
@@ -781,7 +785,7 @@ export const AdminEvents = ({ app: v }) => {
 
   const openNewEvent = () => {
     v.eventForm.resetFields();
-    v.eventForm.setFieldsValue({ store: adminStoreFilter !== 'Mind' ? adminStoreFilter : undefined });
+    v.eventForm.setFieldsValue({ store: v.defaultStoreFor(adminStoreFilter !== 'Mind' ? adminStoreFilter : undefined) });
     v.setEditingEventId(null);
     v.setIsCopyingEvent(false);
     v.setIsExternalForm(false);
@@ -927,8 +931,8 @@ export const AdminEvents = ({ app: v }) => {
         
         <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : v.isCopyingEvent ? "Esemény másolása" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4" onValuesChange={(changed, all) => {
-            if ('category' in changed && Array.isArray(all.hosts)) {
-              const eligible = v.eligibleHosts(changed.category);
+            if (('category' in changed || 'store' in changed) && Array.isArray(all.hosts)) {
+              const eligible = v.eligibleHosts(all.category, all.store);
               v.eventForm.setFieldsValue({ hosts: all.hosts.filter(id => eligible.some(u => u.id === id)) });
             }
           }}>
@@ -940,7 +944,7 @@ export const AdminEvents = ({ app: v }) => {
             <div className="grid grid-cols-2 gap-4">
               <Form.Item name="store" label="Helyszín" rules={[{ required: true, message: 'Kérlek válassz boltot!' }]}>
                 <Select placeholder="Válassz boltot..." allowClear>
-                  {Object.values(STORES).map(store => (<Select.Option key={store.id} value={store.id}>{store.name}</Select.Option>))}
+                  {Object.values(STORES).filter(store => v.canManageStore(store.id)).map(store => (<Select.Option key={store.id} value={store.id}>{store.name}</Select.Option>))}
                 </Select>
               </Form.Item>
               <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kérlek válassz játékot!' }]}>
@@ -950,14 +954,14 @@ export const AdminEvents = ({ app: v }) => {
               </Form.Item>
             </div>
             
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category || prev.hosts !== cur.hosts || prev.date !== cur.date}>
+            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category || prev.store !== cur.store || prev.hosts !== cur.hosts || prev.date !== cur.date}>
               {({ getFieldValue }) => {
                 const category = getFieldValue('category');
                 const conflicts = findHostConflicts(v.tournaments, { id: v.editingEventId, date: getFieldValue('date'), hosts: getFieldValue('hosts') });
                 return (
                   <>
-                    <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot kezelhetik.' : 'Előbb válassz játékot.'} style={conflicts.length > 0 ? { marginBottom: 8 } : undefined}>
-                      <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category).map(u => ({ value: u.id, label: u.username })) : []} />
+                    <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot és boltot kezelhetik.' : 'Előbb válassz játékot.'} style={conflicts.length > 0 ? { marginBottom: 8 } : undefined}>
+                      <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category, getFieldValue('store')).map(u => ({ value: u.id, label: u.username })) : []} />
                     </Form.Item>
                     {conflicts.length > 0 && (
                       <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
@@ -1099,6 +1103,14 @@ export const AdminEvents = ({ app: v }) => {
                               </div>
                             </div>
                             <div>
+                              <div style={label}>Boltok</div>
+                              <div className="flex flex-wrap gap-1">
+                                {Array.isArray(record.allowedStores)
+                                  ? (record.allowedStores.length ? record.allowedStores.map(st => <Tag key={st} color="geekblue" style={{ margin: 0 }}>{STORE_NAMES[st] || st}</Tag>) : <Tag color="red" style={{ margin: 0 }}>Egyik sem</Tag>)
+                                  : <Tag color="gold" style={{ margin: 0 }}>Minden bolt</Tag>}
+                              </div>
+                            </div>
+                            <div>
                               <div style={label}>Modulok</div>
                               <div className="flex flex-wrap gap-1">
                                 {features.length ? features.map(f => <Tag key={f} color="cyan" style={{ margin: 0 }}>{FEATURES[f]}</Tag>) : <Text style={{ color: '#6b7280', fontSize: 13 }}>Nincs külön modul</Text>}
@@ -1137,7 +1149,7 @@ export const AdminEvents = ({ app: v }) => {
           onOk={savePermissions}
           okText="Mentés"
           cancelText="Mégse"
-          okButtonProps={{ loading: permSaving, disabled: !permAll && permCategories.length === 0, style: { color: '#000', fontWeight: 'bold' } }}
+          okButtonProps={{ loading: permSaving, disabled: (!permAll && permCategories.length === 0) || (!permAllStores && permStores.length === 0), style: { color: '#000', fontWeight: 'bold' } }}
           closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
         >
           <p style={{ color: '#baaaac' }}>A szervező minden eseményt lát a naptárban, de csak a kiválasztott játékok eseményeit hozhatja létre, szerkesztheti, nyithatja/zárhatja és törölheti, és csak ezek jelentkezőit látja.</p>
@@ -1148,6 +1160,16 @@ export const AdminEvents = ({ app: v }) => {
             </Checkbox.Group>
           )}
           {!permAll && permCategories.length === 0 && <p style={{ color: '#ff7875', marginTop: 12 }}>Válassz legalább egy játékot (vagy fokozd vissza a felhasználót játékossá).</p>}
+          <Divider style={{ borderColor: '#4A2E33', margin: '16px 0 12px' }} />
+          <p style={{ color: '#E5B15D', fontWeight: 'bold', margin: '0 0 4px' }}>Boltok</p>
+          <p style={{ color: '#9a8a8c', fontSize: 13, margin: '0 0 8px' }}>A többi bolt eseményeit is látja a naptárban, de csak a kiválasztott boltokban hozhat létre és szerkeszthet eseményt, és csak ott látja a jelentkezőket.</p>
+          <Checkbox checked={permAllStores} onChange={(e) => setPermAllStores(e.target.checked)} style={{ marginBottom: 8 }}>Minden boltot kezelhet</Checkbox>
+          {!permAllStores && (
+            <Checkbox.Group value={permStores} onChange={setPermStores} style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {Object.entries(STORE_NAMES).map(([id, name]) => <Checkbox key={id} value={id}>{name}</Checkbox>)}
+            </Checkbox.Group>
+          )}
+          {!permAllStores && permStores.length === 0 && <p style={{ color: '#ff7875', marginTop: 12 }}>Válassz legalább egy boltot.</p>}
           <Divider style={{ borderColor: '#4A2E33', margin: '16px 0 12px' }} />
           <p style={{ color: '#E5B15D', fontWeight: 'bold', margin: '0 0 4px' }}>További modulok</p>
           <p style={{ color: '#9a8a8c', fontSize: 13, margin: '0 0 8px' }}>Ezekhez csak az fér hozzá, akinek itt engedélyt adsz, és ott is csak a fent kiválasztott játékokat kezelheti.</p>

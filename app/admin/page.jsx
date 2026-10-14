@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
 import { AdminEvents, ChangelogModal } from '@/app/components';
 import { CHANGELOG, LATEST_CHANGELOG_ID, unseenReleases } from '@/lib/changelog';
+import { STORE_NAMES } from '@/lib/permissions';
 import { LogoutOutlined, LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
 import { Form, Input, Button, ConfigProvider, theme, message } from 'antd';
 
@@ -214,7 +215,10 @@ export default function AdminPage() {
             </h1>
             <span className="text-[#9a8a8c]">
               Bejelentkezve: <b className="text-[#E0D6C8]">{app.userName}</b>
-              {app.userRole === 'owner' ? ' (tulajdonos)' : Array.isArray(app.allowedCategories) ? ` · ${app.allowedCategories.join(', ') || 'nincs kezelt játék'}` : ''}
+              {app.userRole === 'owner' ? ' (tulajdonos)' : [
+                Array.isArray(app.allowedCategories) ? (app.allowedCategories.join(', ') || 'nincs kezelt játék') : null,
+                Array.isArray(app.allowedStores) ? (app.allowedStores.map(s => STORE_NAMES[s] || s).join(', ') || 'nincs kezelt bolt') : null,
+              ].filter(Boolean).map(t => ` · ${t}`).join('')}
             </span>
           </div>
           <div className="flex items-center gap-4">
