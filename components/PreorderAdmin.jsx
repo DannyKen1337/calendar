@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
-import { PlusOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined } from '@ant-design/icons';
+import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
 import { preorderLink, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX } from '@/lib/preorders';
@@ -21,6 +21,8 @@ export default function PreorderAdmin() {
   const [status, setStatus] = useState('all');
   const [gameFilter, setGameFilter] = useState([]);
   const [expanded, setExpanded] = useState({}); // productId => jelentkezők látszanak
+  const [expandedGames, setExpandedGames] = useState({}); // játék => a játék összes jelentkezője látszik
+  const [gameQuery, setGameQuery] = useState({}); // játék => keresés a játék jelentkezői között
   const [editing, setEditing] = useState(null); // null: zárva; {}: új termék; {id,...}: szerkesztés
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
@@ -129,7 +131,16 @@ export default function PreorderAdmin() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span style={{ color: '#E0D6C8', fontSize: 17, fontWeight: 'bold', overflowWrap: 'anywhere' }}>{p.name}</span>
+              <button
+                type="button"
+                onClick={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))}
+                title="Jelentkezők megjelenítése / elrejtése"
+                className="bg-transparent border-none p-0 cursor-pointer text-left flex items-center gap-2 hover:underline"
+                style={{ color: '#E0D6C8', fontSize: 17, fontWeight: 'bold', overflowWrap: 'anywhere', textUnderlineOffset: 4 }}
+              >
+                {isExpanded ? <DownOutlined style={{ fontSize: 11, color: '#E5B15D' }} /> : <RightOutlined style={{ fontSize: 11, color: '#9a8a8c' }} />}
+                {p.name}
+              </button>
               <Tag color={p.isOpen ? 'green' : 'default'} style={{ margin: 0 }}>{p.isOpen ? 'Nyitott' : 'Lezárva'}</Tag>
               {soldOut && <Tag color="red" style={{ margin: 0 }}>{total > p.stock ? `Túlfoglalva (+${total - p.stock} db)` : 'Elfogyott'}</Tag>}
             </div>
@@ -194,19 +205,51 @@ export default function PreorderAdmin() {
         {games.map(game => {
           const items = data.products.filter(p => p.category === game && matchesStatus(p));
           const all = data.products.filter(p => p.category === game);
+          // A játék összes (a szűrésnek megfelelő) termékének jelentkezői egy táblázatban, termék szerint csoportosítva
+          const productName = new Map(items.map(p => [p.id, p.name]));
+          const gameOrders = items.flatMap(p => ordersByProduct.get(p.id) || []);
+          const gameTotal = gameOrders.reduce((s, o) => s + (o.quantity || 0), 0);
+          const gameOpen = !!expandedGames[game] && items.length > 0;
+          const gq = (gameQuery[game] || '').trim().toLowerCase();
+          const gameRows = gameOrders
+            .filter(o => !gq || `${productName.get(o.productId)} ${o.name} ${o.email} ${o.phone}`.toLowerCase().includes(gq))
+            .map(o => ({ ...o, productName: productName.get(o.productId) }));
+          const gameColumns = [
+            { title: 'Termék', dataIndex: 'productName', render: (t) => <span style={{ color: '#E5B15D' }}>{t}</span>, sorter: (a, b) => a.productName.localeCompare(b.productName, 'hu'), defaultSortOrder: 'ascend' },
+            ...orderColumns,
+          ];
           return (
             <section key={game} className={panel} aria-label={game}>
               <div className="flex flex-wrap items-center justify-between gap-2" style={{ marginBottom: items.length ? 12 : 0 }}>
-                <Title level={5} style={{ margin: 0, fontFamily: 'Georgia, serif', color: '#E5B15D', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: getGameColor({ category: game }), display: 'inline-block' }} />
-                  {game}
-                  {all.length > 0 && <span style={{ color: '#9a8a8c', fontSize: 13, fontWeight: 'normal', fontFamily: 'inherit' }}>({all.length} termék)</span>}
+                <Title level={5} style={{ margin: 0, fontFamily: 'Georgia, serif', color: '#E5B15D' }}>
+                  <button
+                    type="button"
+                    disabled={items.length === 0}
+                    onClick={() => setExpandedGames(e => ({ ...e, [game]: !e[game] }))}
+                    title={items.length ? 'A játék összes jelentkezőjének megjelenítése / elrejtése' : undefined}
+                    className="bg-transparent border-none p-0 flex items-center gap-2 text-left enabled:cursor-pointer enabled:hover:underline"
+                    style={{ color: 'inherit', font: 'inherit', textUnderlineOffset: 4 }}
+                  >
+                    {items.length > 0 && (gameOpen ? <DownOutlined style={{ fontSize: 11 }} /> : <RightOutlined style={{ fontSize: 11, color: '#9a8a8c' }} />)}
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: getGameColor({ category: game }), display: 'inline-block' }} />
+                    {game}
+                    {all.length > 0 && <span style={{ color: '#9a8a8c', fontSize: 13, fontWeight: 'normal', fontFamily: 'inherit' }}>({all.length} termék · {gameOrders.length} jelentkezés · {gameTotal} db)</span>}
+                  </button>
                 </Title>
                 <span className="flex flex-wrap gap-2">
                   {all.length > 0 && <Button size="small" icon={<FileExcelOutlined />} style={sideBtn} href={`/api/admin-preorders/export?category=${encodeURIComponent(game)}`} title={`A(z) ${game} összes termékének jelentkezői egy Excel fájlban`}>Excel</Button>}
                   <Button size="small" icon={<PlusOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openEditor({ category: game })}>Termék hozzáadása</Button>
                 </span>
               </div>
+              {gameOpen && (
+                <div className="flex flex-col gap-2 mb-4 rounded-xl border p-3" style={{ borderColor: `${getGameColor({ category: game })}88`, background: '#160d0f' }}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Text style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{game}: összes jelentkezés ({gameOrders.length})</Text>
+                    <Input size="small" allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: termék, név, e-mail, telefon..." value={gameQuery[game] || ''} onChange={(e) => setGameQuery(q => ({ ...q, [game]: e.target.value }))} style={{ maxWidth: 320 }} />
+                  </div>
+                  <Table size="small" dataSource={gameRows} rowKey="id" columns={gameColumns} pagination={gameRows.length > 25 ? { pageSize: 25 } : false} scroll={{ x: 860 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>{gameOrders.length ? 'Nincs találat.' : 'Még nincs jelentkező.'}</span> }} />
+                </div>
+              )}
               {items.length > 0
                 ? <div className="flex flex-col gap-3">{items.map(renderProduct)}</div>
                 : all.length > 0 && <Text style={{ color: '#6b7280', fontStyle: 'italic', fontSize: 13 }}>Nincs a szűrésnek megfelelő termék.</Text>}
