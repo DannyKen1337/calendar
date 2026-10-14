@@ -1,11 +1,37 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
-import { normalizePhone, normalizeQuantity, PREORDER_MAX_ITEMS } from '@/lib/preorders';
+import { normalizePhone, normalizeQuantity, phoneKey, productStock, productLimit, PREORDER_MAX_ITEMS } from '@/lib/preorders';
 import { toObjectId } from '@/lib/preorderData';
 import { isMailConfigured, sendMail, escapeHtml, mailLayout } from '@/lib/mailer';
 
 export const dynamic = 'force-dynamic';
+
+// Elérhető mennyiség és személyenkénti limit ellenőrzése egy termékre.
+// A vásárló saját (azonos e-mail című) sora lecserélődik, ezért az nem számít bele; a limitbe viszont
+// beleszámít, ha ugyanezzel a telefonszámmal egy másik e-mail címről már van előrendelés. null = rendben.
+function checkProductLimits(p, rows, { email, pKey, qty }) {
+  const others = rows.filter(r => r.email !== email);
+  const stock = productStock(p);
+  if (stock !== null) {
+    const left = stock - others.reduce((s, r) => s + (r.quantity || 0), 0);
+    if (qty > left) {
+      return left <= 0
+        ? `A(z) „${p.name}” elfogyott, már nem lehet előrendelni.`
+        : `A(z) „${p.name}” termékből már csak ${left} db foglalható.`;
+    }
+  }
+  const limit = productLimit(p);
+  if (limit) {
+    const samePhone = others.filter(r => phoneKey(r.phone) === pKey).reduce((s, r) => s + (r.quantity || 0), 0);
+    if (qty + samePhone > limit) {
+      return samePhone > 0
+        ? `A(z) „${p.name}” termékből személyenként legfeljebb ${limit} db rendelhető elő. Ezzel a telefonszámmal egy másik e-mail címről már ${samePhone} db előrendelés van.`
+        : `A(z) „${p.name}” termékből személyenként legfeljebb ${limit} db rendelhető elő.`;
+    }
+  }
+  return null;
+}
 
 // Nyilvános előrendelés (feliratkozás) beküldése: név, e-mail, telefon és a kiválasztott termékek darabszámmal.
 // Ugyanarra a termékre egy e-mail címmel egy sor tartozik: újraküldéskor a meglévő sor frissül (pl. más darabszám).
@@ -51,17 +77,42 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Valamelyik kiválasztott termék előrendelése közben lezárult. Frissítsd az oldalt, és próbáld újra.' }, { status: 409 });
     }
 
+    const pKey = phoneKey(phone);
+    const orders = db.collection('preorders');
+    const rowsOf = (p) => orders.find({ productId: String(p._id) }, { projection: { email: 1, phone: 1, quantity: 1 } }).toArray();
+
+    // 1. Ellenőrzés mentés előtt: elérhető mennyiség és személyenkénti limit (e-mail cím és telefonszám alapján)
+    for (const p of products) {
+      const error = checkProductLimits(p, await rowsOf(p), { email, pKey, qty: items.get(String(p._id)) });
+      if (error) return NextResponse.json({ error, field: 'items', productId: String(p._id) }, { status: 409 });
+    }
+
+    // 2. Mentés: a korábbi állapotot megjegyezzük, hogy szükség esetén visszaállíthassuk
     const now = new Date();
     let updated = 0;
+    const written = [];
     for (const p of products) {
-      const upsert = () => db.collection('preorders').updateOne(
+      const upsert = () => orders.findOneAndUpdate(
         { productId: String(p._id), email },
-        { $set: { name, phone, quantity: items.get(String(p._id)), updatedAt: now }, $setOnInsert: { productId: String(p._id), email, date: now } },
-        { upsert: true }
+        { $set: { name, phone, phoneKey: pKey, quantity: items.get(String(p._id)), updatedAt: now }, $setOnInsert: { productId: String(p._id), email, date: now } },
+        { upsert: true, returnDocument: 'before' }
       );
       // Két párhuzamos beküldésnél (dupla kattintás) az egyedi index miatt az egyik upsert ütközhet: ilyenkor még egyszer próbáljuk, akkor már frissít
-      const res = await upsert().catch(err => (err?.code === 11000 ? upsert() : Promise.reject(err)));
-      if (res.matchedCount > 0) updated++;
+      const prev = await upsert().catch(err => (err?.code === 11000 ? upsert() : Promise.reject(err)));
+      written.push({ productId: String(p._id), prev });
+      if (prev) updated++;
+    }
+
+    // 3. Ellenőrzés mentés után: ha közben valaki más elfoglalta a maradék darabokat, a mostani beküldést visszavonjuk
+    for (const p of products) {
+      const error = checkProductLimits(p, await rowsOf(p), { email, pKey, qty: items.get(String(p._id)) });
+      if (error) {
+        for (const w of written) {
+          if (w.prev) await orders.replaceOne({ _id: w.prev._id }, w.prev);
+          else await orders.deleteOne({ productId: w.productId, email });
+        }
+        return NextResponse.json({ error: `${error} Közben mások is előrendeltek, frissítsd az oldalt.`, field: 'items', productId: String(p._id) }, { status: 409 });
+      }
     }
 
     let mailSent = false;

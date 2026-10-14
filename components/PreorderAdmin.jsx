@@ -1,10 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Button, Modal, Form, Input, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
+import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
 import { PlusOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
-import { preorderLink, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX } from '@/lib/preorders';
+import { preorderLink, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX } from '@/lib/preorders';
 
 const { Title, Text } = Typography;
 
@@ -66,7 +66,7 @@ export default function PreorderAdmin() {
 
   const openEditor = (product) => {
     setEditing(product);
-    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '' });
+    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '', stock: product.stock ?? null, perPersonLimit: product.perPersonLimit ?? null });
   };
 
   const save = async (values) => {
@@ -123,6 +123,7 @@ export default function PreorderAdmin() {
     const orders = ordersByProduct.get(p.id) || [];
     const total = orders.reduce((s, o) => s + (o.quantity || 0), 0);
     const isExpanded = !!expanded[p.id];
+    const soldOut = p.stock !== null && total >= p.stock;
     return (
       <div key={p.id} className="rounded-xl border p-4 bg-[#2B1A1C]" style={{ borderColor: '#4A2E33', borderLeft: `5px solid ${getGameColor({ category: p.category })}`, opacity: p.isOpen ? 1 : 0.85 }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -130,14 +131,20 @@ export default function PreorderAdmin() {
             <div className="flex flex-wrap items-center gap-2">
               <span style={{ color: '#E0D6C8', fontSize: 17, fontWeight: 'bold', overflowWrap: 'anywhere' }}>{p.name}</span>
               <Tag color={p.isOpen ? 'green' : 'default'} style={{ margin: 0 }}>{p.isOpen ? 'Nyitott' : 'Lezárva'}</Tag>
+              {soldOut && <Tag color="red" style={{ margin: 0 }}>{total > p.stock ? `Túlfoglalva (+${total - p.stock} db)` : 'Elfogyott'}</Tag>}
             </div>
             <div style={{ color: '#9a8a8c', fontSize: 13, marginTop: 2 }}>
               {p.releaseDate ? `Megjelenés: ${p.releaseDate} · ` : ''}Felvette: {p.createdBy || '—'}, {formatHu(p.createdAt)}
             </div>
+            <div style={{ color: '#baaaac', fontSize: 13, marginTop: 2 }}>
+              Limit: <b style={{ color: '#E0D6C8' }}>{p.perPersonLimit ? `${p.perPersonLimit} db / fő` : 'korlátlan'}</b>
+              {p.perPersonLimit === null && <span style={{ color: '#faad14' }}> (nincs beállítva, szerkesztéssel megadható)</span>}
+              {' · '}Elérhető mennyiség: <b style={{ color: '#E0D6C8' }}>{p.stock !== null ? `${p.stock} db` : 'nincs felső határ'}</b>
+            </div>
             {p.description && <div style={{ color: '#baaaac', fontSize: 13, marginTop: 4, whiteSpace: 'pre-wrap' }}>{p.description}</div>}
           </div>
           <div className="text-right shrink-0">
-            <div style={{ color: '#E5B15D', fontSize: 22, fontWeight: 'bold', lineHeight: 1.1 }}>{total} db</div>
+            <div style={{ color: soldOut ? '#ff7875' : '#E5B15D', fontSize: 22, fontWeight: 'bold', lineHeight: 1.1 }}>{total}{p.stock !== null ? ` / ${p.stock}` : ''} db</div>
             <div style={{ color: '#9a8a8c', fontSize: 13 }}>{orders.length} jelentkező</div>
           </div>
         </div>
@@ -224,11 +231,19 @@ export default function PreorderAdmin() {
           <Form.Item name="name" label="Termék / kiegészítő neve" rules={[{ required: true, whitespace: true, message: 'Add meg a termék nevét!' }]}>
             <Input maxLength={PRODUCT_NAME_MAX} placeholder="Pl.: Ascended Heroes Elite Trainer Box" />
           </Form.Item>
+          <div className="grid gap-x-4 sm:grid-cols-2">
+            <Form.Item name="stock" label="Elérhető mennyiség (nem kötelező)" extra="Összesen ennyi darab rendelhető elő. Ha üresen hagyod, nincs felső határ.">
+              <InputNumber min={1} max={PRODUCT_STOCK_MAX} precision={0} suffix="db" placeholder="Nincs felső határ" style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="perPersonLimit" label="Limit személyenként" rules={[{ required: true, message: 'Add meg a limitet (0 = korlátlan)!' }]} extra="Kötelező. A 0 korlátlant jelent. Az azonos e-mail cím és az azonos telefonszám is egy vásárlónak számít.">
+              <InputNumber min={0} max={PRODUCT_LIMIT_MAX} precision={0} suffix="db / fő" placeholder="0 = korlátlan" style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
           <Form.Item name="releaseDate" label="Megjelenés (nem kötelező)">
             <Input maxLength={PRODUCT_RELEASE_MAX} placeholder="Pl.: 2026. november 14." />
           </Form.Item>
           <Form.Item name="description" label="Leírás (nem kötelező)" extra="Pl. ár, tartalom, átvétel módja. A nyilvános oldalon a termék alatt jelenik meg.">
-            <Input.TextArea maxLength={PRODUCT_DESC_MAX} autoSize={{ minRows: 3, maxRows: 8 }} showCount />
+            <Input.TextArea maxLength={PRODUCT_DESC_MAX} autoSize={{ minRows: 3, maxRows: 8 }} />
           </Form.Item>
         </Form>
       </Modal>

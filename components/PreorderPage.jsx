@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getGameConfig, getGameColor } from '@/lib/gameConfig';
-import { groupByGame, PREORDER_MAX_QTY } from '@/lib/preorders';
+import { groupByGame, maxSelectable } from '@/lib/preorders';
 
 const ACCENT = '#E5B15D';
 const DEFAULT_LOGO = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
@@ -26,13 +26,19 @@ const Header = ({ subtitle }) => (
   </div>
 );
 
-function QuantityStepper({ value, onChange, label }) {
+// Darabszám: gombokkal vagy beírással, 1 és a termékre érvényes felső határ között
+function QuantityStepper({ value, onChange, label, max }) {
   const btn = 'w-9 h-9 rounded-lg border border-[#4A2E33] bg-[#2B1A1C] text-[#E0D6C8] text-lg font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
   return (
     <div className="flex items-center gap-2 shrink-0" role="group" aria-label={`${label}: darabszám`}>
       <button type="button" className={btn} onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Kevesebb">−</button>
-      <span className="w-8 text-center text-white font-bold" aria-live="polite">{value}</span>
-      <button type="button" className={btn} onClick={() => onChange(value + 1)} disabled={value >= PREORDER_MAX_QTY} aria-label="Több">+</button>
+      <input
+        type="number" inputMode="numeric" min={1} max={max} value={value}
+        onChange={(e) => { const n = parseInt(e.target.value, 10); if (Number.isFinite(n)) onChange(n); }}
+        aria-label={`${label}: darabszám`}
+        className="w-14 h-9 rounded-lg border border-[#4A2E33] bg-black/40 text-center text-white font-bold outline-none focus:border-[#E5B15D] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <button type="button" className={btn} onClick={() => onChange(value + 1)} disabled={value >= max} aria-label="Több">+</button>
       <span className="text-sm text-[#cfc6b8]">db</span>
     </div>
   );
@@ -43,7 +49,7 @@ function QuantityStepper({ value, onChange, label }) {
 export default function PreorderPage({ products = [], focusId = null, hasOthers = false, maintenance = false, loadError = false }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   const shown = focused ? [focused] : products;
-  const [selected, setSelected] = useState(() => (focused ? { [focused.id]: 1 } : {}));
+  const [selected, setSelected] = useState(() => (focused && maxSelectable(focused, focused.remaining) > 0 ? { [focused.id]: 1 } : {}));
   const [values, setValues] = useState({ name: '', email: '', phone: '', website: '' });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -78,7 +84,8 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
     setSelected(s => { const next = { ...s }; if (next[id]) delete next[id]; else next[id] = 1; return next; });
     if (errors.items) setErrors(err => ({ ...err, items: '' }));
   };
-  const setQty = (id, qty) => setSelected(s => ({ ...s, [id]: Math.min(PREORDER_MAX_QTY, Math.max(1, qty)) }));
+  const maxOf = (id) => { const p = shown.find(x => x.id === id); return p ? maxSelectable(p, p.remaining) : 1; };
+  const setQty = (id, qty) => setSelected(s => ({ ...s, [id]: Math.min(maxOf(id), Math.max(1, qty)) }));
   const set = (field) => (e) => {
     setValues(v => ({ ...v, [field]: e.target.value }));
     if (errors[field]) setErrors(err => ({ ...err, [field]: '' }));
@@ -168,17 +175,25 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
                 <div className="flex flex-col gap-3">
                   {items.map(p => {
                     const isOn = !!selected[p.id];
+                    const max = maxSelectable(p, p.remaining);
+                    const soldOut = max === 0;
                     return (
-                      <div key={p.id} className="rounded-2xl border-2 p-4 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors" style={{ borderColor: isOn ? ACCENT : '#4A2E33', background: isOn ? '#2B1A1C' : '#160d0f' }}>
-                        <label className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer">
-                          <input type="checkbox" checked={isOn} onChange={() => toggle(p.id)} className="mt-1 w-5 h-5 shrink-0 accent-[#E5B15D] cursor-pointer" />
+                      <div key={p.id} className="rounded-2xl border-2 p-4 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors" style={{ borderColor: isOn ? ACCENT : '#4A2E33', background: isOn ? '#2B1A1C' : '#160d0f', opacity: soldOut ? 0.6 : 1 }}>
+                        <label className={`flex items-start gap-3 flex-1 min-w-0 ${soldOut ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input type="checkbox" checked={isOn} disabled={soldOut} onChange={() => toggle(p.id)} className="mt-1 w-5 h-5 shrink-0 accent-[#E5B15D] cursor-pointer disabled:cursor-not-allowed" />
                           <span className="min-w-0">
                             <span className="block text-white font-bold text-lg" style={{ overflowWrap: 'anywhere' }}>{p.name}</span>
+                            {soldOut && <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: '#ff6b6b33', color: '#ffb3b3' }}>Elfogyott</span>}
                             {p.releaseDate && <span className="block text-sm" style={{ color: ACCENT }}>Megjelenés: {p.releaseDate}</span>}
+                            {!soldOut && (p.perPersonLimit > 0 || p.remaining !== null) && (
+                              <span className="block text-sm text-[#cfc6b8]">
+                                {[p.perPersonLimit > 0 && `Személyenként legfeljebb ${p.perPersonLimit} db`, p.remaining !== null && `Még ${p.remaining} db foglalható`].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
                             {p.description && <span className="block text-sm text-[#cfc6b8] mt-1 whitespace-pre-wrap">{p.description}</span>}
                           </span>
                         </label>
-                        {isOn && <QuantityStepper value={selected[p.id]} onChange={(q) => setQty(p.id, q)} label={p.name} />}
+                        {isOn && <QuantityStepper value={selected[p.id]} onChange={(q) => setQty(p.id, q)} label={p.name} max={max} />}
                       </div>
                     );
                   })}
