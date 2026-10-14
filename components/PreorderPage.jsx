@@ -38,9 +38,9 @@ function QuantityStepper({ value, onChange, label }) {
   );
 }
 
-// Előrendelő (feliratkozási) oldal. focusId: a bolt által kiküldött linkben megadott termék (?termek=...),
-// csak az a termék látszik, előre kiválasztva. Link nélkül nem jelenik meg termék.
-export default function PreorderPage({ products = [], focusId = null, maintenance = false, loadError = false }) {
+// Nyilvános előrendelő (feliratkozási) oldal. focusId: a megosztott linkben megadott termék (?termek=...),
+// ilyenkor csak az a termék látszik, előre kiválasztva.
+export default function PreorderPage({ products = [], focusId = null, hasOthers = false, maintenance = false, loadError = false }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   const shown = focused ? [focused] : products;
   const [selected, setSelected] = useState(() => (focused ? { [focused.id]: 1 } : {}));
@@ -57,13 +57,18 @@ export default function PreorderPage({ products = [], focusId = null, maintenanc
     return <Shell><Header /><Panel className="text-center"><p className="m-0 text-lg">Az oldal most nem tölthető be. Kérjük, próbáld újra pár perc múlva.</p></Panel></Shell>;
   }
 
-  if (!focused) {
+  const notFoundNotice = focusId && !focused && (
+    <div className="rounded-xl px-4 py-3 mb-4 text-sm" style={{ background: '#faad1422', color: '#ffd591', border: '1px solid #faad1455' }}>
+      Ennek a terméknek az előrendelése már lezárult, vagy a link hibás.{products.length > 0 ? ' Alább a jelenleg nyitott előrendeléseket látod.' : ''}
+    </div>
+  );
+
+  if (products.length === 0) {
     return (
       <Shell>
         <Header />
-        <Panel className="text-center">
-          <p className="m-0 text-lg">{focusId ? 'Ennek a terméknek az előrendelése már lezárult, vagy a link hibás.' : 'Az előrendeléshez a bolttól kapott linket használd.'}</p>
-        </Panel>
+        {notFoundNotice}
+        <Panel className="text-center"><p className="m-0 text-lg">Jelenleg nincs nyitott előrendelés.</p></Panel>
       </Shell>
     );
   }
@@ -136,6 +141,8 @@ export default function PreorderPage({ products = [], focusId = null, maintenanc
           <p className="text-[#cfc6b8] mt-4 mb-0">Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? ' A visszaigazolást elküldtük e-mailben.' : ''}</p>
         </Panel>
         <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm">
+          {/* Sima link (teljes betöltés), hogy az űrlap alaphelyzetbe álljon */}
+          <a href="/elorendeles" className="underline text-[#cfc6b8]">További előrendelések</a>
           <Link href="/" className="underline text-[#cfc6b8]">Eseménynaptár</Link>
         </div>
       </Shell>
@@ -147,6 +154,7 @@ export default function PreorderPage({ products = [], focusId = null, maintenanc
   return (
     <Shell>
       <Header subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
+      {notFoundNotice}
       <form onSubmit={submit} noValidate className="flex flex-col gap-6">
         <Panel>
           <h2 className="text-xl font-bold font-serif mt-0 mb-4" style={{ color: ACCENT }}>1. Mit szeretnél előrendelni?</h2>
@@ -218,6 +226,9 @@ export default function PreorderPage({ products = [], focusId = null, maintenanc
           </p>
         </Panel>
       </form>
+      {focused && hasOthers && (
+        <div className="text-center mt-6 text-sm"><a href="/elorendeles" className="underline text-[#cfc6b8]">Összes nyitott előrendelés</a></div>
+      )}
     </Shell>
   );
 }

@@ -143,8 +143,7 @@ export default function PreorderAdmin() {
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
           <Button size="small" icon={<TeamOutlined />} style={isExpanded ? { ...sideBtn, color: '#E5B15D', borderColor: '#E5B15D' } : sideBtn} onClick={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))}>Jelentkezők ({orders.length})</Button>
-          <Button size="small" icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderLink(origin, p.id))} title="Ezen a linken lehet feliratkozni a termékre">Link másolása</Button>
-          <Button size="small" icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open(preorderLink('', p.id), '_blank', 'noopener')} disabled={!p.isOpen} title={p.isOpen ? 'A feliratkozó oldal megnyitása' : 'Lezárt termék oldala nem érhető el'}>Megnyitás</Button>
+          <Button size="small" icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderLink(origin, p.id))} title="Csak ezt a terméket mutató link, meghirdetéshez">Link másolása</Button>
           <Button size="small" icon={<FileExcelOutlined />} style={sideBtn} href={`/api/admin-preorders/export?productId=${encodeURIComponent(p.id)}`}>Excel</Button>
           <Button size="small" icon={<EditOutlined />} style={sideBtn} onClick={() => openEditor(p)}>Szerkesztés</Button>
           {p.isOpen
@@ -171,9 +170,11 @@ export default function PreorderAdmin() {
           <div className="flex flex-wrap items-center gap-2">
             <Button type="primary" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openEditor({ category: gameFilter.length === 1 ? gameFilter[0] : undefined })} disabled={data.games.length === 0}>Új termék</Button>
             <Button icon={<FileExcelOutlined />} style={sideBtn} href="/api/admin-preorders/export" disabled={data.products.length === 0}>Excel (összes termék)</Button>
+            <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderLink(origin))}>Nyilvános link másolása</Button>
+            <Button icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/elorendeles', '_blank', 'noopener')}>Megnyitás</Button>
           </div>
           <Text style={{ color: '#9a8a8c', fontSize: 13 }}>
-            {openCount} nyitott előrendelés. Az előrendelés nem jelenik meg sehol nyilvánosan: a vásárlók csak a termék „Link másolása” gombjával kimásolt linken keresztül tudnak feliratkozni, ezt ti küldhetitek el.
+            Nyilvános oldal: <span style={{ color: '#E0D6C8' }}>{preorderLink(origin)}</span> · {openCount} nyitott előrendelés. A termékeknél a „Link másolása” olyan linket ad, amely csak azt az egy terméket mutatja.
           </Text>
           <div className="flex flex-wrap items-center gap-3">
             <Segmented options={STATUS_OPTIONS} value={status} onChange={setStatus} />
