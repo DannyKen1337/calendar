@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -832,6 +832,7 @@ export const AdminEvents = ({ app: v }) => {
               <Button block icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/', '_blank', 'noopener')}>Naptár</Button>
               <Link href="/admin/statisztika"><Button block icon={<BarChartOutlined />} style={sideBtn}>Statisztika</Button></Link>
               <Link href="/admin/checkin"><Button block icon={<MobileOutlined />} style={sideBtn}>Check-in</Button></Link>
+              <Link href="/admin/elorendeles" className="col-span-2"><Button block icon={<ShoppingCartOutlined />} style={sideBtn}>Előrendelések</Button></Link>
             </div>
           </div>
 
