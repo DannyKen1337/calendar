@@ -686,6 +686,7 @@ export const AdminEvents = ({ app: v }) => {
   const [permCategories, setPermCategories] = useState([]);
   const [permFeatures, setPermFeatures] = useState([]);
   const [logQuery, setLogQuery] = useState(''); // keresés a tevékenységnaplóban
+  const [usersQuery, setUsersQuery] = useState(''); // keresés a szervezők között
   const [permSaving, setPermSaving] = useState(false);
 
   const openPermissions = (user) => {
@@ -1045,35 +1046,89 @@ export const AdminEvents = ({ app: v }) => {
             </div>
           )}
         </Modal>
-        <Modal title="Szervezős Felhasználók" open={v.isUsersModalOpen} onCancel={() => v.setIsUsersModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-          <Table dataSource={v.usersList || []} rowKey={(record) => record._id || record.id} pagination={{ pageSize: 5 }} columns={[
-            { title: 'Név', dataIndex: 'username', render: (text, record) => <Space size={6} wrap><Text strong style={{ color: '#E0D6C8' }}>{text}</Text>{record.mustChangePassword && <Tag color="blue">Ideiglenes jelszó</Tag>}</Space> },
-            { title: 'E-mail', dataIndex: 'email', render: (text) => <span style={{ color: '#baaaac' }}>{text}</span> },
-            { title: 'Szerep', dataIndex: 'role', render: (role) => { if (role === 'owner') return <Tag color="purple">Admin2</Tag>; if (role === 'admin') return <Tag color="orange">Admin</Tag>; return <Tag color="green">Játékos</Tag>; }},
-            { title: 'Kezelt játékok', render: (_, record) => {
-                if (record.role === 'owner') return <Tag color="purple">Minden</Tag>;
-                if (record.role !== 'admin') return <Text type="secondary">—</Text>;
-                const games = Array.isArray(record.allowedCategories) ? record.allowedCategories : null;
-                return (
-                  <Space size={4} wrap>
-                    {(record.features || []).map(f => FEATURES[f] && <Tag key={f} color="cyan" style={{ margin: 0 }}>{FEATURES[f]}</Tag>)}
-                    {games === null ? <Tag color="gold">Minden játék</Tag> : games.length === 0 ? <Tag color="red">Egyik sem</Tag> : games.map(g => <Tag key={g} style={{ background: getGameColor({ category: g }), borderColor: getGameColor({ category: g }), color: '#fff', margin: 0 }}>{g}</Tag>)}
-                    {v.userRole === 'owner' && <Button size="small" type="link" icon={<EditOutlined />} onClick={() => openPermissions(record)}>Módosítás</Button>}
-                  </Space>
-                );
-            }},
-            { title: 'Művelet', render: (_, record) => {
-                if (record.email === v.userEmail || record.role === 'owner') return <Text type="secondary">Védett fiók</Text>;
-                if (v.userRole !== 'owner') return <Text type="secondary">—</Text>;
-                return (
-                  <Space style={{ flexWrap: 'wrap' }}>
-                    <Button type={record.role === 'admin' ? 'default' : 'primary'} style={record.role === 'admin' ? {} : {color: '#000', fontWeight: 'bold'}} size="small" onClick={() => v.toggleUserRole(record)}>{record.role === 'admin' ? 'Visszafokozás' : 'Admin jog'}</Button>
-                    <Button size="small" onClick={() => v.initiatePasswordChange(record)}>Új Jelszó</Button>
-                    <Popconfirm title="Biztosan törlöd a felhasználót?" onConfirm={() => v.handleDeleteUser(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
-                  </Space>
-                )
-            }}
-          ]} />
+        <Modal
+          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Szervezők és felhasználók</span>}
+          open={v.isUsersModalOpen}
+          onCancel={() => v.setIsUsersModalOpen(false)}
+          footer={null}
+          width={900}
+          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+        >
+          {(() => {
+            // Kártyás lista: telefonon is áttekinthető (a táblázat keskeny képernyőn szétesett)
+            const ROLE_ORDER = { owner: 0, admin: 1 };
+            const q = usersQuery.trim().toLowerCase();
+            const list = [...(v.usersList || [])]
+              .filter(u => !q || `${u.username} ${u.email}`.toLowerCase().includes(q))
+              .sort((a, b) => (ROLE_ORDER[a.role] ?? 2) - (ROLE_ORDER[b.role] ?? 2) || String(a.username).localeCompare(String(b.username), 'hu'));
+            const roleTag = (role) => (role === 'owner' ? <Tag color="purple" style={{ margin: 0 }}>Tulajdonos</Tag> : role === 'admin' ? <Tag color="orange" style={{ margin: 0 }}>Szervező</Tag> : <Tag color="green" style={{ margin: 0 }}>Játékos</Tag>);
+            const label = { color: '#9a8a8c', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 };
+            return (
+              <div className="flex flex-col gap-3 pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés név vagy e-mail alapján..." value={usersQuery} onChange={(e) => setUsersQuery(e.target.value)} style={{ maxWidth: 360 }} />
+                  <Text style={{ color: '#9a8a8c', fontSize: 13 }}>{list.length} felhasználó</Text>
+                </div>
+                {list.length === 0 && <Text style={{ color: '#6b7280', fontStyle: 'italic', textAlign: 'center', padding: 16 }}>Nincs találat.</Text>}
+                <div className="grid gap-3 md:grid-cols-2">
+                  {list.map(record => {
+                    const id = record._id || record.id;
+                    const isProtected = record.email === v.userEmail || record.role === 'owner';
+                    const canEdit = v.userRole === 'owner' && !isProtected;
+                    const games = Array.isArray(record.allowedCategories) ? record.allowedCategories : null;
+                    const features = (record.features || []).filter(f => FEATURES[f]);
+                    return (
+                      <div key={String(id)} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: record.role === 'owner' ? '#722ed1' : '#4A2E33', background: '#1a1012' }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div style={{ color: '#E0D6C8', fontWeight: 'bold', fontSize: 16, overflowWrap: 'anywhere' }}>{record.username}</div>
+                            <div style={{ color: '#baaaac', fontSize: 13, overflowWrap: 'anywhere' }}>{record.email}</div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {roleTag(record.role)}
+                            {record.mustChangePassword && <Tag color="blue" style={{ margin: 0 }}>Ideiglenes jelszó</Tag>}
+                          </div>
+                        </div>
+
+                        {record.role === 'admin' && (
+                          <>
+                            <div>
+                              <div style={label}>Kezelt játékok</div>
+                              <div className="flex flex-wrap gap-1">
+                                {games === null ? <Tag color="gold" style={{ margin: 0 }}>Minden játék</Tag> : games.length === 0 ? <Tag color="red" style={{ margin: 0 }}>Egyik sem</Tag> : games.map(g => <Tag key={g} style={{ background: getGameColor({ category: g }), borderColor: getGameColor({ category: g }), color: '#fff', margin: 0 }}>{g}</Tag>)}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={label}>Modulok</div>
+                              <div className="flex flex-wrap gap-1">
+                                {features.length ? features.map(f => <Tag key={f} color="cyan" style={{ margin: 0 }}>{FEATURES[f]}</Tag>) : <Text style={{ color: '#6b7280', fontSize: 13 }}>Nincs külön modul</Text>}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {record.role === 'owner' && <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Minden játékot és modult kezel.</Text>}
+
+                        {canEdit ? (
+                          <div className="flex flex-wrap gap-2 pt-3 border-t border-[#4A2E33]">
+                            {record.role === 'admin' && <Button size="small" icon={<EditOutlined />} style={{ color: '#E5B15D', borderColor: '#4A2E33', background: '#2B1A1C' }} onClick={() => openPermissions(record)}>Jogosultságok</Button>}
+                            <Button size="small" onClick={() => v.initiatePasswordChange(record)}>Új jelszó</Button>
+                            {record.role === 'admin'
+                              ? <Popconfirm title="Visszafokozod játékossá?" description="Elveszíti a szervezői hozzáférést." onConfirm={() => v.toggleUserRole(record)} okText="Igen" cancelText="Mégse"><Button size="small">Visszafokozás</Button></Popconfirm>
+                              : <Button size="small" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => v.toggleUserRole(record)}>Szervezői jog</Button>}
+                            <Popconfirm title="Biztosan törlöd a felhasználót?" onConfirm={() => v.handleDeleteUser(id)} okText="Igen" cancelText="Mégse" okButtonProps={{ danger: true }}>
+                              <Button size="small" danger icon={<DeleteOutlined />} style={{ marginLeft: 'auto' }}>Törlés</Button>
+                            </Popconfirm>
+                          </div>
+                        ) : isProtected && (
+                          <Text style={{ color: '#6b7280', fontSize: 12 }} className="pt-3 border-t border-[#4A2E33]">Védett fiók</Text>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </Modal>
         <Modal
           title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Jogosultságok: {permUser?.username}</span>}
