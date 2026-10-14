@@ -7,7 +7,8 @@ export const metadata = {
   description: 'Iratkozz fel a Tavern előrendeléseire: válaszd ki a terméket, és add meg az elérhetőségeidet.',
 };
 
-// Nyilvános előrendelő oldal. ?termek=<azonosító>: csak az a termék látszik (meghirdetéshez megosztható link).
+// Előrendelő oldal. Csak a termékenkénti linkkel (?termek=<azonosító>) működik, amelyet a bolt küld ki;
+// a sima /elorendeles cím nem listáz terméket.
 // A searchParams használata miatt minden kérésnél frissen töltődik (dinamikus oldal).
 export default async function Page({ searchParams }) {
   const { termek } = await searchParams;
@@ -16,7 +17,6 @@ export default async function Page({ searchParams }) {
   if (!products) return <PreorderPage loadError />;
   const focusId = typeof termek === 'string' ? termek : null;
   const focused = focusId ? products.find(p => p.id === focusId) : null;
-  // Termék-linknél csak az az egy termék kerül le a böngészőbe
-  if (focused) return <PreorderPage products={[focused]} focusId={focusId} hasOthers={products.length > 1} />;
-  return <PreorderPage products={products} focusId={focusId} />;
+  // Csak a linkben megadott termék kerül le a böngészőbe, a többi nyitott termék nem látszik
+  return <PreorderPage products={focused ? [focused] : []} focusId={focusId} />;
 }
