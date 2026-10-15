@@ -5,6 +5,7 @@ import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
 import { canManageEvent, canManageCategory, canManageStore as userCanManageStore, hasFeature as userHasFeature } from "@/lib/permissions";
 import { sanitizeEventType, getEventType } from "@/lib/eventTypes";
+import useLiveRefresh from "@/lib/useLiveRefresh";
 import { findHostConflicts } from "@/lib/hostConflicts";
 import { getOpeningHoursWarning } from "@/lib/storeHours";
 
@@ -119,9 +120,9 @@ export const useCalendar = () => {
       }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.extraLinks) setExtraLinks(data.extraLinks);
-      if (data.error) messageApi.error('Nem sikerült betölteni az eseményeket.');
+      if (data.error && !isBackground) messageApi.error('Nem sikerült betölteni az eseményeket.');
     } catch {
-      messageApi.error('Hálózati hiba az események betöltésekor.');
+      if (!isBackground) messageApi.error('Hálózati hiba az események betöltésekor.');
     }
     if (!isBackground) setLoading(false);
   };
@@ -151,9 +152,9 @@ export const useCalendar = () => {
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.extraLinks) setExtraLinks(data.extraLinks);
-      if (data.error) messageApi.error(data.error);
+      if (data.error && !isBackground) messageApi.error(data.error);
     } catch {
-      messageApi.error('Hálózati hiba az admin adatok betöltésekor.');
+      if (!isBackground) messageApi.error('Hálózati hiba az admin adatok betöltésekor.');
       fetchPublicData(isBackground);
     }
     if (!isBackground) setLoading(false);
@@ -174,6 +175,11 @@ export const useCalendar = () => {
     }
     return fetchPublicData(isBackground);
   };
+
+  // Élő frissítés: az új jelentkezések, események oldalfrissítés nélkül megjelennek.
+  // Szervezőknek sűrűbben (jelentkezők, check-in), a látogatóknak ritkábban, hogy a szervert ne terhelje.
+  const isStaffUser = userRole === 'admin' || userRole === 'owner';
+  useLiveRefresh(() => fetchData(true), isStaffUser ? 10000 : 30000, !loading);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });

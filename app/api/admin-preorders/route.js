@@ -30,7 +30,7 @@ export async function GET() {
 
     return NextResponse.json({
       products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), price: productPrice(p), perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
-      preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, email: o.email, phone: o.phone, quantity: o.quantity, date: o.date, updatedAt: o.updatedAt })),
+      preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, email: o.email, phone: o.phone, quantity: o.quantity, date: o.date, updatedAt: o.updatedAt, handedOverAt: o.handedOverAt || null, handedOverBy: o.handedOverBy || '' })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
     });
   } catch (error) {
@@ -92,6 +92,22 @@ export async function POST(request) {
       const removed = await db.collection('preorders').deleteMany({ productId: String(existing._id) });
       await products.deleteOne({ _id: existing._id });
       await addLog(db, session.username, 'ELŐRENDELÉS TERMÉK TÖRLÉSE', `${existing.name} (${existing.category}), ${removed.deletedCount} jelentkezéssel`);
+      return NextResponse.json({ success: true });
+    }
+
+    // Átadás jelölése / visszavonása (az admin listában az átadottak a lista aljára kerülnek, az Excelben is látszik)
+    if (actionType === 'SET_PREORDER_HANDED_OVER') {
+      const oid = toObjectId(payload.id);
+      const order = oid ? await db.collection('preorders').findOne({ _id: oid }) : null;
+      if (!order) return NextResponse.json({ error: 'A jelentkezés nem található.' }, { status: 404 });
+      const product = await findProduct(order.productId);
+      if (product && !canManageCategory(session, product.category)) return noPermission();
+      if (!product && session.role !== 'owner') return noPermission();
+      const handedOver = payload.handedOver === true;
+      await db.collection('preorders').updateOne({ _id: order._id }, handedOver
+        ? { $set: { handedOverAt: new Date(), handedOverBy: session.username } }
+        : { $unset: { handedOverAt: '', handedOverBy: '' } });
+      await addLog(db, session.username, 'ELŐRENDELÉS ÁTADÁS', `${handedOver ? 'Átadva' : 'Átadás visszavonva'}: ${order.name} – ${product?.name || 'törölt termék'} (${order.quantity} db)`);
       return NextResponse.json({ success: true });
     }
 

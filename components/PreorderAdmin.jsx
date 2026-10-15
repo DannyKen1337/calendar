@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
-import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined } from '@ant-design/icons';
+import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
+import useLiveRefresh from '@/lib/useLiveRefresh';
 import { preorderLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX } from '@/lib/preorders';
 
 const { Title, Text } = Typography;
@@ -11,6 +12,10 @@ const { Title, Text } = Typography;
 const panel = 'bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]';
 const sideBtn = { color: '#E0D6C8', borderColor: '#4A2E33', background: '#2B1A1C' };
 const formatHu = (d) => (d ? new Date(d).toLocaleString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+// Az átadott jelentkezések a lista aljára kerülnek (a többi sorrendje marad: leadás szerint); az Excelben név szerinti a sorrend
+const handedLast = (orders) => [...orders].sort((a, b) => (a.handedOverAt ? 1 : 0) - (b.handedOverAt ? 1 : 0));
+// A vásárló az átadás után módosította a jelentkezését (pl. más darabszám)
+const changedAfterHandover = (o) => o.handedOverAt && o.updatedAt && new Date(o.updatedAt) > new Date(o.handedOverAt);
 const STATUS_OPTIONS = [{ value: 'all', label: 'Mind' }, { value: 'open', label: 'Nyitott' }, { value: 'closed', label: 'Lezárt' }];
 
 // Előrendelések kezelése: termékek játékonként, a beérkezett jelentkezések és Excel export
@@ -42,6 +47,8 @@ export default function PreorderAdmin() {
   // Az első betöltés külső rendszerből (API) szinkronizál, ezért effektben fut
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
+  // Az új jelentkezések oldalfrissítés nélkül is megjelennek
+  useLiveRefresh(load, 10000);
 
   const post = async (actionType, payload) => {
     try {
@@ -58,6 +65,7 @@ export default function PreorderAdmin() {
   const ordersByProduct = useMemo(() => {
     const map = new Map();
     (data?.preorders || []).forEach(o => { if (!map.has(o.productId)) map.set(o.productId, []); map.get(o.productId).push(o); });
+    map.forEach((list, key) => map.set(key, handedLast(list)));
     return map;
   }, [data]);
 
@@ -94,6 +102,12 @@ export default function PreorderAdmin() {
     load();
   };
 
+  const setHandedOver = async (o, handedOver) => {
+    if (!(await post('SET_PREORDER_HANDED_OVER', { id: o.id, handedOver }))) return;
+    messageApi.success(handedOver ? `Átadva: ${o.name}` : 'Átadás visszavonva.');
+    load();
+  };
+
   const removeOrder = async (o) => {
     if (!(await post('DELETE_PREORDER', { id: o.id }))) return;
     messageApi.success('Jelentkezés törölve.');
@@ -114,6 +128,20 @@ export default function PreorderAdmin() {
     { title: 'Telefon', dataIndex: 'phone', render: (t) => <a href={`tel:${t.replace(/[^\d+]/g, '')}`} style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{t}</a> },
     { title: 'Darab', dataIndex: 'quantity', align: 'right', width: 70 },
     { title: 'Leadva', dataIndex: 'date', render: (d, o) => <span style={{ color: '#9a8a8c', whiteSpace: 'nowrap' }} title={o.updatedAt && o.updatedAt !== d ? `Módosítva: ${formatHu(o.updatedAt)}` : undefined}>{formatHu(d)}</span> },
+    { title: 'Átadás', key: 'handover', width: 170, render: (_, o) => (o.handedOverAt ? (
+      <div className="flex flex-col items-start gap-1">
+        <span className="flex items-center gap-1">
+          <Tag color="green" icon={<CheckOutlined />} style={{ margin: 0 }} title={`${formatHu(o.handedOverAt)}${o.handedOverBy ? ` – ${o.handedOverBy}` : ''}`}>Átadva</Tag>
+          <Popconfirm title="Visszavonod az átadást?" onConfirm={() => setHandedOver(o, false)} okText="Igen" cancelText="Mégse">
+            <Button type="text" size="small" icon={<UndoOutlined />} aria-label="Átadás visszavonása" title="Átadás visszavonása" style={{ color: '#9a8a8c' }} />
+          </Popconfirm>
+        </span>
+        <span style={{ color: '#9a8a8c', fontSize: 12, whiteSpace: 'nowrap' }}>{formatHu(o.handedOverAt)}</span>
+        {changedAfterHandover(o) && <Tag color="warning" style={{ margin: 0 }} title={`Módosítva: ${formatHu(o.updatedAt)}`}>Átadás után módosította</Tag>}
+      </div>
+    ) : (
+      <Button size="small" icon={<CheckOutlined />} onClick={() => setHandedOver(o, true)} style={{ ...sideBtn, color: '#52c41a', borderColor: '#2f5d1f' }}>Átadás</Button>
+    )) },
     { title: '', key: 'del', width: 60, render: (_, o) => (
       <Popconfirm title="Törlöd ezt a jelentkezést?" onConfirm={() => removeOrder(o)} okText="Igen" cancelText="Mégse">
         <Button type="text" danger icon={<DeleteOutlined />} aria-label="Jelentkezés törlése" />
@@ -121,11 +149,14 @@ export default function PreorderAdmin() {
     ) },
   ];
 
+  const fadeHanded = (o) => (o.handedOverAt ? { style: { opacity: changedAfterHandover(o) ? 0.85 : 0.5 } } : {});
+
   const renderProduct = (p) => {
     const orders = ordersByProduct.get(p.id) || [];
     const total = orders.reduce((s, o) => s + (o.quantity || 0), 0);
     const isExpanded = !!expanded[p.id];
     const soldOut = p.stock !== null && total >= p.stock;
+    const handedCount = orders.filter(o => o.handedOverAt).length;
     return (
       <div key={p.id} className="rounded-xl border p-4 bg-[#2B1A1C]" style={{ borderColor: '#4A2E33', borderLeft: `5px solid ${getGameColor({ category: p.category })}`, opacity: p.isOpen ? 1 : 0.85 }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -158,6 +189,7 @@ export default function PreorderAdmin() {
           <div className="text-right shrink-0">
             <div style={{ color: soldOut ? '#ff7875' : '#E5B15D', fontSize: 22, fontWeight: 'bold', lineHeight: 1.1 }}>{total}{p.stock !== null ? ` / ${p.stock}` : ''} db</div>
             <div style={{ color: '#9a8a8c', fontSize: 13 }}>{orders.length} jelentkező</div>
+            {orders.length > 0 && <div style={{ color: handedCount === orders.length ? '#52c41a' : '#9a8a8c', fontSize: 13 }}>{handedCount} / {orders.length} átadva</div>}
             {p.price !== null && total > 0 && <div style={{ color: '#9a8a8c', fontSize: 13 }} title="Darabszám × ár">≈ {formatPrice(total * p.price)}</div>}
           </div>
         </div>
@@ -175,7 +207,7 @@ export default function PreorderAdmin() {
         </div>
         {isExpanded && (
           <div className="mt-3">
-            <Table size="small" dataSource={orders} rowKey="id" columns={orderColumns} pagination={orders.length > 20 ? { pageSize: 20 } : false} scroll={{ x: 720 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs jelentkező.</span> }} />
+            <Table size="small" dataSource={orders} rowKey="id" columns={orderColumns} onRow={fadeHanded} pagination={orders.length > 20 ? { pageSize: 20 } : false} scroll={{ x: 890 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs jelentkező.</span> }} />
           </div>
         )}
       </div>
@@ -213,7 +245,7 @@ export default function PreorderAdmin() {
           const gameTotal = gameOrders.reduce((s, o) => s + (o.quantity || 0), 0);
           const gameOpen = !!expandedGames[game] && items.length > 0;
           const gq = (gameQuery[game] || '').trim().toLowerCase();
-          const gameRows = gameOrders
+          const gameRows = handedLast(gameOrders)
             .filter(o => !gq || `${productName.get(o.productId)} ${o.name} ${o.email} ${o.phone}`.toLowerCase().includes(gq))
             .map(o => ({ ...o, productName: productName.get(o.productId) }));
           const gameColumns = [
@@ -249,7 +281,7 @@ export default function PreorderAdmin() {
                     <Text style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{game}: összes jelentkezés ({gameOrders.length})</Text>
                     <Input size="small" allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: termék, név, e-mail, telefon..." value={gameQuery[game] || ''} onChange={(e) => setGameQuery(q => ({ ...q, [game]: e.target.value }))} style={{ maxWidth: 320 }} />
                   </div>
-                  <Table size="small" dataSource={gameRows} rowKey="id" columns={gameColumns} pagination={gameRows.length > 25 ? { pageSize: 25 } : false} scroll={{ x: 860 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>{gameOrders.length ? 'Nincs találat.' : 'Még nincs jelentkező.'}</span> }} />
+                  <Table size="small" dataSource={gameRows} rowKey="id" columns={gameColumns} onRow={fadeHanded} pagination={gameRows.length > 25 ? { pageSize: 25 } : false} scroll={{ x: 1030 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>{gameOrders.length ? 'Nincs találat.' : 'Még nincs jelentkező.'}</span> }} />
                 </div>
               )}
               {items.length > 0
