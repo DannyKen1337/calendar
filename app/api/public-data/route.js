@@ -20,6 +20,7 @@ export async function GET() {
     return NextResponse.json({
         tournaments: attachPublicAttendees(tournaments, registrations),
         isMaintenance: settings?.isMaintenance || false,
+        serverTime: Date.now(),
         extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false, preorders: false })) 
     });
   } catch (error) {

@@ -5,6 +5,7 @@ import { CopyOutlined, LinkOutlined, WarningOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
 import { resolveAttendance } from '@/lib/attendance';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
+import { addDays } from '@/lib/eventDates';
 
 const { Title, Text } = Typography;
 
@@ -31,7 +32,8 @@ const STORES = {
 };
 
 // canManageGame: a bejelentkezett szervező kezelheti-e az adott játékot (korlátozott szervezőnél csak a saját játékai jelennek meg)
-export default function EventGenerator({ canManageGame = () => true, canManageStore = () => true }) {
+// serverNow: a jelenlegi időpont a szerver órája szerint (magyar idő), a gép órájától függetlenül
+export default function EventGenerator({ canManageGame = () => true, canManageStore = () => true, serverNow = null }) {
   const [form] = Form.useForm();
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -51,10 +53,11 @@ export default function EventGenerator({ canManageGame = () => true, canManageSt
   const handleGenerate = async (values) => {
     // Nyitvatartáson kívüli időpont: engedjük, de előbb rákérdezünk
     const warning = getOpeningHoursWarning(values.store, `${values.startDate}T${values.time}`);
-    if (warning) {
+    const pastWarning = serverNow && `${values.startDate}T${values.time}` < serverNow() ? 'Az első alkalom időpontja már elmúlt.' : null;
+    if (warning || pastWarning) {
       const confirmed = await modalApi.confirm({
-        title: 'Nyitvatartáson kívüli időpont',
-        content: <><p>{warning}</p><p>Mégis legenerálod az eseményeket?</p></>,
+        title: warning && pastWarning ? 'Figyelmeztetések' : pastWarning ? 'Elmúlt időpont' : 'Nyitvatartáson kívüli időpont',
+        content: <>{pastWarning && <p>{pastWarning}</p>}{warning && <p>{warning}</p>}<p>Mégis legenerálod az eseményeket?</p></>,
         okText: 'Generálás így is',
         cancelText: 'Vissza',
         okButtonProps: { style: { color: '#000', fontWeight: 'bold' } },
@@ -66,17 +69,13 @@ export default function EventGenerator({ canManageGame = () => true, canManageSt
       const { name, store, category, startDate, time, weeks, max_players, description, useExternalLink, external_urls, isFeatured, decklistEnabled, isOpenAttendance: openChecked } = values;
       const { isOpenAttendance, max_players: resolvedMax } = resolveAttendance(max_players, openChecked);
       
-      const start = new Date(startDate);
       const [hours, minutes] = time.split(':');
       const eventsToCreate = [];
 
       for (let i = 0; i < weeks; i++) {
-        const eventDate = new Date(start);
-        eventDate.setDate(eventDate.getDate() + (i * 7));
-        eventDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        
+        // Tisztán naptári számítás: a gép időzónája vagy órája nem tolhatja el a napot
         const pad = (n) => String(n).padStart(2, '0');
-        const dateStr = `${eventDate.getFullYear()}-${pad(eventDate.getMonth()+1)}-${pad(eventDate.getDate())}T${pad(hours)}:${pad(minutes)}`;
+        const dateStr = `${addDays(startDate, i * 7)}T${pad(hours)}:${pad(minutes)}`;
         
         // Dinamikus link hozzárendelés
         const currentLink = (useExternalLink && external_urls && external_urls[i]) ? external_urls[i] : "";

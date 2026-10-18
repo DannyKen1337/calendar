@@ -11,6 +11,7 @@ import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
 import { isValidChangelogId } from '@/lib/changelog';
 import { sanitizeEventType } from '@/lib/eventTypes';
+import { normalizeEventDate } from '@/lib/eventDates';
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
@@ -193,6 +194,9 @@ export async function POST(request) {
       if (!doc.name || !doc.category || !doc.date) {
         return NextResponse.json({ error: 'Hiányzó kötelező mezők (név, kategória, dátum).' }, { status: 400 });
       }
+      // Az időpont mindig magyar helyi idő; a böngésző időzónája nem számít
+      doc.date = normalizeEventDate(doc.date);
+      if (!doc.date) return NextResponse.json({ error: 'Érvénytelen dátum vagy időpont.' }, { status: 400 });
       if (!canManageEvent(session, doc)) return noPermission();
       const result = await db.collection('tournaments').insertOne({
         ...doc,
@@ -211,6 +215,10 @@ export async function POST(request) {
       const existingEvent = await db.collection('tournaments').findOne(getQuery(id));
       if (!existingEvent) return NextResponse.json({ error: 'Esemény nem található.' }, { status: 404 });
       const updates = applyOpenAttendance(pickTournamentFields(rest));
+      if (updates.date !== undefined) {
+        updates.date = normalizeEventDate(updates.date);
+        if (!updates.date) return NextResponse.json({ error: 'Érvénytelen dátum vagy időpont.' }, { status: 400 });
+      }
       // A jelenlegi és (ha változik) az új játékhoz és bolthoz is jogosultság kell, így a szervező nem "viheti át" az eseményt
       // más játékba vagy olyan boltba, amelyet nem kezelhet
       const updatedEvent = { ...existingEvent, ...updates };

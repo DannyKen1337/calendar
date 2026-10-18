@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { message, Form, Modal } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
@@ -8,6 +8,7 @@ import { sanitizeEventType, getEventType } from "@/lib/eventTypes";
 import useLiveRefresh from "@/lib/useLiveRefresh";
 import { findHostConflicts } from "@/lib/hostConflicts";
 import { getOpeningHoursWarning } from "@/lib/storeHours";
+import { budapestDateTime } from "@/lib/eventDates";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -19,6 +20,8 @@ export const useCalendar = () => {
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
   const [allowedStores, setAllowedStores] = useState(null); // null = minden bolt
   const [features, setFeatures] = useState([]); // külön engedélyhez kötött modulok (előrendelés, liga)
+  // A szerver órája és a gép órája közti eltérés (ms): a "most" a szerver szerint, magyar időben számít
+  const serverOffsetRef = useRef(0);
   const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
   const [usersList, setUsersList] = useState([]);
   const [staffList, setStaffList] = useState([]); // adminok és tulajdonosok: az esemény szervezőjének választhatók
@@ -120,6 +123,7 @@ export const useCalendar = () => {
       }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.extraLinks) setExtraLinks(data.extraLinks);
+      if (typeof data.serverTime === 'number') serverOffsetRef.current = data.serverTime - Date.now();
       if (data.error && !isBackground) messageApi.error('Nem sikerült betölteni az eseményeket.');
     } catch {
       if (!isBackground) messageApi.error('Hálózati hiba az események betöltésekor.');
@@ -152,6 +156,7 @@ export const useCalendar = () => {
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.extraLinks) setExtraLinks(data.extraLinks);
+      if (typeof data.serverTime === 'number') serverOffsetRef.current = data.serverTime - Date.now();
       if (data.error && !isBackground) messageApi.error(data.error);
     } catch {
       if (!isBackground) messageApi.error('Hálózati hiba az admin adatok betöltésekor.');
@@ -305,6 +310,9 @@ export const useCalendar = () => {
     setIsUploading(false);
   };
 
+  // A jelenlegi időpont a szerver órája szerint, magyar helyi időben ("YYYY-MM-DDTHH:mm"), a gép órájától függetlenül
+  const serverNow = () => budapestDateTime(Date.now() + serverOffsetRef.current);
+
   const saveEvent = async (values) => {
     const formValues = values || eventForm.getFieldsValue();
     // Az űrlapon nem szereplő mezők (kép, egyedi szín) szerkesztéskor a meglévő eseményből maradnak meg
@@ -338,12 +346,16 @@ export const useCalendar = () => {
       // - szervezői ütközés: ugyanaz a szervező egy időben másik eseményt is tart
       const timeChanged = !existing || existing.date !== payload.date || (existing.store || 'debrecen') !== (payload.store || 'debrecen');
       const hoursWarning = timeChanged ? getOpeningHoursWarning(payload.store, payload.date) : null;
+      // Elmúlt időpont: a szerver ideje dönt (a gép rosszul beállított órája vagy időzónája nem számít)
+      const pastWarning = timeChanged && payload.date && payload.date < serverNow() ? 'Ez az időpont már elmúlt.' : null;
       const conflicts = findHostConflicts(tournaments, { id: editingEventId, date: payload.date, hosts: payload.hosts });
-      if (hoursWarning || conflicts.length > 0) {
+      const warningCount = [hoursWarning, pastWarning, conflicts.length > 0].filter(Boolean).length;
+      if (warningCount > 0) {
         const confirmed = await modalApi.confirm({
-          title: hoursWarning && conflicts.length > 0 ? 'Figyelmeztetések' : hoursWarning ? 'Nyitvatartáson kívüli időpont' : 'Szervezői ütközés',
+          title: warningCount > 1 ? 'Figyelmeztetések' : pastWarning ? 'Elmúlt időpont' : hoursWarning ? 'Nyitvatartáson kívüli időpont' : 'Szervezői ütközés',
           content: (
             <div>
+              {pastWarning && <p>{pastWarning}</p>}
               {hoursWarning && <p>{hoursWarning}</p>}
               {conflicts.length > 0 && (
                 <>
@@ -570,7 +582,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
-    allowedCategories, allowedStores, canManageStore, defaultStoreFor, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
+    allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
     isMaintenance, extraLinks, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,

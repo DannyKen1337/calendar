@@ -48,6 +48,7 @@ export async function GET() {
         logs,
         blacklist,
         isMaintenance: settings?.isMaintenance || false,
+        serverTime: Date.now(),
         extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false, preorders: false }))
     });
   } catch (error) {
