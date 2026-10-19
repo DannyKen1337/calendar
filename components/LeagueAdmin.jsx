@@ -1,11 +1,12 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Table, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, EyeOutlined, LinkOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TrophyOutlined, CloudUploadOutlined, FlagOutlined } from '@ant-design/icons';
+import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Table, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, EyeOutlined, LinkOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TrophyOutlined, CloudUploadOutlined, FlagOutlined, ImportOutlined, SyncOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
 import Leaderboard, { formatPublishedAt } from '@/components/Leaderboard';
 import {
+  LEAGUE_EVENT_GAMES,
   DEFAULT_RULES, RULE_FIELDS, RULE_MAX, RESULT_MAX, BONUS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX,
   computeStandings, buildSnapshot, hasUnpublishedChanges, resultPoints, ruleSummary, leagueUrl,
 } from '@/lib/leagues';
@@ -46,6 +47,11 @@ export default function LeagueAdmin() {
   const [sessionQuery, setSessionQuery] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false); // szezon lezárása ablak
+  // Játékosok beemelése eseményből (egyelőre Riftbound)
+  const [importOpen, setImportOpen] = useState(false);
+  const [importEventId, setImportEventId] = useState(null);
+  const [importCreateSession, setImportCreateSession] = useState(false);
+  const [importResult, setImportResult] = useState(null);
   const [createForm] = Form.useForm();
   const [settingsForm] = Form.useForm();
   const [playerForm] = Form.useForm();
@@ -92,6 +98,10 @@ export default function LeagueAdmin() {
   const players = useMemo(() => (league ? data.players.filter(p => p.leagueId === league.id) : []), [data, league]);
   const sessions = useMemo(() => (league ? data.sessions.filter(s => s.leagueId === league.id) : []), [data, league]);
   const seasons = useMemo(() => (league ? (data.seasons || []).filter(s => s.leagueId === league.id) : []), [data, league]);
+  // Eseményhez köthető liga (egyelőre csak Riftbound): a választható események és a már összekötöttek
+  const canLinkEvents = !!league && LEAGUE_EVENT_GAMES.includes(league.category);
+  const linkable = useMemo(() => (league ? (data.linkableEvents || []).filter(e => e.category === league.category) : []), [data, league]);
+  const linkedIds = useMemo(() => new Set((league?.linkedEvents || []).map(e => e.tournamentId)), [league]);
   const standings = useMemo(() => (league ? computeStandings(league.rules, players, sessions) : []), [league, players, sessions]);
   const snapshot = useMemo(() => buildSnapshot(standings, league?.published?.rows), [standings, league]);
   const statsById = useMemo(() => new Map(standings.map(s => [s.playerId, s])), [standings]);
@@ -125,7 +135,18 @@ export default function LeagueAdmin() {
     messageApi.success('Liga törölve.');
     load();
   };
-  const openPlayer = (p) => { setPlayerEdit(p); playerForm.resetFields(); playerForm.setFieldsValue({ fullName: p.fullName || '', nickname: p.nickname || '', email: p.email || '' }); };
+  const openPlayer = (p) => { setPlayerEdit(p); playerForm.resetFields(); playerForm.setFieldsValue({ fullName: p.fullName || '', nickname: p.nickname || '', email: p.email || '', riotId: p.riotId || '' }); };
+  const openImport = () => { setImportEventId(null); setImportCreateSession(false); setImportResult(null); setImportOpen(true); };
+  const importPlayers = async (tournamentId) => {
+    const id = tournamentId || importEventId;
+    if (!id) return;
+    const res = await post('IMPORT_EVENT_PLAYERS', { leagueId: league.id, tournamentId: id, createSession: importCreateSession });
+    if (!res) return;
+    setImportEventId(id);
+    setImportResult(res);
+    messageApi.success(`Beemelve: ${res.added} új játékos${res.matched ? `, ${res.matched} már a ligában volt` : ''}${res.sessionCreated ? ', alkalom létrehozva' : ''}.`);
+    load();
+  };
   const savePlayer = async (values) => {
     if (!(await post('SAVE_PLAYER', { leagueId: league.id, id: playerEdit?.id, ...values }, playerForm))) return;
     messageApi.success(playerEdit?.id ? 'Játékos mentve.' : 'Játékos felvéve.');
@@ -227,8 +248,9 @@ export default function LeagueAdmin() {
   // --- Táblázatok ---
   const playerColumns = [
     { title: 'Becenév', dataIndex: 'nickname', render: (t) => <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{t}</span>, sorter: (a, b) => a.nickname.localeCompare(b.nickname, 'hu') },
-    { title: 'Teljes név', dataIndex: 'fullName', render: (t) => <span style={{ color: '#E0D6C8' }}>{t}</span> },
-    { title: 'E-mail', dataIndex: 'email', render: (t) => <a href={`mailto:${t}`} style={{ color: '#baaaac' }}>{t}</a> },
+    { title: 'Riot-azonosító', dataIndex: 'riotId', render: (t, p) => (t ? <span style={{ color: '#E0D6C8', whiteSpace: 'nowrap' }}>{t}{p.source === 'rgn' && <Tag color="blue" style={{ marginLeft: 6 }}>Riftbound</Tag>}</span> : <span style={{ color: '#6b7280' }}>—</span>) },
+    { title: 'Teljes név', dataIndex: 'fullName', render: (t) => (t ? <span style={{ color: '#E0D6C8' }}>{t}</span> : <span style={{ color: '#6b7280' }}>—</span>) },
+    { title: 'E-mail', dataIndex: 'email', render: (t) => (t ? <a href={`mailto:${t}`} style={{ color: '#baaaac' }}>{t}</a> : <span style={{ color: '#6b7280' }}>—</span>) },
     { title: 'Alkalom', key: 'sessions', align: 'right', render: (_, p) => statsById.get(p.id)?.sessions ?? 0 },
     { title: 'Gy / D / V', key: 'wdl', align: 'right', render: (_, p) => { const s = statsById.get(p.id); return s ? `${s.wins} / ${s.draws} / ${s.losses}` : '0 / 0 / 0'; } },
     { title: 'Pont', key: 'points', align: 'right', render: (_, p) => <b style={{ color: '#E0D6C8' }}>{statsById.get(p.id)?.points ?? 0}</b>, sorter: (a, b) => (statsById.get(a.id)?.points ?? 0) - (statsById.get(b.id)?.points ?? 0) },
@@ -340,8 +362,11 @@ export default function LeagueAdmin() {
                 children: (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A ranglistán csak a becenév látszik. A teljes nevet és az e-mail címet csak a szervezők látják.</Text>
-                      <Button type="primary" icon={<UserAddOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openPlayer({})}>Új játékos</Button>
+                      <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A ranglistán csak a becenév látszik. A teljes nevet, az e-mail címet és a Riot-azonosítót csak a szervezők látják.</Text>
+                      <span className="flex flex-wrap gap-2">
+                        {canLinkEvents && <Button icon={<ImportOutlined />} style={sideBtn} onClick={openImport}>Játékosok eseményből</Button>}
+                        <Button type="primary" icon={<UserAddOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openPlayer({})}>Új játékos</Button>
+                      </span>
                     </div>
                     <Table size="small" dataSource={players} rowKey="id" columns={playerColumns} pagination={players.length > 25 ? { pageSize: 25 } : false} scroll={{ x: 760 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs játékos.</span> }} />
                   </div>
@@ -414,6 +439,63 @@ export default function LeagueAdmin() {
         </div>
       </Modal>
 
+      {/* Játékosok beemelése eseményből (egyelőre Riftbound) */}
+      <Modal
+        title={modalTitle('Játékosok beemelése eseményből')}
+        open={importOpen}
+        onCancel={() => setImportOpen(false)}
+        width={720}
+        closeIcon={closeIcon}
+        footer={[
+          <Button key="close" onClick={() => setImportOpen(false)}>Bezárás</Button>,
+          <Button key="import" type="primary" icon={<ImportOutlined />} loading={busy} disabled={!importEventId} onClick={() => importPlayers()} style={{ color: '#000', fontWeight: 'bold' }}>Beemelés</Button>,
+        ]}
+      >
+        <div className="flex flex-col gap-3 pt-2">
+          <Text style={{ color: '#baaaac' }}>
+            Válassz egy Riftbound eseményt: a rendszer frissen lekéri a jelentkezőit a Riftbound oldalról, és felveszi őket a ligába (becenév és Riot-azonosító alapján). Aki már a ligában van, azt felismeri, nem lesz duplikált játékos. A várólistások és a lejelentkezettek nem kerülnek be.
+          </Text>
+          <Select
+            showSearch
+            optionFilterProp="label"
+            placeholder="Válassz eseményt..."
+            value={importEventId}
+            onChange={(v) => { setImportEventId(v); setImportResult(null); }}
+            options={linkable.map(e => ({
+              value: e.id,
+              label: `${formatDay(String(e.date).slice(0, 10))} ${String(e.date).slice(11, 16)} – ${e.name}${e.players !== null ? ` (${e.players}${e.capacity ? ` / ${e.capacity}` : ''} fő)` : ''}${linkedIds.has(e.id) ? ' · már beemelve' : ''}`,
+            }))}
+            notFoundContent={<span style={{ color: '#6b7280' }}>Nincs Riftbound linkes esemény.</span>}
+            style={{ width: '100%' }}
+          />
+          <Checkbox checked={importCreateSession} onChange={(e) => setImportCreateSession(e.target.checked)}>
+            Alkalom is készüljön az esemény napjára, a jelentkezők megjelentként (az eredmények utólag írhatók be)
+          </Checkbox>
+          {importResult && (
+            <Alert
+              type={importResult.stale ? 'warning' : 'success'}
+              showIcon
+              message={`${importResult.added} új játékos, ${importResult.matched} már a ligában volt (összesen ${importResult.total} jelentkező)${importResult.sessionCreated ? ', alkalom létrehozva' : ''}.`}
+              description={importResult.stale ? `A Riftbound oldal most nem volt elérhető (${importResult.syncError}), ezért a legutóbb lekért jelentkezőlistával dolgoztam.` : undefined}
+            />
+          )}
+          {league.linkedEvents.length > 0 && (
+            <div className="flex flex-col gap-2 mt-1">
+              <Text style={{ color: '#E5B15D', fontWeight: 'bold' }}>Összekötött események</Text>
+              {[...league.linkedEvents].sort((a, b) => String(b.date).localeCompare(String(a.date))).map(le => (
+                <div key={le.tournamentId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
+                  <span>
+                    <span style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{le.name}</span>
+                    <span style={{ color: '#9a8a8c', fontSize: 12 }}> · {formatDay(String(le.date).slice(0, 10))} · beemelve: {formatPublishedAt(le.importedAt)}{le.importedBy ? ` (${le.importedBy})` : ''} · {le.added} új / {le.total} jelentkező</span>
+                  </span>
+                  <Button size="small" icon={<SyncOutlined />} style={sideBtn} disabled={busy || !linkable.some(e => e.id === le.tournamentId)} onClick={() => importPlayers(le.tournamentId)} title="Az azóta jelentkezettek beemelése">Újra beemelés</Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
       {/* Szezon lezárása: a végeredmény előnézete, az új szezon neve */}
       <Modal
         title={modalTitle('Szezon lezárása')}
@@ -458,14 +540,17 @@ export default function LeagueAdmin() {
       {/* Játékos felvétele / szerkesztése */}
       <Modal title={modalTitle(playerEdit?.id ? 'Játékos szerkesztése' : 'Új játékos')} open={playerEdit !== null} onCancel={() => setPlayerEdit(null)} onOk={() => playerForm.submit()} okText={playerEdit?.id ? 'Mentés' : 'Felvétel'} cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon} forceRender zIndex={1100}>
         <Form form={playerForm} layout="vertical" requiredMark={false} onFinish={savePlayer} className="mt-4">
-          <Form.Item name="fullName" label="Teljes név" rules={[{ required: true, whitespace: true, message: 'Add meg a teljes nevet!' }]} extra="Csak a szervezők látják.">
+          <Form.Item name="fullName" label="Teljes név" dependencies={['riotId']} rules={[({ getFieldValue }) => ({ required: !String(getFieldValue('riotId') || '').trim(), whitespace: true, message: 'Add meg a teljes nevet!' })]} extra="Csak a szervezők látják. Riot-azonosítóval felvett játékosnál nem kötelező.">
             <Input maxLength={120} placeholder="Vezetéknév Keresztnév" autoComplete="off" />
           </Form.Item>
           <Form.Item name="nickname" label="Becenév" rules={[{ required: true, whitespace: true, message: 'Add meg a becenevet!' }, { min: 2, max: 24, message: '2-24 karakter' }]} extra="Ez látszik a ranglistán.">
             <Input maxLength={24} placeholder="Pl.: PikaMester" autoComplete="off" />
           </Form.Item>
-          <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail címet adj meg!' }]} extra="Csak a szervezők látják. Egy ligában egy e-mail címmel egy játékos lehet. Ha a játékos 12 hónapig egy alkalmon sem jelenik meg, az adatai automatikusan törlődnek.">
+          <Form.Item name="email" label="E-mail cím" dependencies={['riotId']} rules={[({ getFieldValue }) => ({ required: !String(getFieldValue('riotId') || '').trim(), type: 'email', message: 'Érvényes e-mail címet adj meg!' })]} extra="Csak a szervezők látják. Egy ligában egy e-mail címmel egy játékos lehet. Ha a játékos 12 hónapig egy alkalmon sem jelenik meg, az adatai automatikusan törlődnek.">
             <Input type="email" placeholder="nev@pelda.hu" autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="riotId" label="Riot-azonosító (nem kötelező)" extra="Név#TAG formában, pl. Flagger#7777. Ez alapján ismeri fel a rendszer a játékost, ha egy Riftbound eseményből emeltek be játékosokat.">
+            <Input maxLength={52} placeholder="Név#TAG" autoComplete="off" />
           </Form.Item>
         </Form>
       </Modal>
