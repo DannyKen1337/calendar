@@ -7,7 +7,8 @@ const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() ==
 const timeOf = (evt) => new Date(evt.date).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
 
 // A mai nap eseményei a naptár alatt, kezdési idő szerint. Egy sorra kattintva az esemény részletei nyílnak meg.
-export default function TodayProgram({ app, events, compact = false }) {
+// className: a térköz / elhelyezés felülírása (pl. telefonon a naptár fölött)
+export default function TodayProgram({ app, events, compact = false, className = null }) {
   // Csak kliensoldalon (betöltés után) renderelődik, így a mai dátum közvetlenül beállítható
   const [today] = useState(() => new Date());
   const todays = (events || [])
@@ -17,7 +18,7 @@ export default function TodayProgram({ app, events, compact = false }) {
   const dateLabel = today.toLocaleDateString('hu-HU', { month: 'long', day: 'numeric', weekday: 'long' });
 
   return (
-    <section className={`max-w-5xl mx-auto ${compact ? 'mt-6' : 'mt-10'}`} aria-labelledby="today-program-title">
+    <section className={`max-w-5xl w-full mx-auto ${className ?? (compact ? 'mt-6' : 'mt-10')}`} aria-labelledby="today-program-title">
       <div className="bg-[#1a1012] rounded-2xl border-2 border-[#E5B15D]/60 p-4 md:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[#4A2E33] pb-3 mb-4">
           <h2 id="today-program-title" className={`${compact ? 'text-xl' : 'text-2xl'} font-bold text-[#E5B15D] font-serif m-0`}>Mai program</h2>

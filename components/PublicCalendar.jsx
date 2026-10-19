@@ -116,16 +116,21 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
         </div>
 
         {/* A naptár szélesebb, mint a fejléc, hogy a napok kényelmesen elférjenek */}
-        {isSearching ? (
-          <div className="max-w-5xl mx-auto">
-            <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
+        {/* Telefonon a mai program a naptár fölött, gépen alatta jelenik meg (a sorrendet CSS adja, a tartalom egyszer van az oldalon) */}
+        <div className="flex flex-col">
+          <div className="md:order-1">
+            {isSearching ? (
+              <div className="max-w-5xl mx-auto">
+                <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
+              </div>
+            ) : (
+              <CalendarView app={appWithFilteredEvents} compact={embed} />
+            )}
           </div>
-        ) : (
-          <CalendarView app={appWithFilteredEvents} compact={embed} />
-        )}
 
-        {/* A mai program a helyszín összes mai eseményét mutatja, a játékszűrőtől és a kereséstől függetlenül */}
-        <TodayProgram app={app} events={storeTournaments} compact={embed} />
+          {/* A mai program a helyszín összes mai eseményét mutatja, a játékszűrőtől és a kereséstől függetlenül */}
+          <TodayProgram app={app} events={storeTournaments} compact={embed} className={`order-first md:order-2 mb-6 mt-2 md:mb-0 ${embed ? 'md:mt-6' : 'md:mt-10'}`} />
+        </div>
 
         {/* Ligák és előrendelés: csak akkor, ha van publikált liga / nyitott előrendelés. Beágyazva új lapon nyílnak. */}
         {(app.extraLinks?.leagues || app.extraLinks?.preorders) && (
