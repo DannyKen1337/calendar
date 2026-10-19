@@ -46,7 +46,7 @@ function QuantityStepper({ value, onChange, label, max }) {
 
 // Nyilvános előrendelő (feliratkozási) oldal. focusId: a megosztott linkben megadott termék (?termek=...),
 // ilyenkor csak az a termék látszik, előre kiválasztva.
-export default function PreorderPage({ products = [], focusId = null, hasOthers = false, maintenance = false, loadError = false }) {
+export default function PreorderPage({ products = [], focusId = null, maintenance = false, loadError = false }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   const shown = focused ? [focused] : products;
   const [selected, setSelected] = useState(() => (focused && maxSelectable(focused, focused.remaining) > 0 ? { [focused.id]: 1 } : {}));
@@ -153,8 +153,6 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
           <p className="text-[#cfc6b8] mt-4 mb-0">Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? ' A visszaigazolást elküldtük e-mailben.' : ''}</p>
         </Panel>
         <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm">
-          {/* Sima link (teljes betöltés), hogy az űrlap alaphelyzetbe álljon */}
-          <a href="/elorendeles" className="underline text-[#cfc6b8]">További előrendelések</a>
           <Link href="/" className="underline text-[#cfc6b8]">Eseménynaptár</Link>
         </div>
       </Shell>
@@ -254,9 +252,6 @@ export default function PreorderPage({ products = [], focusId = null, hasOthers 
           </p>
         </Panel>
       </form>
-      {focused && hasOthers && (
-        <div className="text-center mt-6 text-sm"><a href="/elorendeles" className="underline text-[#cfc6b8]">Összes nyitott előrendelés</a></div>
-      )}
     </Shell>
   );
 }

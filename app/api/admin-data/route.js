@@ -63,7 +63,7 @@ export async function GET() {
         blacklist,
         isMaintenance: settings?.isMaintenance || false,
         serverTime: Date.now(),
-        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false, preorders: false }))
+        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false }))
     });
   } catch (error) {
     console.error('admin-data error:', error);

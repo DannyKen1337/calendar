@@ -38,7 +38,7 @@ export const useCalendar = () => {
   const [logs, setLogs] = useState([]);
   const [blacklist, setBlacklist] = useState([]);
   const [isMaintenance, setIsMaintenance] = useState(false);
-  const [extraLinks, setExtraLinks] = useState({ leagues: false, preorders: false }); // van-e publikált liga / nyitott előrendelés
+  const [extraLinks, setExtraLinks] = useState({ leagues: false }); // van-e publikált liga
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
 

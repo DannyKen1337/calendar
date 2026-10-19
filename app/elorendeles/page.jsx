@@ -31,6 +31,6 @@ export default async function Page({ searchParams }) {
   const focusId = typeof termek === 'string' ? termek : null;
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   // Termék-linknél csak az az egy termék kerül le a böngészőbe
-  if (focused) return <PreorderPage products={[focused]} focusId={focusId} hasOthers={products.length > 1} />;
+  if (focused) return <PreorderPage products={[focused]} focusId={focusId} />;
   return <PreorderPage products={products} focusId={focusId} />;
 }

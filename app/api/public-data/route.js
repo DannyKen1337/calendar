@@ -24,7 +24,7 @@ export async function GET() {
         tournaments: attachPublicAttendees(tournaments, registrations),
         isMaintenance: settings?.isMaintenance || false,
         serverTime: Date.now(),
-        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false, preorders: false })) 
+        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false })) 
     });
   } catch (error) {
     console.error('public-data error:', error);

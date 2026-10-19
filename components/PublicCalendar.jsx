@@ -8,7 +8,7 @@ import CalendarFilters from '@/components/CalendarFilters';
 import SearchBar from '@/components/SearchBar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
 import { isSpecialEvent } from '@/lib/eventTypes';
-import { EnvironmentOutlined, SwapOutlined, TrophyOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, SwapOutlined, TrophyOutlined } from '@ant-design/icons';
 import EmbedBridge from '@/components/EmbedBridge';
 import TodayProgram from '@/components/TodayProgram';
 
@@ -142,17 +142,13 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
           <TodayProgram app={app} events={storeTournaments} compact={embed} className={`order-first md:order-2 mb-6 mt-2 md:mb-0 ${embed ? 'md:mt-6' : 'md:mt-10'}`} />
         </div>
 
-        {/* Ligák és előrendelés: csak akkor, ha van publikált liga / nyitott előrendelés. Beágyazva új lapon nyílnak. */}
-        {(app.extraLinks?.leagues || app.extraLinks?.preorders) && (
+        {/* Ligák: csak akkor, ha van publikált liga. Beágyazva új lapon nyílik. (Az előrendelés szándékosan nem szerepel:
+            csak az admin felületről kimásolt linkkel érhető el.) */}
+        {app.extraLinks?.leagues && (
           <nav className={`max-w-5xl mx-auto flex flex-wrap justify-center gap-3 ${embed ? 'mt-4' : 'mt-6'}`} aria-label="További oldalak">
             {app.extraLinks.leagues && (
               <Link href="/liga" target={embed ? '_blank' : undefined} rel={embed ? 'noopener' : undefined} className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#4A2E33] bg-[#1a1012] text-[#E0D6C8] no-underline font-bold hover:border-[#E5B15D] hover:text-[#E5B15D] transition-colors">
                 <TrophyOutlined /> Ligák ranglistája
-              </Link>
-            )}
-            {app.extraLinks.preorders && (
-              <Link href="/elorendeles" target={embed ? '_blank' : undefined} rel={embed ? 'noopener' : undefined} className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#4A2E33] bg-[#1a1012] text-[#E0D6C8] no-underline font-bold hover:border-[#E5B15D] hover:text-[#E5B15D] transition-colors">
-                <ShoppingCartOutlined /> Előrendelés
               </Link>
             )}
           </nav>
