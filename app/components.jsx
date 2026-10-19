@@ -826,6 +826,7 @@ export const AdminEvents = ({ app: v }) => {
               <Link href="/admin/checkin"><Button block icon={<MobileOutlined />} style={sideBtn}>Check-in</Button></Link>
               {v.hasFeature('preorders') && <Link href="/admin/elorendeles"><Button block icon={<ShoppingCartOutlined />} style={sideBtn}>Előrendelés</Button></Link>}
               {v.hasFeature('leagues') && <Link href="/admin/liga"><Button block icon={<TrophyOutlined />} style={sideBtn}>Ligák</Button></Link>}
+              {v.userRole !== 'owner' && v.hasFeature('users') && <Link href="/admin/felhasznalok" className="col-span-2"><Button block icon={<TeamOutlined />} style={sideBtn}>Felhasználók és csoportok</Button></Link>}
             </div>
           </div>
 

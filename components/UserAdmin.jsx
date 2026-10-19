@@ -16,31 +16,38 @@ const GROUP_COLORS = ['#E5B15D', '#1d4ed8', '#10b981', '#b91c1c', '#8b5cf6', '#f
 const GAMES = Object.keys(GAME_CONFIG);
 const fmt = (d) => (d ? new Date(d).toLocaleString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 const ROLE_ORDER = { owner: 0, admin: 1 };
+const KIND_LABELS = { game: 'Játékok', store: 'Boltok', module: 'Modulok', custom: 'Egyéni csoportok' };
+const KIND_HINTS = {
+  game: 'Mely játékok eseményeit kezelheti.',
+  store: 'Mely boltok eseményeit kezelheti.',
+  module: 'Külön engedélyhez kötött részek.',
+  custom: 'Saját összeállítású csoportok (több jogot egyben adnak).',
+};
 
 // Jogok rövid megjelenítése címkékkel
-function AccessTags({ access }) {
+function AccessTags({ access, only = null }) {
   const games = access.allowedCategories;
   const stores = access.allowedStores;
   return (
     <div className="flex flex-col gap-2">
-      <div>
+      {(!only || only === 'game') && <div>
         <div style={label}>Játékok</div>
         <div className="flex flex-wrap gap-1">
           {games === null ? <Tag color="gold" style={{ margin: 0 }}>Minden játék</Tag> : games.length === 0 ? <Tag color="red" style={{ margin: 0 }}>Egyik sem</Tag> : games.map(g => <Tag key={g} style={{ background: getGameColor({ category: g }), borderColor: getGameColor({ category: g }), color: '#fff', margin: 0 }}>{g}</Tag>)}
         </div>
-      </div>
-      <div>
+      </div>}
+      {(!only || only === 'store') && <div>
         <div style={label}>Boltok</div>
         <div className="flex flex-wrap gap-1">
           {stores === null ? <Tag color="gold" style={{ margin: 0 }}>Minden bolt</Tag> : stores.length === 0 ? <Tag color="red" style={{ margin: 0 }}>Egyik sem</Tag> : stores.map(s => <Tag key={s} color="geekblue" style={{ margin: 0 }}>{STORE_NAMES[s] || s}</Tag>)}
         </div>
-      </div>
-      <div>
+      </div>}
+      {(!only || only === 'module') && <div>
         <div style={label}>Modulok</div>
         <div className="flex flex-wrap gap-1">
           {access.features.length ? access.features.filter(f => FEATURES[f]).map(f => <Tag key={f} color="cyan" style={{ margin: 0 }}>{FEATURES[f]}</Tag>) : <Text style={{ color: '#6b7280', fontSize: 13 }}>Nincs külön modul</Text>}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -99,7 +106,10 @@ export default function UserAdmin({ currentUserId }) {
   };
 
   const groupsById = useMemo(() => new Map((data?.groups || []).map(g => [g.id, g])), [data]);
-  const groupOptions = (data?.groups || []).map(g => ({ value: g.id, label: g.name }));
+  const isOwner = !!data?.isOwner;
+  const groupOptions = ['game', 'store', 'module', 'custom']
+    .map(kind => ({ label: KIND_LABELS[kind], options: (data?.groups || []).filter(g => g.kind === kind && (isOwner || !g.protected)).map(g => ({ value: g.id, label: g.name })) }))
+    .filter(o => o.options.length);
 
   if (error && !data) return <div className={panel}><Text style={{ color: '#ff7875' }}>{error}</Text></div>;
   if (!data) return <div className={panel}><Text style={{ color: '#baaaac' }}>Betöltés...</Text></div>;
@@ -174,7 +184,8 @@ export default function UserAdmin({ currentUserId }) {
   const userCard = (u) => {
     const isOwner = u.role === 'owner';
     const isSelf = u.id === currentUserId;
-    const canEdit = !isOwner && !isSelf;
+    const isManager = u.access.features.includes('users');
+    const canEdit = !isOwner && !isSelf && (data.isOwner || !isManager);
     return (
       <div key={u.id} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: isOwner ? '#722ed1' : u.disabled ? '#a8071a' : '#4A2E33', background: '#1a1012', opacity: u.disabled ? 0.75 : 1 }}>
         <div className="flex items-start justify-between gap-2">
@@ -234,7 +245,7 @@ export default function UserAdmin({ currentUserId }) {
             </Popconfirm>
           </div>
         ) : (
-          <Text style={{ color: '#6b7280', fontSize: 12 }} className="pt-3 border-t border-[#4A2E33]">{isSelf ? 'A saját fiókod' : 'Védett fiók'}</Text>
+          <Text style={{ color: '#6b7280', fontSize: 12 }} className="pt-3 border-t border-[#4A2E33]">{isSelf ? 'A saját fiókod' : isOwner ? 'Védett fiók' : 'Felhasználókezelő fiókot csak a tulajdonos módosíthat'}</Text>
         )}
       </div>
     );
@@ -249,19 +260,22 @@ export default function UserAdmin({ currentUserId }) {
             <div style={{ color: '#E0D6C8', fontWeight: 'bold', fontSize: 16, overflowWrap: 'anywhere' }}>{g.name}</div>
             {g.description && <div style={{ color: '#baaaac', fontSize: 13 }}>{g.description}</div>}
           </div>
-          <Tag style={{ margin: 0 }}>{g.members} tag</Tag>
+          <span className="flex flex-col items-end gap-1">
+            <Tag style={{ margin: 0 }}>{g.members} tag</Tag>
+            {g.protected && <Tag color="purple" style={{ margin: 0 }}>Csak tulajdonos módosíthatja</Tag>}
+          </span>
         </div>
-        <AccessTags access={{ allowedCategories: g.allowedCategories, allowedStores: g.allowedStores, features: g.features }} />
+        <AccessTags access={{ allowedCategories: g.allowedCategories, allowedStores: g.allowedStores, features: g.features }} only={g.kind === 'custom' ? null : g.kind} />
         <div>
           <div style={label}>Tagok</div>
           <Text style={{ color: memberNames.length ? '#E0D6C8' : '#6b7280', fontSize: 13 }}>{memberNames.join(', ') || 'Még nincs tagja'}</Text>
         </div>
-        <div className="flex flex-wrap gap-2 pt-3 border-t border-[#4A2E33]">
+        {(isOwner || !g.protected) && <div className="flex flex-wrap gap-2 pt-3 border-t border-[#4A2E33]">
           <Button size="small" icon={<EditOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openGroup(g)}>Szerkesztés</Button>
           <Popconfirm title="Törlöd a csoportot?" description={g.members ? `${g.members} tag elveszíti a csoport jogait.` : undefined} onConfirm={() => deleteGroup(g)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
             <Button size="small" danger icon={<DeleteOutlined />} style={{ marginLeft: 'auto' }}>Törlés</Button>
           </Popconfirm>
-        </div>
+        </div>}
       </div>
     );
   };
@@ -304,8 +318,20 @@ export default function UserAdmin({ currentUserId }) {
               label: `Csoportok (${data.groups.length})`,
               children: (
                 <div className="flex flex-col gap-3">
-                  <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A szervezők a csoportjaik alapján kapnak jogot: mely játékokat és boltokat kezelhetik, és mely modulokat (előrendelés, liga) használhatják. Több csoport jogai összeadódnak. Egy csoport módosítása azonnal érvényes minden tagjára.</Text>
-                  {data.groups.length === 0 ? <Empty description={<span style={{ color: '#6b7280' }}>Még nincs csoport. Hozz létre egyet az „Új csoport” gombbal.</span>} /> : <div className="grid gap-3 md:grid-cols-2">{data.groups.map(groupCard)}</div>}
+                  <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A szervezők a csoportjaik alapján kapnak jogot, a csoportok jogai összeadódnak. Az eseménykezeléshez legalább egy játék- és egy boltcsoport kell (pl. „Pokémon TCG” + „Tavern Debrecen”), a modulok (előrendelés, liga, felhasználókezelés) külön adhatók. Egy csoport módosítása azonnal érvényes minden tagjára.</Text>
+                  {data.groups.length === 0 ? <Empty description={<span style={{ color: '#6b7280' }}>Még nincs csoport. Hozz létre egyet az „Új csoport” gombbal.</span>} /> : ['game', 'store', 'module', 'custom'].map(kind => {
+                    const list = data.groups.filter(g => g.kind === kind);
+                    if (!list.length) return null;
+                    return (
+                      <section key={kind} className="flex flex-col gap-2 mt-2">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span style={{ color: '#E5B15D', fontWeight: 'bold', fontFamily: 'Georgia, serif', fontSize: 16 }}>{KIND_LABELS[kind]}</span>
+                          <span style={{ color: '#7d6e70', fontSize: 12 }}>{KIND_HINTS[kind]}</span>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{list.map(groupCard)}</div>
+                      </section>
+                    );
+                  })}
                 </div>
               ),
             },
@@ -359,6 +385,12 @@ export default function UserAdmin({ currentUserId }) {
           <Text style={{ color: '#baaaac' }}>A szervező a kiválasztott csoportok jogait kapja meg (összeadódnak). Csoport nélkül semmit nem kezelhet.</Text>
           {membershipUser && !membershipUser.usesGroups && <Alert type="info" showIcon message="Mentés után a régi egyéni jogai megszűnnek, és csak a csoportjai számítanak." />}
           <Select mode="multiple" allowClear value={membershipIds} onChange={setMembershipIds} options={groupOptions} placeholder="Válassz csoportot..." style={{ width: '100%' }} notFoundContent={<span style={{ color: '#6b7280' }}>Még nincs csoport. Előbb hozz létre egyet a Csoportok fülön.</span>} />
+          {membershipIds.length > 0 && (() => {
+            const gs = membershipIds.map(id => groupsById.get(id)).filter(Boolean);
+            const hasGame = gs.some(g => g.allowedCategories === null || g.allowedCategories.length > 0);
+            const hasStore = gs.some(g => g.allowedStores === null || g.allowedStores.length > 0);
+            return (!hasGame || !hasStore) ? <Alert type="warning" showIcon message={`Eseményeket csak akkor kezelhet, ha van ${!hasGame && !hasStore ? 'játék- és boltcsoportja' : !hasGame ? 'játékcsoportja is' : 'boltcsoportja is'}.`} /> : null;
+          })()}
           {membershipIds.length > 0 && (
             <div className="rounded-lg p-3" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
               <div style={{ ...label, marginBottom: 8 }}>Így ezeket kezelheti</div>

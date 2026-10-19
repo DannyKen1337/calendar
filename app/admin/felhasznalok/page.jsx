@@ -11,8 +11,8 @@ export default function UsersAdminPage() {
   if (app.loading) {
     return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-[#E5B15D] font-bold">Betöltés...</div>;
   }
-  // Csak a tulajdonos kezelheti a felhasználókat
-  if (app.userRole !== 'owner') redirect('/admin');
+  // A tulajdonos, illetve akinek a csoportja a felhasználókezelést megengedi
+  if (app.userRole !== 'owner' && !(app.userRole === 'admin' && app.hasFeature('users'))) redirect('/admin');
 
   return (
     <main className="min-h-screen bg-[#121212] text-white px-4 py-4 md:px-6 2xl:px-10">

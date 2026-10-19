@@ -3,14 +3,22 @@ import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { getTavernDb } from '@/lib/mongodb';
-import { verifyOwner } from '@/lib/auth';
+import { verifyAdmin } from '@/lib/auth';
+import { canManageUsers } from '@/lib/permissions';
 import { isValidEmail } from '@/lib/rateLimit';
-import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups } from '@/lib/userAccess';
+import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, seedDefaultGroups } from '@/lib/userAccess';
 
 export const dynamic = 'force-dynamic';
 
-// Felhasználók és szervezői csoportok kezelése – csak a tulajdonos.
+// Felhasználók és szervezői csoportok kezelése: a tulajdonos, illetve akinek a csoportja a „Felhasználók és csoportok” modult adja.
+// Visszaélés elleni védelem nem tulajdonos kezelőnél: a saját fiókját, más felhasználókezelő fiókot, a tulajdonosi fiókot,
+// valamint a felhasználókezelést adó csoportot és annak tagságát nem módosíthatja.
 // Minden módosítás bekerül a tevékenységnaplóba.
+
+async function verifyUserManager() {
+  const session = await verifyAdmin();
+  return session && canManageUsers(session) ? session : null;
+}
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const oid = (id) => { const s = String(id ?? ''); return ObjectId.isValid(s) && s.length === 24 ? new ObjectId(s) : null; };
@@ -27,7 +35,7 @@ async function addLog(db, adminName, action, details) {
 }
 
 const groupOut = (g, members) => ({
-  id: String(g._id), name: g.name, description: g.description || '', color: g.color,
+  id: String(g._id), name: g.name, kind: groupKind(g), protected: isProtectedGroup(g), description: g.description || '', color: g.color,
   allowedCategories: Array.isArray(g.allowedCategories) ? g.allowedCategories : null,
   allowedStores: Array.isArray(g.allowedStores) ? g.allowedStores : null,
   features: g.features || [], members, createdAt: g.createdAt,
@@ -35,9 +43,12 @@ const groupOut = (g, members) => ({
 
 export async function GET() {
   try {
-    const session = await verifyOwner();
-    if (!session) return NextResponse.json({ error: 'Csak a tulajdonos kezelheti a felhasználókat.' }, { status: 403 });
+    const session = await verifyUserManager();
+    if (!session) return NextResponse.json({ error: 'Nincs jogosultságod a felhasználók kezeléséhez.' }, { status: 403 });
     const db = await getTavernDb();
+    // Az alapcsoportok (játékok, boltok, modulok) egyszeri létrehozása
+    const seeded = await seedDefaultGroups(db, session.username).catch(() => 0);
+    if (seeded) await addLog(db, session.username, 'CSOPORT', `Alapcsoportok létrehozva: ${seeded} db (játékok, boltok, modulok)`);
     const [users, groupsById] = await Promise.all([
       db.collection('users').find({}, { projection: { password: 0 } }).sort({ username: 1 }).toArray(),
       getGroupsMap(db),
@@ -54,7 +65,10 @@ export async function GET() {
         disabled: !!u.disabled, mustChangePassword: !!u.mustChangePassword,
         lastLoginAt: u.lastLoginAt || null, createdAt: u.createdAt || null, createdBy: u.createdBy || '',
       })),
-      groups: [...groupsById.values()].sort((a, b) => a.name.localeCompare(b.name, 'hu')).map(g => groupOut(g, members.get(String(g._id)) || 0)),
+      groups: [...groupsById.values()]
+        .sort((a, b) => (GROUP_KIND_ORDER[groupKind(a)] - GROUP_KIND_ORDER[groupKind(b)]) || a.name.localeCompare(b.name, 'hu'))
+        .map(g => groupOut(g, members.get(String(g._id)) || 0)),
+      isOwner: session.role === 'owner',
     });
   } catch (error) {
     console.error('admin-users GET error:', error);
@@ -64,8 +78,9 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const session = await verifyOwner();
-    if (!session) return NextResponse.json({ error: 'Csak a tulajdonos kezelheti a felhasználókat.' }, { status: 403 });
+    const session = await verifyUserManager();
+    if (!session) return NextResponse.json({ error: 'Nincs jogosultságod a felhasználók kezeléséhez.' }, { status: 403 });
+    const isOwner = session.role === 'owner';
     const body = await request.json().catch(() => null);
     const { actionType, payload } = body || {};
     if (!payload || typeof payload !== 'object') return NextResponse.json({ error: 'Hiányzó adatok.' }, { status: 400 });
@@ -80,13 +95,19 @@ export async function POST(request) {
       const target = o ? await users.findOne({ _id: o }) : null;
       if (!target) return { res: bad('A felhasználó nem található.', 404) };
       if (target.role === 'owner') return { res: bad('A tulajdonosi fiók itt nem módosítható.', 403) };
+      if (!isOwner) {
+        if (String(target._id) === String(session.id)) return { res: bad('A saját fiókodat nem módosíthatod.', 403) };
+        const targetAccess = effectiveAccess(target, await getGroupsMap(db, target.groupIds || []));
+        if (targetAccess.features.includes('users')) return { res: bad('Felhasználókezelő fiókot csak a tulajdonos módosíthat.', 403) };
+      }
       return { target };
     };
+    const protectedDenied = () => bad('A felhasználókezelést adó csoportot csak a tulajdonos kezelheti.', 403);
     // Csak létező csoportok
     const validGroupIds = async (ids) => {
       const list = (Array.isArray(ids) ? ids : []).map(oid).filter(Boolean);
       if (!list.length) return [];
-      const found = await groups.find({ _id: { $in: list } }, { projection: { _id: 1, name: 1 } }).toArray();
+      const found = await groups.find({ _id: { $in: list } }, { projection: { _id: 1, name: 1, features: 1 } }).toArray();
       return found;
     };
 
@@ -96,6 +117,10 @@ export async function POST(request) {
       if (error) return bad(error);
       const existingId = payload.id ? oid(payload.id) : null;
       if (payload.id && !existingId) return bad('A csoport nem található.', 404);
+      if (!isOwner) {
+        const before = existingId ? await groups.findOne({ _id: existingId }) : null;
+        if (isProtectedGroup(group) || isProtectedGroup(before)) return protectedDenied();
+      }
       const dup = await groups.findOne({ name: group.name, ...(existingId ? { _id: { $ne: existingId } } : {}) }, { collation: { locale: 'hu', strength: 1 } });
       if (dup) return bad('Ilyen nevű csoport már van.', 400, { field: 'name' });
       if (existingId) {
@@ -113,6 +138,7 @@ export async function POST(request) {
       const o = oid(payload.id);
       const group = o ? await groups.findOne({ _id: o }) : null;
       if (!group) return bad('A csoport nem található.', 404);
+      if (!isOwner && isProtectedGroup(group)) return protectedDenied();
       const affected = await users.updateMany({ groupIds: String(group._id) }, { $pull: { groupIds: String(group._id) } });
       await groups.deleteOne({ _id: group._id });
       await addLog(db, session.username, 'CSOPORT', `Csoport törölve: ${group.name} (${affected.modifiedCount} tag elvesztette a csoport jogait)`);
@@ -125,6 +151,7 @@ export async function POST(request) {
       const { target, res } = await loadTarget(payload.userId);
       if (res) return res;
       const found = await validGroupIds(payload.groupIds);
+      if (!isOwner && found.some(isProtectedGroup)) return protectedDenied();
       await users.updateOne({ _id: target._id }, {
         $set: { groupIds: found.map(g => String(g._id)), accessMode: 'groups' },
         $unset: { allowedCategories: '', allowedStores: '', features: '' },
@@ -193,6 +220,7 @@ export async function POST(request) {
       if (await users.findOne({ email })) return bad('Ezzel az e-mail címmel már van fiók.', 400, { field: 'email' });
       if (await users.findOne({ username }, { collation: { locale: 'en', strength: 2 } })) return bad('Ez a felhasználónév már foglalt.', 400, { field: 'username' });
       const found = role === 'admin' ? await validGroupIds(payload.groupIds) : [];
+      if (!isOwner && found.some(isProtectedGroup)) return protectedDenied();
       const tempPassword = newTempPassword();
       const expiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
       await users.insertOne({
