@@ -12,6 +12,8 @@ import { normalizeUsername } from '@/lib/attendance';
 import { isValidChangelogId } from '@/lib/changelog';
 import { sanitizeEventType } from '@/lib/eventTypes';
 import { normalizeEventDate } from '@/lib/eventDates';
+import { syncRgnEvent } from '@/lib/rgnSync';
+import { rgnEventId } from '@/lib/rgn';
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
@@ -226,7 +228,13 @@ export async function POST(request) {
         return noPermission();
       }
       if (rest.hosts !== undefined) updates.hosts = await sanitizeHosts(db, rest.hosts, updatedEvent);
-      await db.collection('tournaments').updateOne(getQuery(id), { $set: updates });
+      // Ha a Riftbound link másik eseményre mutat (vagy megszűnt), a korábbi jelentkezőlista már nem érvényes
+      const linkChanged = updates.external_url !== undefined && rgnEventId(updates.external_url) !== rgnEventId(existingEvent.external_url);
+      await db.collection('tournaments').updateOne(getQuery(id), { $set: updates, ...(linkChanged ? { $unset: { rgn: '' } } : {}) });
+      if (linkChanged) {
+        await db.collection('external_registrations').deleteMany({ tournamentId: String(existingEvent._id || existingEvent.id) });
+        await db.collection('external_registration_events').deleteMany({ tournamentId: String(existingEvent._id || existingEvent.id) });
+      }
       await addLog(db, session.username, 'MÓDOSÍTÁS', `Szerkesztette: ${updates.name ?? payload.name ?? 'esemény'}`);
       // Ha nőtt a max. létszám, a várólistáról előlépnek a következők
       const promoted = await promoteFromQueue(db, id);
@@ -239,6 +247,10 @@ export async function POST(request) {
       if (event && !canManageEvent(session, event)) return noPermission();
       await db.collection('tournaments').deleteMany(getQuery(payload.tournamentId || payload.id));
       await db.collection('registrations').deleteMany({ tournamentId: String(payload.tournamentId || payload.id) });
+      if (event) {
+        await db.collection('external_registrations').deleteMany({ tournamentId: String(event._id || event.id) });
+        await db.collection('external_registration_events').deleteMany({ tournamentId: String(event._id || event.id) });
+      }
       if (event) await addLog(db, session.username, 'TÖRLÉS', `Törölte az eseményt: ${event.name}`);
       return NextResponse.json({ success: true });
     }
@@ -540,6 +552,17 @@ export async function POST(request) {
         );
       }
       return NextResponse.json({ success: true });
+    }
+
+    // --- RIFTBOUND: jelentkezők azonnali frissítése a Riftbound oldalról ---
+    if (actionType === 'RGN_SYNC') {
+      const event = await db.collection('tournaments').findOne(getQuery(payload.tournamentId));
+      if (!event) return NextResponse.json({ error: 'Esemény nem található.' }, { status: 404 });
+      if (!canManageEvent(session, event)) return noPermission();
+      if (!rgnEventId(event.external_url)) return NextResponse.json({ error: 'Ennek az eseménynek nincs Riftbound linkje.' }, { status: 400 });
+      const result = await syncRgnEvent(db, event);
+      if (!result.ok) return NextResponse.json({ error: `A frissítés nem sikerült: ${result.error}` }, { status: 502 });
+      return NextResponse.json({ success: true, ...result });
     }
 
     // --- DECKLIST: leadta / nem adta le / visszavonás (decklist: true | false | null) ---

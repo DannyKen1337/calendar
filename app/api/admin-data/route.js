@@ -5,6 +5,8 @@ import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { canManageEvent } from '@/lib/permissions';
 import { getAttendanceStats } from '@/lib/attendanceHistory';
+import { syncDueRgnEvents, getRgnRegistrations } from '@/lib/rgnSync';
+import { rgnEventId } from '@/lib/rgn';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +19,9 @@ export async function GET() {
     const isOwner = session.role === 'owner';
 
     const db = await getTavernDb();
+
+    // Riftbound (külső oldalas) események jelentkezőinek frissítése: eseményenként legfeljebb 5 percenként, legfeljebb 4 mp várakozással
+    await syncDueRgnEvents(db, { maxAgeMs: 5 * 60 * 1000, budgetMs: 4000 }).catch(err => console.error('rgn sync error:', err));
 
     const [tournaments, registrations, users, logs, blacklist, settings, staff] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
@@ -39,10 +44,15 @@ export async function GET() {
     // Megbízhatósági statisztika (megjelent / nem jelent meg) a látható jelentkezők e-mail címeire, az összes eseményből számolva
     const attendanceStats = await getAttendanceStats(db, visibleRegistrations.map(r => r.email));
 
+    // Riftbound jelentkezők (Riot-azonosítók) és előzmények: csak a kezelhető eseményekhez
+    const rgnIds = tournaments.filter(t => rgnEventId(t.external_url) && manageableIds.has(String(t._id || t.id))).map(t => String(t._id || t.id));
+    const rgn = await getRgnRegistrations(db, rgnIds).catch(() => ({ registrations: [], history: [] }));
+
     return NextResponse.json({
         tournaments: attachPublicAttendees(tournaments, registrations),
         registrations: visibleRegistrations,
         attendanceStats,
+        rgn,
         users,
         staff: staff.map(u => ({ id: String(u._id), username: u.username, role: u.role, allowedCategories: u.allowedCategories, allowedStores: u.allowedStores })),
         logs,

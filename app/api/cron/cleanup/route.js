@@ -29,6 +29,8 @@ export async function GET(request) {
       await db.collection('tournaments').deleteMany({ _id: { $in: oldEventIds } });
       const stringIds = oldEventIds.map(id => String(id));
       await db.collection('registrations').deleteMany({ tournamentId: { $in: stringIds } });
+      await db.collection('external_registrations').deleteMany({ tournamentId: { $in: stringIds } });
+      await db.collection('external_registration_events').deleteMany({ tournamentId: { $in: stringIds } });
       
       await db.collection('audit_logs').insertOne({
         adminName: 'Vercel Automata',

@@ -10,6 +10,8 @@ import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig';
 import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent, showsDecklist } from '@/lib/eventTypes';
 import { findHostConflicts } from '@/lib/hostConflicts';
 import { FEATURES, STORE_NAMES } from '@/lib/permissions';
+import { rgnEventId } from '@/lib/rgn';
+import RgnAttendeesModal from '@/components/RgnAttendeesModal';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text, Paragraph } = Typography;
@@ -161,6 +163,7 @@ export const PublicModals = ({ app }) => {
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
               
               {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p> )}
+              {selectedEventDetails.external_url && rgnEventId(selectedEventDetails.external_url) && selectedEventDetails.rgn?.syncedAt && selectedEventDetails.rgn?.ok !== false && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players}{selectedEventDetails.rgn.capacity ? ` / ${selectedEventDetails.rgn.capacity}` : ''}{selectedEventDetails.queue_count > 0 ? ` (várólistán: ${selectedEventDetails.queue_count})` : ''} <span style={{ color: '#9a8a8c' }}>· a Riftbound oldal szerint</span></p> )}
             </div>
             {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && (selectedEventDetails.attendees || []).length > 0 && (() => {
               const active = selectedEventDetails.attendees.filter(a => !a.queue);
@@ -276,7 +279,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
                   {isAdmin && app.hostNames(evt).length > 0 && <Text style={{ display: 'block', color: '#baaaac', fontSize: 13, marginBottom: 4 }}><UserOutlined style={{ color: '#E5B15D' }} /> Tartja: <Text strong style={{ color: '#E0D6C8' }}>{app.hostNames(evt).join(', ')}</Text></Text>}
-                  {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}<AttendeeNames attendees={evt.attendees} max={8} size="small" /></> )}
+                  {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( rgnEventId(evt.external_url) && evt.rgn?.syncedAt && evt.rgn?.ok !== false ? <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players}{evt.rgn.capacity ? ` / ${evt.rgn.capacity}` : ''}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}{isAdmin ? <a href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ ...S.extLinkText, color: '#E5B15D' }}><LinkOutlined style={S.linkIcon}/> Riftbound oldal megnyitása</a> : <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Jelentkezés a Riftbound oldalán</Text>}</> : isAdmin ? <a href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ ...S.extLinkText, color: '#E5B15D', overflowWrap: 'anywhere' }}><LinkOutlined style={S.linkIcon}/> Külső oldal megnyitása</a> : <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}<AttendeeNames attendees={evt.attendees} max={8} size="small" /></> )}
                 </div>
               </div>
               {!isAdmin ? (
@@ -294,11 +297,14 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                 // Más játék eseménye: a szervező látja, de nem szerkesztheti és a jelentkezőit sem látja
                 <Space style={{ flexWrap: 'wrap' }}>
                   <Tag icon={<EyeOutlined />} style={{ background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' }}>Csak megtekintés</Tag>
+                  {evt.external_url && <Button size="small" icon={<LinkOutlined />} title={evt.external_url} href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }}>Külső oldal</Button>}
                   <ShareEventButton evt={evt} messageApi={app.messageApi} copyOnly iconOnly size="small" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
                   {!evt.external_url && !evt.isOpenAttendance && <Button size="small" icon={<FormOutlined />} title="Jelentkezési oldal megnyitása" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(registrationPageUrl(evt), '_blank', 'noopener')} />}
                 </Space>
               ) : (
                 <Space style={{ flexWrap: 'wrap' }}>
+                  {evt.external_url && <Button icon={<LinkOutlined />} title={evt.external_url} href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }}>Külső oldal</Button>}
+                  {rgnEventId(evt.external_url) && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => app.setSelectedRgnEventId(eId)} title="A Riftbound oldalon jelentkezettek">Jelentkezők (Riftbound)</Button>}
                   {!evt.external_url && !evt.isOpenAttendance && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
                   {!evt.external_url && !evt.isOpenAttendance && <Button icon={<FormOutlined />} title="Jelentkezési oldal megnyitása" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(registrationPageUrl(evt), '_blank', 'noopener')} />}
                   {!evt.external_url && !evt.isOpenAttendance && <Button icon={<MobileOutlined />} title="Mobilos check-in" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(checkinPageUrl(evt), '_blank', 'noopener')} />}
@@ -778,7 +784,7 @@ export const AdminEvents = ({ app: v }) => {
 
   const stats = {
     events: upcomingEvents.length,
-    players: upcomingEvents.reduce((sum, e) => sum + (e.isOpenAttendance || e.external_url ? 0 : (e.current_players || 0)), 0),
+    players: upcomingEvents.reduce((sum, e) => sum + (e.isOpenAttendance || (e.external_url && !(rgnEventId(e.external_url) && e.rgn?.syncedAt)) ? 0 : (e.current_players || 0)), 0),
     queue: upcomingEvents.reduce((sum, e) => sum + (e.queue_count || 0), 0),
     closed: upcomingEvents.filter(e => !e.is_open && !e.isOpenAttendance && !e.external_url).length,
   };
@@ -1299,6 +1305,14 @@ export const AdminEvents = ({ app: v }) => {
             }}
           ]} />
         </Modal>
+        <RgnAttendeesModal
+          event={(v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedRgnEventId))}
+          data={v.rgnData}
+          open={!!v.selectedRgnEventId}
+          onClose={() => v.setSelectedRgnEventId(null)}
+          onSync={() => v.syncRgn(v.selectedRgnEventId)}
+          syncing={v.rgnSyncing}
+        />
         <Modal title={<span style={{ color: '#E5B15D' }}>Tevékenységnapló (Audit Log)</span>} open={v.isLogModalOpen} onCancel={() => v.setIsLogModalOpen(false)} footer={null} width={900} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: szervező, művelet, részletek (pl. LIGA, ELŐRENDELÉS)..." value={logQuery} onChange={(e) => setLogQuery(e.target.value)} style={{ marginBottom: 12 }} />
           <Table dataSource={(v.logs || []).filter(l => { const q = logQuery.trim().toLowerCase(); return !q || `${l.adminName} ${l.action} ${l.details}`.toLowerCase().includes(q); })} rowKey={(record) => record._id} pagination={{ pageSize: 10, showSizeChanger: false }} columns={[

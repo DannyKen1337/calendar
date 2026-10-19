@@ -20,6 +20,9 @@ export const useCalendar = () => {
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
   const [allowedStores, setAllowedStores] = useState(null); // null = minden bolt
   const [features, setFeatures] = useState([]); // külön engedélyhez kötött modulok (előrendelés, liga)
+  const [rgnData, setRgnData] = useState({ registrations: [], history: [] }); // Riftbound (külső oldalas) jelentkezők
+  const [selectedRgnEventId, setSelectedRgnEventId] = useState(null);
+  const [rgnSyncing, setRgnSyncing] = useState(false);
   // A szerver órája és a gép órája közti eltérés (ms): a "most" a szerver szerint, magyar időben számít
   const serverOffsetRef = useRef(0);
   const [lastSeenChangelog, setLastSeenChangelog] = useState(null); // az utoljára elolvasott újdonság (lib/changelog.js)
@@ -149,6 +152,7 @@ export const useCalendar = () => {
         setTournaments(coloredTournaments);
       }
       if (data.registrations) setRegistrations(data.registrations);
+      if (data.rgn) setRgnData(data.rgn);
       if (data.attendanceStats) setAttendanceStats(data.attendanceStats);
       if (data.users) setUsersList(data.users);
       if (data.staff) setStaffList(data.staff);
@@ -493,6 +497,14 @@ export const useCalendar = () => {
     if (!(await postAction('SET_DECKLIST', { registrationId: id, decklist }))) apply(prev);
   };
 
+  // Riftbound jelentkezők azonnali frissítése a Riftbound oldalról
+  const syncRgn = async (tournamentId) => {
+    setRgnSyncing(true);
+    const ok = await postAction('RGN_SYNC', { tournamentId: String(tournamentId) });
+    setRgnSyncing(false);
+    if (ok) { messageApi.success('Jelentkezők frissítve a Riftbound oldalról.'); fetchData(true); }
+  };
+
   const handleRemoveRegistration = async (registrationId) => {
     if (!(await postAction('REMOVE_REGISTRATION', { registrationId }))) return;
     messageApi.success("Jelentkező törölve.");
@@ -582,7 +594,7 @@ export const useCalendar = () => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
-    allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
+    allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
     isMaintenance, extraLinks, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
