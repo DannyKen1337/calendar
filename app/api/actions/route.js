@@ -12,6 +12,7 @@ import { normalizeUsername } from '@/lib/attendance';
 import { isValidChangelogId } from '@/lib/changelog';
 import { sanitizeEventType } from '@/lib/eventTypes';
 import { normalizeEventDate } from '@/lib/eventDates';
+import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
 import { syncRgnEvent } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
 
@@ -64,9 +65,10 @@ async function sanitizeHosts(db, value, evt) {
   const ids = [...new Set(value.map(String))].filter(id => ObjectId.isValid(id) && id.length === 24).slice(0, 20);
   if (ids.length === 0) return [];
   const users = await db.collection('users')
-    .find({ _id: { $in: ids.map(id => new ObjectId(id)) }, role: { $in: ['admin', 'owner'] } }, { projection: { role: 1, allowedCategories: 1, allowedStores: 1 } })
+    .find({ _id: { $in: ids.map(id => new ObjectId(id)) }, role: { $in: ['admin', 'owner'] }, disabled: { $ne: true } }, { projection: { role: 1, allowedCategories: 1, allowedStores: 1, features: 1, groupIds: 1, accessMode: 1 } })
     .toArray();
-  const eligible = new Set(users.filter(u => canManageEvent(u, evt)).map(u => String(u._id)));
+  const groupsById = await getGroupsMap(db);
+  const eligible = new Set(users.filter(u => canManageEvent({ role: u.role, ...effectiveAccess(u, groupsById) }, evt)).map(u => String(u._id)));
   return ids.filter(id => eligible.has(id));
 }
 

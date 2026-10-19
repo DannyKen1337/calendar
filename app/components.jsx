@@ -9,7 +9,7 @@ import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
 import { EVENT_TYPES, getEventTypeConfig, isSpecialEvent, showsDecklist } from '@/lib/eventTypes';
 import { findHostConflicts } from '@/lib/hostConflicts';
-import { FEATURES, STORE_NAMES } from '@/lib/permissions';
+
 import { rgnEventId } from '@/lib/rgn';
 import RgnAttendeesModal from '@/components/RgnAttendeesModal';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
@@ -687,31 +687,7 @@ export const AdminEvents = ({ app: v }) => {
   const [showPast, setShowPast] = useState(false);
   const [onlyMine, setOnlyMine] = useState(false); // csak az általam tartott események
   const [adminMonth, setAdminMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }); // a megjelenített hónap (= oldal)
-  const [permUser, setPermUser] = useState(null); // akinek a játék-jogosultságát épp szerkesztjük
-  const [permAll, setPermAll] = useState(true);
-  const [permCategories, setPermCategories] = useState([]);
-  const [permFeatures, setPermFeatures] = useState([]);
-  const [permAllStores, setPermAllStores] = useState(true);
-  const [permStores, setPermStores] = useState([]);
   const [logQuery, setLogQuery] = useState(''); // keresés a tevékenységnaplóban
-  const [usersQuery, setUsersQuery] = useState(''); // keresés a szervezők között
-  const [permSaving, setPermSaving] = useState(false);
-
-  const openPermissions = (user) => {
-    const restricted = Array.isArray(user.allowedCategories);
-    setPermUser(user);
-    setPermAll(!restricted);
-    setPermCategories(restricted ? user.allowedCategories : []);
-    setPermFeatures(Array.isArray(user.features) ? user.features : []);
-    setPermAllStores(!Array.isArray(user.allowedStores));
-    setPermStores(Array.isArray(user.allowedStores) ? user.allowedStores : []);
-  };
-  const savePermissions = async () => {
-    setPermSaving(true);
-    const ok = await v.setAdminCategories(permUser._id || permUser.id, permAll ? null : permCategories, permFeatures, permAllStores ? null : permStores);
-    setPermSaving(false);
-    if (ok) setPermUser(null);
-  };
   const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
   // Korlátozott szervezőnél egy kattintással a saját játékaira szűr (aki mindent kezelhet, annak ez = nincs szűrő)
   const hasRestrictedGames = manageableGames.length > 0 && manageableGames.length < Object.keys(GAME_CONFIG).length;
@@ -905,8 +881,7 @@ export const AdminEvents = ({ app: v }) => {
                 </Popconfirm>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button block icon={<SafetyCertificateOutlined />} style={sideBtn} onClick={() => v.setIsUsersModalOpen(true)}>Szervezők</Button>
-                <Button block icon={<UserAddOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => { v.createUserForm.resetFields(); v.setIsCreateUserModalOpen(true); }}>Új fiók</Button>
+                <Link href="/admin/felhasznalok" className="col-span-2"><Button block icon={<TeamOutlined />} style={{ ...sideBtn, color: '#E5B15D' }}>Felhasználók és csoportok</Button></Link>
                 <Button block style={sideBtn} onClick={() => v.setIsLogModalOpen(true)}>Napló</Button>
                 <Button block danger style={{ background: '#2B1A1C' }} onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
               </div>
@@ -1013,179 +988,6 @@ export const AdminEvents = ({ app: v }) => {
           </Form>
         </Modal>
 
-        <Modal
-          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>{v.createdCredentials ? 'Felhasználó létrehozva' : 'Új felhasználó létrehozása'}</span>}
-          open={v.isCreateUserModalOpen}
-          onCancel={v.closeCreateUserModal}
-          onOk={() => v.createUserForm.submit()}
-          okText="Létrehozás"
-          cancelText="Mégse"
-          okButtonProps={{ loading: v.isCreatingUser, style: { color: '#000', fontWeight: 'bold' } }}
-          footer={v.createdCredentials ? [<Button key="done" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={v.closeCreateUserModal}>Kész</Button>] : undefined}
-          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
-          forceRender
-        >
-          <Form form={v.createUserForm} layout="vertical" onFinish={v.submitCreateUser} className="mt-4" initialValues={{ role: 'admin' }} style={{ display: v.createdCredentials ? 'none' : 'block' }}>
-            <p style={{ color: '#baaaac', marginBottom: 16 }}>A rendszer egy ideiglenes, egyszer használatos jelszót generál. Az első belépéskor a felhasználónak saját jelszót kell választania.</p>
-            <Form.Item name="username" label="Felhasználónév" rules={[{ required: true, message: 'Kötelező!' }, { pattern: /^[\p{L}\p{N}._-]{3,32}$/u, message: '3-32 karakter: betű, szám, pont, aláhúzás, kötőjel.' }]}>
-              <Input placeholder="Pl.: tavern_szervezo" />
-            </Form.Item>
-            <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail kell!' }]}>
-              <Input placeholder="pelda@email.com" />
-            </Form.Item>
-            <Form.Item name="role" label="Szerep">
-              <Select>
-                <Select.Option value="admin">Admin (szervező)</Select.Option>
-                <Select.Option value="customer">Játékos</Select.Option>
-              </Select>
-            </Form.Item>
-          </Form>
-          {v.createdCredentials && (
-            <div className="space-y-4 pt-2">
-              <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
-                <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Felhasználónév:</strong> {v.createdCredentials.username}</p>
-                <p className="mb-3"><strong style={{ color: '#E5B15D' }}>E-mail:</strong> {v.createdCredentials.email}</p>
-                <strong style={{ color: '#E5B15D' }}>Ideiglenes jelszó:</strong>
-                <div className="flex items-center gap-3 mt-2">
-                  <code style={{ background: '#0a0a0a', border: '1px solid #4A2E33', borderRadius: 8, padding: '8px 14px', fontSize: '1.25rem', letterSpacing: '2px', color: '#E0D6C8', userSelect: 'all' }}>{v.createdCredentials.tempPassword}</code>
-                  <Button icon={<CopyOutlined />} onClick={() => { if (navigator.clipboard) { navigator.clipboard.writeText(v.createdCredentials.tempPassword).then(() => v.messageApi.success('Jelszó a vágólapra másolva!'), () => v.messageApi.error('A másolás nem sikerült, jelöld ki kézzel.')); } else { v.messageApi.error('A másolás nem támogatott, jelöld ki kézzel.'); } }}>Másolás</Button>
-                </div>
-              </div>
-              <p style={{ color: '#ff7875' }}><strong>Ez a jelszó csak most látható</strong>, később nem kérhető le. Add át a felhasználónak biztonságos módon.</p>
-              <p style={{ color: '#baaaac' }}>Egyszer használható, {v.createdCredentials.expiresAt ? `${new Date(v.createdCredentials.expiresAt).toLocaleDateString('hu-HU')}-ig érvényes` : '7 napig érvényes'}. Az /admin oldalon belépve a felhasználónak azonnal új jelszót kell megadnia.</p>
-            </div>
-          )}
-        </Modal>
-        <Modal
-          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Szervezők és felhasználók</span>}
-          open={v.isUsersModalOpen}
-          onCancel={() => v.setIsUsersModalOpen(false)}
-          footer={null}
-          width={900}
-          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
-        >
-          {(() => {
-            // Kártyás lista: telefonon is áttekinthető (a táblázat keskeny képernyőn szétesett)
-            const ROLE_ORDER = { owner: 0, admin: 1 };
-            const q = usersQuery.trim().toLowerCase();
-            const list = [...(v.usersList || [])]
-              .filter(u => !q || `${u.username} ${u.email}`.toLowerCase().includes(q))
-              .sort((a, b) => (ROLE_ORDER[a.role] ?? 2) - (ROLE_ORDER[b.role] ?? 2) || String(a.username).localeCompare(String(b.username), 'hu'));
-            const roleTag = (role) => (role === 'owner' ? <Tag color="purple" style={{ margin: 0 }}>Tulajdonos</Tag> : role === 'admin' ? <Tag color="orange" style={{ margin: 0 }}>Szervező</Tag> : <Tag color="green" style={{ margin: 0 }}>Játékos</Tag>);
-            const label = { color: '#9a8a8c', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 };
-            return (
-              <div className="flex flex-col gap-3 pt-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés név vagy e-mail alapján..." value={usersQuery} onChange={(e) => setUsersQuery(e.target.value)} style={{ maxWidth: 360 }} />
-                  <Text style={{ color: '#9a8a8c', fontSize: 13 }}>{list.length} felhasználó</Text>
-                </div>
-                {list.length === 0 && <Text style={{ color: '#6b7280', fontStyle: 'italic', textAlign: 'center', padding: 16 }}>Nincs találat.</Text>}
-                <div className="grid gap-3 md:grid-cols-2">
-                  {list.map(record => {
-                    const id = record._id || record.id;
-                    const isProtected = record.email === v.userEmail || record.role === 'owner';
-                    const canEdit = v.userRole === 'owner' && !isProtected;
-                    const games = Array.isArray(record.allowedCategories) ? record.allowedCategories : null;
-                    const features = (record.features || []).filter(f => FEATURES[f]);
-                    return (
-                      <div key={String(id)} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: record.role === 'owner' ? '#722ed1' : '#4A2E33', background: '#1a1012' }}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div style={{ color: '#E0D6C8', fontWeight: 'bold', fontSize: 16, overflowWrap: 'anywhere' }}>{record.username}</div>
-                            <div style={{ color: '#baaaac', fontSize: 13, overflowWrap: 'anywhere' }}>{record.email}</div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            {roleTag(record.role)}
-                            {record.mustChangePassword && <Tag color="blue" style={{ margin: 0 }}>Ideiglenes jelszó</Tag>}
-                          </div>
-                        </div>
-
-                        {record.role === 'admin' && (
-                          <>
-                            <div>
-                              <div style={label}>Kezelt játékok</div>
-                              <div className="flex flex-wrap gap-1">
-                                {games === null ? <Tag color="gold" style={{ margin: 0 }}>Minden játék</Tag> : games.length === 0 ? <Tag color="red" style={{ margin: 0 }}>Egyik sem</Tag> : games.map(g => <Tag key={g} style={{ background: getGameColor({ category: g }), borderColor: getGameColor({ category: g }), color: '#fff', margin: 0 }}>{g}</Tag>)}
-                              </div>
-                            </div>
-                            <div>
-                              <div style={label}>Boltok</div>
-                              <div className="flex flex-wrap gap-1">
-                                {Array.isArray(record.allowedStores)
-                                  ? (record.allowedStores.length ? record.allowedStores.map(st => <Tag key={st} color="geekblue" style={{ margin: 0 }}>{STORE_NAMES[st] || st}</Tag>) : <Tag color="red" style={{ margin: 0 }}>Egyik sem</Tag>)
-                                  : <Tag color="gold" style={{ margin: 0 }}>Minden bolt</Tag>}
-                              </div>
-                            </div>
-                            <div>
-                              <div style={label}>Modulok</div>
-                              <div className="flex flex-wrap gap-1">
-                                {features.length ? features.map(f => <Tag key={f} color="cyan" style={{ margin: 0 }}>{FEATURES[f]}</Tag>) : <Text style={{ color: '#6b7280', fontSize: 13 }}>Nincs külön modul</Text>}
-                              </div>
-                            </div>
-                          </>
-                        )}
-                        {record.role === 'owner' && <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Minden játékot és modult kezel.</Text>}
-
-                        {canEdit ? (
-                          <div className="flex flex-wrap gap-2 pt-3 border-t border-[#4A2E33]">
-                            {record.role === 'admin' && <Button size="small" icon={<EditOutlined />} style={{ color: '#E5B15D', borderColor: '#4A2E33', background: '#2B1A1C' }} onClick={() => openPermissions(record)}>Jogosultságok</Button>}
-                            <Button size="small" onClick={() => v.initiatePasswordChange(record)}>Új jelszó</Button>
-                            {record.role === 'admin'
-                              ? <Popconfirm title="Visszafokozod játékossá?" description="Elveszíti a szervezői hozzáférést." onConfirm={() => v.toggleUserRole(record)} okText="Igen" cancelText="Mégse"><Button size="small">Visszafokozás</Button></Popconfirm>
-                              : <Button size="small" type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => v.toggleUserRole(record)}>Szervezői jog</Button>}
-                            <Popconfirm title="Biztosan törlöd a felhasználót?" onConfirm={() => v.handleDeleteUser(id)} okText="Igen" cancelText="Mégse" okButtonProps={{ danger: true }}>
-                              <Button size="small" danger icon={<DeleteOutlined />} style={{ marginLeft: 'auto' }}>Törlés</Button>
-                            </Popconfirm>
-                          </div>
-                        ) : isProtected && (
-                          <Text style={{ color: '#6b7280', fontSize: 12 }} className="pt-3 border-t border-[#4A2E33]">Védett fiók</Text>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </Modal>
-        <Modal
-          title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Jogosultságok: {permUser?.username}</span>}
-          open={!!permUser}
-          onCancel={() => setPermUser(null)}
-          onOk={savePermissions}
-          okText="Mentés"
-          cancelText="Mégse"
-          okButtonProps={{ loading: permSaving, disabled: (!permAll && permCategories.length === 0) || (!permAllStores && permStores.length === 0), style: { color: '#000', fontWeight: 'bold' } }}
-          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
-        >
-          <p style={{ color: '#baaaac' }}>A szervező minden eseményt lát a naptárban, de csak a kiválasztott játékok eseményeit hozhatja létre, szerkesztheti, nyithatja/zárhatja és törölheti, és csak ezek jelentkezőit látja.</p>
-          <Checkbox checked={permAll} onChange={(e) => setPermAll(e.target.checked)} style={{ marginBottom: 12 }}>Minden játékot kezelhet</Checkbox>
-          {!permAll && (
-            <Checkbox.Group value={permCategories} onChange={setPermCategories} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-              {Object.keys(GAME_CONFIG).map(g => <Checkbox key={g} value={g}>{g}</Checkbox>)}
-            </Checkbox.Group>
-          )}
-          {!permAll && permCategories.length === 0 && <p style={{ color: '#ff7875', marginTop: 12 }}>Válassz legalább egy játékot (vagy fokozd vissza a felhasználót játékossá).</p>}
-          <Divider style={{ borderColor: '#4A2E33', margin: '16px 0 12px' }} />
-          <p style={{ color: '#E5B15D', fontWeight: 'bold', margin: '0 0 4px' }}>Boltok</p>
-          <p style={{ color: '#9a8a8c', fontSize: 13, margin: '0 0 8px' }}>A többi bolt eseményeit is látja a naptárban, de csak a kiválasztott boltokban hozhat létre és szerkeszthet eseményt, és csak ott látja a jelentkezőket.</p>
-          <Checkbox checked={permAllStores} onChange={(e) => setPermAllStores(e.target.checked)} style={{ marginBottom: 8 }}>Minden boltot kezelhet</Checkbox>
-          {!permAllStores && (
-            <Checkbox.Group value={permStores} onChange={setPermStores} style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {Object.entries(STORE_NAMES).map(([id, name]) => <Checkbox key={id} value={id}>{name}</Checkbox>)}
-            </Checkbox.Group>
-          )}
-          {!permAllStores && permStores.length === 0 && <p style={{ color: '#ff7875', marginTop: 12 }}>Válassz legalább egy boltot.</p>}
-          <Divider style={{ borderColor: '#4A2E33', margin: '16px 0 12px' }} />
-          <p style={{ color: '#E5B15D', fontWeight: 'bold', margin: '0 0 4px' }}>További modulok</p>
-          <p style={{ color: '#9a8a8c', fontSize: 13, margin: '0 0 8px' }}>Ezekhez csak az fér hozzá, akinek itt engedélyt adsz, és ott is csak a fent kiválasztott játékokat kezelheti.</p>
-          <Checkbox.Group value={permFeatures} onChange={setPermFeatures} style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            {Object.entries(FEATURES).map(([key, label]) => <Checkbox key={key} value={key}>{label}</Checkbox>)}
-          </Checkbox.Group>
-        </Modal>
-        <Modal title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Jelszó módosítása: {v.selectedUserForPassword?.username}</span>} open={v.isPasswordModalOpen} onCancel={() => v.setIsPasswordModalOpen(false)} onOk={() => v.passwordForm.submit()} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-          <Form form={v.passwordForm} layout="vertical" onFinish={v.submitPasswordChange} className="mt-4"><Form.Item name="newPassword" label="Új jelszó" rules={[{ required: true, message: 'Kötelező megadni!', min: 6 }]}><Input.Password placeholder="Új jelszó beírása..." /></Form.Item></Form>
-        </Modal>
         <Modal title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Saját jelszó módosítása</span>} open={v.isOwnPasswordModalOpen} onCancel={() => v.setIsOwnPasswordModalOpen(false)} onOk={() => v.ownPasswordForm.submit()} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
           <Form form={v.ownPasswordForm} layout="vertical" onFinish={v.submitOwnPasswordChange} className="mt-4">
             <Form.Item name="currentPassword" label="Jelenlegi jelszó" rules={[{ required: true, message: 'Kötelező megadni!' }]}>

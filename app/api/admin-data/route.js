@@ -5,6 +5,7 @@ import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { canManageEvent } from '@/lib/permissions';
 import { getAttendanceStats } from '@/lib/attendanceHistory';
+import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
 import { syncDueRgnEvents, getRgnRegistrations } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
 
@@ -17,6 +18,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
     }
     const isOwner = session.role === 'owner';
+    const pickAccess = (a) => ({ allowedCategories: a.allowedCategories, allowedStores: a.allowedStores });
 
     const db = await getTavernDb();
 
@@ -33,8 +35,10 @@ export async function GET() {
       isOwner ? db.collection('blacklist').find({}).toArray() : [],
       db.collection('settings').findOne({ _id: 'global_settings' }),
       // Az esemény szervezőjének választható adminok (név + játék-jogosultság): minden adminnak kell az űrlaphoz
-      db.collection('users').find({ role: { $in: ['admin', 'owner'] } }, { projection: { username: 1, role: 1, allowedCategories: 1, allowedStores: 1 } }).sort({ username: 1 }).toArray(),
+      db.collection('users').find({ role: { $in: ['admin', 'owner'] } }, { projection: { username: 1, role: 1, allowedCategories: 1, allowedStores: 1, features: 1, groupIds: 1, accessMode: 1, disabled: 1 } }).sort({ username: 1 }).toArray(),
     ]);
+
+    const groupsById = await getGroupsMap(db);
 
     // A szervező minden eseményt lát (a nyilvános, rövidített jelentkezőnevekkel együtt),
     // de a teljes jelentkezési adatokat (e-mail) csak azoknál, amelyek játékát kezelheti
@@ -54,7 +58,7 @@ export async function GET() {
         attendanceStats,
         rgn,
         users,
-        staff: staff.map(u => ({ id: String(u._id), username: u.username, role: u.role, allowedCategories: u.allowedCategories, allowedStores: u.allowedStores })),
+        staff: staff.filter(u => !u.disabled).map(u => ({ id: String(u._id), username: u.username, role: u.role, ...pickAccess(effectiveAccess(u, groupsById)) })),
         logs,
         blacklist,
         isMaintenance: settings?.isMaintenance || false,

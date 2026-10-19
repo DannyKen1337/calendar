@@ -99,6 +99,7 @@ export async function POST(request) {
 
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
+      if (user.disabled) return NextResponse.json({ error: "Ez a fiók fel van függesztve. Keresd a tulajdonost." }, { status: 403 });
 
       // Ideiglenes jelszóval NEM lehet belépni: csak jelszóbeállításra jogosít (nem készül munkamenet / süti)
       if (user.mustChangePassword) {
@@ -108,6 +109,7 @@ export async function POST(request) {
         return NextResponse.json({ success: true, mustChangePassword: true });
       }
 
+      await db.collection('users').updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
       return await sessionResponse(user);
     }
 
