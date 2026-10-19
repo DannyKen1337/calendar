@@ -138,3 +138,7 @@ html.tavern-embed .ant-modal {
   top: calc(var(--tc-vtop, 0px) + 16px) !important;
   padding-bottom: 16px;
 }
+
+/* Játékszűrésnél a másik bolt eseményei halványan (rámutatva / koppintva jobban látszanak) */
+.other-store { opacity: 0.45; transition: opacity 0.2s ease; }
+.other-store:hover, .other-store:focus-within { opacity: 0.9; }

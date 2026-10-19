@@ -7,9 +7,13 @@ import { CalendarView, SearchResults, StoreSelector, STORES } from '@/app/compon
 import CalendarFilters from '@/components/CalendarFilters';
 import SearchBar from '@/components/SearchBar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
+import { isSpecialEvent } from '@/lib/eventTypes';
 import { EnvironmentOutlined, SwapOutlined, TrophyOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import EmbedBridge from '@/components/EmbedBridge';
 import TodayProgram from '@/components/TodayProgram';
+
+// Ugyanabban a városban lévő boltok: játékszűrésnél egymás minden eseménye látszik (halványan)
+const LINKED_STORES = { debrecen: ['jatekceh'], jatekceh: ['debrecen'] };
 
 // embed: iframe-be ágyazott nézet (pl. webshopba) – kompakt, nincs teljes képernyős magasság.
 // fixedStore: a beágyazó által rögzített helyszín (?store=...), ilyenkor nincs boltválasztó.
@@ -54,9 +58,15 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   });
 
   // 3. LÉPÉS: Események szűrése játékkategória szerint
-  const finalTournaments = activeFilters.length === 0 
-    ? storeTournaments 
-    : storeTournaments.filter(e => activeFilters.includes(e.category));
+  // Játékszűrésnél a másik bolt eseményei is megjelennek halványan: Tavern Debrecen és JátékCéh között minden esemény
+  // (egy városban vannak), a többi bolt között csak a kiemelt és a különleges események
+  const otherStoreEvents = activeFilters.length === 0 ? [] : app.tournaments
+    .filter(e => (e.store || 'debrecen') !== selectedStore && activeFilters.includes(e.category))
+    .filter(e => LINKED_STORES[selectedStore]?.includes(e.store || 'debrecen') || e.isFeatured || isSpecialEvent(e))
+    .map(e => ({ ...e, _otherStore: e.store || 'debrecen' }));
+  const finalTournaments = activeFilters.length === 0
+    ? storeTournaments
+    : [...storeTournaments.filter(e => activeFilters.includes(e.category)), ...otherStoreEvents];
 
   // Létrehozunk egy módosított app objektumot, amit átadunk a naptárnak, így csak a szűrt eseményeket látja
   const trimmedQuery = searchQuery.trim();
@@ -81,7 +91,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
           Karbantartás mód be van kapcsolva — a nyilvános látogatók nem látják a naptárt, te igen (admin előnézet).
         </div>
       )}
-      
+
       <div className={`max-w-[1600px] mx-auto ${embed ? '' : 'pt-8'}`}>
         <div className="max-w-5xl mx-auto">
         <div className={`text-center ${embed ? 'mb-4' : 'mb-8'}`}>
@@ -90,7 +100,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
           </h1>
           <p className={`text-[#baaaac] ${embed ? 'text-base mt-1' : 'text-lg mt-2'} font-serif italic`}>Eseménynaptár</p>
         </div>
-        
+
         {/* Helyszín váltása: középen, a cím alatt */}
         {!fixedStore && (
         <div className={`flex justify-center ${embed ? 'mb-4' : 'mb-8'}`}>
@@ -108,7 +118,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
 
         <SearchBar value={searchQuery} onChange={setSearchQuery} resultCount={searchResults.length} placeholder={`Keresés a(z) ${currentStore?.name || ''} eseményei között...`} />
 
-        <CalendarFilters 
+        <CalendarFilters
           activeFilters={activeFilters}
           setActiveFilters={setActiveFilters}
           store={selectedStore}

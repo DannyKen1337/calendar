@@ -108,6 +108,10 @@ export const EventTypeTag = ({ evt, size = 'default' }) => {
   );
 };
 
+// Játékszűrésnél a másik bolt eseménye (lásd PublicCalendar): halványan, a bolt nevével jelenik meg
+const otherStore = (evt) => (evt._otherStore ? STORES[evt._otherStore] : null);
+const OtherStoreTag = ({ evt }) => { const s = otherStore(evt); return s ? <Tag style={{ margin: 0, background: 'transparent', borderColor: s.color, color: s.color }}>{s.icon} {s.name}</Tag> : null; };
+
 // A különleges események megjelenéséhez (keret, fény) a globals.css a --special-color változót használja
 const specialVars = (evt) => (isSpecialEvent(evt) ? { '--special-color': getEventTypeConfig(evt).color } : {});
 
@@ -161,6 +165,7 @@ export const PublicModals = ({ app }) => {
             </div>
             <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
+              {selectedEventDetails._otherStore && <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Helyszín:</strong> {STORES[selectedEventDetails._otherStore]?.icon} {STORES[selectedEventDetails._otherStore]?.name} <span style={{ color: '#9a8a8c' }}>(másik bolt)</span></p>}
               
               {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p> )}
               {selectedEventDetails.external_url && rgnEventId(selectedEventDetails.external_url) && selectedEventDetails.rgn?.syncedAt && selectedEventDetails.rgn?.ok !== false && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players}{selectedEventDetails.rgn.capacity ? ` / ${selectedEventDetails.rgn.capacity}` : ''}{selectedEventDetails.queue_count > 0 ? ` (várólistán: ${selectedEventDetails.queue_count})` : ''} <span style={{ color: '#9a8a8c' }}>· a Riftbound oldal szerint</span></p> )}
@@ -255,7 +260,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
       return (
           <Card
             size="small"
-            className={special ? 'cozy-shadow special-card' : evt.isFeatured ? 'cozy-shadow featured-card' : 'cozy-shadow'}
+            className={`${special ? 'cozy-shadow special-card' : evt.isFeatured ? 'cozy-shadow featured-card' : 'cozy-shadow'}${evt._otherStore ? ' other-store' : ''}`}
             style={{
               ...(special
                 ? { ...S.eventCard, ...specialVars(evt), border: `2px solid ${special.color}`, background: `linear-gradient(135deg, ${special.color}2e 0%, #2B1A1C 55%)` }
@@ -277,6 +282,7 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                   {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ marginBottom: 5, fontWeight: 'bold' }}>Kiemelt</Tag>}
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
+                  {!isAdmin && <OtherStoreTag evt={evt} />}
                   <Title level={4} style={S.eventTitle}>{evt.name}</Title>
                   {isAdmin && app.hostNames(evt).length > 0 && <Text style={{ display: 'block', color: '#baaaac', fontSize: 13, marginBottom: 4 }}><UserOutlined style={{ color: '#E5B15D' }} /> Tartja: <Text strong style={{ color: '#E0D6C8' }}>{app.hostNames(evt).join(', ')}</Text></Text>}
                   {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( rgnEventId(evt.external_url) && evt.rgn?.syncedAt && evt.rgn?.ok !== false ? <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players}{evt.rgn.capacity ? ` / ${evt.rgn.capacity}` : ''}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}{isAdmin ? <a href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ ...S.extLinkText, color: '#E5B15D' }}><LinkOutlined style={S.linkIcon}/> Riftbound oldal megnyitása</a> : <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Jelentkezés a Riftbound oldalán</Text>}</> : isAdmin ? <a href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ ...S.extLinkText, color: '#E5B15D', overflowWrap: 'anywhere' }}><LinkOutlined style={S.linkIcon}/> Külső oldal megnyitása</a> : <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}<AttendeeNames attendees={evt.attendees} max={8} size="small" /></> )}
@@ -438,8 +444,8 @@ export const CalendarView = ({ app, compact = false }) => {
                           const eventColor = getGameColor(evt);
                           const special = isSpecialEvent(evt) ? getEventTypeConfig(evt) : null;
                           return (
-                            <div key={String(evt._id || evt.id)} className={special ? 'special-strip' : evt.isFeatured ? 'featured-strip' : undefined} style={{...S.calEventStrip, ...(special ? { ...specialVars(evt), background: special.gradient } : { backgroundColor: eventColor }), color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={(e) => { e.stopPropagation(); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${special ? `${special.label}: ` : ''}${evt.name}`}>
-                              {special ? `${special.icon} ${special.short} · ` : evt.isFeatured ? '⭐ ' : ''}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
+                            <div key={String(evt._id || evt.id)} className={[special ? 'special-strip' : evt.isFeatured ? 'featured-strip' : '', evt._otherStore ? 'other-store' : ''].filter(Boolean).join(' ') || undefined} style={{...S.calEventStrip, ...(special ? { ...specialVars(evt), background: special.gradient } : { backgroundColor: eventColor }), color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={(e) => { e.stopPropagation(); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${special ? `${special.label}: ` : ''}${evt.name}${otherStore(evt) ? ` (${otherStore(evt).name})` : ''}`}>
+                              {otherStore(evt) ? `${otherStore(evt).icon} ` : ''}{special ? `${special.icon} ${special.short} · ` : evt.isFeatured ? '⭐ ' : ''}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
                             </div>
                           );
                       })}
@@ -469,12 +475,13 @@ export const CalendarView = ({ app, compact = false }) => {
                 {dayEvents.map(evt => {
                   const eventColor = getGameColor(evt);
                   return (
-                    <div key={String(evt._id || evt.id)} role="button" tabIndex={0} onClick={() => { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); } }} className={isSpecialEvent(evt) ? 'special-card' : undefined} style={{ cursor: 'pointer', ...specialVars(evt), background: isSpecialEvent(evt) ? `linear-gradient(135deg, ${getEventTypeConfig(evt).color}2e 0%, #2B1A1C 55%)` : '#2B1A1C', border: isSpecialEvent(evt) ? `2px solid ${getEventTypeConfig(evt).color}` : evt.isFeatured ? '2px solid #FFD700' : '1px solid #4A2E33', borderLeft: `6px solid ${eventColor}`, borderRadius: 12, padding: '14px 18px' }}>
+                    <div key={String(evt._id || evt.id)} role="button" tabIndex={0} onClick={() => { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} onKeyDown={(e) => { if (e.key === 'Enter') { setSelectedDay(null); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); } }} className={[isSpecialEvent(evt) ? 'special-card' : '', evt._otherStore ? 'other-store' : ''].filter(Boolean).join(' ') || undefined} style={{ cursor: 'pointer', ...specialVars(evt), background: isSpecialEvent(evt) ? `linear-gradient(135deg, ${getEventTypeConfig(evt).color}2e 0%, #2B1A1C 55%)` : '#2B1A1C', border: isSpecialEvent(evt) ? `2px solid ${getEventTypeConfig(evt).color}` : evt.isFeatured ? '2px solid #FFD700' : '1px solid #4A2E33', borderLeft: `6px solid ${eventColor}`, borderRadius: 12, padding: '14px 18px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
                         <Text strong style={{ color: '#E5B15D', fontSize: '1.25rem' }}>{getEventTime(evt.date)}</Text>
                         <EventTypeTag evt={evt} />
                         <Tag color={eventColor} style={{ background: eventColor, borderColor: eventColor, color: '#fff', fontSize: '13px', padding: '2px 10px', margin: 0 }}>{evt.category || 'Egyéb'}</Tag>
                         {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ margin: 0, fontWeight: 'bold' }}>Kiemelt</Tag>}
+                        <OtherStoreTag evt={evt} />
                       </div>
                       <Title level={4} style={{ margin: '0 0 6px 0', color: '#E0D6C8' }}>{evt.name}</Title>
                       {evt.description && <Paragraph ellipsis={{ rows: 3 }} style={{ color: '#baaaac', fontSize: '1rem', margin: 0, whiteSpace: 'pre-wrap' }}>{evt.description}</Paragraph>}
