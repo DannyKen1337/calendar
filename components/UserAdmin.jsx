@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Button, Modal, Form, Input, Select, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert } from 'antd';
+import { ConfigProvider, Button, Modal, Form, Input, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TeamOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, CopyOutlined, SwapOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
@@ -48,6 +48,88 @@ function AccessTags({ access, only = null }) {
           {access.features.length ? access.features.filter(f => FEATURES[f]).map(f => <Tag key={f} color="cyan" style={{ margin: 0 }}>{FEATURES[f]}</Tag>) : <Text style={{ color: '#6b7280', fontSize: 13 }}>Nincs külön modul</Text>}
         </div>
       </div>}
+    </div>
+  );
+}
+
+
+// Az „összes” csempe: ha ez van kiválasztva, az egyedi játékok / boltok feleslegesek (és fordítva)
+const isAllGroup = (g) => (g.kind === 'game' && g.allowedCategories === null) || (g.kind === 'store' && g.allowedStores === null);
+const unionAccess = (gs) => {
+  const union = (lists) => (lists.some(l => l === null) ? null : [...new Set(lists.flat())]);
+  return { allowedCategories: union(gs.map(g => g.allowedCategories)), allowedStores: union(gs.map(g => g.allowedStores)), features: [...new Set(gs.flatMap(g => g.features))] };
+};
+
+// Csoportválasztó: fajtánként kattintható csempék, felül élő összefoglaló arról, mit kezelhet.
+// value / onChange: a kiválasztott csoportok azonosítói (Form.Item-ben is használható)
+function GroupPicker({ value = [], onChange, groups, isOwner }) {
+  const selected = new Set(value);
+  const byId = new Map(groups.map(g => [g.id, g]));
+  const visible = groups.filter(g => isOwner || !g.protected || selected.has(g.id));
+  const toggle = (g) => {
+    if (!isOwner && g.protected) return;
+    const next = new Set(selected);
+    if (next.has(g.id)) next.delete(g.id);
+    else {
+      next.add(g.id);
+      // „Minden játék” mellé nem kell egyedi játék, egyedi játék mellé nem kell „Minden játék” (boltoknál ugyanígy)
+      if (g.kind === 'game' || g.kind === 'store') {
+        groups.filter(o => o.kind === g.kind && o.id !== g.id && (isAllGroup(g) || isAllGroup(o))).forEach(o => next.delete(o.id));
+      }
+    }
+    onChange?.([...next]);
+  };
+  const chosen = [...selected].map(id => byId.get(id)).filter(Boolean);
+  const access = unionAccess(chosen);
+  const hasGame = access.allowedCategories === null || access.allowedCategories.length > 0;
+  const hasStore = access.allowedStores === null || access.allowedStores.length > 0;
+
+  const tile = (g) => {
+    const on = selected.has(g.id);
+    const locked = !isOwner && g.protected;
+    return (
+      <button
+        key={g.id}
+        type="button"
+        onClick={() => toggle(g)}
+        disabled={locked}
+        title={locked ? 'Ezt csak a tulajdonos adhatja meg' : g.description || g.name}
+        aria-pressed={on}
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors disabled:cursor-not-allowed"
+        style={{ border: `1px solid ${on ? g.color : '#4A2E33'}`, background: on ? `${g.color}2e` : '#160d0f', color: on ? '#fff' : '#cfc6b8', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.6 : 1, fontWeight: on ? 700 : 400 }}
+      >
+        <span style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `2px solid ${g.color}`, background: on ? g.color : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1a1012', fontSize: 11, lineHeight: 1 }}>{on ? '✓' : ''}</span>
+        <span style={{ overflowWrap: 'anywhere' }}>{g.name}</span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
+        <div style={{ ...label, marginBottom: 0 }}>Ezt fogja kezelni</div>
+        {chosen.length === 0
+          ? <Text style={{ color: '#ff9b9b', fontSize: 13 }}>Nincs kiválasztva semmi – így semmit nem kezelhet.</Text>
+          : <AccessTags access={access} />}
+        {chosen.length > 0 && (!hasGame || !hasStore) && (
+          <Text style={{ color: '#faad14', fontSize: 13 }}>Eseményeket csak akkor kezelhet, ha {!hasGame && !hasStore ? 'játékot és boltot is kiválasztasz' : !hasGame ? 'legalább egy játékot is kiválasztasz' : 'legalább egy boltot is kiválasztasz'}.</Text>
+        )}
+      </div>
+      {['game', 'store', 'module', 'custom'].map(kind => {
+        const list = visible.filter(g => g.kind === kind).sort((a, b) => (isAllGroup(b) - isAllGroup(a)) || a.name.localeCompare(b.name, 'hu'));
+        if (!list.length) return null;
+        const count = list.filter(g => selected.has(g.id)).length;
+        return (
+          <div key={kind} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{KIND_LABELS[kind]}{count ? <span style={{ color: '#9a8a8c', fontWeight: 'normal' }}> · {count} kiválasztva</span> : null}</span>
+              <span style={{ color: '#7d6e70', fontSize: 12 }}>{KIND_HINTS[kind]}</span>
+            </div>
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>{list.map(tile)}</div>
+          </div>
+        );
+      })}
+      {groups.length === 0 && <Text style={{ color: '#6b7280' }}>Még nincs csoport. Előbb hozz létre egyet a Csoportok fülön.</Text>}
     </div>
   );
 }
@@ -107,9 +189,6 @@ export default function UserAdmin({ currentUserId }) {
 
   const groupsById = useMemo(() => new Map((data?.groups || []).map(g => [g.id, g])), [data]);
   const isOwner = !!data?.isOwner;
-  const groupOptions = ['game', 'store', 'module', 'custom']
-    .map(kind => ({ label: KIND_LABELS[kind], options: (data?.groups || []).filter(g => g.kind === kind && (isOwner || !g.protected)).map(g => ({ value: g.id, label: g.name })) }))
-    .filter(o => o.options.length);
 
   if (error && !data) return <div className={panel}><Text style={{ color: '#ff7875' }}>{error}</Text></div>;
   if (!data) return <div className={panel}><Text style={{ color: '#baaaac' }}>Betöltés...</Text></div>;
@@ -210,7 +289,7 @@ export default function UserAdmin({ currentUserId }) {
               <div className="flex flex-wrap gap-1">
                 {u.usesGroups
                   ? (u.groupIds.length
-                    ? u.groupIds.map(id => groupsById.get(id)).filter(Boolean).map(g => <Tag key={g.id} style={{ margin: 0, background: `${g.color}33`, borderColor: g.color, color: '#E0D6C8' }}>{g.name}</Tag>)
+                    ? u.groupIds.map(id => groupsById.get(id)).filter(Boolean).map(g => <Tag key={g.id} onClick={canEdit ? () => openMembership(u) : undefined} style={{ margin: 0, background: `${g.color}33`, borderColor: g.color, color: '#E0D6C8', cursor: canEdit ? 'pointer' : 'default' }}>{g.name}</Tag>)
                     : <Tag color="red" style={{ margin: 0 }}>Nincs csoport – nem kezelhet semmit</Tag>)
                   : <Tag color="warning" style={{ margin: 0 }}>Egyéni jogok (régi beállítás)</Tag>}
               </div>
@@ -225,7 +304,7 @@ export default function UserAdmin({ currentUserId }) {
 
         {canEdit ? (
           <div className="flex flex-wrap gap-2 pt-3 border-t border-[#4A2E33]">
-            {u.role === 'admin' && <Button size="small" icon={<TeamOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openMembership(u)}>Csoportok</Button>}
+            {u.role === 'admin' && <Button size="small" icon={<TeamOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openMembership(u)}>Jogosultságok</Button>}
             {u.role === 'admin' && !u.usesGroups && (
               <Popconfirm title="Egyéni jogok átalakítása csoporttá?" description="Azonos beállítású csoportot használ, ha van ilyen, különben újat hoz létre. A jogai nem változnak." onConfirm={() => simple('CONVERT_TO_GROUP', { userId: u.id }, 'Átalakítva csoporttá.')} okText="Átalakítás" cancelText="Mégse">
                 <Button size="small" icon={<SwapOutlined />} style={sideBtn}>Csoporttá alakítás</Button>
@@ -380,32 +459,16 @@ export default function UserAdmin({ currentUserId }) {
       </Modal>
 
       {/* Csoporttagság */}
-      <Modal title={modalTitle(`Csoportok: ${membershipUser?.username || ''}`)} open={!!membershipUser} onCancel={() => setMembershipUser(null)} onOk={saveMembership} okText="Mentés" cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon}>
+      <Modal title={modalTitle(`Jogosultságok: ${membershipUser?.username || ''}`)} open={!!membershipUser} onCancel={() => setMembershipUser(null)} onOk={saveMembership} okText="Mentés" cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon} width={760}>
         <div className="flex flex-col gap-3 pt-2">
-          <Text style={{ color: '#baaaac' }}>A szervező a kiválasztott csoportok jogait kapja meg (összeadódnak). Csoport nélkül semmit nem kezelhet.</Text>
-          {membershipUser && !membershipUser.usesGroups && <Alert type="info" showIcon message="Mentés után a régi egyéni jogai megszűnnek, és csak a csoportjai számítanak." />}
-          <Select mode="multiple" allowClear value={membershipIds} onChange={setMembershipIds} options={groupOptions} placeholder="Válassz csoportot..." style={{ width: '100%' }} notFoundContent={<span style={{ color: '#6b7280' }}>Még nincs csoport. Előbb hozz létre egyet a Csoportok fülön.</span>} />
-          {membershipIds.length > 0 && (() => {
-            const gs = membershipIds.map(id => groupsById.get(id)).filter(Boolean);
-            const hasGame = gs.some(g => g.allowedCategories === null || g.allowedCategories.length > 0);
-            const hasStore = gs.some(g => g.allowedStores === null || g.allowedStores.length > 0);
-            return (!hasGame || !hasStore) ? <Alert type="warning" showIcon message={`Eseményeket csak akkor kezelhet, ha van ${!hasGame && !hasStore ? 'játék- és boltcsoportja' : !hasGame ? 'játékcsoportja is' : 'boltcsoportja is'}.`} /> : null;
-          })()}
-          {membershipIds.length > 0 && (
-            <div className="rounded-lg p-3" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
-              <div style={{ ...label, marginBottom: 8 }}>Így ezeket kezelheti</div>
-              <AccessTags access={(() => {
-                const gs = membershipIds.map(id => groupsById.get(id)).filter(Boolean);
-                const union = (lists) => (lists.some(l => l === null) ? null : [...new Set(lists.flat())]);
-                return { allowedCategories: union(gs.map(g => g.allowedCategories)), allowedStores: union(gs.map(g => g.allowedStores)), features: [...new Set(gs.flatMap(g => g.features))] };
-              })()} />
-            </div>
-          )}
+          <Text style={{ color: '#baaaac' }}>Kattints arra, amit kezelhet. Legalább egy játék és egy bolt kell az eseményekhez, a modulok külön adhatók.</Text>
+          {membershipUser && !membershipUser.usesGroups && <Alert type="info" showIcon message="Mentés után a régi egyéni jogai megszűnnek, és csak az itt kiválasztottak számítanak." />}
+          <GroupPicker value={membershipIds} onChange={setMembershipIds} groups={data.groups} isOwner={isOwner} />
         </div>
       </Modal>
 
       {/* Új fiók */}
-      <Modal title={modalTitle('Új fiók')} open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => createForm.submit()} okText="Létrehozás" cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon} forceRender>
+      <Modal title={modalTitle('Új fiók')} open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => createForm.submit()} okText="Létrehozás" cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon} width={760} forceRender>
         <Form form={createForm} layout="vertical" requiredMark={false} onFinish={createUser} className="mt-4">
           <Form.Item name="username" label="Felhasználónév" rules={[{ required: true, message: 'Add meg a felhasználónevet!' }]} extra="3-32 karakter: betű, szám, pont, aláhúzás, kötőjel.">
             <Input maxLength={32} autoComplete="off" />
@@ -417,8 +480,8 @@ export default function UserAdmin({ currentUserId }) {
             <Segmented options={[{ value: 'admin', label: 'Szervező' }, { value: 'customer', label: 'Játékos' }]} />
           </Form.Item>
           {createRole === 'admin' && (
-            <Form.Item name="groupIds" label="Csoportok" extra="Csoport nélkül a szervező semmit nem kezelhet; később is megadható.">
-              <Select mode="multiple" allowClear options={groupOptions} placeholder="Válassz csoportot..." />
+            <Form.Item name="groupIds" label="Mit kezelhet?" extra="Később is módosítható a kártyán a „Jogosultságok” gombbal.">
+              <GroupPicker groups={data.groups} isOwner={isOwner} />
             </Form.Item>
           )}
           <Text style={{ color: '#7d6e70', fontSize: 12 }}>A rendszer ideiglenes jelszót generál (7 napig érvényes). Első belépéskor saját jelszót kell beállítani.</Text>
