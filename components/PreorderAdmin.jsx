@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
-import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined } from '@ant-design/icons';
+import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons';
 import { tavernTheme } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
 import useLiveRefresh from '@/lib/useLiveRefresh';
@@ -108,6 +108,12 @@ export default function PreorderAdmin() {
     load();
   };
 
+  const setPaid = async (o, paid) => {
+    if (!(await post('SET_PREORDER_PAID', { id: o.id, paid }))) return;
+    messageApi.success(paid ? `Fizetve: ${o.name}` : 'Fizetés visszavonva.');
+    load();
+  };
+
   const removeOrder = async (o) => {
     if (!(await post('DELETE_PREORDER', { id: o.id }))) return;
     messageApi.success('Jelentkezés törölve.');
@@ -128,6 +134,20 @@ export default function PreorderAdmin() {
     { title: 'Telefon', dataIndex: 'phone', render: (t) => <a href={`tel:${t.replace(/[^\d+]/g, '')}`} style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{t}</a> },
     { title: 'Darab', dataIndex: 'quantity', align: 'right', width: 70 },
     { title: 'Leadva', dataIndex: 'date', render: (d, o) => <span style={{ color: '#9a8a8c', whiteSpace: 'nowrap' }} title={o.updatedAt && o.updatedAt !== d ? `Módosítva: ${formatHu(o.updatedAt)}` : undefined}>{formatHu(d)}</span> },
+    { title: 'Fizetés', key: 'paid', width: 150, render: (_, o) => (o.paidAt ? (
+      <div className="flex flex-col items-start gap-1">
+        <span className="flex items-center gap-1">
+          <Tag color="gold" icon={<WalletOutlined />} style={{ margin: 0 }} title={`${formatHu(o.paidAt)}${o.paidBy ? ` – ${o.paidBy}` : ''}`}>Fizetve</Tag>
+          <Popconfirm title="Visszavonod a fizetést?" onConfirm={() => setPaid(o, false)} okText="Igen" cancelText="Mégse">
+            <Button type="text" size="small" icon={<UndoOutlined />} aria-label="Fizetés visszavonása" title="Fizetés visszavonása" style={{ color: '#9a8a8c' }} />
+          </Popconfirm>
+        </span>
+        <span style={{ color: '#9a8a8c', fontSize: 12, whiteSpace: 'nowrap' }}>{formatHu(o.paidAt)}</span>
+        {o.paidBy && <span style={{ color: '#7d6e70', fontSize: 12 }}>{o.paidBy}</span>}
+      </div>
+    ) : (
+      <Button size="small" icon={<WalletOutlined />} onClick={() => setPaid(o, true)} style={{ ...sideBtn, color: '#E5B15D', borderColor: '#5c4520' }}>Fizetve</Button>
+    )) },
     { title: 'Átadás', key: 'handover', width: 170, render: (_, o) => (o.handedOverAt ? (
       <div className="flex flex-col items-start gap-1">
         <span className="flex items-center gap-1">
@@ -140,7 +160,13 @@ export default function PreorderAdmin() {
         {changedAfterHandover(o) && <Tag color="warning" style={{ margin: 0 }} title={`Módosítva: ${formatHu(o.updatedAt)}`}>Átadás után módosította</Tag>}
       </div>
     ) : (
-      <Button size="small" icon={<CheckOutlined />} onClick={() => setHandedOver(o, true)} style={{ ...sideBtn, color: '#52c41a', borderColor: '#2f5d1f' }}>Átadás</Button>
+      o.paidAt
+        ? <Button size="small" icon={<CheckOutlined />} onClick={() => setHandedOver(o, true)} style={{ ...sideBtn, color: '#52c41a', borderColor: '#2f5d1f' }}>Átadás</Button>
+        : (
+          <Popconfirm title="Még nincs fizetve." description="Átadod így is?" onConfirm={() => setHandedOver(o, true)} okText="Átadás" cancelText="Mégse">
+            <Button size="small" icon={<CheckOutlined />} style={{ ...sideBtn, color: '#52c41a', borderColor: '#2f5d1f' }}>Átadás</Button>
+          </Popconfirm>
+        )
     )) },
     { title: '', key: 'del', width: 60, render: (_, o) => (
       <Popconfirm title="Törlöd ezt a jelentkezést?" onConfirm={() => removeOrder(o)} okText="Igen" cancelText="Mégse">
@@ -157,6 +183,8 @@ export default function PreorderAdmin() {
     const isExpanded = !!expanded[p.id];
     const soldOut = p.stock !== null && total >= p.stock;
     const handedCount = orders.filter(o => o.handedOverAt).length;
+    const paidOrders = orders.filter(o => o.paidAt);
+    const paidQty = paidOrders.reduce((s, o) => s + (o.quantity || 0), 0);
     return (
       <div key={p.id} className="rounded-xl border p-4 bg-[#2B1A1C]" style={{ borderColor: '#4A2E33', borderLeft: `5px solid ${getGameColor({ category: p.category })}`, opacity: p.isOpen ? 1 : 0.85 }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -189,6 +217,7 @@ export default function PreorderAdmin() {
           <div className="text-right shrink-0">
             <div style={{ color: soldOut ? '#ff7875' : '#E5B15D', fontSize: 22, fontWeight: 'bold', lineHeight: 1.1 }}>{total}{p.stock !== null ? ` / ${p.stock}` : ''} db</div>
             <div style={{ color: '#9a8a8c', fontSize: 13 }}>{orders.length} jelentkező</div>
+            {orders.length > 0 && <div style={{ color: paidOrders.length === orders.length ? '#E5B15D' : '#9a8a8c', fontSize: 13 }}>{paidOrders.length} / {orders.length} fizetve{p.price !== null && paidQty > 0 ? ` · ${formatPrice(paidQty * p.price)}` : ''}</div>}
             {orders.length > 0 && <div style={{ color: handedCount === orders.length ? '#52c41a' : '#9a8a8c', fontSize: 13 }}>{handedCount} / {orders.length} átadva</div>}
             {p.price !== null && total > 0 && <div style={{ color: '#9a8a8c', fontSize: 13 }} title="Darabszám × ár">≈ {formatPrice(total * p.price)}</div>}
           </div>

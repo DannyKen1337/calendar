@@ -46,20 +46,20 @@ export async function GET(request) {
 
     // Az árak és összegek forintban, számként (az Excelben összeadhatók)
     // A jelentkezők termékenként név szerinti (ábécé) sorrendben – az átadás nem változtat a sorrenden, csak az „Átadva” oszlopon
-    const summary = [['Termék', 'Játék', 'Megjelenés', 'Állapot', 'Ár (Ft)', 'Jelentkezők', 'Összes darab', 'Várható összeg (Ft)', 'Elérhető mennyiség', 'Limit / fő', 'Átadva (jelentkező)']];
-    const list = [['Termék', 'Játék', 'Név', 'E-mail', 'Telefon', 'Darab', 'Ár (Ft)', 'Összeg (Ft)', 'Leadva', 'Utoljára módosítva', 'Átadva', 'Átadta']];
+    const summary = [['Termék', 'Játék', 'Megjelenés', 'Állapot', 'Ár (Ft)', 'Jelentkezők', 'Összes darab', 'Várható összeg (Ft)', 'Elérhető mennyiség', 'Limit / fő', 'Fizetve (jelentkező)', 'Befizetve (Ft)', 'Átadva (jelentkező)']];
+    const list = [['Termék', 'Játék', 'Név', 'E-mail', 'Telefon', 'Darab', 'Ár (Ft)', 'Összeg (Ft)', 'Leadva', 'Utoljára módosítva', 'Fizetve', 'Fizetést rögzítette', 'Átadva', 'Átadta']];
     const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'hu', { sensitivity: 'base' });
     ordered.forEach(p => {
       const rows = [...byProduct.get(String(p._id))].sort(byName);
       const price = productPrice(p);
       const qty = rows.reduce((s, o) => s + (o.quantity || 0), 0);
-      summary.push([p.name, p.category, p.releaseDate || '', p.isOpen ? 'Nyitott' : 'Lezárva', price ?? '', rows.length, qty, price !== null ? price * qty : '', productStock(p) ?? 'nincs megadva', productLimit(p) || 'korlátlan', `${rows.filter(o => o.handedOverAt).length} / ${rows.length}`]);
-      rows.forEach(o => list.push([p.name, p.category, o.name, o.email, o.phone, o.quantity, price ?? '', price !== null ? price * (o.quantity || 0) : '', formatHu(o.date), o.updatedAt && new Date(o.updatedAt).getTime() !== new Date(o.date).getTime() ? formatHu(o.updatedAt) : '', o.handedOverAt ? formatHu(o.handedOverAt) : '', o.handedOverBy || '']));
+      summary.push([p.name, p.category, p.releaseDate || '', p.isOpen ? 'Nyitott' : 'Lezárva', price ?? '', rows.length, qty, price !== null ? price * qty : '', productStock(p) ?? 'nincs megadva', productLimit(p) || 'korlátlan', `${rows.filter(o => o.paidAt).length} / ${rows.length}`, price !== null ? price * rows.filter(o => o.paidAt).reduce((s, o) => s + (o.quantity || 0), 0) : '', `${rows.filter(o => o.handedOverAt).length} / ${rows.length}`]);
+      rows.forEach(o => list.push([p.name, p.category, o.name, o.email, o.phone, o.quantity, price ?? '', price !== null ? price * (o.quantity || 0) : '', formatHu(o.date), o.updatedAt && new Date(o.updatedAt).getTime() !== new Date(o.date).getTime() ? formatHu(o.updatedAt) : '', o.paidAt ? formatHu(o.paidAt) : '', o.paidBy || '', o.handedOverAt ? formatHu(o.handedOverAt) : '', o.handedOverBy || '']));
     });
 
     const buffer = buildXlsx([
-      { name: 'Összesítés', rows: summary, widths: [40, 22, 18, 12, 12, 13, 14, 20, 20, 12, 18] },
-      { name: 'Jelentkezők', rows: list, widths: [40, 22, 28, 32, 20, 8, 12, 14, 18, 20, 18, 16] },
+      { name: 'Összesítés', rows: summary, widths: [40, 22, 18, 12, 12, 13, 14, 20, 20, 12, 18, 16, 18] },
+      { name: 'Jelentkezők', rows: list, widths: [40, 22, 28, 32, 20, 8, 12, 14, 18, 20, 18, 18, 18, 16] },
     ]);
 
     const date = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Budapest' });
