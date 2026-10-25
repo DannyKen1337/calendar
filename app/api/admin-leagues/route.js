@@ -2,41 +2,48 @@ import { NextResponse } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
-import { canManageCategory, canManageEvent, hasFeature } from '@/lib/permissions';
-import { rgnEventId } from '@/lib/rgn';
-import { syncRgnEvent } from '@/lib/rgnSync';
+import { canManageCategory, hasFeature, eventStore, STORE_NAMES } from '@/lib/permissions';
 import { toObjectId } from '@/lib/preorderData';
 import { PREORDER_GAMES } from '@/lib/preorders';
-import { DEFAULT_RULES, LEAGUE_NAME_MAX, LEAGUE_EVENT_GAMES, sanitizeRules, sanitizePlayer, sanitizeSession, nicknameKey, riotIdKey, nicknameFromRiotName, computeStandings, buildSnapshot } from '@/lib/leagues';
+import { budapestDateTime, addDays } from '@/lib/eventDates';
+import { DEFAULT_RULES, LEAGUE_NAME_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, nicknameKey, riotIdKey, computeStandings, buildSnapshot } from '@/lib/leagues';
+import { syncLeaguePlayers, leagueSeasonStart, playerKeys } from '@/lib/leagueSync';
 
 export const dynamic = 'force-dynamic';
 
 // Ligák kezelése az admin felületen. Játékonként egy liga; a szervező csak az általa kezelt játékok ligáit
-// látja és szerkesztheti. A nyilvános ranglista csak a PUBLISH művelettel frissül.
+// látja és szerkesztheti. A pontokat a szervező írja be alkalmanként, a játékosok viszont a liga boltjainak
+// eseményeiről automatikusan bekerülnek (lib/leagueSync.js). A nyilvános ranglista csak a PUBLISH művelettel frissül.
 
 async function addLog(db, adminName, action, details) {
   await db.collection('audit_logs').insertOne({ adminName: adminName || 'Rendszer', action, details, date: new Date() });
 }
+const storeList = (stores) => (stores.length ? stores.map(s => STORE_NAMES[s] || s).join(', ') : 'kikapcsolva');
 
 const leagueOut = (l) => ({
   id: String(l._id), category: l.category, name: l.name, rules: { ...DEFAULT_RULES, ...(l.rules || {}) },
   createdAt: l.createdAt, createdBy: l.createdBy || '',
+  // Automatikus beemelés: a kiválasztott boltok (null = még nincs beállítva), a szezon kezdete és a kizárt (törölt) játékosok száma
+  autoStores: Array.isArray(l.autoStores) ? l.autoStores : null,
+  seasonStart: leagueSeasonStart(l),
+  ignoredCount: (l.ignoredPlayers || []).length,
   published: l.published ? { at: l.published.at, by: l.published.by || '', rows: l.published.rows || [] } : null,
-  linkedEvents: (l.linkedEvents || []).map(e => ({ tournamentId: e.tournamentId, name: e.name, date: e.date, importedAt: e.importedAt, importedBy: e.importedBy || '', added: e.added || 0, total: e.total || 0 })),
 });
-const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, source: p.source || 'manual', createdAt: p.createdAt });
-const sessionOut = (s) => ({ id: String(s._id), leagueId: s.leagueId, date: s.date, title: s.title || '', results: s.results || [], updatedAt: s.updatedAt });
+const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, source: p.source || 'manual', eventIds: p.eventIds || [], createdAt: p.createdAt });
+const sessionOut = (s) => ({ id: String(s._id), leagueId: s.leagueId, date: s.date, title: s.title || '', tournamentId: s.tournamentId || null, results: s.results || [], updatedAt: s.updatedAt });
 
-async function linkableEvents(db, session, leagues) {
-  const games = leagues.map(l => l.category).filter(c => LEAGUE_EVENT_GAMES.includes(c));
-  if (!games.length) return [];
+// Az alkalomhoz választható események: a liga játékának eseményei (a beállított boltokban) a szezon kezdetétől holnapig
+async function sessionEvents(db, leagues) {
+  if (!leagues.length) return [];
+  const until = `${addDays(budapestDateTime(Date.now()).slice(0, 10), 1)}T23:59`;
   const events = await db.collection('tournaments')
-    .find({ category: { $in: games }, external_url: /playriftbound\.com\//i }, { projection: { name: 1, date: 1, store: 1, category: 1, external_url: 1, current_players: 1, rgn: 1, id: 1 } })
+    .find({ category: { $in: leagues.map(l => l.category) }, date: { $gte: leagues.map(leagueSeasonStart).sort()[0], $lte: until } }, { projection: { name: 1, date: 1, store: 1, category: 1 } })
     .toArray();
   return events
-    .filter(e => rgnEventId(e.external_url) && canManageEvent(session, e))
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
-    .map(e => ({ id: String(e._id || e.id), name: e.name, date: e.date, store: e.store || 'debrecen', category: e.category, players: e.rgn?.syncedAt ? (e.current_players || 0) : null, capacity: e.rgn?.capacity || null }));
+    .map(e => ({ e, league: leagues.find(l => l.category === e.category) }))
+    .filter(({ e, league }) => league && String(e.date) >= leagueSeasonStart(league) && (!league.autoStores?.length || league.autoStores.includes(eventStore(e))))
+    .sort((a, b) => String(b.e.date).localeCompare(String(a.e.date)))
+    .map(({ e, league }) => ({ id: String(e._id), leagueId: String(league._id), name: e.name, date: e.date, store: eventStore(e) }));
 }
 
 export async function GET() {
@@ -46,6 +53,8 @@ export async function GET() {
     if (!hasFeature(session, 'leagues')) return NextResponse.json({ error: 'Nincs jogosultságod a ligákhoz. A tulajdonos adhat hozzáférést.' }, { status: 403 });
     const db = await getTavernDb();
     const leagues = (await db.collection('leagues').find({}).toArray()).filter(l => canManageCategory(session, l.category));
+    // Új jelentkezők beemelése a ligák eseményeiről (ligánként legfeljebb fél percenként)
+    await Promise.all(leagues.map(l => syncLeaguePlayers(db, l).catch(err => logSystemError('league sync', err))));
     const ids = leagues.map(l => String(l._id));
     const [players, sessions, seasons] = ids.length ? await Promise.all([
       db.collection('league_players').find({ leagueId: { $in: ids } }).sort({ nickname: 1 }).toArray(),
@@ -58,8 +67,7 @@ export async function GET() {
       sessions: sessions.map(sessionOut),
       seasons: seasons.map(s => ({ id: String(s._id), leagueId: s.leagueId, name: s.name, closedAt: s.closedAt, closedBy: s.closedBy || '', players: (s.rows || []).length, winners: (s.rows || []).filter(r => r.rank === 1).map(r => r.nickname) })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
-      // Ligához köthető események: Riftbound linkes események, amelyeket a szervező kezelhet (a jelentkezőik beemelhetők)
-      linkableEvents: await linkableEvents(db, session, leagues),
+      events: await sessionEvents(db, leagues),
     });
   } catch (error) {
     console.error('admin-leagues GET error:', error);
@@ -99,13 +107,14 @@ export async function POST(request) {
       if (!canManageCategory(session, category)) return noPermission();
       const name = String(payload.name ?? '').trim().replace(/\s+/g, ' ');
       if (!name || name.length > LEAGUE_NAME_MAX) return bad(`A liga neve kötelező (legfeljebb ${LEAGUE_NAME_MAX} karakter).`);
-      const { rules, error } = sanitizeRules(payload.rules);
-      if (error) return bad(error);
+      const autoStores = sanitizeLeagueStores(payload.autoStores) || [];
       if (await leagues.findOne({ category })) return bad('Ennek a játéknak már van ligája.');
       try {
-        const inserted = await leagues.insertOne({ category, name, rules, createdAt: new Date(), createdBy: session.username });
-        await addLog(db, session.username, 'LIGA', `Új liga: ${name} (${category})`);
-        return NextResponse.json({ success: true, id: String(inserted.insertedId) });
+        const doc = { category, name, rules: DEFAULT_RULES, autoStores, createdAt: new Date(), createdBy: session.username };
+        const inserted = await leagues.insertOne(doc);
+        await addLog(db, session.username, 'LIGA', `Új liga: ${name} (${category}), automatikus beemelés: ${storeList(autoStores)}`);
+        const { added } = await syncLeaguePlayers(db, { ...doc, _id: inserted.insertedId }, { force: true });
+        return NextResponse.json({ success: true, id: String(inserted.insertedId), added });
       } catch (e) {
         if (e?.code === 11000) return bad('Ennek a játéknak már van ligája.');
         throw e;
@@ -117,11 +126,21 @@ export async function POST(request) {
       if (res) return res;
       const name = String(payload.name ?? '').trim().replace(/\s+/g, ' ');
       if (!name || name.length > LEAGUE_NAME_MAX) return bad(`A liga neve kötelező (legfeljebb ${LEAGUE_NAME_MAX} karakter).`);
-      const { rules, error } = sanitizeRules(payload.rules);
-      if (error) return bad(error);
-      await leagues.updateOne({ _id: league._id }, { $set: { name, rules, updatedAt: new Date() } });
-      await addLog(db, session.username, 'LIGA', `Beállítások módosítva: ${name} (${league.category})`);
-      return NextResponse.json({ success: true });
+      const autoStores = sanitizeLeagueStores(payload.autoStores) || [];
+      await leagues.updateOne({ _id: league._id }, { $set: { name, autoStores, updatedAt: new Date() } });
+      await addLog(db, session.username, 'LIGA', `Beállítások módosítva: ${name} (${league.category}), automatikus beemelés: ${storeList(autoStores)}`);
+      const { added } = await syncLeaguePlayers(db, { ...league, name, autoStores }, { force: true });
+      return NextResponse.json({ success: true, added });
+    }
+
+    // A törölt (kizárt) játékosok visszaengedése: a következő szinkronnál újra bekerülhetnek az eseményekről
+    if (actionType === 'CLEAR_IGNORED') {
+      const { league, res } = await loadLeague(payload.leagueId);
+      if (res) return res;
+      await leagues.updateOne({ _id: league._id }, { $unset: { ignoredPlayers: '' } });
+      await addLog(db, session.username, 'LIGA', `Törölt játékosok visszaengedve (${league.category}): ${(league.ignoredPlayers || []).length} azonosító`);
+      const { added } = await syncLeaguePlayers(db, { ...league, ignoredPlayers: [] }, { force: true });
+      return NextResponse.json({ success: true, added });
     }
 
     if (actionType === 'DELETE_LEAGUE') {
@@ -137,11 +156,13 @@ export async function POST(request) {
     if (actionType === 'SAVE_PLAYER') {
       const { league, res } = await loadLeague(payload.leagueId);
       if (res) return res;
-      const { player, error, field } = sanitizePlayer(payload);
-      if (error) return bad(error, 400, { field });
       const leagueId = String(league._id);
       const existingId = payload.id ? toObjectId(payload.id) : null;
       if (payload.id && !existingId) return bad('A játékos nem található.', 404);
+      // Az eseményekről beemelt játékosnál a teljes név és az e-mail nem kötelező (a jelentkezésnél sem volt az)
+      const current = existingId ? await players.findOne({ _id: existingId, leagueId }, { projection: { source: 1 } }) : null;
+      const { player, error, field } = sanitizePlayer(payload, { relaxed: current?.source === 'event' || current?.source === 'rgn' });
+      if (error) return bad(error, 400, { field });
       const others = await players.find({ leagueId, ...(existingId ? { _id: { $ne: existingId } } : {}) }, { projection: { nickname: 1, email: 1, riotId: 1 } }).toArray();
       if (player.email && others.some(o => o.email === player.email)) return bad('Ezzel az e-mail címmel már van játékos ebben a ligában.', 400, { field: 'email' });
       if (player.riotId && others.some(o => o.riotId && riotIdKey(o.riotId) === riotIdKey(player.riotId))) return bad('Ezzel a Riot-azonosítóval már van játékos ebben a ligában.', 400, { field: 'riotId' });
@@ -157,87 +178,17 @@ export async function POST(request) {
       return NextResponse.json({ success: true, id: String(inserted.insertedId) });
     }
 
-    // Játékosok beemelése egy eseményből (egyelőre Riftbound: a jelentkezők a Riftbound oldalról, Riot-azonosítóval).
-    // A már a ligában lévőket Riftbound-azonosító, Riot-azonosító vagy becenév alapján felismeri, így nem duplikál.
-    // createSession: az esemény napjára alkalom is készül, a jelentkezők megjelentként (az eredmények utólag írhatók be).
-    if (actionType === 'IMPORT_EVENT_PLAYERS') {
-      const { league, res } = await loadLeague(payload.leagueId);
-      if (res) return res;
-      if (!LEAGUE_EVENT_GAMES.includes(league.category)) return bad('Eseményből beemelés egyelőre csak Riftbound ligánál érhető el.');
-      const evOid = toObjectId(payload.tournamentId);
-      const event = evOid ? await db.collection('tournaments').findOne({ _id: evOid }) : null;
-      if (!event) return bad('Az esemény nem található.', 404);
-      if (event.category !== league.category) return bad('Az esemény nem ehhez a játékhoz tartozik.');
-      if (!canManageEvent(session, event)) return bad('Ennek az eseménynek a jelentkezőit nem láthatod.', 403);
-      if (!rgnEventId(event.external_url)) return bad('Ennek az eseménynek nincs Riftbound linkje.');
-
-      // Friss lista a Riftbound oldalról; ha most nem érhető el, a legutóbb lekért listával dolgozunk
-      const sync = await syncRgnEvent(db, event);
-      const eventId = String(event._id);
-      const regs = await db.collection('external_registrations').find({ tournamentId: eventId, droppedAt: null, waitlist: { $ne: true } }).toArray();
-      if (!sync.ok && regs.length === 0) return bad(`A Riftbound oldal most nem érhető el (${sync.error}), és még nincs elmentett jelentkezőlista.`, 502);
-
-      const leagueId = String(league._id);
-      const existing = await players.find({ leagueId }).toArray();
-      const now = new Date();
-      let added = 0, matched = 0;
-      const eventPlayerIds = [];
-      for (const r of regs) {
-        const hash = r.name.lastIndexOf('#');
-        const displayName = hash > 0 ? r.name.slice(0, hash) : r.name;
-        const tag = hash > 0 ? r.name.slice(hash + 1) : '';
-        let p = existing.find(x => r.playerId && x.rgnPlayerId === r.playerId)
-          || existing.find(x => x.riotId && riotIdKey(x.riotId) === riotIdKey(r.name))
-          || existing.find(x => !x.riotId && nicknameKey(x.nickname) === nicknameKey(displayName));
-        if (p) {
-          matched++;
-          // A meglévő játékoshoz hozzákötjük a Riot-azonosítót, így legközelebb már biztosan felismerjük
-          if (!p.riotId || !p.rgnPlayerId) await players.updateOne({ _id: p._id }, { $set: { riotId: p.riotId || r.name, rgnPlayerId: p.rgnPlayerId || r.playerId || null } });
-          eventPlayerIds.push(String(p._id));
-          continue;
-        }
-        let nickname = nicknameFromRiotName(displayName, tag) || `Játékos ${existing.length + 1}`;
-        // Foglalt becenév esetén a tag is bekerül (pl. "Giluci EUNE")
-        if (existing.some(x => nicknameKey(x.nickname) === nicknameKey(nickname))) {
-          const alt = nicknameFromRiotName(`${displayName} ${tag}`, '');
-          nickname = alt && !existing.some(x => nicknameKey(x.nickname) === nicknameKey(alt)) ? alt : `${nickname.slice(0, 20)} ${existing.length + 1}`;
-        }
-        const doc = { leagueId, fullName: '', nickname, email: null, riotId: r.name, rgnPlayerId: r.playerId || null, source: 'rgn', createdAt: now, createdBy: session.username };
-        const ins = await players.insertOne(doc);
-        existing.push({ ...doc, _id: ins.insertedId });
-        eventPlayerIds.push(String(ins.insertedId));
-        added++;
-      }
-
-      // Alkalom az esemény napjára (kérésre), a jelentkezők megjelentként; ugyanarra az eseményre csak egyszer
-      let sessionCreated = false;
-      if (payload.createSession === true && eventPlayerIds.length > 0) {
-        const already = await sessions.findOne({ leagueId, tournamentId: eventId });
-        if (!already) {
-          const results = eventPlayerIds.map(playerId => ({ playerId, attended: true, wins: 0, draws: 0, losses: 0, bonus: 0 }));
-          await sessions.insertOne({ leagueId, tournamentId: eventId, date: String(event.date).slice(0, 10), title: String(event.name || '').slice(0, 80), results, createdAt: now, updatedAt: now, createdBy: session.username });
-          sessionCreated = true;
-        }
-      }
-
-      // Az összekötött események listája a ligán (újrabeemeléskor frissül)
-      const link = { tournamentId: eventId, name: event.name, date: event.date, importedAt: now, importedBy: session.username, added, total: regs.length };
-      await leagues.updateOne({ _id: league._id }, { $pull: { linkedEvents: { tournamentId: eventId } } });
-      await leagues.updateOne({ _id: league._id }, { $push: { linkedEvents: link } });
-      await addLog(db, session.username, 'LIGA', `Játékosok beemelése eseményből (${league.category}): ${event.name} – ${added} új, ${matched} már a ligában${sessionCreated ? ', alkalom létrehozva' : ''}`);
-      return NextResponse.json({ success: true, added, matched, total: regs.length, sessionCreated, stale: !sync.ok, syncError: sync.ok ? null : sync.error });
-    }
-
     if (actionType === 'DELETE_PLAYER') {
       const oid = toObjectId(payload.id);
       const player = oid ? await players.findOne({ _id: oid }) : null;
       if (!player) return bad('A játékos nem található.', 404);
-      const { res } = await loadLeague(player.leagueId);
+      const { league, res } = await loadLeague(player.leagueId);
       if (res) return res;
-      // Az alkalmak eredményeiből is kivesszük
+      // Az alkalmak eredményeiből is kivesszük, és az automatikus beemelés sem hozza vissza (a beállításokban visszaengedhető)
       await sessions.updateMany({ leagueId: player.leagueId }, { $pull: { results: { playerId: String(player._id) } } });
       await players.deleteOne({ _id: player._id });
-      await addLog(db, session.username, 'LIGA', `Játékos törölve: ${player.nickname} – ${player.fullName}`);
+      await leagues.updateOne({ _id: league._id }, { $addToSet: { ignoredPlayers: { $each: playerKeys(player) } } });
+      await addLog(db, session.username, 'LIGA', `Játékos törölve (${league.category}): ${player.nickname}${player.fullName ? ` – ${player.fullName}` : ''}`);
       return NextResponse.json({ success: true });
     }
 
@@ -248,16 +199,26 @@ export async function POST(request) {
       const validIds = new Set((await players.find({ leagueId }, { projection: { _id: 1 } }).toArray()).map(p => String(p._id)));
       const { session: data, error } = sanitizeSession(payload, validIds);
       if (error) return bad(error);
+      // Az alkalom egy eseményhez köthető (nem kötelező): csak a liga játékának eseménye lehet
+      let tournamentId = null;
+      if (payload.tournamentId) {
+        const evOid = toObjectId(payload.tournamentId);
+        const event = evOid ? await db.collection('tournaments').findOne({ _id: evOid }, { projection: { category: 1 } }) : null;
+        if (!event || event.category !== league.category) return bad('A kiválasztott esemény nem ehhez a játékhoz tartozik.');
+        tournamentId = String(event._id);
+      }
       const now = new Date();
+      const total = data.results.reduce((s, r) => s + r.points, 0);
+      const summary = `${data.date}${data.title ? ` ${data.title}` : ''}, ${data.results.length} játékos, ${total} pont`;
       if (payload.id) {
         const oid = toObjectId(payload.id);
-        const upd = oid ? await sessions.updateOne({ _id: oid, leagueId }, { $set: { ...data, updatedAt: now, updatedBy: session.username } }) : { matchedCount: 0 };
+        const upd = oid ? await sessions.updateOne({ _id: oid, leagueId }, { $set: { ...data, tournamentId, updatedAt: now, updatedBy: session.username } }) : { matchedCount: 0 };
         if (upd.matchedCount === 0) return bad('Az alkalom nem található.', 404);
-        await addLog(db, session.username, 'LIGA', `Alkalom módosítva (${league.category}): ${data.date}${data.title ? ` ${data.title}` : ''}, ${data.results.filter(r => r.attended).length} megjelent`);
+        await addLog(db, session.username, 'LIGA', `Alkalom módosítva (${league.category}): ${summary}`);
         return NextResponse.json({ success: true, id: payload.id });
       }
-      const inserted = await sessions.insertOne({ ...data, leagueId, createdAt: now, updatedAt: now, createdBy: session.username });
-      await addLog(db, session.username, 'LIGA', `Új alkalom (${league.category}): ${data.date}${data.title ? ` ${data.title}` : ''}, ${data.results.filter(r => r.attended).length} megjelent`);
+      const inserted = await sessions.insertOne({ ...data, tournamentId, leagueId, createdAt: now, updatedAt: now, createdBy: session.username });
+      await addLog(db, session.username, 'LIGA', `Új alkalom (${league.category}): ${summary}`);
       return NextResponse.json({ success: true, id: String(inserted.insertedId) });
     }
 

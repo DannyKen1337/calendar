@@ -79,7 +79,7 @@ export default function Leaderboard({ league, rows, publishedAt, compact = false
                     </summary>
                     <div className="flex flex-wrap gap-x-5 gap-y-1 px-3 pb-3 pl-[3.75rem] text-sm text-[#baaaac]">
                       <span>Alkalom: <b className="text-[#E0D6C8]">{r.sessions}</b></span>
-                      <span>Győzelem: <b className="text-[#E0D6C8]">{r.wins}</b></span>
+                      {r.wins !== null && r.wins !== undefined && <span>Győzelem: <b className="text-[#E0D6C8]">{r.wins}</b></span>}
                       {r.draws !== null && r.draws !== undefined && <span>Döntetlen: <b className="text-[#E0D6C8]">{r.draws}</b></span>}
                       {r.losses !== null && r.losses !== undefined && <span>Vereség: <b className="text-[#E0D6C8]">{r.losses}</b></span>}
                     </div>

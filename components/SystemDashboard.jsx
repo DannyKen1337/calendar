@@ -92,6 +92,7 @@ const runDetails = (details) => {
   if (!details) return '';
   const parts = [];
   if (details.synced != null) parts.push(`${details.synced} esemény frissítve`);
+  if (details.leaguePlayers) parts.push(`${details.leaguePlayers} új ligajátékos`);
   if (details.deletedCount != null) parts.push(`${details.deletedCount} régi esemény törölve`);
   if (details.preorderProducts) parts.push(`${details.preorderProducts} lejárt előrendelés`);
   if (details.leaguePlayers) parts.push(`${details.leaguePlayers} inaktív ligajátékos`);

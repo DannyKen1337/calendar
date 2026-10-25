@@ -14,7 +14,7 @@ const DAY = 24 * 3600 * 1000;
 // Az időzített feladatok (vercel.json) és hogy mennyi idő után számít késésnek, ha nem futott
 const JOBS = [
   { job: 'cleanup', label: 'Heti takarítás', schedule: 'Hétfőnként 03:00 (UTC)', maxGapMs: 8 * DAY, description: 'Régi események, lejárt előrendelések, inaktív ligajátékosok törlése' },
-  { job: 'rgn-sync', label: 'Riftbound szinkron (napi)', schedule: 'Naponta 05:00 (UTC)', maxGapMs: 26 * 3600 * 1000, description: 'A külső oldalas események jelentkezőinek frissítése' },
+  { job: 'rgn-sync', label: 'Riftbound szinkron (napi)', schedule: 'Naponta 05:00 (UTC)', maxGapMs: 26 * 3600 * 1000, description: 'A külső oldalas események jelentkezőinek frissítése, új játékosok beemelése a ligákba' },
 ];
 const RATE_LIMITS = [
   { prefix: 'login:', label: 'Bejelentkezési próbálkozás', limit: '20 / 15 perc / IP' },
