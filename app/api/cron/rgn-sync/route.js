@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { syncDueRgnEvents } from '@/lib/rgnSync';
+import { recordRun } from '@/lib/systemLog';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -13,9 +14,13 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
   try {
-    const db = await getTavernDb();
-    const count = await syncDueRgnEvents(db, { maxAgeMs: 0, budgetMs: 50000, limit: 50 });
-    return NextResponse.json({ success: true, synced: count });
+    // A futás eredménye (és hibája) a tulajdonosi Rendszer oldalon látszik
+    const result = await recordRun('rgn-sync', async () => {
+      const db = await getTavernDb();
+      const synced = await syncDueRgnEvents(db, { maxAgeMs: 0, budgetMs: 50000, limit: 50 });
+      return { synced };
+    });
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

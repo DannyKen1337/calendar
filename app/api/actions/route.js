@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
@@ -389,6 +390,7 @@ export async function POST(request) {
           mailSent = true;
         } catch (mailErr) {
           console.error('join mail error:', mailErr);
+          await logSystemError('join mail', mailErr);
         }
       }
 
@@ -425,6 +427,7 @@ export async function POST(request) {
             await sendUnsubscribeMail(request, { email: normalizedEmail, reg, token });
           } catch (mailErr) {
             console.error('unsubscribe mail error:', mailErr);
+            await logSystemError('unsubscribe mail', mailErr);
             return NextResponse.json({ error: 'A megerősítő e-mailt most nem sikerült elküldeni. Próbáld újra később.' }, { status: 502 });
           }
         }
@@ -759,6 +762,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Ismeretlen művelet.' }, { status: 400 });
   } catch (error) {
     console.error('actions error:', error);
+    await logSystemError('actions', error);
     return NextResponse.json({ error: 'Szerverhiba történt.' }, { status: 500 });
   }
 }

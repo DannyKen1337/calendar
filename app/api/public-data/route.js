@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { getExtraLinks } from '@/lib/extraLinks';
 import { attachPublicAttendees } from '@/lib/attendance';
@@ -28,6 +29,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('public-data error:', error);
+    await logSystemError('public-data', error);
     return NextResponse.json({ error: "Adatbázis hiba" }, { status: 500 });
   }
 }

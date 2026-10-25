@@ -1,4 +1,5 @@
 import { getTavernDb } from '@/lib/mongodb';
+import { logSystemError } from '@/lib/systemLog';
 import { verifyOwner } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('export-db error:', error);
+    await logSystemError('export-db', error);
     return new Response(JSON.stringify({ error: 'Az exportálás nem sikerült.' }), { status: 500 });
   }
 }

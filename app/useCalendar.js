@@ -39,7 +39,6 @@ export const useCalendar = () => {
   const [blacklist, setBlacklist] = useState([]);
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [extraLinks, setExtraLinks] = useState({ leagues: false }); // van-e publikált liga
-  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -596,7 +595,7 @@ export const useCalendar = () => {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
     allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
-    isMaintenance, extraLinks, toggleMaintenance, logs, isLogModalOpen, setIsLogModalOpen, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
+    isMaintenance, extraLinks, toggleMaintenance, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,

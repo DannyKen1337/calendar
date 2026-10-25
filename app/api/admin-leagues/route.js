@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageCategory, canManageEvent, hasFeature } from '@/lib/permissions';
@@ -62,6 +63,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('admin-leagues GET error:', error);
+    await logSystemError('admin-leagues GET', error);
     return NextResponse.json({ error: 'Adatbázis hiba' }, { status: 500 });
   }
 }
@@ -330,6 +332,7 @@ export async function POST(request) {
     return bad('Ismeretlen művelet.');
   } catch (error) {
     console.error('admin-leagues POST error:', error);
+    await logSystemError('admin-leagues POST', error);
     return NextResponse.json({ error: 'A művelet nem sikerült.' }, { status: 500 });
   }
 }

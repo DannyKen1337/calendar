@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined, TrophyOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined, TrophyOutlined, DashboardOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -694,7 +694,6 @@ export const AdminEvents = ({ app: v }) => {
   const [showPast, setShowPast] = useState(false);
   const [onlyMine, setOnlyMine] = useState(false); // csak az általam tartott események
   const [adminMonth, setAdminMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }); // a megjelenített hónap (= oldal)
-  const [logQuery, setLogQuery] = useState(''); // keresés a tevékenységnaplóban
   const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
   // Korlátozott szervezőnél egy kattintással a saját játékaira szűr (aki mindent kezelhet, annak ez = nincs szűrő)
   const hasRestrictedGames = manageableGames.length > 0 && manageableGames.length < Object.keys(GAME_CONFIG).length;
@@ -890,7 +889,7 @@ export const AdminEvents = ({ app: v }) => {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Link href="/admin/felhasznalok" className="col-span-2"><Button block icon={<TeamOutlined />} style={{ ...sideBtn, color: '#E5B15D' }}>Felhasználók és csoportok</Button></Link>
-                <Button block style={sideBtn} onClick={() => v.setIsLogModalOpen(true)}>Napló</Button>
+                <Link href="/admin/rendszer"><Button block icon={<DashboardOutlined />} style={sideBtn}>Rendszer és napló</Button></Link>
                 <Button block danger style={{ background: '#2B1A1C' }} onClick={() => v.setIsBlacklistModalOpen(true)}>Feketelista</Button>
               </div>
               <Divider style={{ ...S.divider, margin: '12px 0' }} />
@@ -1123,15 +1122,6 @@ export const AdminEvents = ({ app: v }) => {
           onSync={() => v.syncRgn(v.selectedRgnEventId)}
           syncing={v.rgnSyncing}
         />
-        <Modal title={<span style={{ color: '#E5B15D' }}>Tevékenységnapló (Audit Log)</span>} open={v.isLogModalOpen} onCancel={() => v.setIsLogModalOpen(false)} footer={null} width={900} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-          <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: szervező, művelet, részletek (pl. LIGA, ELŐRENDELÉS)..." value={logQuery} onChange={(e) => setLogQuery(e.target.value)} style={{ marginBottom: 12 }} />
-          <Table dataSource={(v.logs || []).filter(l => { const q = logQuery.trim().toLowerCase(); return !q || `${l.adminName} ${l.action} ${l.details}`.toLowerCase().includes(q); })} rowKey={(record) => record._id} pagination={{ pageSize: 10, showSizeChanger: false }} columns={[
-            { title: 'Dátum', dataIndex: 'date', render: d => <span style={{color: '#baaaac', whiteSpace: 'nowrap'}}>{new Date(d).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> },
-            { title: 'Szervező', dataIndex: 'adminName', render: n => <Tag color="purple">{n}</Tag> },
-            { title: 'Művelet', dataIndex: 'action', render: a => <strong style={{color: '#E5B15D'}}>{a}</strong> },
-            { title: 'Részletek', dataIndex: 'details', render: text => <span style={{color: '#E0D6C8'}}>{text}</span> }
-          ]} />
-        </Modal>
         <Modal title={<span style={{ color: '#ff4d4f' }}>Feketelista (Tiltott e-mailek)</span>} open={v.isBlacklistModalOpen} onCancel={() => v.setIsBlacklistModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />}>
           <Form form={v.blacklistForm} layout="inline" onFinish={v.handleBanEmail} style={{ marginBottom: 20 }}>
             <Form.Item name="email" rules={[{ required: true, type: 'email', message: 'E-mail kötelező!' }]}><Input placeholder="Tiltandó e-mail" style={{ width: 250 }} /></Form.Item>

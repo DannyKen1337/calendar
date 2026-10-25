@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
@@ -162,6 +163,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "Érvénytelen művelet" }, { status: 400 });
   } catch (error) {
     console.error('auth error:', error);
+    await logSystemError('auth', error);
     return NextResponse.json({ error: "Szerverhiba történt." }, { status: 500 });
   }
 }

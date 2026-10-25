@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
 import { normalizePhone, normalizeQuantity, phoneKey, productStock, productLimit, PREORDER_MAX_ITEMS } from '@/lib/preorders';
@@ -132,12 +133,14 @@ export async function POST(request) {
         mailSent = true;
       } catch (mailErr) {
         console.error('preorder mail error:', mailErr);
+        await logSystemError('preorder mail', mailErr);
       }
     }
 
     return NextResponse.json({ success: true, count: products.length, updated, mailSent });
   } catch (error) {
     console.error('preorder error:', error);
+    await logSystemError('preorder', error);
     return NextResponse.json({ error: 'Az előrendelés most nem sikerült. Próbáld újra később.' }, { status: 500 });
   }
 }

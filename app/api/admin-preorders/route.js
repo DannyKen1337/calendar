@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageCategory, hasFeature } from '@/lib/permissions';
@@ -35,6 +36,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('admin-preorders GET error:', error);
+    await logSystemError('admin-preorders GET', error);
     return NextResponse.json({ error: 'Adatbázis hiba' }, { status: 500 });
   }
 }
@@ -143,6 +145,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Ismeretlen művelet.' }, { status: 400 });
   } catch (error) {
     console.error('admin-preorders POST error:', error);
+    await logSystemError('admin-preorders POST', error);
     return NextResponse.json({ error: 'A művelet nem sikerült.' }, { status: 500 });
   }
 }

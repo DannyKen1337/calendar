@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageCategory, canManageStore } from '@/lib/permissions';
@@ -52,6 +53,7 @@ export async function GET() {
     return NextResponse.json({ players, rows });
   } catch (error) {
     console.error('admin-stats error:', error);
+    await logSystemError('admin-stats', error);
     return NextResponse.json({ error: 'Adatbázis hiba' }, { status: 500 });
   }
 }

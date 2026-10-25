@@ -1,4 +1,5 @@
 import { getTavernDb } from '@/lib/mongodb';
+import { logSystemError } from '@/lib/systemLog';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageCategory, hasFeature } from '@/lib/permissions';
 import { toObjectId } from '@/lib/preorderData';
@@ -79,6 +80,7 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('preorder export error:', error);
+    await logSystemError('preorder export', error);
     return new Response(JSON.stringify({ error: 'Az exportálás nem sikerült.' }), { status: 500 });
   }
 }

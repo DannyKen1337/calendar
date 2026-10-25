@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemError } from '@/lib/systemLog';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
@@ -72,6 +73,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('admin-users GET error:', error);
+    await logSystemError('admin-users GET', error);
     return NextResponse.json({ error: 'Adatbázis hiba' }, { status: 500 });
   }
 }
@@ -242,6 +244,7 @@ export async function POST(request) {
     return bad('Ismeretlen művelet.');
   } catch (error) {
     console.error('admin-users POST error:', error);
+    await logSystemError('admin-users POST', error);
     return NextResponse.json({ error: 'A művelet nem sikerült.' }, { status: 500 });
   }
 }

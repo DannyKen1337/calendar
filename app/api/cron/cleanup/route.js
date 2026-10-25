@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
+import { recordRun } from '@/lib/systemLog';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { deleteExpiredPreorders, deleteInactiveLeaguePlayers, PREORDER_RETENTION_MONTHS, LEAGUE_PLAYER_RETENTION_MONTHS } from '@/lib/retention';
 
@@ -15,8 +16,10 @@ export async function GET(request) {
   }
 
   try {
+    // A futás eredménye (és hibája) a tulajdonosi Rendszer oldalon látszik
+    const result = await recordRun('cleanup', async () => {
     const db = await getTavernDb();
-    
+
     const twoMonthsAgo = new Date();
     twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
@@ -52,7 +55,9 @@ export async function GET(request) {
       await db.collection('audit_logs').insertOne({ adminName: 'Vercel Automata', action: 'AUTOMATA TAKARÍTÁS', details: `${players} ligajátékos törölve (${LEAGUE_PLAYER_RETENTION_MONTHS} hónapja nem jelent meg).`, date: new Date() });
     }
 
-    return NextResponse.json({ success: true, deletedCount: oldEventIds.length, preorderProducts: preorders.products, leaguePlayers: players });
+    return { deletedCount: oldEventIds.length, preorderProducts: preorders.products, leaguePlayers: players };
+    });
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

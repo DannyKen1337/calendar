@@ -1,4 +1,5 @@
 import { getTavernDb } from '@/lib/mongodb';
+import { logSystemError } from '@/lib/systemLog';
 import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 import { EVENT_LENGTH_HOURS } from '@/lib/hostConflicts';
 
@@ -101,6 +102,7 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('export error:', error);
+    await logSystemError('export', error);
     return new Response(JSON.stringify({ error: 'Az exportálás nem sikerült.' }), { status: 500 });
   }
 }
