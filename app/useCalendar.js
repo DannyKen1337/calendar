@@ -9,6 +9,7 @@ import useLiveRefresh from "@/lib/useLiveRefresh";
 import { findHostConflicts } from "@/lib/hostConflicts";
 import { getOpeningHoursWarning } from "@/lib/storeHours";
 import { budapestDateTime } from "@/lib/eventDates";
+import { seriesMembers, seriesChanges } from "@/lib/series";
 
 export const useCalendar = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -47,6 +48,7 @@ export const useCalendar = () => {
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isExternalForm, setIsExternalForm] = useState(false);
   const [editingEventId, setEditingEventId] = useState(null);
+  const [editingSeries, setEditingSeries] = useState(null); // { all, following } – ismétlődő esemény szerkesztésekor
   const [isCopyingEvent, setIsCopyingEvent] = useState(false); // az űrlap egy meglévő esemény másolatát tartalmazza
   const [isUploading, setIsUploading] = useState(false);
   
@@ -74,6 +76,7 @@ export const useCalendar = () => {
   const [passwordForm] = Form.useForm();
   const [ownPasswordForm] = Form.useForm();
   const [eventForm] = Form.useForm();
+  const seriesScope = Form.useWatch('seriesScope', eventForm); // a mentés hatóköre ismétlődő eseménynél
   const [unsubscribeForm] = Form.useForm();
   const [authForm] = Form.useForm();
   const [blacklistForm] = Form.useForm();
@@ -380,8 +383,27 @@ export const useCalendar = () => {
         if (!confirmed) return;
       }
 
+      // Ismétlődő esemény: a kiválasztott hatókörben a többi alkalomra is átvisszük, ami változott
+      // (előbb ezeket, mert a sorozatot a még változatlan adatok alapján ismeri fel a szerver)
+      const { seriesScope, ...eventPayload } = payload;
+      let seriesUpdated = 0;
+      if (existing && seriesScope && seriesScope !== 'one') {
+        const { changes, time } = seriesChanges(existing, eventPayload);
+        if (Object.keys(changes).length || time) {
+          const res = await fetch('/api/actions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actionType: 'EDIT_TOURNAMENT_SERIES', payload: { id: editingEventId, scope: seriesScope, changes, time } }),
+          });
+          const r = await res.json().catch(() => ({}));
+          if (!res.ok || r.error) { messageApi.error(r.error || 'A sorozat többi alkalmát nem sikerült módosítani.'); return; }
+          seriesUpdated = r.updated || 0;
+          if (r.skipped) messageApi.warning(`${r.skipped} alkalom kimaradt, mert ahhoz nincs jogosultságod.`);
+        }
+      }
+
       const actionType = editingEventId ? 'EDIT_TOURNAMENT' : 'ADD_TOURNAMENT';
-      const actionPayload = editingEventId ? { id: editingEventId, ...payload } : payload;
+      const actionPayload = editingEventId ? { id: editingEventId, ...eventPayload } : eventPayload;
       const response = await fetch('/api/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -392,7 +414,7 @@ export const useCalendar = () => {
         messageApi.error(result.error || 'Mentés sikertelen.');
         return;
       }
-      messageApi.success(editingEventId ? 'Frissítve!' : 'Létrehozva!');
+      messageApi.success(editingEventId ? (seriesUpdated ? `Frissítve: ez és további ${seriesUpdated} alkalom.` : 'Frissítve!') : 'Létrehozva!');
       
       setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setIsExternalForm(false); 
       fetchData(true); 
@@ -411,7 +433,8 @@ export const useCalendar = () => {
 
   const openEditEvent = (evt) => {
     eventForm.resetFields();
-    eventForm.setFieldsValue(eventFormValues(evt));
+    eventForm.setFieldsValue({ ...eventFormValues(evt), seriesScope: 'one' });
+    setEditingSeries(findSeries(evt));
     setEditingEventId(String(evt._id || evt.id)); setIsCopyingEvent(false); setIsExternalForm(!!evt.external_url); setIsEventModalOpen(true);
   };
 
@@ -434,6 +457,22 @@ export const useCalendar = () => {
      messageApi.success("Esemény törölve."); 
      fetchData(true); 
    };
+
+  // A szerkesztett esemény sorozatának jövőbeli alkalmai (legalább kettő kell, hogy sorozatnak számítson);
+  // a szerkesztés megnyitásakor számoljuk ki
+  const findSeries = (evt) => {
+    const today = serverNow().slice(0, 10);
+    const all = seriesMembers(tournaments, evt, 'all', today);
+    return all.length < 2 ? null : { all, following: seriesMembers(tournaments, evt, 'following', today) };
+  };
+
+  const handleDeleteSeries = async (scope) => {
+    const res = await postAction('DELETE_TOURNAMENT_SERIES', { id: editingEventId, scope });
+    if (!res) return;
+    messageApi.success(`${res.deleted} alkalom törölve.${res.skipped ? ` ${res.skipped} kimaradt (nincs jogosultság).` : ''}`);
+    setIsEventModalOpen(false); eventForm.resetFields(); setEditingEventId(null); setEditingSeries(null);
+    fetchData(true);
+  };
 
   const initiateJoin = (tournament) => {
     setIsEventDetailsModalOpen(false);
@@ -599,7 +638,7 @@ export const useCalendar = () => {
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,
-    isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, isCopyingEvent, setIsCopyingEvent, eventForm, saveEvent, handleDeleteTournament,
+    isEventModalOpen, setIsEventModalOpen, isUsersModalOpen, setIsUsersModalOpen, isExternalForm, setIsExternalForm, editingEventId, setEditingEventId, isCopyingEvent, setIsCopyingEvent, eventForm, saveEvent, handleDeleteTournament, editingSeries, handleDeleteSeries, seriesScope,
     isUploading, handleImageUpload, isEventDetailsModalOpen, setIsEventDetailsModalOpen, selectedEventDetails, setSelectedEventDetails,
     selectedEventToJoin, initiateJoin,
     isUnsubscribeModalOpen, setIsUnsubscribeModalOpen, unsubscribeForm, initiateUnsubscribe, submitUnsubscribe, isUnsubscribing,

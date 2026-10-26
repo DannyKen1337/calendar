@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import Link from "next/link";
-import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox } from "antd";
+import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Radio } from "antd";
 import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined, TrophyOutlined, DashboardOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
@@ -917,13 +917,38 @@ export const AdminEvents = ({ app: v }) => {
       </div>
       <div>
         
-        <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : v.isCopyingEvent ? "Esemény másolása" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
+        <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : v.isCopyingEvent ? "Esemény másolása" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText={v.editingEventId && v.editingSeries && v.seriesScope && v.seriesScope !== 'one' ? `Mentés (${v.editingSeries[v.seriesScope].length} alkalom)` : 'Mentés'} cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
           <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4" onValuesChange={(changed, all) => {
             if (('category' in changed || 'store' in changed) && Array.isArray(all.hosts)) {
               const eligible = v.eligibleHosts(all.category, all.store);
               v.eventForm.setFieldsValue({ hosts: all.hosts.filter(id => eligible.some(u => u.id === id)) });
             }
           }}>
+            {/* Ismétlődő esemény: melyik alkalmakra vonatkozzon a mentés, illetve a sorozat törlése */}
+            {v.editingEventId && v.editingSeries && (
+              <div style={{ background: '#2B1A1C', border: '1px solid #4A2E33', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+                <div style={{ color: '#E5B15D', fontWeight: 'bold', marginBottom: 4 }}>Ismétlődő esemény: {v.editingSeries.all.length} jövőbeli alkalom</div>
+                <div style={{ color: '#9a8a8c', fontSize: 12, marginBottom: 10 }}>{v.editingSeries.all.map(e => v.formatEventDate(e.date)).slice(0, 8).join(' · ')}{v.editingSeries.all.length > 8 ? ' · …' : ''}</div>
+                <Form.Item name="seriesScope" label="A mentés vonatkozzon" initialValue="one" style={{ marginBottom: 6 }}>
+                  <Radio.Group style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <Radio value="one">Csak erre az alkalomra</Radio>
+                    <Radio value="following" disabled={v.editingSeries.following.length < 2}>Erre és a következő alkalmakra ({v.editingSeries.following.length} db)</Radio>
+                    <Radio value="all">A sorozat összes jövőbeli alkalmára ({v.editingSeries.all.length} db)</Radio>
+                  </Radio.Group>
+                </Form.Item>
+                <div style={{ color: '#9a8a8c', fontSize: 12 }}>A többi alkalomnál csak az változik, amit itt átírsz. A napjuk és a külső linkjük megmarad; ha a kezdési időpontot (óra:perc) módosítod, az mindegyiknél változik.</div>
+                <div className="flex flex-wrap gap-2" style={{ marginTop: 10 }}>
+                  {v.editingSeries.following.length > 1 && (
+                    <Popconfirm title={`Törlöd ezt és a következő ${v.editingSeries.following.length - 1} alkalmat?`} description="A jelentkezések is törlődnek." onConfirm={() => v.handleDeleteSeries('following')} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+                      <Button size="small" danger>Törlés: ez és a következők</Button>
+                    </Popconfirm>
+                  )}
+                  <Popconfirm title={`Törlöd a sorozat mind a(z) ${v.editingSeries.all.length} jövőbeli alkalmát?`} description="A jelentkezések is törlődnek." onConfirm={() => v.handleDeleteSeries('all')} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+                    <Button size="small" danger>Az egész sorozat törlése</Button>
+                  </Popconfirm>
+                </div>
+              </div>
+            )}
             <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
             <Form.Item name="eventType" label="Esemény típusa" initialValue="tournament" extra="A szett megjelenés, az expo és a különleges esemény feltűnőbb, saját megjelenést kap a naptárban. Ha nincs rá jelentkezés, pipáld be a „Kötetlen létszám” opciót.">
               <Select options={Object.entries(EVENT_TYPES).map(([value, t]) => ({ value, label: `${t.icon ? `${t.icon} ` : ''}${t.label}` }))} />

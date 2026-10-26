@@ -12,7 +12,8 @@ import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
 import { isValidChangelogId } from '@/lib/changelog';
 import { sanitizeEventType } from '@/lib/eventTypes';
-import { normalizeEventDate } from '@/lib/eventDates';
+import { normalizeEventDate, budapestDateTime } from '@/lib/eventDates';
+import { SERIES_ID_RE, SERIES_FIELDS, seriesMembers } from '@/lib/series';
 import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
 import { syncRgnEvent } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
@@ -203,6 +204,8 @@ export async function POST(request) {
       doc.date = normalizeEventDate(doc.date);
       if (!doc.date) return NextResponse.json({ error: 'Érvénytelen dátum vagy időpont.' }, { status: 400 });
       if (!canManageEvent(session, doc)) return noPermission();
+      // A generátor egy generálás minden alkalmának közös sorozat-azonosítót ad (a tömeges szerkesztéshez)
+      if (typeof payload.seriesId === 'string' && SERIES_ID_RE.test(payload.seriesId)) doc.seriesId = payload.seriesId;
       const result = await db.collection('tournaments').insertOne({
         ...doc,
         hosts: await sanitizeHosts(db, payload.hosts, doc),
@@ -243,6 +246,66 @@ export async function POST(request) {
       const promoted = await promoteFromQueue(db, id);
       if (promoted.length > 0) await addLog(db, 'Rendszer', 'VÁRÓLISTA', `Előléptetve (létszámváltozás): ${promoted.join(', ')}`);
       return NextResponse.json({ success: true });
+    }
+
+    // Ismétlődő esemény (sorozat) tömeges szerkesztése: a megadott alkalom utáni ('following') vagy az összes jövőbeli ('all')
+    // alkalmon beállítja a módosított mezőket, és ha kell, az új kezdési időpontot (a nap és a külső link alkalmanként marad).
+    // Magát a megadott alkalmat nem módosítja (azt a kliens a szokásos szerkesztéssel menti). Csak a kezelhető alkalmak változnak.
+    if (actionType === 'EDIT_TOURNAMENT_SERIES' || actionType === 'DELETE_TOURNAMENT_SERIES') {
+      const anchor = await db.collection('tournaments').findOne(getQuery(payload.id));
+      if (!anchor) return NextResponse.json({ error: 'Esemény nem található.' }, { status: 404 });
+      if (!canManageEvent(session, anchor)) return noPermission();
+      const scope = payload.scope === 'all' ? 'all' : 'following';
+      const today = budapestDateTime(Date.now()).slice(0, 10);
+      const candidates = await db.collection('tournaments')
+        .find(anchor.seriesId ? { seriesId: anchor.seriesId } : { name: anchor.name, category: anchor.category, date: { $gte: today } })
+        .toArray();
+      const members = seriesMembers(candidates, anchor, scope, today);
+      const anchorId = String(anchor._id);
+      const scopeText = scope === 'all' ? 'összes jövőbeli alkalom' : 'ettől az alkalomtól';
+
+      if (actionType === 'DELETE_TOURNAMENT_SERIES') {
+        let deleted = 0, skipped = 0;
+        for (const m of members) {
+          if (!canManageEvent(session, m)) { skipped++; continue; }
+          const mid = String(m._id);
+          await db.collection('tournaments').deleteOne({ _id: m._id });
+          await db.collection('registrations').deleteMany({ tournamentId: { $in: [mid, m._id] } });
+          await db.collection('external_registrations').deleteMany({ tournamentId: mid });
+          await db.collection('external_registration_events').deleteMany({ tournamentId: mid });
+          deleted++;
+        }
+        await addLog(db, session.username, 'SOROZAT TÖRLÉS', `${anchor.name}: ${deleted} alkalom törölve (${scopeText})${skipped ? `, ${skipped} kimaradt (nincs jogosultság)` : ''}`);
+        return NextResponse.json({ success: true, deleted, skipped });
+      }
+
+      const raw = payload.changes && typeof payload.changes === 'object' ? payload.changes : {};
+      const allowed = Object.fromEntries(Object.entries(raw).filter(([k]) => SERIES_FIELDS.includes(k)));
+      const changes = pickTournamentFields(allowed);
+      if ('isOpenAttendance' in allowed) changes.isOpenAttendance = allowed.isOpenAttendance === true;
+      if ('isFeatured' in allowed) changes.isFeatured = allowed.isFeatured === true;
+      if (changes.isOpenAttendance) applyOpenAttendance(changes);
+      if (changes.max_players !== undefined) changes.max_players = Math.max(0, Math.min(10000, Number(changes.max_players) || 0));
+      const time = typeof payload.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(payload.time) ? payload.time : null;
+      const hostsChanged = Array.isArray(allowed.hosts);
+      if (!Object.keys(changes).length && !time && !hostsChanged) return NextResponse.json({ success: true, updated: 0, skipped: 0 });
+
+      let updated = 0, skipped = 0;
+      for (const m of members) {
+        if (String(m._id) === anchorId) continue;
+        const set = { ...changes, ...(time ? { date: `${String(m.date).slice(0, 10)}T${time}` } : {}) };
+        const next = { ...m, ...set };
+        if (!canManageEvent(session, m) || !canManageEvent(session, next)) { skipped++; continue; }
+        if (hostsChanged) set.hosts = await sanitizeHosts(db, allowed.hosts, next);
+        await db.collection('tournaments').updateOne({ _id: m._id }, { $set: set });
+        const promoted = await promoteFromQueue(db, String(m._id));
+        if (promoted.length > 0) await addLog(db, 'Rendszer', 'VÁRÓLISTA', `Előléptetve (létszámváltozás): ${promoted.join(', ')}`);
+        updated++;
+      }
+      const labels = { name: 'név', category: 'játék', store: 'bolt', max_players: 'létszám', isOpenAttendance: 'kötetlen létszám', description: 'leírás', isFeatured: 'kiemelés', decklistEnabled: 'decklist', eventType: 'típus', hosts: 'szervezők', color: 'szín' };
+      const what = [...Object.keys(allowed).map(k => labels[k] || k), ...(time ? [`időpont: ${time}`] : [])].join(', ');
+      await addLog(db, session.username, 'SOROZAT MÓDOSÍTÁS', `${anchor.name}: további ${updated} alkalom (${scopeText}), módosítva: ${what}${skipped ? `; ${skipped} kimaradt (nincs jogosultság)` : ''}`);
+      return NextResponse.json({ success: true, updated, skipped });
     }
 
     if (actionType === 'DELETE_TOURNAMENT') {

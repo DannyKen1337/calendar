@@ -71,6 +71,8 @@ export default function EventGenerator({ canManageGame = () => true, canManageSt
       
       const [hours, minutes] = time.split(':');
       const eventsToCreate = [];
+      // Egy generálás alkalmai közös sorozat-azonosítót kapnak: így a naptárban egyszerre is szerkeszthetők
+      const seriesId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
       for (let i = 0; i < weeks; i++) {
         // Tisztán naptári számítás: a gép időzónája vagy órája nem tolhatja el a napot
@@ -93,6 +95,7 @@ export default function EventGenerator({ canManageGame = () => true, canManageSt
           isFeatured: !!isFeatured,
           decklistEnabled: !!decklistEnabled,
           isOpenAttendance: !!isOpenAttendance,
+          seriesId,
         });
       }
 
