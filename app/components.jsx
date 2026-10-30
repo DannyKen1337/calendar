@@ -687,6 +687,271 @@ const AdminDayGroups = ({ events, app, emptyText }) => {
   });
 };
 
+// Az admin felület ablakai: esemény létrehozása / szerkesztése / másolása, saját jelszó, jelentkezők, Riftbound-jelentkezők,
+// feketelista. A szervezői nézet (AdminEvents) és a tulajdonosi nézet (components/OwnerAdmin) is ezeket használja.
+export const AdminModals = ({ app: v }) => {
+  const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
+  // Előbb az aktív jelentkezők, utána a várólista, mindkettő jelentkezési sorrendben
+  const isActiveReg = (r) => r.status === 'Aktív' || r.status === 'Active';
+  const currentAttendees = (v.registrations || [])
+    .filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees))
+    .sort((a, b) => (isActiveReg(b) - isActiveReg(a)) || (new Date(a.date) - new Date(b.date)));
+  const checkedInCount = currentAttendees.filter(r => r.attended === true).length;
+  const decklistCount = currentAttendees.filter(r => r.decklist === true).length;
+  const attendeesEvent = (v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedEventIdForAttendees));
+  const showDecklist = showsDecklist(attendeesEvent, currentAttendees);
+
+  return (
+    <div>
+      
+      <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : v.isCopyingEvent ? "Esemény másolása" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText={v.editingEventId && v.editingSeries && v.seriesScope && v.seriesScope !== 'one' ? `Mentés (${v.editingSeries[v.seriesScope].length} alkalom)` : 'Mentés'} cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
+        <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4" onValuesChange={(changed, all) => {
+          if (('category' in changed || 'store' in changed) && Array.isArray(all.hosts)) {
+            const eligible = v.eligibleHosts(all.category, all.store);
+            v.eventForm.setFieldsValue({ hosts: all.hosts.filter(id => eligible.some(u => u.id === id)) });
+          }
+        }}>
+          {/* Ismétlődő esemény: melyik alkalmakra vonatkozzon a mentés, illetve a sorozat törlése */}
+          {v.editingEventId && v.editingSeries && (
+            <div style={{ background: '#2B1A1C', border: '1px solid #4A2E33', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+              <div style={{ color: '#E5B15D', fontWeight: 'bold', marginBottom: 4 }}>Ismétlődő esemény: {v.editingSeries.all.length} jövőbeli alkalom</div>
+              <div style={{ color: '#9a8a8c', fontSize: 12, marginBottom: 10 }}>{v.editingSeries.all.map(e => v.formatEventDate(e.date)).slice(0, 8).join(' · ')}{v.editingSeries.all.length > 8 ? ' · …' : ''}</div>
+              <Form.Item name="seriesScope" label="A mentés vonatkozzon" initialValue="one" style={{ marginBottom: 6 }}>
+                <Radio.Group style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <Radio value="one">Csak erre az alkalomra</Radio>
+                  <Radio value="following" disabled={v.editingSeries.following.length < 2}>Erre és a következő alkalmakra ({v.editingSeries.following.length} db)</Radio>
+                  <Radio value="all">A sorozat összes jövőbeli alkalmára ({v.editingSeries.all.length} db)</Radio>
+                </Radio.Group>
+              </Form.Item>
+              <div style={{ color: '#9a8a8c', fontSize: 12 }}>A többi alkalomnál csak az változik, amit itt átírsz. A napjuk és a külső linkjük megmarad; ha a kezdési időpontot (óra:perc) módosítod, az mindegyiknél változik.</div>
+              <div className="flex flex-wrap gap-2" style={{ marginTop: 10 }}>
+                {v.editingSeries.following.length > 1 && (
+                  <Popconfirm title={`Törlöd ezt és a következő ${v.editingSeries.following.length - 1} alkalmat?`} description="A jelentkezések is törlődnek." onConfirm={() => v.handleDeleteSeries('following')} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+                    <Button size="small" danger>Törlés: ez és a következők</Button>
+                  </Popconfirm>
+                )}
+                <Popconfirm title={`Törlöd a sorozat mind a(z) ${v.editingSeries.all.length} jövőbeli alkalmát?`} description="A jelentkezések is törlődnek." onConfirm={() => v.handleDeleteSeries('all')} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+                  <Button size="small" danger>Az egész sorozat törlése</Button>
+                </Popconfirm>
+              </div>
+            </div>
+          )}
+          <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
+          <Form.Item name="eventType" label="Esemény típusa" initialValue="tournament" extra="A szett megjelenés, az expo és a különleges esemény feltűnőbb, saját megjelenést kap a naptárban. Ha nincs rá jelentkezés, pipáld be a „Kötetlen létszám” opciót.">
+            <Select options={Object.entries(EVENT_TYPES).map(([value, t]) => ({ value, label: `${t.icon ? `${t.icon} ` : ''}${t.label}` }))} />
+          </Form.Item>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item name="store" label="Helyszín" rules={[{ required: true, message: 'Kérlek válassz boltot!' }]}>
+              <Select placeholder="Válassz boltot..." allowClear>
+                {Object.values(STORES).filter(store => v.canManageStore(store.id)).map(store => (<Select.Option key={store.id} value={store.id}>{store.name}</Select.Option>))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kérlek válassz játékot!' }]}>
+              <Select placeholder="Válassz játékot..." allowClear>
+                {manageableGames.map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}
+              </Select>
+            </Form.Item>
+          </div>
+          
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category || prev.store !== cur.store || prev.hosts !== cur.hosts || prev.date !== cur.date}>
+            {({ getFieldValue }) => {
+              const category = getFieldValue('category');
+              const conflicts = findHostConflicts(v.tournaments, { id: v.editingEventId, date: getFieldValue('date'), hosts: getFieldValue('hosts') });
+              return (
+                <>
+                  <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot és boltot kezelhetik.' : 'Előbb válassz játékot.'} style={conflicts.length > 0 ? { marginBottom: 8 } : undefined}>
+                    <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category, getFieldValue('store')).map(u => ({ value: u.id, label: u.username })) : []} />
+                  </Form.Item>
+                  {conflicts.length > 0 && (
+                    <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
+                      <WarningOutlined /> Ütközés: {conflicts.map(({ hostId, event }) => `${v.staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'} ekkor már tartja: ${event.name} (${v.formatEventDate(event.date)})`).join('; ')}
+                    </div>
+                  )}
+                </>
+              );
+            }}
+          </Form.Item>
+
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.date !== cur.date || prev.store !== cur.store}>
+            {({ getFieldValue }) => {
+              const hoursWarning = getOpeningHoursWarning(getFieldValue('store'), getFieldValue('date'));
+              return (
+                <>
+                  <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]} style={hoursWarning ? { marginBottom: 8 } : undefined}><Input type="datetime-local" /></Form.Item>
+                  {hoursWarning && (
+                    <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
+                      <WarningOutlined /> {hoursWarning}
+                    </div>
+                  )}
+                </>
+              );
+            }}
+          </Form.Item>
+          <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az esemény csak tájékoztatásul jelenik meg a naptárban."><Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox></Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance || prev.max_players !== cur.max_players}>
+            {({ getFieldValue }) => {
+              const isOpenChecked = !!getFieldValue('isOpenAttendance');
+              const isOpenAttendance = resolveAttendance(getFieldValue('max_players'), isOpenChecked).isOpenAttendance;
+              return (
+                <>
+                  <Form.Item name="max_players" label="Max Létszám" extra="0 = kötetlen létszám (nincs jelentkezés)"><Input type="number" min={0} placeholder={isOpenChecked ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} disabled={isOpenChecked} /></Form.Item>
+                  <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)"><Input placeholder="https://..." disabled={isOpenAttendance} /></Form.Item>
+                </>
+              );
+            }}
+          </Form.Item>
+          <Form.Item name="description" label="Leírás (Opcionális)"><Input.TextArea rows={4} placeholder="További részletek a versenyről..." /></Form.Item>
+          <Form.Item name="isFeatured" valuePropName="checked" style={{ marginBottom: 8 }}><Checkbox>Kiemelt verseny/esemény</Checkbox></Form.Item>
+          <Form.Item name="decklistEnabled" valuePropName="checked" extra="A „Jelentkezők” ablakban és a mobilos check-inben jelölhető, ki adta le a decklistet."><Checkbox>Decklist leadás jelölése</Checkbox></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Saját jelszó módosítása</span>} open={v.isOwnPasswordModalOpen} onCancel={() => v.setIsOwnPasswordModalOpen(false)} onOk={() => v.ownPasswordForm.submit()} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
+        <Form form={v.ownPasswordForm} layout="vertical" onFinish={v.submitOwnPasswordChange} className="mt-4">
+          <Form.Item name="currentPassword" label="Jelenlegi jelszó" rules={[{ required: true, message: 'Kötelező megadni!' }]}>
+            <Input.Password placeholder="Jelenlegi jelszó" />
+          </Form.Item>
+          <Form.Item name="newPassword" label="Új jelszó" rules={[{ required: true, message: 'Kötelező megadni!', min: 6 }]}>
+            <Input.Password placeholder="Legalább 6 karakter" />
+          </Form.Item>
+          <Form.Item
+            name="confirmPassword"
+            label="Új jelszó megerősítése"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: 'Kötelező megadni!' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) return Promise.resolve();
+                  return Promise.reject(new Error('A két jelszó nem egyezik.'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password placeholder="Ismételd meg az új jelszót" />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        title={<span style={{ fontFamily: 'Georgia, serif' }}>Jelentkezők{attendeesEvent ? `: ${attendeesEvent.name}` : ''} · <span style={{ color: '#baaaac', fontSize: '0.9em' }}>{checkedInCount} / {currentAttendees.length} megjelent{showDecklist ? ` · ${decklistCount} decklist` : ''}</span></span>}
+        open={v.isAttendeesModalOpen}
+        onCancel={() => v.setIsAttendeesModalOpen(false)}
+        footer={null}
+        width={980}
+        destroyOnHidden
+        closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+      >
+        {attendeesEvent && (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <Text style={{ color: '#baaaac' }}>Létszám: <b style={{ color: '#E0D6C8' }}>{attendeesEvent.current_players} / {attendeesEvent.max_players}</b>{attendeesEvent.queue_count > 0 ? ` · várólistán: ${attendeesEvent.queue_count}` : ''}</Text>
+              <Space wrap>
+                <Button icon={<MobileOutlined />} onClick={() => window.open(checkinPageUrl(attendeesEvent), '_blank', 'noopener')}>Mobilos check-in</Button>
+                <Button icon={<EyeOutlined />} onClick={() => window.open(registrationPageUrl(attendeesEvent), '_blank', 'noopener')}>Jelentkezési oldal megnyitása</Button>
+              </Space>
+            </div>
+            <AddParticipantForm key={String(attendeesEvent._id || attendeesEvent.id)} event={attendeesEvent} app={v} />
+          </>
+        )}
+        <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗){showDecklist ? ', illetve ki adta le a decklistet' : ''}. Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
+        <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 880 }} columns={[
+          { title: 'Felhasználónév / Teljes név', dataIndex: 'name', key: 'name', render: (text, record) => (
+              <div>
+                {record.username
+                  ? <><div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{record.username}</div><div style={{ color: '#E0D6C8' }}>{text}</div></>
+                  : <div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{text}</div>}
+                <ReliabilityTag stats={v.attendanceStats?.[record.email]} />
+              </div>
+          ) },
+          { title: 'E-mail', dataIndex: 'email', key: 'email', render: (text, record) => <div><span style={{ color: '#baaaac' }}>{text || '—'}</span>{record.addedBy && <div style={{ color: '#6b7280', fontSize: 12 }}>Felvette: {record.addedBy}</div>}</div> },
+          { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> },
+          { title: 'Megjelent?', key: 'attended', render: (_, record) => {
+              const id = record._id || record.id;
+              return (
+                <Space.Compact>
+                  <Button
+                    icon={<CheckOutlined />}
+                    type={record.attended === true ? 'primary' : 'default'}
+                    style={record.attended === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
+                    onClick={() => v.setAttendance(id, record.attended === true ? null : true)}
+                    aria-label="Megjelent"
+                  />
+                  <Button
+                    icon={<CloseOutlined />}
+                    type={record.attended === false ? 'primary' : 'default'}
+                    danger={record.attended === false}
+                    onClick={() => v.setAttendance(id, record.attended === false ? null : false)}
+                    aria-label="Nem jelent meg"
+                  />
+                </Space.Compact>
+              );
+          }},
+          ...(showDecklist ? [{ title: 'Decklist?', key: 'decklist', render: (_, record) => {
+              const id = record._id || record.id;
+              return (
+                <Space.Compact>
+                  <Button
+                    icon={<CheckOutlined />}
+                    type={record.decklist === true ? 'primary' : 'default'}
+                    style={record.decklist === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
+                    onClick={() => v.setDecklist(id, record.decklist === true ? null : true)}
+                    aria-label="Leadta a decklistet"
+                    title="Leadta a decklistet"
+                  />
+                  <Button
+                    icon={<CloseOutlined />}
+                    type={record.decklist === false ? 'primary' : 'default'}
+                    danger={record.decklist === false}
+                    onClick={() => v.setDecklist(id, record.decklist === false ? null : false)}
+                    aria-label="Nem adta le a decklistet"
+                    title="Nem adta le a decklistet"
+                  />
+                </Space.Compact>
+              );
+          }}] : []),
+          { title: 'Művelet', key: 'action', render: (_, record) => {
+              const stats = v.attendanceStats?.[record.email];
+              const isBanned = (v.blacklist || []).some(b => b.email === record.email);
+              return (
+                <Space size={0} wrap>
+                  <Popconfirm title="Törlöd a jelentkezést?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>
+                  {v.userRole === 'owner' && record.email && (isBanned
+                    ? <Tag color="red" style={{ margin: 0 }}>Tiltva</Tag>
+                    : <Popconfirm title="Feketelistára teszed ezt az e-mail címet?" onConfirm={() => v.handleBanEmail({ email: record.email, reason: stats?.noShow ? `Nem jelent meg: ${stats.noShow} / ${stats.attended + stats.noShow} alkalom` : 'Admin tiltás' })} okText="Igen" cancelText="Mégse">
+                        <Button type="link" danger icon={<StopOutlined />}>Tiltás</Button>
+                      </Popconfirm>)}
+                </Space>
+              );
+          }}
+        ]} />
+      </Modal>
+      <RgnAttendeesModal
+        event={(v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedRgnEventId))}
+        data={v.rgnData}
+        open={!!v.selectedRgnEventId}
+        onClose={() => v.setSelectedRgnEventId(null)}
+        onSync={() => v.syncRgn(v.selectedRgnEventId)}
+        syncing={v.rgnSyncing}
+      />
+      <Modal title={<span style={{ color: '#ff4d4f' }}>Feketelista (Tiltott e-mailek)</span>} open={v.isBlacklistModalOpen} onCancel={() => v.setIsBlacklistModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />}>
+        <Form form={v.blacklistForm} layout="inline" onFinish={v.handleBanEmail} style={{ marginBottom: 20 }}>
+          <Form.Item name="email" rules={[{ required: true, type: 'email', message: 'E-mail kötelező!' }]}><Input placeholder="Tiltandó e-mail" style={{ width: 250 }} /></Form.Item>
+          <Form.Item name="reason"><Input placeholder="Indoklás (opcionális)" style={{ width: 250 }} /></Form.Item>
+          <Form.Item><Button type="primary" danger htmlType="submit">Tiltás</Button></Form.Item>
+        </Form>
+        <Table dataSource={v.blacklist} rowKey={(record) => record._id} pagination={{ pageSize: 5 }} columns={[
+          { title: 'E-mail cím', dataIndex: 'email', render: e => <strong style={{color: '#ff4d4f'}}>{e}</strong> },
+          { title: 'Indoklás', dataIndex: 'reason', render: r => <span style={{color: '#baaaac'}}>{r || '-'}</span> },
+          { title: 'Dátum', dataIndex: 'date', render: d => <span style={{color: '#baaaac'}}>{new Date(d).toLocaleDateString('hu-HU')}</span> },
+          { title: 'Művelet', render: (_, record) => <Popconfirm title="Feloldod a tiltást?" onConfirm={() => v.handleUnbanEmail(record.email)} okText="Igen" cancelText="Mégse"><Button size="small">Feloldás</Button></Popconfirm> }
+        ]} />
+      </Modal>
+
+    </div>
+  );
+};
+
 export const AdminEvents = ({ app: v }) => {
   const [adminCatFilter, setAdminCatFilter] = useState([]); // üres = minden játék
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
@@ -700,15 +965,6 @@ export const AdminEvents = ({ app: v }) => {
   const isOwnGamesFilter = adminCatFilter.length === manageableGames.length && manageableGames.every(g => adminCatFilter.includes(g));
   const toggleOwnGamesFilter = () => setAdminCatFilter(isOwnGamesFilter ? [] : manageableGames);
 
-  // Előbb az aktív jelentkezők, utána a várólista, mindkettő jelentkezési sorrendben
-  const isActiveReg = (r) => r.status === 'Aktív' || r.status === 'Active';
-  const currentAttendees = (v.registrations || [])
-    .filter(reg => String(reg.tournamentId) === String(v.selectedEventIdForAttendees))
-    .sort((a, b) => (isActiveReg(b) - isActiveReg(a)) || (new Date(a.date) - new Date(b.date)));
-  const checkedInCount = currentAttendees.filter(r => r.attended === true).length;
-  const decklistCount = currentAttendees.filter(r => r.decklist === true).length;
-  const attendeesEvent = (v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedEventIdForAttendees));
-  const showDecklist = showsDecklist(attendeesEvent, currentAttendees);
   
   const filteredAndSortedTournaments = (v.tournaments || [])
     .filter(evt => {
@@ -916,253 +1172,7 @@ export const AdminEvents = ({ app: v }) => {
           {!isSearching && monthEvents.length > 0 && renderMonthPager(true)}
         </section>
       </div>
-      <div>
-        
-        <Modal title={<span style={{ fontFamily: 'Georgia, serif', fontSize: '1.2rem' }}>{v.editingEventId ? "Esemény szerkesztése" : v.isCopyingEvent ? "Esemény másolása" : "Új Esemény Létrehozása"}</span>} open={v.isEventModalOpen} onCancel={() => v.setIsEventModalOpen(false)} onOk={() => v.eventForm.submit()} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />} okText={v.editingEventId && v.editingSeries && v.seriesScope && v.seriesScope !== 'one' ? `Mentés (${v.editingSeries[v.seriesScope].length} alkalom)` : 'Mentés'} cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }}>
-          <Form form={v.eventForm} layout="vertical" onFinish={v.saveEvent} className="mt-4" onValuesChange={(changed, all) => {
-            if (('category' in changed || 'store' in changed) && Array.isArray(all.hosts)) {
-              const eligible = v.eligibleHosts(all.category, all.store);
-              v.eventForm.setFieldsValue({ hosts: all.hosts.filter(id => eligible.some(u => u.id === id)) });
-            }
-          }}>
-            {/* Ismétlődő esemény: melyik alkalmakra vonatkozzon a mentés, illetve a sorozat törlése */}
-            {v.editingEventId && v.editingSeries && (
-              <div style={{ background: '#2B1A1C', border: '1px solid #4A2E33', borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
-                <div style={{ color: '#E5B15D', fontWeight: 'bold', marginBottom: 4 }}>Ismétlődő esemény: {v.editingSeries.all.length} jövőbeli alkalom</div>
-                <div style={{ color: '#9a8a8c', fontSize: 12, marginBottom: 10 }}>{v.editingSeries.all.map(e => v.formatEventDate(e.date)).slice(0, 8).join(' · ')}{v.editingSeries.all.length > 8 ? ' · …' : ''}</div>
-                <Form.Item name="seriesScope" label="A mentés vonatkozzon" initialValue="one" style={{ marginBottom: 6 }}>
-                  <Radio.Group style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <Radio value="one">Csak erre az alkalomra</Radio>
-                    <Radio value="following" disabled={v.editingSeries.following.length < 2}>Erre és a következő alkalmakra ({v.editingSeries.following.length} db)</Radio>
-                    <Radio value="all">A sorozat összes jövőbeli alkalmára ({v.editingSeries.all.length} db)</Radio>
-                  </Radio.Group>
-                </Form.Item>
-                <div style={{ color: '#9a8a8c', fontSize: 12 }}>A többi alkalomnál csak az változik, amit itt átírsz. A napjuk és a külső linkjük megmarad; ha a kezdési időpontot (óra:perc) módosítod, az mindegyiknél változik.</div>
-                <div className="flex flex-wrap gap-2" style={{ marginTop: 10 }}>
-                  {v.editingSeries.following.length > 1 && (
-                    <Popconfirm title={`Törlöd ezt és a következő ${v.editingSeries.following.length - 1} alkalmat?`} description="A jelentkezések is törlődnek." onConfirm={() => v.handleDeleteSeries('following')} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
-                      <Button size="small" danger>Törlés: ez és a következők</Button>
-                    </Popconfirm>
-                  )}
-                  <Popconfirm title={`Törlöd a sorozat mind a(z) ${v.editingSeries.all.length} jövőbeli alkalmát?`} description="A jelentkezések is törlődnek." onConfirm={() => v.handleDeleteSeries('all')} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
-                    <Button size="small" danger>Az egész sorozat törlése</Button>
-                  </Popconfirm>
-                </div>
-              </div>
-            )}
-            <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
-            <Form.Item name="eventType" label="Esemény típusa" initialValue="tournament" extra="A szett megjelenés, az expo és a különleges esemény feltűnőbb, saját megjelenést kap a naptárban. Ha nincs rá jelentkezés, pipáld be a „Kötetlen létszám” opciót.">
-              <Select options={Object.entries(EVENT_TYPES).map(([value, t]) => ({ value, label: `${t.icon ? `${t.icon} ` : ''}${t.label}` }))} />
-            </Form.Item>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Form.Item name="store" label="Helyszín" rules={[{ required: true, message: 'Kérlek válassz boltot!' }]}>
-                <Select placeholder="Válassz boltot..." allowClear>
-                  {Object.values(STORES).filter(store => v.canManageStore(store.id)).map(store => (<Select.Option key={store.id} value={store.id}>{store.name}</Select.Option>))}
-                </Select>
-              </Form.Item>
-              <Form.Item name="category" label="Kategória (Játék)" rules={[{ required: true, message: 'Kérlek válassz játékot!' }]}>
-                <Select placeholder="Válassz játékot..." allowClear>
-                  {manageableGames.map(game => (<Select.Option key={game} value={game}>{game}</Select.Option>))}
-                </Select>
-              </Form.Item>
-            </div>
-            
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.category !== cur.category || prev.store !== cur.store || prev.hosts !== cur.hosts || prev.date !== cur.date}>
-              {({ getFieldValue }) => {
-                const category = getFieldValue('category');
-                const conflicts = findHostConflicts(v.tournaments, { id: v.editingEventId, date: getFieldValue('date'), hosts: getFieldValue('hosts') });
-                return (
-                  <>
-                    <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot és boltot kezelhetik.' : 'Előbb válassz játékot.'} style={conflicts.length > 0 ? { marginBottom: 8 } : undefined}>
-                      <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category, getFieldValue('store')).map(u => ({ value: u.id, label: u.username })) : []} />
-                    </Form.Item>
-                    {conflicts.length > 0 && (
-                      <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
-                        <WarningOutlined /> Ütközés: {conflicts.map(({ hostId, event }) => `${v.staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'} ekkor már tartja: ${event.name} (${v.formatEventDate(event.date)})`).join('; ')}
-                      </div>
-                    )}
-                  </>
-                );
-              }}
-            </Form.Item>
-
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.date !== cur.date || prev.store !== cur.store}>
-              {({ getFieldValue }) => {
-                const hoursWarning = getOpeningHoursWarning(getFieldValue('store'), getFieldValue('date'));
-                return (
-                  <>
-                    <Form.Item name="date" label="Dátum és Időpont" rules={[{ required: true, message: 'Kötelező!' }]} style={hoursWarning ? { marginBottom: 8 } : undefined}><Input type="datetime-local" /></Form.Item>
-                    {hoursWarning && (
-                      <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
-                        <WarningOutlined /> {hoursWarning}
-                      </div>
-                    )}
-                  </>
-                );
-              }}
-            </Form.Item>
-            <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az esemény csak tájékoztatásul jelenik meg a naptárban."><Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox></Form.Item>
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance || prev.max_players !== cur.max_players}>
-              {({ getFieldValue }) => {
-                const isOpenChecked = !!getFieldValue('isOpenAttendance');
-                const isOpenAttendance = resolveAttendance(getFieldValue('max_players'), isOpenChecked).isOpenAttendance;
-                return (
-                  <>
-                    <Form.Item name="max_players" label="Max Létszám" extra="0 = kötetlen létszám (nincs jelentkezés)"><Input type="number" min={0} placeholder={isOpenChecked ? 'Kötetlen létszám' : 'Alapértelmezett: 16'} disabled={isOpenChecked} /></Form.Item>
-                    <Form.Item name="external_url" label="Külső jelentkezési link (Opcionális)"><Input placeholder="https://..." disabled={isOpenAttendance} /></Form.Item>
-                  </>
-                );
-              }}
-            </Form.Item>
-            <Form.Item name="description" label="Leírás (Opcionális)"><Input.TextArea rows={4} placeholder="További részletek a versenyről..." /></Form.Item>
-            <Form.Item name="isFeatured" valuePropName="checked" style={{ marginBottom: 8 }}><Checkbox>Kiemelt verseny/esemény</Checkbox></Form.Item>
-            <Form.Item name="decklistEnabled" valuePropName="checked" extra="A „Jelentkezők” ablakban és a mobilos check-inben jelölhető, ki adta le a decklistet."><Checkbox>Decklist leadás jelölése</Checkbox></Form.Item>
-          </Form>
-        </Modal>
-
-        <Modal title={<span style={{ color: '#E5B15D', fontFamily: 'Georgia, serif' }}>Saját jelszó módosítása</span>} open={v.isOwnPasswordModalOpen} onCancel={() => v.setIsOwnPasswordModalOpen(false)} onOk={() => v.ownPasswordForm.submit()} okText="Mentés" cancelText="Mégse" okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}>
-          <Form form={v.ownPasswordForm} layout="vertical" onFinish={v.submitOwnPasswordChange} className="mt-4">
-            <Form.Item name="currentPassword" label="Jelenlegi jelszó" rules={[{ required: true, message: 'Kötelező megadni!' }]}>
-              <Input.Password placeholder="Jelenlegi jelszó" />
-            </Form.Item>
-            <Form.Item name="newPassword" label="Új jelszó" rules={[{ required: true, message: 'Kötelező megadni!', min: 6 }]}>
-              <Input.Password placeholder="Legalább 6 karakter" />
-            </Form.Item>
-            <Form.Item
-              name="confirmPassword"
-              label="Új jelszó megerősítése"
-              dependencies={['newPassword']}
-              rules={[
-                { required: true, message: 'Kötelező megadni!' },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue('newPassword') === value) return Promise.resolve();
-                    return Promise.reject(new Error('A két jelszó nem egyezik.'));
-                  },
-                }),
-              ]}
-            >
-              <Input.Password placeholder="Ismételd meg az új jelszót" />
-            </Form.Item>
-          </Form>
-        </Modal>
-        <Modal
-          title={<span style={{ fontFamily: 'Georgia, serif' }}>Jelentkezők{attendeesEvent ? `: ${attendeesEvent.name}` : ''} · <span style={{ color: '#baaaac', fontSize: '0.9em' }}>{checkedInCount} / {currentAttendees.length} megjelent{showDecklist ? ` · ${decklistCount} decklist` : ''}</span></span>}
-          open={v.isAttendeesModalOpen}
-          onCancel={() => v.setIsAttendeesModalOpen(false)}
-          footer={null}
-          width={980}
-          destroyOnHidden
-          closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
-        >
-          {attendeesEvent && (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                <Text style={{ color: '#baaaac' }}>Létszám: <b style={{ color: '#E0D6C8' }}>{attendeesEvent.current_players} / {attendeesEvent.max_players}</b>{attendeesEvent.queue_count > 0 ? ` · várólistán: ${attendeesEvent.queue_count}` : ''}</Text>
-                <Space wrap>
-                  <Button icon={<MobileOutlined />} onClick={() => window.open(checkinPageUrl(attendeesEvent), '_blank', 'noopener')}>Mobilos check-in</Button>
-                  <Button icon={<EyeOutlined />} onClick={() => window.open(registrationPageUrl(attendeesEvent), '_blank', 'noopener')}>Jelentkezési oldal megnyitása</Button>
-                </Space>
-              </div>
-              <AddParticipantForm key={String(attendeesEvent._id || attendeesEvent.id)} event={attendeesEvent} app={v} />
-            </>
-          )}
-          <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗){showDecklist ? ', illetve ki adta le a decklistet' : ''}. Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
-          <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 880 }} columns={[
-            { title: 'Felhasználónév / Teljes név', dataIndex: 'name', key: 'name', render: (text, record) => (
-                <div>
-                  {record.username
-                    ? <><div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{record.username}</div><div style={{ color: '#E0D6C8' }}>{text}</div></>
-                    : <div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{text}</div>}
-                  <ReliabilityTag stats={v.attendanceStats?.[record.email]} />
-                </div>
-            ) },
-            { title: 'E-mail', dataIndex: 'email', key: 'email', render: (text, record) => <div><span style={{ color: '#baaaac' }}>{text || '—'}</span>{record.addedBy && <div style={{ color: '#6b7280', fontSize: 12 }}>Felvette: {record.addedBy}</div>}</div> },
-            { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> },
-            { title: 'Megjelent?', key: 'attended', render: (_, record) => {
-                const id = record._id || record.id;
-                return (
-                  <Space.Compact>
-                    <Button
-                      icon={<CheckOutlined />}
-                      type={record.attended === true ? 'primary' : 'default'}
-                      style={record.attended === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
-                      onClick={() => v.setAttendance(id, record.attended === true ? null : true)}
-                      aria-label="Megjelent"
-                    />
-                    <Button
-                      icon={<CloseOutlined />}
-                      type={record.attended === false ? 'primary' : 'default'}
-                      danger={record.attended === false}
-                      onClick={() => v.setAttendance(id, record.attended === false ? null : false)}
-                      aria-label="Nem jelent meg"
-                    />
-                  </Space.Compact>
-                );
-            }},
-            ...(showDecklist ? [{ title: 'Decklist?', key: 'decklist', render: (_, record) => {
-                const id = record._id || record.id;
-                return (
-                  <Space.Compact>
-                    <Button
-                      icon={<CheckOutlined />}
-                      type={record.decklist === true ? 'primary' : 'default'}
-                      style={record.decklist === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
-                      onClick={() => v.setDecklist(id, record.decklist === true ? null : true)}
-                      aria-label="Leadta a decklistet"
-                      title="Leadta a decklistet"
-                    />
-                    <Button
-                      icon={<CloseOutlined />}
-                      type={record.decklist === false ? 'primary' : 'default'}
-                      danger={record.decklist === false}
-                      onClick={() => v.setDecklist(id, record.decklist === false ? null : false)}
-                      aria-label="Nem adta le a decklistet"
-                      title="Nem adta le a decklistet"
-                    />
-                  </Space.Compact>
-                );
-            }}] : []),
-            { title: 'Művelet', key: 'action', render: (_, record) => {
-                const stats = v.attendanceStats?.[record.email];
-                const isBanned = (v.blacklist || []).some(b => b.email === record.email);
-                return (
-                  <Space size={0} wrap>
-                    <Popconfirm title="Törlöd a jelentkezést?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>
-                    {v.userRole === 'owner' && record.email && (isBanned
-                      ? <Tag color="red" style={{ margin: 0 }}>Tiltva</Tag>
-                      : <Popconfirm title="Feketelistára teszed ezt az e-mail címet?" onConfirm={() => v.handleBanEmail({ email: record.email, reason: stats?.noShow ? `Nem jelent meg: ${stats.noShow} / ${stats.attended + stats.noShow} alkalom` : 'Admin tiltás' })} okText="Igen" cancelText="Mégse">
-                          <Button type="link" danger icon={<StopOutlined />}>Tiltás</Button>
-                        </Popconfirm>)}
-                  </Space>
-                );
-            }}
-          ]} />
-        </Modal>
-        <RgnAttendeesModal
-          event={(v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedRgnEventId))}
-          data={v.rgnData}
-          open={!!v.selectedRgnEventId}
-          onClose={() => v.setSelectedRgnEventId(null)}
-          onSync={() => v.syncRgn(v.selectedRgnEventId)}
-          syncing={v.rgnSyncing}
-        />
-        <Modal title={<span style={{ color: '#ff4d4f' }}>Feketelista (Tiltott e-mailek)</span>} open={v.isBlacklistModalOpen} onCancel={() => v.setIsBlacklistModalOpen(false)} footer={null} width={800} closeIcon={<CloseOutlined style={{ color: '#ff4d4f' }} />}>
-          <Form form={v.blacklistForm} layout="inline" onFinish={v.handleBanEmail} style={{ marginBottom: 20 }}>
-            <Form.Item name="email" rules={[{ required: true, type: 'email', message: 'E-mail kötelező!' }]}><Input placeholder="Tiltandó e-mail" style={{ width: 250 }} /></Form.Item>
-            <Form.Item name="reason"><Input placeholder="Indoklás (opcionális)" style={{ width: 250 }} /></Form.Item>
-            <Form.Item><Button type="primary" danger htmlType="submit">Tiltás</Button></Form.Item>
-          </Form>
-          <Table dataSource={v.blacklist} rowKey={(record) => record._id} pagination={{ pageSize: 5 }} columns={[
-            { title: 'E-mail cím', dataIndex: 'email', render: e => <strong style={{color: '#ff4d4f'}}>{e}</strong> },
-            { title: 'Indoklás', dataIndex: 'reason', render: r => <span style={{color: '#baaaac'}}>{r || '-'}</span> },
-            { title: 'Dátum', dataIndex: 'date', render: d => <span style={{color: '#baaaac'}}>{new Date(d).toLocaleDateString('hu-HU')}</span> },
-            { title: 'Művelet', render: (_, record) => <Popconfirm title="Feloldod a tiltást?" onConfirm={() => v.handleUnbanEmail(record.email)} okText="Igen" cancelText="Mégse"><Button size="small">Feloldás</Button></Popconfirm> }
-          ]} />
-        </Modal>
-
-      </div>
+      <AdminModals app={v} />
     </ConfigProvider>
   );
 };

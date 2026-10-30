@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
 import { AdminEvents, ChangelogModal } from '@/app/components';
+import OwnerAdmin from '@/components/OwnerAdmin';
 import { CHANGELOG, LATEST_CHANGELOG_ID, unseenReleases } from '@/lib/changelog';
 import { STORE_NAMES } from '@/lib/permissions';
 import { LogoutOutlined, LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
@@ -202,6 +203,30 @@ export default function AdminPage() {
     );
   }
 
+  const changelogModal = (
+    // Magától felugrik, ha van olvasatlan újdonság; a fejléc (tulajdonosnál a Fiók fül) gombjával bármikor újra megnyitható (ilyenkor az összes látszik)
+    <ChangelogModal
+      open={showAllChangelog || unseen.length > 0}
+      releases={showAllChangelog ? CHANGELOG : unseen}
+      isOwner={app.userRole === 'owner'}
+      onClose={() => {
+        setShowAllChangelog(false);
+        if (unseen.length > 0 && app.lastSeenChangelog !== LATEST_CHANGELOG_ID) app.markChangelogSeen(LATEST_CHANGELOG_ID);
+      }}
+    />
+  );
+
+  // A tulajdonos saját, telefonra tervezett felületet kap (components/OwnerAdmin.jsx)
+  if (app.userRole === 'owner') {
+    return (
+      <>
+        {app.contextHolder}
+        <OwnerAdmin app={app} onShowChangelog={() => setShowAllChangelog(true)} unseenCount={unseen.length} />
+        {changelogModal}
+      </>
+    );
+  }
+
   // HA BE VAN JELENTKEZVE, betölt a megszokott admin pult
   return (
     <main className="min-h-screen bg-[#121212] text-white px-4 py-4 md:px-6 2xl:px-10">
@@ -252,16 +277,7 @@ export default function AdminPage() {
         <AdminEvents app={app} />
 
       </div>
-      {/* Magától felugrik, ha van olvasatlan újdonság; a fejléc gombjával bármikor újra megnyitható (ilyenkor az összes látszik) */}
-      <ChangelogModal
-        open={showAllChangelog || unseen.length > 0}
-        releases={showAllChangelog ? CHANGELOG : unseen}
-        isOwner={app.userRole === 'owner'}
-        onClose={() => {
-          setShowAllChangelog(false);
-          if (unseen.length > 0 && app.lastSeenChangelog !== LATEST_CHANGELOG_ID) app.markChangelogSeen(LATEST_CHANGELOG_ID);
-        }}
-      />
+      {changelogModal}
     </main>
   );
 }
