@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfigProvider, Tabs, Table, Tag, Input, Select, DatePicker, Button, Tooltip, Empty, Typography, message } from 'antd';
 import { CheckCircleFilled, WarningFilled, CloseCircleFilled, QuestionCircleFilled, InfoCircleFilled, ReloadOutlined, DownloadOutlined, SearchOutlined, LinkOutlined } from '@ant-design/icons';
-import { tavernTheme } from '@/app/components';
+import { adminTheme } from '@/components/AdminPage';
 import { STORE_NAMES } from '@/lib/permissions';
 import useLiveRefresh from '@/lib/useLiveRefresh';
 
@@ -11,8 +11,8 @@ const { RangePicker } = DatePicker;
 
 // Tulajdonosi Rendszer oldal: áttekintés (mi működik, mikor futott utoljára) és a teljes tevékenységnapló
 
-const panel = 'bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]';
-const panelTitle = { color: '#E5B15D', margin: '0 0 12px 0', fontFamily: 'Georgia, serif', fontSize: 18 };
+const panel = 'bg-[#191314] p-4 rounded-xl border border-[#2a2022]';
+const panelTitle = { color: '#f3ece3', margin: '0 0 12px 0', fontWeight: 800, fontSize: 18 };
 const muted = { color: '#9a8a8c', fontSize: 13 };
 // Állapotszínek: mindig ikonnal és szöveggel együtt (soha nem csak szín)
 const STATUS = {
@@ -48,7 +48,7 @@ function StatusBadge({ status, label }) {
 function StatusTile({ title, status, label, detail }) {
   const s = STATUS[status] || STATUS.unknown;
   return (
-    <div className="bg-[#2B1A1C] rounded-lg border px-4 py-3" style={{ borderColor: status === 'error' ? '#7a2d2d' : status === 'late' || status === 'warn' ? '#6b5020' : '#4A2E33' }}>
+    <div className="bg-[#2a2022] rounded-lg border px-4 py-3" style={{ borderColor: status === 'error' ? '#7a2d2d' : status === 'late' || status === 'warn' ? '#6b5020' : '#2a2022' }}>
       <div style={{ color: '#baaaac', fontSize: 13 }}>{title}</div>
       <div style={{ color: s.color, fontSize: 18, fontWeight: 700 }} className="flex items-center gap-2 mt-0.5">{s.icon}{label || s.label}</div>
       {detail && <div style={{ color: '#8a7f80', fontSize: 12, marginTop: 2 }}>{detail}</div>}
@@ -57,7 +57,7 @@ function StatusTile({ title, status, label, detail }) {
 }
 
 const NumberTile = ({ label, value, hint }) => (
-  <div className="bg-[#2B1A1C] rounded-lg border border-[#4A2E33] px-3 py-2">
+  <div className="bg-[#2a2022] rounded-lg border border-[#2a2022] px-3 py-2">
     <div style={{ color: '#E0D6C8', fontSize: 22, fontWeight: 'bold', lineHeight: 1.2 }}>{value}</div>
     <div style={{ color: '#baaaac', fontSize: 12 }}>{label}</div>
     {hint && <div style={{ color: '#7d6e70', fontSize: 11 }}>{hint}</div>}
@@ -72,7 +72,7 @@ function ActivityChart({ days }) {
   return (
     <div>
       <div style={muted} className="mb-2">Naplóbejegyzések naponta · összesen {total} az elmúlt 14 napban</div>
-      <div className="flex items-end gap-[2px]" style={{ height: 110, borderBottom: '1px solid #4A2E33' }} role="img" aria-label={`Napi aktivitás: ${days.map(d => `${dayLabel(d.day)}: ${d.count}`).join(', ')}`}>
+      <div className="flex items-end gap-[2px]" style={{ height: 110, borderBottom: '1px solid #2a2022' }} role="img" aria-label={`Napi aktivitás: ${days.map(d => `${dayLabel(d.day)}: ${d.count}`).join(', ')}`}>
         {days.map(d => (
           <Tooltip key={d.day} title={`${dayLabel(d.day)}: ${d.count} bejegyzés`}>
             <div className="flex-1 h-full flex items-end cursor-default group">
@@ -132,7 +132,7 @@ function Overview({ data, onRefresh, refreshing }) {
           <h3 style={panelTitle}>Időzített feladatok</h3>
           <div className="space-y-3">
             {data.jobs.map(j => (
-              <div key={j.job} className="bg-[#2B1A1C] rounded-lg border border-[#4A2E33] p-3">
+              <div key={j.job} className="bg-[#2a2022] rounded-lg border border-[#2a2022] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <strong style={{ color: '#E0D6C8' }}>{j.label}</strong>
                   <StatusBadge status={j.status} />
@@ -349,7 +349,7 @@ export default function SystemDashboard() {
   useLiveRefresh(load, 30000, tab === 'overview' && !!data);
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       <Tabs activeKey={tab} onChange={setTab} items={[
         {
           key: 'overview', label: 'Áttekintés',

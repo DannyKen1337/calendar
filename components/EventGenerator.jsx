@@ -1,29 +1,14 @@
 "use client";
 import React, { useState } from 'react';
-import { Form, Input, Select, Button, message, Modal, ConfigProvider, theme, Typography, InputNumber, Switch, Checkbox } from 'antd';
-import { CopyOutlined, LinkOutlined, WarningOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Button, message, Modal, ConfigProvider, Typography, InputNumber, Switch, Checkbox } from 'antd';
+import { LinkOutlined, WarningOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
 import { resolveAttendance } from '@/lib/attendance';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
 import { addDays } from '@/lib/eventDates';
+import { adminTheme } from '@/components/AdminPage';
 
-const { Title, Text } = Typography;
-
-const tavernTheme = {
-  algorithm: theme.darkAlgorithm,
-  token: {
-    colorPrimary: '#E5B15D',
-    colorBgBase: '#121212',
-    colorBgElevated: '#1a1012',
-    colorBorder: '#4A2E33',
-    colorText: '#E0D6C8',
-  },
-  components: {
-    Input: { colorBgContainer: '#2B1A1C' },
-    Select: { colorBgContainer: '#2B1A1C' },
-    InputNumber: { colorBgContainer: '#2B1A1C' },
-  }
-};
+const { Text } = Typography;
 
 const STORES = {
   debrecen: { id: 'debrecen', name: 'Tavern Debrecen' },
@@ -134,16 +119,10 @@ export default function EventGenerator({ canManageGame = () => true, canManageSt
   };
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       {modalHolder}
-      <div className="bg-[#1a1012] p-8 rounded-2xl border border-[#4A2E33] shadow-xl w-full max-w-2xl mx-auto">
+      <div className="bg-[#191314] p-4 md:p-8 rounded-xl w-full">
         
-        <div className="flex items-center gap-3 mb-8 border-b border-[#4A2E33] pb-4">
-          <CopyOutlined className="text-3xl text-[#E5B15D]" />
-          <Title level={2} style={{ margin: 0, color: '#E5B15D', fontFamily: 'Georgia, serif' }}>
-            Ismétlődő Generátor
-          </Title>
-        </div>
         
         <Form form={form} layout="vertical" onFinish={handleGenerate} className="mt-4" initialValues={{ weeks: 4, useExternalLink: false }}>
           <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}>
@@ -209,7 +188,7 @@ export default function EventGenerator({ canManageGame = () => true, canManageSt
 
           {/* ÚJ: Dinamikus külső link szekció */}
           {!isOpenForm && (
-          <div className="mt-6 mb-6 p-4 border border-[#4A2E33] rounded-xl bg-[#2B1A1C]">
+          <div className="mt-6 mb-6 p-4 border border-[#2a2022] rounded-xl bg-[#2a2022]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <LinkOutlined className="text-[#E5B15D] text-lg" />
@@ -221,7 +200,7 @@ export default function EventGenerator({ canManageGame = () => true, canManageSt
             </div>
 
             {useExternalLinkVal && startDateVal && weeksVal > 0 && (
-              <div className="mt-4 space-y-3 pt-4 border-t border-[#4A2E33]">
+              <div className="mt-4 space-y-3 pt-4 border-t border-[#2a2022]">
                 <Text type="secondary" style={{ display: 'block', marginBottom: '10px' }}>Kérlek másold be a webshopos linkeket az alábbi hetekhez:</Text>
                 {Array.from({ length: weeksVal }).map((_, i) => {
                   const d = new Date(startDateVal);

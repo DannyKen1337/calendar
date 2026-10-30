@@ -2,14 +2,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TeamOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, CopyOutlined, SwapOutlined } from '@ant-design/icons';
-import { tavernTheme } from '@/app/components';
+import { adminTheme } from '@/components/AdminPage';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
 import { FEATURES, STORE_NAMES } from '@/lib/permissions';
 
 const { Text } = Typography;
-const panel = 'bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]';
-const sideBtn = { color: '#E0D6C8', borderColor: '#4A2E33', background: '#2B1A1C' };
-const modalTitle = (t) => <span style={{ fontFamily: 'Georgia, serif', color: '#E5B15D' }}>{t}</span>;
+const panel = 'bg-[#191314] p-4 rounded-xl border border-[#2a2022]';
+const sideBtn = { color: '#E0D6C8', borderColor: '#2a2022', background: '#2a2022' };
+const modalTitle = (t) => <span style={{ fontWeight: 800, color: '#f3ece3' }}>{t}</span>;
 const closeIcon = <CloseOutlined style={{ color: '#E5B15D' }} />;
 const label = { color: '#9a8a8c', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 };
 const GROUP_COLORS = ['#E5B15D', '#1d4ed8', '#10b981', '#b91c1c', '#8b5cf6', '#f97316', '#ec4899', '#14b8c4', '#6b7280'];
@@ -96,9 +96,9 @@ function GroupPicker({ value = [], onChange, groups, isOwner }) {
         title={locked ? 'Ezt csak a tulajdonos adhatja meg' : g.description || g.name}
         aria-pressed={on}
         className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors disabled:cursor-not-allowed"
-        style={{ border: `1px solid ${on ? g.color : '#4A2E33'}`, background: on ? `${g.color}2e` : '#160d0f', color: on ? '#fff' : '#cfc6b8', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.6 : 1, fontWeight: on ? 700 : 400 }}
+        style={{ border: `1px solid ${on ? g.color : '#2a2022'}`, background: on ? `${g.color}2e` : '#160d0f', color: on ? '#fff' : '#cfc6b8', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.6 : 1, fontWeight: on ? 700 : 400 }}
       >
-        <span style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `2px solid ${g.color}`, background: on ? g.color : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#1a1012', fontSize: 11, lineHeight: 1 }}>{on ? '✓' : ''}</span>
+        <span style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `2px solid ${g.color}`, background: on ? g.color : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#191314', fontSize: 11, lineHeight: 1 }}>{on ? '✓' : ''}</span>
         <span style={{ overflowWrap: 'anywhere' }}>{g.name}</span>
       </button>
     );
@@ -106,7 +106,7 @@ function GroupPicker({ value = [], onChange, groups, isOwner }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
+      <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: '#2a2022', border: '1px solid #2a2022' }}>
         <div style={{ ...label, marginBottom: 0 }}>Ezt fogja kezelni</div>
         {chosen.length === 0
           ? <Text style={{ color: '#ff9b9b', fontSize: 13 }}>Nincs kiválasztva semmi – így semmit nem kezelhet.</Text>
@@ -266,7 +266,7 @@ export default function UserAdmin({ currentUserId }) {
     const isManager = u.access.features.includes('users');
     const canEdit = !isOwner && !isSelf && (data.isOwner || !isManager);
     return (
-      <div key={u.id} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: isOwner ? '#722ed1' : u.disabled ? '#a8071a' : '#4A2E33', background: '#1a1012', opacity: u.disabled ? 0.75 : 1 }}>
+      <div key={u.id} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: isOwner ? '#722ed1' : u.disabled ? '#a8071a' : '#2a2022', background: '#191314', opacity: u.disabled ? 0.75 : 1 }}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div style={{ color: '#E0D6C8', fontWeight: 'bold', fontSize: 16, overflowWrap: 'anywhere' }}>{u.username}</div>
@@ -303,7 +303,7 @@ export default function UserAdmin({ currentUserId }) {
         {isOwner && <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Minden játékot, boltot és modult kezel, és csak ő kezelheti a felhasználókat.</Text>}
 
         {canEdit ? (
-          <div className="flex flex-wrap gap-2 pt-3 border-t border-[#4A2E33]">
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-[#2a2022]">
             {u.role === 'admin' && <Button size="small" icon={<TeamOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openMembership(u)}>Jogosultságok</Button>}
             {u.role === 'admin' && !u.usesGroups && (
               <Popconfirm title="Egyéni jogok átalakítása csoporttá?" description="Azonos beállítású csoportot használ, ha van ilyen, különben újat hoz létre. A jogai nem változnak." onConfirm={() => simple('CONVERT_TO_GROUP', { userId: u.id }, 'Átalakítva csoporttá.')} okText="Átalakítás" cancelText="Mégse">
@@ -324,7 +324,7 @@ export default function UserAdmin({ currentUserId }) {
             </Popconfirm>
           </div>
         ) : (
-          <Text style={{ color: '#6b7280', fontSize: 12 }} className="pt-3 border-t border-[#4A2E33]">{isSelf ? 'A saját fiókod' : isOwner ? 'Védett fiók' : 'Felhasználókezelő fiókot csak a tulajdonos módosíthat'}</Text>
+          <Text style={{ color: '#6b7280', fontSize: 12 }} className="pt-3 border-t border-[#2a2022]">{isSelf ? 'A saját fiókod' : isOwner ? 'Védett fiók' : 'Felhasználókezelő fiókot csak a tulajdonos módosíthat'}</Text>
         )}
       </div>
     );
@@ -333,7 +333,7 @@ export default function UserAdmin({ currentUserId }) {
   const groupCard = (g) => {
     const memberNames = data.users.filter(u => u.groupIds.includes(g.id)).map(u => u.username);
     return (
-      <div key={g.id} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: '#4A2E33', borderLeft: `5px solid ${g.color}`, background: '#1a1012' }}>
+      <div key={g.id} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: '#2a2022', borderLeft: `5px solid ${g.color}`, background: '#191314' }}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div style={{ color: '#E0D6C8', fontWeight: 'bold', fontSize: 16, overflowWrap: 'anywhere' }}>{g.name}</div>
@@ -349,7 +349,7 @@ export default function UserAdmin({ currentUserId }) {
           <div style={label}>Tagok</div>
           <Text style={{ color: memberNames.length ? '#E0D6C8' : '#6b7280', fontSize: 13 }}>{memberNames.join(', ') || 'Még nincs tagja'}</Text>
         </div>
-        {(isOwner || !g.protected) && <div className="flex flex-wrap gap-2 pt-3 border-t border-[#4A2E33]">
+        {(isOwner || !g.protected) && <div className="flex flex-wrap gap-2 pt-3 border-t border-[#2a2022]">
           <Button size="small" icon={<EditOutlined />} style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => openGroup(g)}>Szerkesztés</Button>
           <Popconfirm title="Törlöd a csoportot?" description={g.members ? `${g.members} tag elveszíti a csoport jogait.` : undefined} onConfirm={() => deleteGroup(g)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
             <Button size="small" danger icon={<DeleteOutlined />} style={{ marginLeft: 'auto' }}>Törlés</Button>
@@ -360,7 +360,7 @@ export default function UserAdmin({ currentUserId }) {
   };
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       {contextHolder}
       <div className={panel}>
         <Tabs
@@ -380,13 +380,16 @@ export default function UserAdmin({ currentUserId }) {
                   )}
                   <div className="flex flex-wrap items-center gap-2">
                     <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés név vagy e-mail alapján..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ maxWidth: 320 }} />
+                    {/* Telefonon a szűrősor oldalra görgethető, hogy ne lógjon ki a képernyőről */}
+                    <div style={{ maxWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none' }}>
                     <Segmented value={filter} onChange={setFilter} options={[
                       { value: 'all', label: `Mind (${counts.all})` },
                       { value: 'staff', label: `Szervezők (${counts.staff})` },
                       { value: 'players', label: `Játékosok (${counts.players})` },
                       ...(counts.disabled ? [{ value: 'disabled', label: `Felfüggesztett (${counts.disabled})` }] : []),
                       ...(legacyCount ? [{ value: 'legacy', label: `Régi jogok (${legacyCount})` }] : []),
-                    ]} style={{ flexWrap: 'wrap', maxWidth: '100%' }} />
+                    ]} />
+                    </div>
                   </div>
                   {users.length === 0 ? <Empty description={<span style={{ color: '#6b7280' }}>Nincs találat.</span>} /> : <div className="grid gap-3 md:grid-cols-2">{users.map(userCard)}</div>}
                 </div>
@@ -404,7 +407,7 @@ export default function UserAdmin({ currentUserId }) {
                     return (
                       <section key={kind} className="flex flex-col gap-2 mt-2">
                         <div className="flex flex-wrap items-baseline gap-2">
-                          <span style={{ color: '#E5B15D', fontWeight: 'bold', fontFamily: 'Georgia, serif', fontSize: 16 }}>{KIND_LABELS[kind]}</span>
+                          <span style={{ color: '#f3ece3', fontWeight: 800, fontSize: 16 }}>{KIND_LABELS[kind]}</span>
                           <span style={{ color: '#7d6e70', fontSize: 12 }}>{KIND_HINTS[kind]}</span>
                         </div>
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{list.map(groupCard)}</div>
@@ -493,7 +496,7 @@ export default function UserAdmin({ currentUserId }) {
         {credentials && (
           <div className="flex flex-col gap-3 pt-2">
             <Alert type="warning" showIcon message="Ezt az ideiglenes jelszót csak most látod. Másold ki, és juttasd el a felhasználónak." />
-            <div className="rounded-lg p-3 flex flex-col gap-1" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
+            <div className="rounded-lg p-3 flex flex-col gap-1" style={{ background: '#2a2022', border: '1px solid #2a2022' }}>
               <span style={{ color: '#baaaac' }}>Felhasználónév: <b style={{ color: '#E0D6C8' }}>{credentials.username}</b></span>
               <span style={{ color: '#baaaac' }}>Ideiglenes jelszó: <b style={{ color: '#E5B15D', fontFamily: 'monospace', fontSize: 16 }}>{credentials.tempPassword}</b></span>
               <span style={{ color: '#7d6e70', fontSize: 12 }}>Érvényes: {fmt(credentials.expiresAt)}-ig</span>

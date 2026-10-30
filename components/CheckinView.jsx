@@ -1,10 +1,10 @@
 "use client";
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ConfigProvider, Input, Button, Segmented, Tag, Typography } from 'antd';
-import { CheckOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, UserAddOutlined, SyncOutlined, CalendarOutlined } from '@ant-design/icons';
-import { tavernTheme, AddParticipantForm } from '@/app/components';
+import { CheckOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, SyncOutlined, CalendarOutlined } from '@ant-design/icons';
+import { AddParticipantForm } from '@/app/components';
+import { adminTheme } from '@/components/AdminPage';
 import { normalizeSearchText } from '@/lib/eventSearch';
 import { getGameColor } from '@/lib/gameConfig';
 import { showsDecklist } from '@/lib/eventTypes';
@@ -36,7 +36,7 @@ function EventPicker({ app }) {
   return (
     <div className="flex flex-col gap-3">
       <Text style={{ color: '#baaaac' }}>Válaszd ki az eseményt, amelyiknél a megjelenést rögzíted:</Text>
-      {events.length === 0 && <div className="bg-[#1a1012] rounded-xl border border-[#4A2E33] p-6 text-center"><Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs közelgő esemény jelentkezéssel.</Text></div>}
+      {events.length === 0 && <div className="bg-[#191314] rounded-xl border border-[#2a2022] p-6 text-center"><Text style={{ color: '#6b7280', fontStyle: 'italic' }}>Nincs közelgő esemény jelentkezéssel.</Text></div>}
       {events.map(evt => {
         const label = dayLabel(evt);
         const regs = (app.registrations || []).filter(r => String(r.tournamentId) === eventKey(evt));
@@ -46,7 +46,7 @@ function EventPicker({ app }) {
             key={eventKey(evt)}
             type="button"
             onClick={() => router.push(`/admin/checkin?event=${encodeURIComponent(eventKey(evt))}`)}
-            className="text-left bg-[#1a1012] rounded-xl border border-[#4A2E33] p-4 cursor-pointer active:bg-[#2B1A1C]"
+            className="text-left bg-[#191314] rounded-xl border border-[#2a2022] p-4 cursor-pointer active:bg-[#2a2022]"
             style={{ borderLeft: `4px solid ${getGameColor(evt)}` }}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -78,25 +78,17 @@ export default function CheckinView({ app, eventId }) {
 
   const event = eventId ? (app.tournaments || []).find(t => eventKey(t) === String(eventId)) : null;
 
-  const header = (
-    <div className="flex items-center justify-between gap-3 border-b border-[#4A2E33] pb-3">
-      <Link href={eventId ? '/admin/checkin' : '/admin'} className="text-[#E5B15D] flex items-center gap-2 font-bold">
-        <ArrowLeftOutlined /> {eventId ? 'Események' : 'Admin'}
-      </Link>
-      <span className="text-[#E5B15D] font-serif text-xl font-bold">Check-in</span>
-    </div>
-  );
 
   if (!eventId) {
-    return <ConfigProvider theme={tavernTheme}><div className="flex flex-col gap-4">{header}<EventPicker app={app} /></div></ConfigProvider>;
+    return <ConfigProvider theme={adminTheme}><div className="flex flex-col gap-4"><EventPicker app={app} /></div></ConfigProvider>;
   }
 
   if (!event || !app.canManage(event) || !hasRegistration(event)) {
     return (
-      <ConfigProvider theme={tavernTheme}>
+      <ConfigProvider theme={adminTheme}>
         <div className="flex flex-col gap-4">
-          {header}
-          <div className="bg-[#1a1012] rounded-xl border border-[#4A2E33] p-6 text-center">
+          
+          <div className="bg-[#191314] rounded-xl border border-[#2a2022] p-6 text-center">
             <Text style={{ color: '#baaaac' }}>{!event ? 'Az esemény nem található.' : !hasRegistration(event) ? 'Ennél az eseménynél nincs jelentkezés.' : 'Ennek a játéknak vagy boltnak az eseményeit nem kezelheted.'}</Text>
           </div>
         </div>
@@ -129,16 +121,16 @@ export default function CheckinView({ app, eventId }) {
   };
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       <div className="flex flex-col gap-3">
-        {header}
+        
         <div>
-          <div style={{ color: '#E0D6C8', fontSize: 20, fontWeight: 'bold', lineHeight: 1.3 }}>{event.name}</div>
+          <div style={{ color: '#f3ece3', fontSize: 20, fontWeight: 800, lineHeight: 1.3 }}>{event.name}</div>
           <Text style={{ color: '#9a8a8c' }}>{app.formatEventDate(event.date)} · {event.category}</Text>
         </div>
 
         {/* Kereső és számlálók: görgetéskor is a képernyő tetején maradnak */}
-        <div className="sticky top-0 z-10 bg-[#121212] pt-2 pb-3 flex flex-col gap-2">
+        <div className="sticky top-0 z-10 bg-[#0f0b0c] pt-2 pb-3 flex flex-col gap-2">
           <div className="flex gap-2">
             <Input size="large" allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Név keresése..." value={query} onChange={(e) => setQuery(e.target.value)} />
             <Button size="large" icon={<SyncOutlined spin={refreshing} />} onClick={refresh} aria-label="Frissítés" />
@@ -147,7 +139,7 @@ export default function CheckinView({ app, eventId }) {
         </div>
 
         {visible.length === 0 && (
-          <div className="bg-[#1a1012] rounded-xl border border-[#4A2E33] p-6 text-center">
+          <div className="bg-[#191314] rounded-xl border border-[#2a2022] p-6 text-center">
             <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>{regs.length === 0 ? 'Még nincs jelentkező.' : 'Nincs a keresésnek megfelelő jelentkező.'}</Text>
           </div>
         )}
@@ -159,10 +151,10 @@ export default function CheckinView({ app, eventId }) {
           const deckYes = r.decklist === true;
           const deckNo = r.decklist === false;
           return (
-            <div key={String(id)} className="bg-[#1a1012] rounded-xl border p-3 flex flex-col gap-3" style={{ borderColor: yes ? '#389e0d' : no ? '#a8071a' : '#4A2E33' }}>
+            <div key={String(id)} className="bg-[#191314] rounded-xl border p-3 flex flex-col gap-3" style={{ borderColor: yes ? '#389e0d' : no ? '#a8071a' : '#2a2022' }}>
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <div style={{ color: '#E5B15D', fontWeight: 'bold', fontSize: 17, overflowWrap: 'anywhere' }}>{r.username || r.name}</div>
+                <div style={{ color: '#f3ece3', fontWeight: 800, fontSize: 17, overflowWrap: 'anywhere' }}>{r.username || r.name}</div>
                 {r.username && r.name && r.name !== r.username && <div style={{ color: '#E0D6C8', fontSize: 14, overflowWrap: 'anywhere' }}>{r.name}</div>}
                 {!isActiveReg(r) && <Tag color="warning" style={{ marginTop: 4 }}>Várólista</Tag>}
               </div>
@@ -171,28 +163,28 @@ export default function CheckinView({ app, eventId }) {
                 icon={<CheckOutlined />}
                 aria-label="Megjelent"
                 onClick={() => app.setAttendance(id, yes ? null : true)}
-                style={{ width: 56, height: 56, fontSize: 22, ...(yes ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
+                style={{ width: 56, height: 56, fontSize: 22, ...(yes ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : { background: '#2a2022', borderColor: '#2a2022', color: '#E0D6C8' }) }}
               />
               <Button
                 size="large"
                 icon={<CloseOutlined />}
                 aria-label="Nem jelent meg"
                 onClick={() => app.setAttendance(id, no ? null : false)}
-                style={{ width: 56, height: 56, fontSize: 22, ...(no ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
+                style={{ width: 56, height: 56, fontSize: 22, ...(no ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2a2022', borderColor: '#2a2022', color: '#E0D6C8' }) }}
               />
             </div>
             {/* Decklist: külön sorban, hogy a megjelenés gombjaival ne lehessen összetéveszteni (csak ha az eseménynél be van kapcsolva) */}
-            {showDecklist && <div className="flex items-center gap-2 border-t border-[#4A2E33] pt-3">
+            {showDecklist && <div className="flex items-center gap-2 border-t border-[#2a2022] pt-3">
               <span className="flex-1" style={{ color: '#baaaac', fontSize: 14 }}>Decklist</span>
               <Button
                 icon={<CheckOutlined />}
                 onClick={() => app.setDecklist(id, deckYes ? null : true)}
-                style={{ height: 40, ...(deckYes ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
+                style={{ height: 40, ...(deckYes ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : { background: '#2a2022', borderColor: '#2a2022', color: '#E0D6C8' }) }}
               >Leadta</Button>
               <Button
                 icon={<CloseOutlined />}
                 onClick={() => app.setDecklist(id, deckNo ? null : false)}
-                style={{ height: 40, ...(deckNo ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2B1A1C', borderColor: '#4A2E33', color: '#E0D6C8' }) }}
+                style={{ height: 40, ...(deckNo ? { background: '#a8071a', borderColor: '#a8071a', color: '#fff' } : { background: '#2a2022', borderColor: '#2a2022', color: '#E0D6C8' }) }}
               >Nem adta le</Button>
             </div>}
             </div>
@@ -202,7 +194,7 @@ export default function CheckinView({ app, eventId }) {
         <div className="mt-2">
           {showAdd
             ? <AddParticipantForm key={eventKey(event)} event={event} app={app} />
-            : <Button block size="large" icon={<UserAddOutlined />} onClick={() => setShowAdd(true)} style={{ background: '#2B1A1C', borderColor: '#4A2E33', color: '#E5B15D' }}>Helyszíni jelentkező felvétele</Button>}
+            : <Button block size="large" icon={<UserAddOutlined />} onClick={() => setShowAdd(true)} style={{ background: '#2a2022', borderColor: '#2a2022', color: '#E5B15D' }}>Helyszíni jelentkező felvétele</Button>}
         </div>
         <Text style={{ color: '#7d6e70', fontSize: 12 }}>Újrakoppintással a jelölés visszavonható. Ha mások is pipálnak egyszerre, a frissítés gombbal töltheted be a változásokat.</Text>
       </div>

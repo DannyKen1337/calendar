@@ -1,24 +1,27 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Table, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert } from 'antd';
+import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Table, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert, Grid } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, EyeOutlined, LinkOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TrophyOutlined, CloudUploadOutlined, FlagOutlined, UndoOutlined } from '@ant-design/icons';
-import { tavernTheme } from '@/app/components';
+import { adminTheme } from '@/components/AdminPage';
 import { getGameColor } from '@/lib/gameConfig';
 import { STORE_NAMES } from '@/lib/permissions';
 import Leaderboard, { formatPublishedAt } from '@/components/Leaderboard';
+import m from './LeagueAdmin.module.css';
 import {
   POINTS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX,
   computeStandings, buildSnapshot, hasUnpublishedChanges, resultPoints, leagueUrl,
 } from '@/lib/leagues';
 
 const { Title, Text } = Typography;
-const panel = 'bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]';
-const sideBtn = { color: '#E0D6C8', borderColor: '#4A2E33', background: '#2B1A1C' };
-const modalTitle = (t) => <span style={{ fontFamily: 'Georgia, serif', color: '#E5B15D' }}>{t}</span>;
-const closeIcon = <CloseOutlined style={{ color: '#E5B15D' }} />;
+const panel = 'bg-[#191314] p-3 md:p-4 rounded-xl';
+const sideBtn = { color: '#f3ece3', borderColor: '#2a2022', background: '#2a2022' };
+const modalTitle = (t) => <span style={{ fontWeight: 800, color: '#f3ece3' }}>{t}</span>;
+const closeIcon = <CloseOutlined style={{ color: '#b8aca7' }} />;
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const formatDay = (s) => { const d = new Date(`${s}T12:00:00`); return isNaN(d) ? s : d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' }); };
 const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
+const deltaColor = (d) => (d > 0 ? '#8fd18f' : d < 0 ? '#ff9b9b' : '#6f6466');
+const sourceTag = (src) => (src === 'rgn' ? <Tag color="blue" style={{ margin: 0 }}>Riftbound oldal</Tag> : src === 'event' ? <Tag color="green" style={{ margin: 0 }}>Eseményről</Tag> : <Tag style={{ margin: 0 }}>Kézzel</Tag>);
 const storeNames = (stores) => stores.map(s => STORE_NAMES[s] || s).join(', ');
 const STORE_OPTIONS = Object.entries(STORE_NAMES).map(([value, label]) => ({ value, label }));
 
@@ -58,6 +61,10 @@ export default function LeagueAdmin() {
   const [onlyEventPlayers, setOnlyEventPlayers] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false); // szezon lezárása ablak
+  const [playerQuery, setPlayerQuery] = useState('');
+  // Telefonon kártyás listák és teljes képernyős pontbeíró, gépen táblázatok
+  const screens = Grid.useBreakpoint();
+  const phone = screens.md === false;
   const [createForm] = Form.useForm();
   const [settingsForm] = Form.useForm();
   const [playerForm] = Form.useForm();
@@ -219,17 +226,27 @@ export default function LeagueAdmin() {
   };
 
   // --- Játékválasztó ---
-  const gamePicker = (
+  const gameDot = (g) => <span style={{ width: 8, height: 8, borderRadius: '50%', background: getGameColor({ category: g }), display: 'inline-block', flex: 'none', opacity: data.leagues.some(l => l.category === g) ? 1 : 0.3 }} />;
+  const gamePicker = phone ? (
+    <Select
+      size="large"
+      value={game}
+      onChange={(g) => { setGame(g); setTab('sessions'); }}
+      options={data.games.map(g => ({ value: g, label: <span className="flex items-center gap-2">{gameDot(g)}{g}{data.leagues.some(l => l.category === g) ? '' : ' · nincs liga'}</span> }))}
+      style={{ width: '100%' }}
+      aria-label="Játék"
+    />
+  ) : (
     <div className={`${panel} flex flex-wrap items-center gap-3`}>
-      <Text style={{ color: '#baaaac' }}>Játék:</Text>
+      <Text style={{ color: '#b8aca7' }}>Játék:</Text>
       <Segmented
         value={game}
         onChange={(g) => { setGame(g); setTab('sessions'); }}
         options={data.games.map(g => ({
           value: g,
-          label: <span className="flex items-center gap-2"><span style={{ width: 8, height: 8, borderRadius: '50%', background: getGameColor({ category: g }), display: 'inline-block', opacity: data.leagues.some(l => l.category === g) ? 1 : 0.3 }} />{g}</span>,
+          label: <span className="flex items-center gap-2">{gameDot(g)}{g}</span>,
         }))}
-        style={{ flexWrap: 'wrap', maxWidth: '100%' }}
+        className={m.gameSeg}
       />
     </div>
   );
@@ -237,12 +254,12 @@ export default function LeagueAdmin() {
   // --- Nincs még liga ennél a játéknál ---
   if (!league) {
     return (
-      <ConfigProvider theme={tavernTheme}>
+      <ConfigProvider theme={adminTheme}>
         {contextHolder}
         <div className="flex flex-col gap-4">
           {gamePicker}
           <div className={panel}>
-            <Title level={4} style={{ color: '#E5B15D', fontFamily: 'Georgia, serif', marginTop: 0 }}>Liga létrehozása: {game}</Title>
+            <Title level={4} style={{ color: '#f3ece3', fontWeight: 800, marginTop: 0 }}>Liga létrehozása: {game}</Title>
             <Text style={{ color: '#9a8a8c', display: 'block', marginBottom: 16 }}>Játékonként egy liga lehet. A játékosok a kiválasztott boltok eseményeiről maguktól bekerülnek, a pontokat pedig alkalmanként ti írjátok be.</Text>
             <Form key={game} form={createForm} layout="vertical" requiredMark={false} onFinish={createLeague} initialValues={{ name: `${game} liga`, autoStores: lastSelectedStores() }} style={{ maxWidth: 640 }}>
               <Form.Item name="name" label="Liga neve" rules={[{ required: true, whitespace: true, message: 'Add meg a liga nevét!' }]}>
@@ -268,7 +285,7 @@ export default function LeagueAdmin() {
         {!p.email && !p.riotId && <span style={{ color: '#6b7280' }}>—</span>}
       </span>
     ) },
-    { title: 'Honnan', dataIndex: 'source', render: (s) => (s === 'rgn' ? <Tag color="blue">Riftbound oldal</Tag> : s === 'event' ? <Tag color="green">Eseményről</Tag> : <Tag>Kézzel</Tag>), filters: [{ text: 'Eseményről', value: 'event' }, { text: 'Riftbound oldal', value: 'rgn' }, { text: 'Kézzel', value: 'manual' }], onFilter: (v, p) => p.source === v },
+    { title: 'Honnan', dataIndex: 'source', render: (src) => sourceTag(src), filters: [{ text: 'Eseményről', value: 'event' }, { text: 'Riftbound oldal', value: 'rgn' }, { text: 'Kézzel', value: 'manual' }], onFilter: (v, p) => p.source === v },
     { title: 'Jelentkezés', key: 'events', align: 'right', render: (_, p) => p.eventIds.length, sorter: (a, b) => a.eventIds.length - b.eventIds.length },
     { title: 'Alkalom', key: 'sessions', align: 'right', render: (_, p) => statsById.get(p.id)?.sessions ?? 0 },
     { title: 'Pont', key: 'points', align: 'right', render: (_, p) => <b style={{ color: '#E0D6C8' }}>{statsById.get(p.id)?.points ?? 0}</b>, sorter: (a, b) => (statsById.get(a.id)?.points ?? 0) - (statsById.get(b.id)?.points ?? 0) },
@@ -301,9 +318,74 @@ export default function LeagueAdmin() {
     { title: '#', dataIndex: 'rank', width: 50 },
     { title: 'Becenév', dataIndex: 'nickname', render: (t) => <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{t}</span> },
     { title: 'Pont', dataIndex: 'points', align: 'right', render: (p) => <b style={{ color: '#E0D6C8' }}>{p}</b> },
-    { title: 'Publikálás óta', dataIndex: 'delta', align: 'right', render: (d) => <span style={{ color: d > 0 ? '#8fd18f' : d < 0 ? '#ff9b9b' : '#6f6466' }}>{signed(d)}</span> },
+    { title: 'Publikálás óta', dataIndex: 'delta', align: 'right', render: (d) => <span style={{ color: deltaColor(d) }}>{signed(d)}</span> },
     { title: 'Alkalom', dataIndex: 'sessions', align: 'right' },
   ];
+
+  // --- Telefonos kártyák ---
+  const pq = playerQuery.trim().toLowerCase();
+  const shownPlayers = pq ? players.filter(p => `${p.nickname} ${p.fullName} ${p.email} ${p.riotId || ''}`.toLowerCase().includes(pq)) : players;
+  const emptyBox = (text) => <p className={m.empty}>{text}</p>;
+  const sessionCards = () => (sessions.length === 0 ? emptyBox('Még nincs rögzített alkalom.') : (
+    <div className={m.list}>
+      {sessions.map(x => (
+        <div key={x.id} className={m.card}>
+          <div className={m.cardTop}><span className={m.cardTitle}>{formatDay(x.date)}</span><span className={m.cardValue}>{x.results.reduce((sum, r) => sum + resultPoints(r, league.rules), 0)} pont</span></div>
+          <span className={m.cardSub}>{x.title || 'Megnevezés nélkül'} · {x.results.length} játékos</span>
+          <div className={m.cardBtns}>
+            <button type="button" className={m.cardBtn} onClick={() => openSession(x)}><EditOutlined /> Pontok</button>
+            <Popconfirm title="Törlöd ezt az alkalmat?" description="A benne kiosztott pontok is törlődnek." onConfirm={() => deleteSession(x)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+              <button type="button" className={`${m.cardBtn} ${m.cardBtnDanger}`}><DeleteOutlined /> Törlés</button>
+            </Popconfirm>
+          </div>
+        </div>
+      ))}
+    </div>
+  ));
+  const playerCards = () => (shownPlayers.length === 0 ? emptyBox(pq ? 'Nincs találat.' : 'Még nincs játékos.') : (
+    <div className={m.list}>
+      {shownPlayers.map(p => (
+        <div key={p.id} className={m.card}>
+          <div className={m.cardTop}><span className={m.cardTitle}>{p.nickname}</span><span className={m.cardValue}>{statsById.get(p.id)?.points ?? 0} pont</span></div>
+          {(p.fullName || p.email || p.riotId) && <span className={m.cardSub}>{[p.fullName, p.email, p.riotId].filter(Boolean).join(' · ')}</span>}
+          <span className={`${m.cardSub} flex flex-wrap items-center gap-2`}>{sourceTag(p.source)} {statsById.get(p.id)?.sessions ?? 0} alkalom · {p.eventIds.length} jelentkezés</span>
+          <div className={m.cardBtns}>
+            <button type="button" className={m.cardBtn} onClick={() => openPlayer(p)}><EditOutlined /> Szerkesztés</button>
+            <Popconfirm title="Törlöd a játékost?" description="Az alkalmakból is törlődnek a pontjai, és az eseményekről sem kerül vissza automatikusan." onConfirm={() => deletePlayer(p)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+              <button type="button" className={`${m.cardBtn} ${m.cardBtnDanger}`}><DeleteOutlined /> Törlés</button>
+            </Popconfirm>
+          </div>
+        </div>
+      ))}
+    </div>
+  ));
+  const standingRows = () => (snapshot.length === 0 ? emptyBox('Még senkinek nincs pontja.') : (
+    <div className={m.list}>
+      {snapshot.map(r => (
+        <div key={r.playerId} className={m.rankRow}>
+          <span className={m.rank}>{r.rank}.</span>
+          <span className={m.rankName}>{r.nickname}<small>{r.sessions} alkalom</small></span>
+          <span className={m.rankPoints}>{r.points}<small style={{ color: deltaColor(r.delta) }}>{signed(r.delta)}</small></span>
+        </div>
+      ))}
+    </div>
+  ));
+  const seasonCards = () => (seasons.length === 0 ? emptyBox('Még nincs lezárt szezon.') : (
+    <div className={m.list}>
+      {seasons.map(x => (
+        <div key={x.id} className={m.card}>
+          <div className={m.cardTop}><span className={m.cardTitle}>{x.name}</span><span className={m.cardValue}>{x.players} játékos</span></div>
+          <span className={m.cardSub}>Lezárva: {formatPublishedAt(x.closedAt)}{x.closedBy ? ` (${x.closedBy})` : ''} · Győztes: {x.winners.join(', ') || '—'}</span>
+          <div className={m.cardBtns}>
+            <button type="button" className={m.cardBtn} onClick={() => window.open(`${leagueUrl(league.category)}?szezon=${encodeURIComponent(x.id)}`, '_blank', 'noopener')}><EyeOutlined /> Megnyitás</button>
+            <Popconfirm title="Törlöd ezt az archív szezont?" description="A végeredménye a nyilvános oldalról is eltűnik." onConfirm={() => deleteSeason(x)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+              <button type="button" className={`${m.cardBtn} ${m.cardBtnDanger}`}><DeleteOutlined /> Törlés</button>
+            </Popconfirm>
+          </div>
+        </div>
+      ))}
+    </div>
+  ));
 
   // --- Alkalom szerkesztő sorai: az esemény jelentkezői elöl, aztán akinek már van pontja, végül a többiek ---
   const selectedEvent = sessionEdit?.tournamentId ? events.find(e => e.id === sessionEdit.tournamentId) || { id: sessionEdit.tournamentId, name: 'Korábbi esemény', date: sessionEdit.date } : null;
@@ -336,7 +418,7 @@ export default function LeagueAdmin() {
       : 'Automatikus beemelés kikapcsolva';
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       {contextHolder}
       <div className="flex flex-col gap-4">
         {gamePicker}
@@ -345,7 +427,7 @@ export default function LeagueAdmin() {
         <div className={`${panel} flex flex-col gap-3`} style={{ borderLeft: `5px solid ${getGameColor({ category: league.category })}` }}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <Title level={3} style={{ margin: 0, color: '#E0D6C8', fontFamily: 'Georgia, serif' }}>{league.name}</Title>
+              <Title level={3} style={{ margin: 0, color: '#f3ece3', fontWeight: 800, fontSize: phone ? 20 : undefined }}>{league.name}</Title>
               {autoInfo && <Text style={{ color: '#9a8a8c', fontSize: 13 }}>{autoInfo}</Text>}
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 {league.published
@@ -354,12 +436,12 @@ export default function LeagueAdmin() {
                 {unpublished && <Tag color="gold" style={{ margin: 0 }}>Nem publikált változások</Tag>}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className={m.headerActions}>
               <Button type="primary" icon={<EyeOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setPreviewOpen(true)}>Előnézet és publikálás</Button>
-              <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league.category)}`)} disabled={!league.published && seasons.length === 0}>Link másolása</Button>
+              <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league.category)}`)} disabled={!league.published && seasons.length === 0}>{phone ? 'Link' : 'Link másolása'}</Button>
               <Button icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open(leagueUrl(league.category), '_blank', 'noopener')} disabled={!league.published && seasons.length === 0}>Nyilvános oldal</Button>
               <Button icon={<SettingOutlined />} style={sideBtn} onClick={() => openSettings()}>Beállítások</Button>
-              <Button icon={<FlagOutlined />} style={sideBtn} disabled={sessions.length === 0} title={sessions.length === 0 ? 'Nincs még rögzített alkalom' : 'A szezon végeredményének archiválása és új szezon indítása'} onClick={() => { closeForm.resetFields(); closeForm.setFieldsValue({ newName: '', keepPlayers: true }); setCloseOpen(true); }}>Szezon lezárása</Button>
+              <Button icon={<FlagOutlined />} style={sideBtn} disabled={sessions.length === 0} title={sessions.length === 0 ? 'Nincs még rögzített alkalom' : 'A szezon végeredményének archiválása és új szezon indítása'} onClick={() => { closeForm.resetFields(); closeForm.setFieldsValue({ newName: '', keepPlayers: true }); setCloseOpen(true); }}>{phone ? 'Szezon zárása' : 'Szezon lezárása'}</Button>
             </div>
           </div>
           {league.autoStores === null && (
@@ -385,10 +467,10 @@ export default function LeagueAdmin() {
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Alkalmanként írd be, ki hány pontot kapott. Akinél üresen hagyod, az nem vett részt.</Text>
-                      <Button type="primary" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openSession(null)} disabled={players.length === 0}>Új alkalom</Button>
+                      <Button type="primary" block={phone} size={phone ? 'large' : 'middle'} icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openSession(null)} disabled={players.length === 0}>Új alkalom</Button>
                     </div>
                     {players.length === 0 && <Text style={{ color: '#faad14' }}>Még nincs játékos. Az eseményekre jelentkezők maguktól bekerülnek, vagy a „Játékosok” fülön kézzel is felvehetsz valakit.</Text>}
-                    <Table size="small" dataSource={sessions} rowKey="id" columns={sessionColumns} pagination={sessions.length > 15 ? { pageSize: 15 } : false} scroll={{ x: 600 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs rögzített alkalom.</span> }} />
+                    {phone ? sessionCards() : <Table size="small" dataSource={sessions} rowKey="id" columns={sessionColumns} pagination={sessions.length > 15 ? { pageSize: 15 } : false} scroll={{ x: 600 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs rögzített alkalom.</span> }} />}
                   </div>
                 ),
               },
@@ -399,29 +481,30 @@ export default function LeagueAdmin() {
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A ranglistán csak a becenév látszik, és csak az kerül fel, akinek már van pontja. A teljes nevet, az e-mail címet és a Riot-azonosítót csak a szervezők látják.</Text>
-                      <Button type="primary" icon={<UserAddOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openPlayer({})}>Új játékos</Button>
+                      <Button type="primary" block={phone} size={phone ? 'large' : 'middle'} icon={<UserAddOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openPlayer({})}>Új játékos</Button>
                     </div>
-                    <Table size="small" dataSource={players} rowKey="id" columns={playerColumns} pagination={players.length > 25 ? { pageSize: 25 } : false} scroll={{ x: 820 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs játékos.</span> }} />
+                    <Input allowClear size={phone ? 'large' : 'middle'} prefix={<SearchOutlined style={{ color: '#9a8d89' }} />} placeholder="Játékos keresése (becenév, név, e-mail, Riot-azonosító)…" value={playerQuery} onChange={(e) => setPlayerQuery(e.target.value)} style={{ maxWidth: phone ? undefined : 420 }} />
+                    {phone ? playerCards() : <Table size="small" dataSource={shownPlayers} rowKey="id" columns={playerColumns} pagination={shownPlayers.length > 25 ? { pageSize: 25 } : false} scroll={{ x: 820 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>{pq ? 'Nincs találat.' : 'Még nincs játékos.'}</span> }} />}
                   </div>
                 ),
               },
               {
                 key: 'standings',
-                label: 'Állás (piszkozat)',
+                label: phone ? 'Állás' : 'Állás (piszkozat)',
                 children: (
                   <div className="flex flex-col gap-3">
                     <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Ez a jelenlegi, még nem feltétlenül publikált állás. A „Publikálás óta” oszlop mutatja, ki hány pontot kap a következő publikáláskor.</Text>
-                    <Table size="small" dataSource={snapshot} rowKey="playerId" columns={standingColumns} pagination={false} scroll={{ x: 480 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még senkinek nincs pontja.</span> }} />
+                    {phone ? standingRows() : <Table size="small" dataSource={snapshot} rowKey="playerId" columns={standingColumns} pagination={false} scroll={{ x: 480 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még senkinek nincs pontja.</span> }} />}
                   </div>
                 ),
               },
               {
                 key: 'seasons',
-                label: `Korábbi szezonok (${seasons.length})`,
+                label: phone ? `Szezonok (${seasons.length})` : `Korábbi szezonok (${seasons.length})`,
                 children: (
                   <div className="flex flex-col gap-3">
                     <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A lezárt szezonok végeredménye a nyilvános oldalon is visszanézhető. Csak becenevek szerepelnek benne.</Text>
-                    <Table size="small" dataSource={seasons} rowKey="id" pagination={false} scroll={{ x: 640 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs lezárt szezon.</span> }} columns={[
+                    {phone ? seasonCards() : <Table size="small" dataSource={seasons} rowKey="id" pagination={false} scroll={{ x: 640 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs lezárt szezon.</span> }} columns={[
                       { title: 'Szezon', dataIndex: 'name', render: (t) => <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{t}</span> },
                       { title: 'Lezárva', dataIndex: 'closedAt', render: (d, s) => <span style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{formatPublishedAt(d)}{s.closedBy ? ` (${s.closedBy})` : ''}</span> },
                       { title: 'Győztes', dataIndex: 'winners', render: (w) => <span style={{ color: '#E0D6C8' }}>{w.join(', ') || '—'}</span> },
@@ -434,7 +517,7 @@ export default function LeagueAdmin() {
                           </Popconfirm>
                         </span>
                       ) },
-                    ]} />
+                    ]} />}
                   </div>
                 ),
               },
@@ -511,7 +594,7 @@ export default function LeagueAdmin() {
           <StoreInputs />
         </Form>
         {league.ignoredCount > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2" style={{ background: '#2a2022', border: '1px solid #2a2022' }}>
             <Text style={{ color: '#baaaac', fontSize: 13 }}>A törölt játékosok nem kerülnek vissza automatikusan az eseményekről.</Text>
             <Popconfirm title="Visszaengeded a törölt játékosokat?" description="Ha jelentkeztek a liga eseményeire, újra bekerülnek (pont nélkül)." onConfirm={clearIgnored} okText="Igen" cancelText="Mégse">
               <Button size="small" icon={<UndoOutlined />} style={sideBtn}>Visszaengedés</Button>
@@ -543,13 +626,20 @@ export default function LeagueAdmin() {
         title={modalTitle(sessionEdit?.id ? 'Alkalom szerkesztése' : 'Új alkalom')}
         open={sessionEdit !== null}
         onCancel={() => setSessionEdit(null)}
-        width={760}
+        width={phone ? '100%' : 760}
+        rootClassName={phone ? m.fullModal : undefined}
         closeIcon={closeIcon}
-        footer={sessionEdit && [
+        footer={sessionEdit && (phone ? (
+          <div className={m.editorFoot}>
+            <span>{editorValues.length} játékos · {editorTotal} pont</span>
+            <Button size="large" onClick={() => setSessionEdit(null)}>Mégse</Button>
+            <Button size="large" type="primary" loading={busy} onClick={saveSession} style={{ color: '#000', fontWeight: 'bold' }}>Mentés</Button>
+          </div>
+        ) : [
           <span key="sum" style={{ color: '#9a8a8c', marginRight: 12 }}>{editorValues.length} játékos · {editorTotal} pont összesen</span>,
           <Button key="cancel" onClick={() => setSessionEdit(null)}>Mégse</Button>,
           <Button key="save" type="primary" loading={busy} onClick={saveSession} style={{ color: '#000', fontWeight: 'bold' }}>Mentés</Button>,
-        ]}
+        ])}
       >
         {sessionEdit && (
           <div className="flex flex-col gap-3 pt-2">
@@ -572,7 +662,7 @@ export default function LeagueAdmin() {
             <div className="flex flex-wrap gap-3">
               <label className="flex flex-col gap-1">
                 <span style={{ color: '#baaaac', fontSize: 13 }}>Dátum</span>
-                <Input type="date" value={sessionEdit.date} onChange={(e) => setSessionEdit(s => ({ ...s, date: e.target.value }))} style={{ width: 180 }} />
+                <Input type="date" value={sessionEdit.date} onChange={(e) => setSessionEdit(s => ({ ...s, date: e.target.value }))} style={{ width: phone ? '100%' : 180 }} />
               </label>
               <label className="flex flex-col gap-1 flex-1 min-w-[220px]">
                 <span style={{ color: '#baaaac', fontSize: 13 }}>Megnevezés (nem kötelező)</span>
@@ -580,12 +670,33 @@ export default function LeagueAdmin() {
               </label>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Játékos keresése..." value={sessionQuery} onChange={(e) => setSessionQuery(e.target.value)} style={{ maxWidth: 260 }} />
+              <Input allowClear prefix={<SearchOutlined style={{ color: '#9a8d89' }} />} placeholder="Játékos keresése..." value={sessionQuery} onChange={(e) => setSessionQuery(e.target.value)} style={{ maxWidth: phone ? undefined : 260 }} />
               {selectedEvent && <Checkbox checked={onlyEventPlayers} onChange={(e) => setOnlyEventPlayers(e.target.checked)}>Csak az esemény jelentkezői</Checkbox>}
               <Button icon={<UserAddOutlined />} style={sideBtn} onClick={() => openPlayer({})}>Új játékos</Button>
             </div>
             <Text style={{ color: '#7d6e70', fontSize: 12 }}>Írd be a pontot (0 is lehet, levonásnál negatív). Akinél üresen marad, az nem vett részt ezen az alkalmon.</Text>
-            <Table size="small" dataSource={editorRows} rowKey="id" columns={editorColumns} pagination={false} scroll={{ y: 420 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>{selectedEvent && onlyEventPlayers && !q ? 'Erre az eseményre még nincs beemelt jelentkező.' : 'Nincs találat.'}</span> }} />
+            {phone ? (
+              editorRows.length === 0 ? <p className={m.empty}>{selectedEvent && onlyEventPlayers && !q ? 'Erre az eseményre még nincs beemelt jelentkező.' : 'Nincs találat.'}</p> : (
+                <div className={m.editorList}>
+                  {editorRows.map(p => {
+                    const v = sessionEdit.points[p.id];
+                    return (
+                      <div key={p.id} className={m.editorRow}>
+                        <span className={m.editorName}>
+                          <b>{p.nickname}</b>{inEvent(p) && <Tag color="green" style={{ margin: '0 0 0 6px' }}>jelentkezett</Tag>}
+                          {(p.fullName || p.riotId) && <small>{[p.fullName, p.riotId].filter(Boolean).join(' · ')}</small>}
+                        </span>
+                        {/* Az iPhone számbillentyűzetén nincs mínuszjel: az előjelet ez a gomb váltja */}
+                        <button type="button" className={m.sign} onClick={() => setPoints(p.id, -v)} disabled={!v} aria-label={`${p.nickname} pontjának előjele`}>±</button>
+                        <InputNumber size="large" inputMode="numeric" min={-POINTS_MAX} max={POINTS_MAX} precision={0} controls={false} value={v ?? null} placeholder="—" onChange={(val) => setPoints(p.id, val)} style={{ width: 92 }} aria-label={`${p.nickname} pontja`} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              <Table size="small" dataSource={editorRows} rowKey="id" columns={editorColumns} pagination={false} scroll={{ y: 420 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>{selectedEvent && onlyEventPlayers && !q ? 'Erre az eseményre még nincs beemelt jelentkező.' : 'Nincs találat.'}</span> }} />
+            )}
           </div>
         )}
       </Modal>

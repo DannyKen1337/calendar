@@ -2,15 +2,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
 import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons';
-import { tavernTheme } from '@/app/components';
+import { adminTheme } from '@/components/AdminPage';
 import { getGameColor } from '@/lib/gameConfig';
 import useLiveRefresh from '@/lib/useLiveRefresh';
 import { preorderLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX } from '@/lib/preorders';
 
 const { Title, Text } = Typography;
 
-const panel = 'bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]';
-const sideBtn = { color: '#E0D6C8', borderColor: '#4A2E33', background: '#2B1A1C' };
+const panel = 'bg-[#191314] p-4 rounded-xl border border-[#2a2022]';
+const sideBtn = { color: '#E0D6C8', borderColor: '#2a2022', background: '#2a2022' };
 const formatHu = (d) => (d ? new Date(d).toLocaleString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 // Az átadott jelentkezések a lista aljára kerülnek (a többi sorrendje marad: leadás szerint); az Excelben név szerinti a sorrend
 const handedLast = (orders) => [...orders].sort((a, b) => (a.handedOverAt ? 1 : 0) - (b.handedOverAt ? 1 : 0));
@@ -186,7 +186,7 @@ export default function PreorderAdmin() {
     const paidOrders = orders.filter(o => o.paidAt);
     const paidQty = paidOrders.reduce((s, o) => s + (o.quantity || 0), 0);
     return (
-      <div key={p.id} className="rounded-xl border p-4 bg-[#2B1A1C]" style={{ borderColor: '#4A2E33', borderLeft: `5px solid ${getGameColor({ category: p.category })}`, opacity: p.isOpen ? 1 : 0.85 }}>
+      <div key={p.id} className="rounded-xl border p-4 bg-[#2a2022]" style={{ borderColor: '#2a2022', borderLeft: `5px solid ${getGameColor({ category: p.category })}`, opacity: p.isOpen ? 1 : 0.85 }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -244,7 +244,7 @@ export default function PreorderAdmin() {
   };
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       {contextHolder}
       <div className="flex flex-col gap-4">
         <div className={`${panel} flex flex-col gap-3`}>
@@ -284,7 +284,7 @@ export default function PreorderAdmin() {
           return (
             <section key={game} className={panel} aria-label={game}>
               <div className="flex flex-wrap items-center justify-between gap-2" style={{ marginBottom: items.length ? 12 : 0 }}>
-                <Title level={5} style={{ margin: 0, fontFamily: 'Georgia, serif', color: '#E5B15D' }}>
+                <Title level={5} style={{ margin: 0, fontWeight: 800, color: '#f3ece3' }}>
                   <button
                     type="button"
                     disabled={items.length === 0}
@@ -322,7 +322,7 @@ export default function PreorderAdmin() {
       </div>
 
       <Modal
-        title={<span style={{ fontFamily: 'Georgia, serif', color: '#E5B15D' }}>{editing?.id ? 'Termék szerkesztése' : 'Új előrendelhető termék'}</span>}
+        title={<span style={{ fontWeight: 800, color: '#f3ece3' }}>{editing?.id ? 'Termék szerkesztése' : 'Új előrendelhető termék'}</span>}
         open={editing !== null}
         onCancel={() => { setEditing(null); form.resetFields(); }}
         onOk={() => form.submit()}

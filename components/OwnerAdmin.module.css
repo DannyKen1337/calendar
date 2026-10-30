@@ -57,6 +57,13 @@
 .round { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--control); background: transparent; color: var(--ink); cursor: pointer; }
 .linkBtn { border: 0; background: transparent; color: var(--gold); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 
+/* Gyors gombok: telefonon 3 × 3 csempe, gépen egy sorban */
+.quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.quickBtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 68px; padding: 8px 4px; border-radius: 10px; background: var(--surface); color: var(--ink) !important; font-size: 12px; font-weight: 700; text-align: center; text-decoration: none; }
+.quickBtn > :first-child { font-size: 20px; color: var(--gold); }
+.quickBtn:hover { background: var(--raised); }
+.quickBtn:active { filter: brightness(1.15); }
+
 /* Napi telítettség kártya és figyelmeztetések */
 .occCard, .notice { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px 14px; border: 0; border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .notice { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
@@ -158,4 +165,6 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
   .occHead { flex: 1 1 100%; }
   .occRow { flex: 1 1 220px; }
   .segment { max-width: 420px; }
+  .quick { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+  .quickBtn { min-height: 64px; font-size: 13px; }
 }

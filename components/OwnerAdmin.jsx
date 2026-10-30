@@ -5,8 +5,10 @@ import { ConfigProvider, Drawer, Popconfirm, Switch } from 'antd';
 import {
   SyncOutlined, RightOutlined, LeftOutlined, MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined,
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined,
+  CalendarOutlined, ShoppingCartOutlined, TrophyOutlined, BarChartOutlined, TeamOutlined, DashboardOutlined, GlobalOutlined,
 } from '@ant-design/icons';
-import { tavernTheme, STORES, AdminModals, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
+import { STORES, AdminModals, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
+import { adminTheme } from '@/components/AdminPage';
 import { getGameColor } from '@/lib/gameConfig';
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { rgnEventId } from '@/lib/rgn';
@@ -26,6 +28,19 @@ const TAB_STORAGE = 'tavern-owner-tab';
 const MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
 const WEEKDAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];
 const SHORT_STORES = { debrecen: 'Debrecen', miskolc: 'Miskolc', jatekceh: 'JátékCéh' };
+const WEBSITE_ADMIN = `${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`;
+// Gyors gombok a kezdőoldal tetején (a Továbbiak fül leggyakoribb pontjai): [felirat, cím, ikon, külső oldal]
+const QUICK = [
+  ['Generátor', '/admin/generator', CopyOutlined],
+  ['Check-in', '/admin/checkin', MobileOutlined],
+  ['Előrendelés', '/admin/elorendeles', ShoppingCartOutlined],
+  ['Ligák', '/admin/liga', TrophyOutlined],
+  ['Statisztika', '/admin/statisztika', BarChartOutlined],
+  ['Felhasználók', '/admin/felhasznalok', TeamOutlined],
+  ['Rendszer', '/admin/rendszer', DashboardOutlined],
+  ['Weboldal', WEBSITE_ADMIN, GlobalOutlined, true],
+  ['Naptár', '/', CalendarOutlined, true],
+];
 
 const eid = (e) => String(e._id || e.id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -293,11 +308,10 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
         </div>
         {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
-        <nav className={s.chips} aria-label="Gyors gombok">
-          {[['Generátor', '/admin/generator'], ['Check-in', '/admin/checkin'], ['Előrendelés', '/admin/elorendeles'], ['Ligák', '/admin/liga'], ['Statisztika', '/admin/statisztika'], ['Felhasználók', '/admin/felhasznalok']].map(([label, href]) => (
-            <Link key={href} href={href} className={s.chip} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>{label}</Link>
-          ))}
-          <a href={`${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`} className={s.chip} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Weboldal</a>
+        <nav className={s.quick} aria-label="Gyors gombok">
+          {QUICK.map(([label, href, Icon, external]) => (external
+            ? <a key={href} href={href} className={s.quickBtn}><Icon aria-hidden="true" /><span>{label}</span></a>
+            : <Link key={href} href={href} className={s.quickBtn}><Icon aria-hidden="true" /><span>{label}</span></Link>))}
         </nav>
         {occupancyCard()}
         <label className={s.search}>
@@ -342,7 +356,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
       <div className={s.group}>
         {linkRow('Előrendelés', null, '/admin/elorendeles')}
         {linkRow('Ligák', null, '/admin/liga')}
-        {linkRow('Weboldal', 'Hírek és az oldal tartalma', `${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`, true)}
+        {linkRow('Weboldal', 'Hírek és az oldal tartalma', WEBSITE_ADMIN, true)}
       </div>
       <h2 className={s.groupTitle}>Tulajdonos</h2>
       <div className={s.group}>
@@ -374,7 +388,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   );
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       {/* iPhone: a 16 px alatti beviteli mezőkbe koppintva a Safari ránagyít; az ablakokban (antd) is legyen 16 px */}
       <style>{'@media (pointer: coarse) { .ant-input, .ant-input-affix-wrapper input, .ant-select-selection-search-input, .ant-select-selection-item, .ant-picker input, textarea.ant-input { font-size: 16px !important; } }'}</style>
       <div className={s.shell}>

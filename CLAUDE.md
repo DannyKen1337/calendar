@@ -25,6 +25,9 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 
 ## Admin
 - A tulajdonos (Admin2) saját felületet kap: `components/OwnerAdmin.jsx` – egyszerű, gyors, nem díszes. Fülek: Események (kezdőoldal, felül a mai napi telítettség), Telítettség, Továbbiak – a „Ma” fület a felhasználó kérésére kivettük. Telefonon kártyák nagy gombokkal (Check-in, Jelentkezők, Lezárás), gépen táblázat soronkénti műveletekkel. iPhone 18 Pro, Safari web app (manifest: `public/admin.webmanifest`, `app/(naptar)/admin/layout.jsx`).
+- A kezdőoldal (Események) tetején gyors gombok (`QUICK` az OwnerAdmin.jsx-ben): Generátor, Check-in, Előrendelés, Ligák, Statisztika, Felhasználók, Rendszer, Weboldal, Naptár – telefonon 3×3 csempe.
+- Az aloldalak (`/admin/generator`, `checkin`, `elorendeles`, `liga`, `statisztika`, `felhasznalok`, `rendszer`, `telitettseg`) közös kerete: `components/AdminPage.jsx` (felső sáv „‹ Admin”, cím, `width`: narrow/normal/wide), antd téma: `adminTheme` (ugyanott; az OwnerAdmin is ezt használja). A belső komponensek a régi bordó/Georgia helyett az admin színeit használják.
+- Ligák admin telefonon (md alatt, `Grid.useBreakpoint`): játékválasztó legördülő, kártyás listák (alkalmak, játékosok kereséssel, állás, szezonok), teljes képernyős pontbeíró ± gombbal (az iPhone számbillentyűzetén nincs mínusz). Stílus: `components/LeagueAdmin.module.css`.
 - A többi szervező a régi `AdminEvents` nézetet látja; az ablakok közösek (`AdminModals`).
 - A felhasználó kérése: a backend legyen átlátható és gyors, ne dizájnos.
 

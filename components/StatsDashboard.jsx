@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Select, Segmented, Table, Typography, Empty } from 'antd';
-import { tavernTheme } from '@/app/components';
+import { adminTheme } from '@/components/AdminPage';
 import { getGameColor } from '@/lib/gameConfig';
 
 const { Title, Text } = Typography;
 
-// Megjelent / nem jelent meg: sötét háttéren (#1a1012) validált színpár (CVD és normál látással is jól elkülönül)
+// Megjelent / nem jelent meg: sötét háttéren (#191314) validált színpár (CVD és normál látással is jól elkülönül)
 const COLOR_ATTENDED = '#B8822F';
 const COLOR_NO_SHOW = '#C2546B';
 
@@ -24,11 +24,11 @@ const PERIODS = [
   { value: 12, label: '12 hónap' },
 ];
 
-const panel = 'bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]';
-const panelTitle = { color: '#E5B15D', margin: '0 0 12px 0', fontFamily: 'Georgia, serif' };
+const panel = 'bg-[#191314] p-4 rounded-xl border border-[#2a2022]';
+const panelTitle = { color: '#f3ece3', margin: '0 0 12px 0', fontWeight: 800 };
 
 const StatTile = ({ label, value, hint }) => (
-  <div className="bg-[#2B1A1C] rounded-lg border border-[#4A2E33] px-4 py-3">
+  <div className="bg-[#2a2022] rounded-lg border border-[#2a2022] px-4 py-3">
     <div style={{ color: '#E0D6C8', fontSize: 26, fontWeight: 'bold', lineHeight: 1.2 }}>{value}</div>
     <div style={{ color: '#baaaac', fontSize: 13 }}>{label}</div>
     {hint && <div style={{ color: '#7d6e70', fontSize: 12, marginTop: 2 }}>{hint}</div>}
@@ -59,7 +59,7 @@ const MonthlyChart = ({ months }) => {
             : 'Vidd az egeret egy oszlop fölé a részletekért.'}
         </div>
       </div>
-      <div className="flex items-end gap-1 sm:gap-2" style={{ height: CHART_H + 40, borderBottom: '1px solid #4A2E33' }} onMouseLeave={() => setHover(null)}>
+      <div className="flex items-end gap-1 sm:gap-2" style={{ height: CHART_H + 40, borderBottom: '1px solid #2a2022' }} onMouseLeave={() => setHover(null)}>
         {months.map((m, i) => {
           const total = m.attended + m.noShow;
           const hA = (m.attended / max) * CHART_H;
@@ -94,7 +94,7 @@ const MonthlyChart = ({ months }) => {
 // Kis vízszintes sáv egy arányhoz (a táblázatokban)
 const RateBar = ({ value, color }) => (
   <div className="flex items-center gap-2">
-    <div style={{ flex: 1, minWidth: 60, height: 8, background: '#2B1A1C', borderRadius: 4, overflow: 'hidden' }}>
+    <div style={{ flex: 1, minWidth: 60, height: 8, background: '#2a2022', borderRadius: 4, overflow: 'hidden' }}>
       <div style={{ width: `${value}%`, height: '100%', background: color, borderRadius: 4 }} />
     </div>
     <span style={{ color: '#E0D6C8', fontSize: 13, minWidth: 36, textAlign: 'right' }}>{value}%</span>
@@ -167,7 +167,7 @@ export default function StatsDashboard() {
   const gameDot = (g) => <span style={{ width: 10, height: 10, borderRadius: '50%', background: getGameColor({ category: g }), display: 'inline-block', marginRight: 8 }} />;
 
   return (
-    <ConfigProvider theme={tavernTheme}>
+    <ConfigProvider theme={adminTheme}>
       <div className="flex flex-col gap-4">
         {/* Szűrők egy sorban a diagramok fölött */}
         <div className={`${panel} flex flex-wrap items-center gap-3`}>

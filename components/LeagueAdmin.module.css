@@ -1,0 +1,56 @@
+/* Ligák admin (components/LeagueAdmin.jsx): telefonon kártyás listák nagy koppintási felülettel, gépen táblázatok. */
+
+.onPhone { display: block; }
+/* Gépen sok játéknál a játékválasztó több sorba tördel (ne lógjon ki a panelből) */
+.gameSeg { max-width: 100%; }
+.gameSeg :global(.ant-segmented-group) { flex-wrap: wrap; }
+.onDesk { display: none; }
+
+/* Fejléc gombjai: telefonon a fő gomb teljes szélességben, a többi két oszlopban */
+.headerActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.headerActions > :first-child { grid-column: 1 / -1; }
+.headerActions :global(.ant-btn) { height: 44px; }
+
+/* Kártyák */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 10px; background: #221a1c; }
+.cardTop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.cardTitle { min-width: 0; color: #f3ece3; font-weight: 800; font-size: 16px; overflow-wrap: anywhere; }
+.cardValue { flex: none; color: #f3ece3; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cardSub { color: #b8aca7; font-size: 13px; overflow-wrap: anywhere; }
+.cardBtns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; margin-top: 6px; }
+.cardBtn { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border: 0; border-radius: 8px; background: #2a2022; color: #f3ece3; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.cardBtnDanger { color: #ef7b74; }
+.empty { margin: 0; padding: 16px; border-radius: 10px; background: #221a1c; color: #b8aca7; }
+
+/* Állás telefonon */
+.rankRow { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #221a1c; }
+.rank { color: #9a8d89; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.rankName { color: #f3ece3; font-weight: 700; overflow-wrap: anywhere; }
+.rankName small { display: block; color: #9a8d89; font-weight: 400; font-size: 12px; }
+.rankPoints { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rankPoints small { display: block; font-weight: 600; font-size: 12px; }
+
+/* Alkalom szerkesztő telefonon: soronként a játékos és a pontja */
+.editorList { display: flex; flex-direction: column; }
+.editorRow { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #241b1d; }
+.editorName { flex: 1; min-width: 0; }
+.editorName b { color: #f3ece3; overflow-wrap: anywhere; }
+.editorName small { display: block; color: #9a8d89; font-size: 12px; overflow-wrap: anywhere; }
+.sign { width: 40px; height: 44px; border: 0; border-radius: 8px; background: #2a2022; color: #f3ece3; font: inherit; font-size: 18px; font-weight: 800; cursor: pointer; }
+.sign:disabled { opacity: 0.35; }
+.editorFoot { display: flex; align-items: center; gap: 10px; }
+.editorFoot > span { flex: 1; color: #b8aca7; font-size: 14px; }
+
+/* Teljes képernyős ablak telefonon */
+.fullModal :global(.ant-modal) { max-width: 100vw; margin: 0; padding: 0; top: 0; }
+.fullModal :global(.ant-modal-container), .fullModal :global(.ant-modal-content) { min-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 12px); }
+.fullModal :global(.ant-modal-body) { flex: 1; }
+.fullModal :global(.ant-modal-footer) { position: sticky; bottom: 0; background: #1d1517; padding-top: 10px; margin-top: 0; }
+
+@media (min-width: 768px) {
+  .onPhone { display: none; }
+  .onDesk { display: block; }
+  .headerActions { display: flex; flex-wrap: wrap; width: auto; }
+  .headerActions :global(.ant-btn) { height: 32px; }
+}
