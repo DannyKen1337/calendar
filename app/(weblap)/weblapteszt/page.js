@@ -88,7 +88,7 @@ export default async function Home() {
             <h2 id="program-title" className={s.h2} data-heading>{program.soft && <span className={s.soft}>{program.soft}</span>} {program.title}</h2>
             {program.button && <a className={s.btn} href={program.buttonHref || calendarHref}>{program.button}</a>}
           </div>
-          <DayProgram week={week} stores={stores} s={s} gameImages={program.games} />
+          <DayProgram week={week} stores={stores} s={s} />
         </section>
 
         {/* A boltok: mindegyik a saját fotóján, rajta a névjegye */}

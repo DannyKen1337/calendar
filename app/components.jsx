@@ -36,7 +36,7 @@ export const tavernTheme = {
   }
 };
 
-const defaultLogoUrl = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
+const defaultLogoUrl = '/jatekok/egyeb.png';
 
 export const STORES = {
   debrecen: { id: 'debrecen', name: 'Tavern Debrecen', color: '#E5B15D', icon: '🏰' },

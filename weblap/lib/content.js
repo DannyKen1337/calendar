@@ -70,18 +70,6 @@ export const DEFAULT_CONTENT = {
     title: 'három bolt műsora',
     button: 'Jelentkezés a naptárban',
     buttonHref: CALENDAR_URL,
-    games: {
-      'Pokémon TCG': '/rajz/jatekok/pokemon.jpg',
-      'One Piece Card Game': '/rajz/jatekok/one-piece.jpg',
-      'Riftbound': '/rajz/jatekok/riftbound.jpg',
-      'Magic: The Gathering': '/rajz/jatekok/magic.jpg',
-      'Warhammer': '/rajz/jatekok/warhammer.jpg',
-      'CyberPunk TCG': '/rajz/jatekok/cyberpunk.jpg',
-      'Yu-Gi-Oh!': '/rajz/jatekok/yugioh.jpg',
-      'Disney Lorcana': '/rajz/jatekok/lorcana.jpg',
-      'Flesh and Blood': '/rajz/jatekok/flesh-and-blood.jpg',
-      'Egyéb': '/rajz/jatekok/egyeb.jpg',
-    },
   },
   stores: {
     debrecen: {

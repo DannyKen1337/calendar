@@ -4,7 +4,6 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { numericDay, timeOf, DAY_NAMES, ON_DAY, eventUrl, gameShort, gameImage, spotsText } from '@/weblap/lib/calendar';
 import { nextOpening } from '@/weblap/lib/stores';
-import { withBase } from '@/weblap/lib/basePath';
 
 gsap.registerPlugin(useGSAP);
 
@@ -12,11 +11,11 @@ gsap.registerPlugin(useGSAP);
 // boltonként (széles képernyőn három oszlopban): elöl a bolt neve és nyitvatartása, alatta az eseményei sávokban.
 // Ha egy bolt aznap zárva van, azt írjuk ki (és hogy mikor nyit legközelebb).
 // JavaScript nélkül minden nap látszik egymás alatt (a fülek csak szűrnek).
-// week: weekByStore() eredménye; stores: [{ id, name, hours }]; s: a főoldal CSS-modulja; gameImages: a játékok képei (Program fül).
+// week: weekByStore() eredménye; stores: [{ id, name, hours }]; s: a főoldal CSS-modulja.
 const noop = () => () => {};
 const SHORT = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
 
-export default function DayProgram({ week, stores, s, gameImages }) {
+export default function DayProgram({ week, stores, s }) {
   const root = useRef(null);
   const firstBusy = Math.max(0, week.findIndex(d => stores.some(st => d.events[st.id].length)));
   const [sel, setSel] = useState(firstBusy);
@@ -84,7 +83,7 @@ export default function DayProgram({ week, stores, s, gameImages }) {
                               <span className={s.bandNote}>{gameShort(e.category)} · {spotsText(e)}</span>
                             </span>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img className={s.bandGame} src={withBase(gameImage(e.category, gameImages))} alt="" width="36" height="36" loading="lazy" />
+                            <img className={s.bandGame} src={gameImage(e)} alt="" width="64" height="40" loading="lazy" />
                           </li>
                         ))}
                       </ul>

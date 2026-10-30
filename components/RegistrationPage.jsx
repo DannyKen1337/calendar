@@ -5,7 +5,7 @@ import { getGameConfig } from '@/lib/gameConfig';
 import EmbedBridge from '@/components/EmbedBridge';
 
 const STORE_NAMES = { debrecen: 'Tavern Debrecen', miskolc: 'Tavern Miskolc', jatekceh: 'JátékCéh' };
-const DEFAULT_LOGO = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
+const DEFAULT_LOGO = '/jatekok/egyeb.png';
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);

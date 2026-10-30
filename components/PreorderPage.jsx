@@ -5,7 +5,7 @@ import { getGameConfig, getGameColor } from '@/lib/gameConfig';
 import { groupByGame, maxSelectable, formatPrice } from '@/lib/preorders';
 
 const ACCENT = '#E5B15D';
-const DEFAULT_LOGO = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
+const DEFAULT_LOGO = '/jatekok/egyeb.png';
 const inputClass = 'w-full rounded-xl border-2 bg-black/40 px-4 py-3 text-white placeholder:text-[#8d8478] outline-none transition-colors focus:border-[#E5B15D]';
 
 const Shell = ({ children }) => (

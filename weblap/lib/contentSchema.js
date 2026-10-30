@@ -9,7 +9,6 @@ const text = (label, o = {}) => ({ type: 'text', label, max: 200, ...o });
 const area = (label, o = {}) => ({ type: 'textarea', label, max: 2000, rows: 4, ...o });
 const url = (label, o = {}) => ({ type: 'url', label, ...o });
 const image = (label, o = {}) => ({ type: 'image', label, ...o });
-const src = (label, o = {}) => ({ type: 'src', label, ...o });
 const hours = (label, o = {}) => ({ type: 'hours', label, ...o });
 const strings = (label, o = {}) => ({ type: 'strings', label, max: 6, itemMax: 40, ...o });
 const object = (label, fields, o = {}) => ({ type: 'object', label, fields, ...o });
@@ -18,9 +17,6 @@ const list = (label, item, o = {}) => ({ type: 'list', label, item, max: 12, ...
 // A boltok azonosítója a naptárban (az események "store" mezője); a weboldalon ebben a sorrendben jelennek meg
 export const STORE_IDS = ['debrecen', 'jatekceh', 'miskolc'];
 const STORE_LABELS = { debrecen: 'Tavern Debrecen', jatekceh: 'JátékCéh', miskolc: 'Tavern Miskolc' };
-
-// A naptár játékai (a program sávjainak képeihez); az "Egyéb" a többi játéké
-export const GAME_KEYS = ['Pokémon TCG', 'One Piece Card Game', 'Riftbound', 'Magic: The Gathering', 'Warhammer', 'CyberPunk TCG', 'Yu-Gi-Oh!', 'Disney Lorcana', 'Flesh and Blood', 'Egyéb'];
 
 const storeFields = (id) => object(STORE_LABELS[id], {
   name: text('Név', { max: 60 }),
@@ -88,13 +84,12 @@ export const CONTENT_TABS = [
   },
   {
     key: 'program', label: 'Program',
-    intro: 'A heti program címe és gombja, és a játékok képei a program sávjaiban. Az eseményeket a naptárból veszi.',
+    intro: 'A heti program címe és gombja. Az eseményeket és a játékok képeit a naptárból veszi.',
     schema: object(null, {
       soft: text('A cím halvány eleje', { max: 40 }),
       title: text('A cím folytatása', { max: 60 }),
       button: text('Gomb felirata', { max: 40 }),
       buttonHref: url('Gomb linkje'),
-      games: object('A játékok képei', Object.fromEntries(GAME_KEYS.map(g => [g, src(g)])), { compact: true }),
     }),
   },
   {

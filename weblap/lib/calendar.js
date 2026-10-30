@@ -2,24 +2,27 @@
 // A lekérést a szerver 5 percig gyorsítótárazza, így a naptárba felvett új esemény néhány percen belül itt is megjelenik.
 // Minden időpont magyar helyi idő ("2026-10-28T16:00", időzóna nélkül), a "most" Europe/Budapest szerint értendő.
 
+import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
+
 export const CALENDAR_URL = process.env.CALENDAR_URL || 'https://taverncalendar.vercel.app';
 
 // A naptár játékai rövid névvel és színnel (a naptár saját színei)
 export const GAMES = {
-  'Pokémon TCG': { short: 'Pokémon', color: '#eab308', img: 'pokemon' },
-  'One Piece Card Game': { short: 'One Piece', color: '#8b5cf6', img: 'one-piece' },
-  'Riftbound': { short: 'Riftbound', color: '#1d4ed8', img: 'riftbound' },
-  'Magic: The Gathering': { short: 'Magic', color: '#b91c1c', img: 'magic' },
-  'Warhammer': { short: 'Warhammer', color: '#166534', img: 'warhammer' },
-  'CyberPunk TCG': { short: 'CyberPunk', color: '#10b981', img: 'cyberpunk' },
-  'Yu-Gi-Oh!': { short: 'Yu-Gi-Oh!', color: '#14b8c4', img: 'yugioh' },
-  'Disney Lorcana': { short: 'Lorcana', color: '#f97316', img: 'lorcana' },
-  'Flesh and Blood': { short: 'Flesh and Blood', color: '#ec4899', img: 'flesh-and-blood' },
+  'Pokémon TCG': { short: 'Pokémon', color: '#eab308' },
+  'One Piece Card Game': { short: 'One Piece', color: '#8b5cf6' },
+  'Riftbound': { short: 'Riftbound', color: '#1d4ed8' },
+  'Magic: The Gathering': { short: 'Magic', color: '#b91c1c' },
+  'Warhammer': { short: 'Warhammer', color: '#166534' },
+  'CyberPunk TCG': { short: 'CyberPunk', color: '#10b981' },
+  'Yu-Gi-Oh!': { short: 'Yu-Gi-Oh!', color: '#14b8c4' },
+  'Disney Lorcana': { short: 'Lorcana', color: '#f97316' },
+  'Flesh and Blood': { short: 'Flesh and Blood', color: '#ec4899' },
 };
 export const gameShort = (c) => GAMES[c]?.short || c || 'Egyéb';
 export const gameColor = (c) => GAMES[c]?.color || '#8a7f80';
-// A játék képe a programhoz; images: a tartalom Program fülének képei játékonként (az "Egyéb" a többi játéké)
-export const gameImage = (c, images = {}) => images[c] || images['Egyéb'] || `/rajz/jatekok/${GAMES[c]?.img || 'egyeb'}.jpg`;
+// A játék képe a programhoz: ugyanaz, mint a naptárban (az esemény saját képe, különben a játék logója a
+// public/jatekok mappából), így a weboldal és a naptár mindig ugyanazt mutatja
+export const gameImage = (e) => e.imageUrl || getGameConfig(e.category).logo || DEFAULT_GAME_LOGO;
 
 export const DAY_NAMES = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
 export const ON_DAY = ['vasárnap', 'hétfőn', 'kedden', 'szerdán', 'csütörtökön', 'pénteken', 'szombaton'];
@@ -56,7 +59,8 @@ export function spotsText(e) {
 export const LEAGUES_URL = `${CALENDAR_URL}/liga`;
 export const PREORDER_URL = `${CALENDAR_URL}/elorendeles`;
 
-export const eventUrl = (e) => `${CALENDAR_URL}/esemeny/${encodeURIComponent(e._id || e.id)}`;
+// A weboldal a naptár alkalmazásán belül fut: az esemény oldala ugyanazon a címen van (szerveren és böngészőben is ugyanaz a link)
+export const eventUrl = (e) => `/esemeny/${encodeURIComponent(e._id || e.id)}`;
 
 // A boltok közelgő (mai és későbbi) eseményei időrendben; stores: mely boltoké (alapból csak Debrecen, a korábbi egyboltos oldalhoz).
 // Hiba esetén üres lista (az oldal akkor is megjelenik).

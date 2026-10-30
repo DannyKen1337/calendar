@@ -1,6 +1,6 @@
 import { getGameConfig, getGameColor } from '@/lib/gameConfig';
 
-const DEFAULT_LOGO = 'https://cdn-icons-png.flaticon.com/512/6729/6729800.png';
+const DEFAULT_LOGO = '/jatekok/egyeb.png';
 const MEDALS = { 1: '#E5B15D', 2: '#C0C0C8', 3: '#C8875A' };
 
 export const formatPublishedAt = (iso) => (iso
