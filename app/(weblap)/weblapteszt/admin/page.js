@@ -5,13 +5,21 @@ import { hasDatabase, getTavernDb } from '@/weblap/lib/db';
 import { getAllForEditor, postHeading, postDate, SOURCE_NAMES } from '@/weblap/lib/posts';
 import { socialConfigured } from '@/weblap/lib/social';
 import { withBase } from '@/weblap/lib/basePath';
+import { getContentForEditor } from '@/weblap/lib/content';
+import { CONTENT_TABS, tabByKey } from '@/weblap/lib/contentSchema';
 import { ObjectId } from 'mongodb';
 import PostForm from './PostForm';
+import ContentEditor from './ContentEditor';
 import ConfirmButton from './ConfirmButton';
-import { logoutAction, deletePostAction, toggleAction } from './actions';
+import { logoutAction, deletePostAction, toggleAction, resetContentAction } from './actions';
 import s from './admin.module.css';
 
 export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { index: false, follow: false } };
+
+// A fülek: a Hírek (a hírek kirakása, a behúzott posztok), és az oldal tartalma részenként.
+// preview: hova visz a „Megnézem az oldalon” link
+const TABS = [{ key: 'hirek', label: 'Hírek' }, ...CONTENT_TABS];
+const PREVIEW = { general: '/', hero: '/', menu: '/#kinalat', program: '/#program', stores: '/#boltok', news: '/#hirek', contact: '/#kapcsolat' };
 export const dynamic = 'force-dynamic';
 
 // "2026-10-29T18:00" magyar helyi idő a dátummezőhöz
@@ -62,7 +70,53 @@ export default async function Admin({ searchParams }) {
     );
   }
 
-  const { szerkeszt, mentve } = await searchParams;
+  const { szerkeszt, mentve, lap, visszaallitva } = await searchParams;
+  const tab = tabByKey(lap);
+
+  const header = (
+    <>
+      <header className={s.bar}>
+        <b className={s.brand}>Weblap szerkesztése</b>
+        <span className={s.muted}>Belépve: {editor.username}</span>
+        <a href={withBase('/')} target="_blank" rel="noopener">Az oldal ↗</a>
+        <a href="/admin">Naptár</a>
+        <form action={logoutAction}><button className={s.small}>Kilépés</button></form>
+      </header>
+      <nav className={s.tabs} aria-label="A szerkesztőfelület részei">
+        {TABS.map(t => {
+          const on = (tab?.key || 'hirek') === t.key;
+          return <a key={t.key} className={`${s.tab} ${on ? s.tabOn : ''}`} aria-current={on ? 'page' : undefined} href={withBase(t.key === 'hirek' ? '/admin' : `/admin?lap=${t.key}`)}>{t.label}</a>;
+        })}
+      </nav>
+    </>
+  );
+
+  // Az oldal tartalmának egy füle
+  if (tab) {
+    const { content, updated } = await getContentForEditor();
+    return (
+      <Shell>
+        {header}
+        <main className={s.single}>
+          <section className={s.panel} aria-labelledby="tab-title">
+            <div className={s.tabHead}>
+              <h2 id="tab-title" className={s.h2}>{tab.label}</h2>
+              <a href={withBase(PREVIEW[tab.key])} target="_blank" rel="noopener">Megnézem az oldalon ↗</a>
+            </div>
+            <p className={s.muted}>{tab.intro}</p>
+            {visszaallitva && <p className={s.ok} role="status">Visszaállítva az eredeti tartalomra.</p>}
+            {/* Visszaállítás után újraindul az űrlap; sima mentésnél nem (a mentés eredményét maga mutatja) */}
+            <ContentEditor key={`${tab.key}-${updated[tab.key]?.reset ? new Date(updated[tab.key].at).getTime() : ''}`} s={s} tabKey={tab.key} initial={content[tab.key]} updated={updated[tab.key] ? { ...updated[tab.key], at: new Date(updated[tab.key].at).toISOString() } : null} />
+          </section>
+          <form action={resetContentAction} className={s.resetForm}>
+            <input type="hidden" name="tab" value={tab.key} />
+            <ConfirmButton className={`${s.small} ${s.danger}`} message={`Biztosan visszaállítod a(z) „${tab.label}” rész eredeti tartalmát? A mostani módosítások elvesznek.`}>Visszaállítás az eredetire</ConfirmButton>
+          </form>
+        </main>
+      </Shell>
+    );
+  }
+
   const posts = await getAllForEditor();
   const social = socialConfigured();
   let editing = null;
@@ -74,13 +128,7 @@ export default async function Admin({ searchParams }) {
 
   return (
     <Shell>
-      <header className={s.bar}>
-        <b className={s.brand}>Weblap szerkesztése</b>
-        <span className={s.muted}>Belépve: {editor.username}</span>
-        <a href={withBase('/')} target="_blank" rel="noopener">Az oldal ↗</a>
-        <a href="/admin">Naptár</a>
-        <form action={logoutAction}><button className={s.small}>Kilépés</button></form>
-      </header>
+      {header}
 
       <main className={s.main}>
         <section className={s.panel} aria-labelledby="form-title" id="urlap">

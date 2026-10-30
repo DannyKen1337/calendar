@@ -1,45 +1,7 @@
-// A három bolt adatai a közös oldalhoz. A naptárban a boltok azonosítója: debrecen (Tavern Debrecen), jatekceh (JátékCéh), miskolc (Tavern Miskolc).
-// A nevek és címek a tulajdonos megadása szerint (a Tavern Debrecen házszáma nincs megadva).
+// A boltok nyitvatartásával és heti programjával kapcsolatos számítások. A boltok adatai (név, cím, nyitvatartás,
+// fotó) a szerkeszthető tartalomban vannak (weblap/lib/content.js, Boltok fül); a naptárban a boltok azonosítója:
+// debrecen (Tavern Debrecen), jatekceh (JátékCéh), miskolc (Tavern Miskolc).
 import { budapestNow, addDays, weekdayOf, dayOf, ON_DAY, DAY_NAMES } from '@/weblap/lib/calendar';
-
-export const STORES = [
-  {
-    id: 'debrecen',
-    name: 'Tavern Debrecen',
-    city: 'Debrecen',
-    address: 'Debrecen, Gambrinus köz',
-    where: 'A Gambrinus közben, a Kossuth utcától pár lépésre',
-    about: 'A klub: versenyek, ligaestek, terepasztalos csaták és esti társasozás.',
-    hours: { 0: ['11:00', '20:00'], 1: null, 2: null, 3: ['15:00', '21:00'], 4: ['15:00', '21:00'], 5: ['15:00', '21:00'], 6: ['10:00', '21:00'] },
-    maps: 'https://maps.app.goo.gl/uKFkdGwHk3vYQCmZ8',
-    photo: { src: '/photos/bolt-asztalok.png', alt: 'Teli asztalok egy esti versenyen a Tavern Debrecenben, a háttérben a bolt polcai', position: '50% 40%' },
-  },
-  {
-    id: 'jatekceh',
-    name: 'JátékCéh',
-    city: 'Debrecen',
-    address: 'Debrecen, Batthyány u. 1, 4024',
-    where: 'A Batthyány utca elején, a Kossuth utca sarkán',
-    about: 'Bolt a belvárosban: kártyák, társasok és kiegészítők, hétvégén játékkal.',
-    hours: { 0: null, 1: ['12:00', '18:00'], 2: ['12:00', '18:00'], 3: null, 4: null, 5: ['14:00', '20:00'], 6: ['10:00', '21:00'] },
-    maps: 'https://www.google.com/maps/search/?api=1&query=Debrecen%2C+Batthy%C3%A1ny+u.+1%2C+4024',
-    // A Kossuth utca archív fotója (Fortepan, CC BY-SA 3.0, a forrás a láblécben): a bolt ennek a sarkán van
-    photo: { src: '/images/kossuth-utca-fortepan.png', alt: 'A debreceni Kossuth utca egy régi fekete-fehér fotón, a Piac utca felé nézve', position: '70% 75%', archive: true },
-  },
-  {
-    id: 'miskolc',
-    name: 'Tavern Miskolc',
-    city: 'Miskolc',
-    address: 'Miskolc, Nagy Imre u. 17 - Földszint 4, 3525',
-    where: 'A Nagy Imre utcában, a földszinten',
-    about: 'A miskolci Tavern: versenyek és klubnapok minden héten.',
-    hours: { 0: ['11:00', '20:00'], 1: null, 2: null, 3: ['15:00', '21:00'], 4: ['15:00', '21:00'], 5: ['15:00', '21:00'], 6: ['10:00', '21:00'] },
-    maps: 'https://www.google.com/maps/search/?api=1&query=Miskolc%2C+Nagy+Imre+u.+17%2C+3525',
-    // Ideiglenes, rajzolt kép, amíg nincs fotó a boltról
-    photo: { src: '/rajz/miskolc-bolt.jpg', alt: 'Rajz: esti utcafront kivilágított kirakattal és a Tavern cégérével a bejárat fölött', position: '40% 60%' },
-  },
-];
-export const storeById = (id) => STORES.find(s => s.id === id) || STORES[0];
 
 // Nyitva van-e most az adott bolt. Visszaad: { open, text } (null, ha nincs megadva nyitvatartás)
 export function storeStatus(store, now = budapestNow()) {
@@ -56,11 +18,11 @@ export function storeStatus(store, now = budapestNow()) {
 }
 
 // A következő hét nap boltonként: [{ day, wd, events: { debrecen: [...], jatekceh: [...], miskolc: [...] } }]
-export function weekByStore(events, now = budapestNow()) {
+export function weekByStore(events, storeIds, now = budapestNow()) {
   return Array.from({ length: 7 }, (_, i) => {
     const day = addDays(now.day, i);
     const list = events.filter(e => dayOf(e.date) === day);
-    return { day, wd: weekdayOf(day), offset: i, events: Object.fromEntries(STORES.map(s => [s.id, list.filter(e => (e.store || 'debrecen') === s.id)])) };
+    return { day, wd: weekdayOf(day), offset: i, events: Object.fromEntries(storeIds.map(id => [id, list.filter(e => (e.store || 'debrecen') === id)])) };
   });
 }
 

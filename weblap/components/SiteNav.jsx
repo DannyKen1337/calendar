@@ -6,8 +6,9 @@ import { withBase } from '@/weblap/lib/basePath';
 // A fejléc: balra a cégér, jobbra fent egy gyorsgomb az oldal minden részéhez és a Naptár.
 // A főoldalon kiemeli, melyik résznél jársz; az aloldalakon a főoldal részeire visz.
 // Keskeny képernyőn a gyorsgombok egy "Menü" gomb mögé kerülnek (Escape vagy egy választás bezárja).
-// s: a főoldal CSS-modulja; home: a főoldalon vagyunk-e; links: [{ id, label }]; extra: külső linkek [{ href, label }]
-export default function SiteNav({ s, home = true, links, extra = [], cta }) {
+// s: a főoldal CSS-modulja; home: a főoldalon vagyunk-e; links: [{ id, label }]; extra: külső linkek [{ href, label }];
+// cta: a kiemelt gomb { label, href }; logo: a cégér { src, alt } (a navProps() adja a tartalomból)
+export default function SiteNav({ s, home = true, links, extra = [], cta, logo }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(null);
   const bar = useRef(null);
@@ -35,8 +36,8 @@ export default function SiteNav({ s, home = true, links, extra = [], cta }) {
   const base = home ? '' : withBase('/');
   return (
     <header ref={bar} className={`${s.nav} ${open ? s.navOpen : ''}`}>
-      <a href={home ? '#' : withBase('/')} className={s.navBrand} aria-label={home ? 'Tavern – vissza az oldal tetejére' : 'Tavern – főoldal'}>
-        <Image src="/brand/tavern-sign.png" alt="" width={1100} height={296} priority />
+      <a href={home ? '#' : withBase('/')} className={s.navBrand} aria-label={home ? `${logo.alt || 'Tavern'} – vissza az oldal tetejére` : `${logo.alt || 'Tavern'} – főoldal`}>
+        <Image src={logo.src} alt="" width={1100} height={296} priority />
       </a>
       <button type="button" className={s.navMenu} aria-expanded={open} aria-controls="gyorsgombok" onClick={() => setOpen(o => !o)}>
         Menü

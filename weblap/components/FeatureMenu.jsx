@@ -5,7 +5,7 @@ import Image from '@/weblap/components/Image';
 // "Amiért betérhetsz": a kínálat egy kocsmai étlapként. Egy papírlap hullámos széllel, rajta csoportonként a tételek:
 // balra a név és egy rövid leírás, jobbra egy rövid érték, köztük pontsor. Mellette egy nagy fotó, amely mindig
 // azt a tételt mutatja, amelyik fölött az egér van (vagy amelyiken a billentyűzet fókusza áll). Telefonon csak a lap látszik.
-// groups: [{ name, items: [{ id, name, text, value, href, external, picture: { src, alt, position } }] }]; s: a főoldal CSS-modulja
+// groups: [{ id, name, items: [{ id, name, text, value, href, picture: { src, alt, position } }] }]; s: a főoldal CSS-modulja
 
 // A lap hullámos széle (fent és lent)
 function Edge({ s, id, bottom }) {
@@ -19,7 +19,7 @@ function Edge({ s, id, bottom }) {
 
 export default function FeatureMenu({ s, title, groups }) {
   const items = groups.flatMap(g => g.items);
-  const [active, setActive] = useState(items[0].id);
+  const [active, setActive] = useState(items[0]?.id);
 
   return (
     <div className={s.menuWrap} data-menu>
@@ -27,13 +27,13 @@ export default function FeatureMenu({ s, title, groups }) {
         <Edge s={s} id="etlap-fent" />
         <h2 id="lapok-cim" className={s.menuTitle}>{title}</h2>
         {groups.map(g => (
-          <section key={g.name} className={s.menuGroup} aria-label={g.name}>
+          <section key={g.id} className={s.menuGroup} aria-label={g.name}>
             <h3 className={s.menuGroupName} data-menu-row>{g.name}</h3>
             <ul>
               {g.items.map(it => (
                 <li key={it.id} className={`${s.menuItem} ${active === it.id ? s.menuItemOn : ''}`} data-menu-row
                   onMouseEnter={() => setActive(it.id)} onFocus={() => setActive(it.id)}>
-                  <a className={s.menuLine} href={it.href} {...(it.external ? { rel: 'noopener' } : {})}>
+                  <a className={s.menuLine} href={it.href || undefined} {...(/^https?:/.test(it.href) ? { rel: 'noopener' } : {})}>
                     <span className={s.menuName}>{it.name}</span>
                     <span className={s.menuDots} aria-hidden="true" />
                     <span className={s.menuValue}>{it.value}</span>

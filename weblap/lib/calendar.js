@@ -18,11 +18,9 @@ export const GAMES = {
 };
 export const gameShort = (c) => GAMES[c]?.short || c || 'Egyéb';
 export const gameColor = (c) => GAMES[c]?.color || '#8a7f80';
-// A játék képe a programhoz (ideiglenes rajzok a public/rajz/jatekok mappában)
-export const gameImage = (c) => `/rajz/jatekok/${GAMES[c]?.img || 'egyeb'}.jpg`;
+// A játék képe a programhoz; images: a tartalom Program fülének képei játékonként (az "Egyéb" a többi játéké)
+export const gameImage = (c, images = {}) => images[c] || images['Egyéb'] || `/rajz/jatekok/${GAMES[c]?.img || 'egyeb'}.jpg`;
 
-// Nyitvatartás (0 = vasárnap ... 6 = szombat), a naptár beállításaival egyezően
-export const HOURS = { 0: ['11:00', '20:00'], 1: null, 2: null, 3: ['15:00', '21:00'], 4: ['15:00', '21:00'], 5: ['15:00', '21:00'], 6: ['10:00', '21:00'] };
 export const DAY_NAMES = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
 export const ON_DAY = ['vasárnap', 'hétfőn', 'kedden', 'szerdán', 'csütörtökön', 'pénteken', 'szombaton'];
 const MONTHS = ['jan.', 'febr.', 'márc.', 'ápr.', 'máj.', 'jún.', 'júl.', 'aug.', 'szept.', 'okt.', 'nov.', 'dec.'];
@@ -47,18 +45,6 @@ export const numericDay = (day) => { const [, m, d] = day.split('-'); return `${
 export const formatDay = (day) => { const [, m, d] = day.split('-').map(Number); return `${MONTHS[m - 1]} ${d}.`; };
 export const timeOf = (date) => String(date).slice(11, 16);
 export const dayOf = (date) => String(date).slice(0, 10);
-
-// Nyitva van-e most, és mikor nyit / zár. Visszaad: { open, text }
-export function openStatus(now = budapestNow()) {
-  const today = HOURS[now.weekday];
-  if (today && now.time >= today[0] && now.time < today[1]) return { open: true, text: `Most nyitva, ${today[1]}-ig` };
-  if (today && now.time < today[0]) return { open: false, text: `Ma ${today[0]}-kor nyitunk` };
-  for (let i = 1; i <= 7; i++) {
-    const wd = (now.weekday + i) % 7;
-    if (HOURS[wd]) return { open: false, text: `Zárva, ${i === 1 ? 'holnap' : ON_DAY[wd]} ${HOURS[wd][0]}-kor nyitunk` };
-  }
-  return { open: false, text: 'Zárva' };
-}
 
 // Szabad helyek szövege
 export function spotsText(e) {

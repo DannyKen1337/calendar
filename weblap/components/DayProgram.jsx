@@ -12,11 +12,11 @@ gsap.registerPlugin(useGSAP);
 // boltonként (széles képernyőn három oszlopban): elöl a bolt neve és nyitvatartása, alatta az eseményei sávokban.
 // Ha egy bolt aznap zárva van, azt írjuk ki (és hogy mikor nyit legközelebb).
 // JavaScript nélkül minden nap látszik egymás alatt (a fülek csak szűrnek).
-// week: weekByStore() eredménye; stores: [{ id, name, hours }]; s: a főoldal CSS-modulja.
+// week: weekByStore() eredménye; stores: [{ id, name, hours }]; s: a főoldal CSS-modulja; gameImages: a játékok képei (Program fül).
 const noop = () => () => {};
 const SHORT = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
 
-export default function DayProgram({ week, stores, s }) {
+export default function DayProgram({ week, stores, s, gameImages }) {
   const root = useRef(null);
   const firstBusy = Math.max(0, week.findIndex(d => stores.some(st => d.events[st.id].length)));
   const [sel, setSel] = useState(firstBusy);
@@ -84,7 +84,7 @@ export default function DayProgram({ week, stores, s }) {
                               <span className={s.bandNote}>{gameShort(e.category)} · {spotsText(e)}</span>
                             </span>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img className={s.bandGame} src={withBase(gameImage(e.category))} alt="" width="36" height="36" loading="lazy" />
+                            <img className={s.bandGame} src={withBase(gameImage(e.category, gameImages))} alt="" width="36" height="36" loading="lazy" />
                           </li>
                         ))}
                       </ul>

@@ -17,6 +17,15 @@ Minden belső hivatkozás a `withBase()` függvényen megy át (`weblap/lib/base
 
 Mentés után a teljes weboldal a `revalidatePath('/(weblap)/weblapteszt', 'layout')` hívással frissül. A route group is része a cache-címkének, ezért nem elég a `'/weblapteszt'`.
 
+## Szerkeszthető tartalom
+
+A weboldal minden szövege, képe, linkje, a boltok adatai (név, cím, nyitvatartás, fotó) és a Kínálat menü tételei szerkeszthetők. Ezek a szerkesztőfelület fülein vannak: Általános, Nyitókép, Kínálat, Program, Boltok, Hírek rész, Lábléc.
+
+- **Felépítés:** a mezőket a `weblap/lib/contentSchema.js` írja le. Ebből rajzolódik ki az űrlap, és a szerver is ez alapján ellenőrzi a mentett adatot.
+- **Alapértékek:** az eredeti tartalom a `weblap/lib/content.js`-ben van. Az adatbázisban csak a módosított fülek vannak (`website_content` gyűjtemény, `site` dokumentum).
+- **Új mező:** a sémába és az alapértékek közé kell felvenni, és az oldalon is meg kell jeleníteni.
+- **Visszaállítás:** minden fül alján van egy „Visszaállítás az eredetire” gomb.
+
 ## Belépés és jog
 
 - **Belépés:** a szerkesztőfelület (`/weblapteszt/admin`) a naptár belépését használja, ugyanazt a `tavern_session` sütit. Külön belépés nincs, és a Kilépés a naptárból is kiléptet.

@@ -7,6 +7,8 @@ import { ObjectId } from 'mongodb';
 import { getTavernDb } from '@/weblap/lib/db';
 import { getEditor, logout } from '@/weblap/lib/auth';
 import { withBase } from '@/weblap/lib/basePath';
+import { saveTab, resetTab } from '@/weblap/lib/content';
+import { tabByKey } from '@/weblap/lib/contentSchema';
 
 // A weboldal minden oldala (a route group is a cache-címke része)
 const refreshSite = () => revalidatePath('/(weblap)/weblapteszt', 'layout');
@@ -151,4 +153,48 @@ export async function toggleAction(formData) {
   }
   refreshSite();
   redirect(withBase('/admin'));
+}
+
+// --- Az oldal tartalma (fülenként: Általános, Nyitókép, Kínálat, Program, Boltok, Hírek rész, Lábléc) ---
+
+// Egy fül mentése. A payload a fül teljes tartalma JSON-ban; a szerver a séma szerint ellenőrzi.
+// Visszaad: { ok, data, at } (az elmentett, ellenőrzött tartalom) vagy { error }
+export async function saveContentAction(_prev, formData) {
+  const editor = await requireEditor();
+  const key = String(formData.get('tab') || '');
+  const tab = tabByKey(key);
+  if (!tab) return { error: 'Ismeretlen fül.' };
+  let value;
+  try {
+    value = JSON.parse(String(formData.get('payload') || ''));
+  } catch {
+    return { error: 'Hibás adat érkezett. Töltsd újra az oldalt.' };
+  }
+  const res = await saveTab(key, value, editor.username);
+  if (res.errors) return { error: res.errors.join('\n') };
+  const db = await getTavernDb();
+  await addLog(db, editor, `Oldal tartalma módosítva: ${tab.label}`);
+  refreshSite();
+  return { ok: true, data: res.data, at: Date.now() };
+}
+
+// Egy fül visszaállítása az eredeti tartalomra
+export async function resetContentAction(formData) {
+  const editor = await requireEditor();
+  const key = String(formData.get('tab') || '');
+  const tab = tabByKey(key);
+  if (!tab) return;
+  await resetTab(key, editor.username);
+  const db = await getTavernDb();
+  await addLog(db, editor, `Oldal tartalma visszaállítva az eredetire: ${tab.label}`);
+  refreshSite();
+  redirect(withBase(`/admin?lap=${key}&visszaallitva=1`));
+}
+
+// Kép feltöltése egy tartalommezőhöz (ImgBB). Visszaad: { url } vagy { error }
+export async function uploadImageAction(formData) {
+  await requireEditor();
+  const file = formData.get('file');
+  if (!file || typeof file !== 'object' || !file.size) return { error: 'Nincs kiválasztva kép.' };
+  return uploadImage(file);
 }
