@@ -7,7 +7,19 @@ const noFraming = [
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
 ];
 
+// A Tavern weboldal (külön Vercel-projekt, BASE_PATH=/weblapteszt-tel fordítva) a naptár címén, a /weblapteszt alatt
+// érhető el: ezt az alútvonalat a weboldal saját címére továbbítjuk (WEBSITE_ORIGIN, pl. https://tavern-web.vercel.app).
+// Így a böngészőben végig taverncalendar.vercel.app/weblapteszt/... látszik.
+const websiteOrigin = process.env.WEBSITE_ORIGIN?.replace(/\/+$/, "");
+
 const nextConfig: NextConfig = {
+  async rewrites() {
+    if (!websiteOrigin) return [];
+    return [
+      { source: "/weblapteszt", destination: `${websiteOrigin}/weblapteszt` },
+      { source: "/weblapteszt/:path+", destination: `${websiteOrigin}/weblapteszt/:path+` },
+    ];
+  },
   headers() {
     return [
       {

@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Radio } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined, TrophyOutlined, DashboardOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined, TrophyOutlined, DashboardOutlined, GlobalOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -832,6 +832,7 @@ export const AdminEvents = ({ app: v }) => {
               <Link href="/admin/checkin"><Button block icon={<MobileOutlined />} style={sideBtn}>Check-in</Button></Link>
               {v.hasFeature('preorders') && <Link href="/admin/elorendeles"><Button block icon={<ShoppingCartOutlined />} style={sideBtn}>Előrendelés</Button></Link>}
               {v.hasFeature('leagues') && <Link href="/admin/liga"><Button block icon={<TrophyOutlined />} style={sideBtn}>Ligák</Button></Link>}
+              {v.hasFeature('website') && <a href={`${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`} target="_blank" rel="noopener"><Button block icon={<GlobalOutlined />} style={sideBtn}>Weboldal</Button></a>}
               {v.userRole !== 'owner' && v.hasFeature('users') && <Link href="/admin/felhasznalok" className="col-span-2"><Button block icon={<TeamOutlined />} style={sideBtn}>Felhasználók és csoportok</Button></Link>}
             </div>
           </div>
