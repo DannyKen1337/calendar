@@ -15,12 +15,13 @@ import OccupancyManager from '@/components/OccupancyManager';
 import s from './OwnerAdmin.module.css';
 
 // A tulajdonos (Admin2) admin felülete: egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
-// Fülek: Ma (Ma / Holnap / Hét), Események (hónaponként), Telítettség (napi telítettség, kézi helyfoglalás, a modul
+// Fülek: Események (hónaponként, ez a kezdőoldal), Telítettség (napi telítettség, kézi helyfoglalás, a modul
 // kapcsolója és a boltok férőhelye), Továbbiak (eszközök és fiók). Telefonon kártyák nagy gombokkal, gépen táblázat
 // soronkénti műveletekkel; egy eseményre koppintva alulról felcsúszó lapon minden teendője.
 // Az ablakok (szerkesztés, jelentkezők, ...) a szervezői nézettel közösek (AdminModals).
 
-const TABS = [['ma', 'Ma'], ['esemenyek', 'Események'], ['telitettseg', 'Telítettség'], ['tovabbiak', 'Továbbiak']];
+// Kezdőoldal: Események (a „Ma” fül a tulajdonos kérésére kikerült)
+const TABS = [['esemenyek', 'Események'], ['telitettseg', 'Telítettség'], ['tovabbiak', 'Továbbiak']];
 const TAB_STORAGE = 'tavern-owner-tab';
 const MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
 const WEEKDAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];
@@ -49,11 +50,10 @@ function capacity(e) {
 
 export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   const [tab, setTab] = useState(() => {
-    if (typeof window === 'undefined') return 'ma';
+    if (typeof window === 'undefined') return 'esemenyek';
     const saved = window.sessionStorage.getItem(TAB_STORAGE);
-    return TABS.some(t => t[0] === saved) ? saved : 'ma';
+    return TABS.some(t => t[0] === saved) ? saved : 'esemenyek';
   });
-  const [range, setRange] = useState('ma');
   const [selected, setSelected] = useState(null); // a megnyitott esemény azonosítója (teendőlap)
   const [store, setStore] = useState('Mind');
   const [query, setQuery] = useState('');
@@ -83,8 +83,6 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const allBookings = (app.bookings || []).filter(b => store === 'Mind' || b.store === store);
 
-  const inRange = (key, r) => (r === 'ma' ? key === todayKey : r === 'holnap' ? key === shiftKey(todayKey, 1) : key >= todayKey && key <= shiftKey(todayKey, 6));
-  const rangeCount = (r) => allEvents.filter(e => inRange(eventDay(e), r)).length;
 
   // Egy időszak sorai: események és kézi foglalások napokra bontva
   const rowsFor = (pred) => {
@@ -278,35 +276,6 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     );
   };
 
-  // Ma: Ma / Holnap / Hét
-  const todayView = () => {
-    const queued = allEvents.filter(e => inRange(eventDay(e), range) && e.queue_count > 0 && capacity(e).full);
-    return (
-      <>
-        <div className={s.titleRow}>
-          <div>
-            <h1 className={s.title}>{range === 'ma' ? 'Ma' : range === 'holnap' ? 'Holnap' : 'A héten'}</h1>
-            <p className={s.sub}>{dayTitle(range === 'holnap' ? shiftKey(todayKey, 1) : todayKey, '').replace(/^./, c => c.toUpperCase())}</p>
-          </div>
-          <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
-        </div>
-        <div className={s.segment} role="group" aria-label="Időszak">
-          {[['ma', 'Ma'], ['holnap', 'Holnap'], ['het', 'Hét']].map(([k, label]) => (
-            <button key={k} type="button" aria-pressed={range === k} onClick={() => setRange(k)}>{label} <span className={s.num}>{rangeCount(k)}</span></button>
-          ))}
-        </div>
-        {occupancyCard()}
-        {queued.slice(0, 2).map(e => (
-          <button key={eid(e)} type="button" className={s.notice} onClick={() => openAttendees(e)}>
-            <span><b>{e.name}</b> ({timeOf(e)}) betelt, <span className={s.num}>{e.queue_count}</span> fő vár helyre.</span>
-            <span className={s.quiet}>Várólista ›</span>
-          </button>
-        ))}
-        {listOf(rowsFor(key => inRange(key, range)), range === 'ma' ? 'Mára nincs esemény.' : range === 'holnap' ? 'Holnapra nincs esemény.' : 'A következő 7 napban nincs esemény.')}
-      </>
-    );
-  };
-
   // Események: hónaponként (keresésnél minden hónap)
   const eventsView = () => {
     const searching = query.trim() !== '';
@@ -323,6 +292,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           </div>
           <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
         </div>
+        {occupancyCard()}
         <label className={s.search}>
           <SearchOutlined />
           <input type="search" value={query} onChange={(ev) => setQuery(ev.target.value)} placeholder="Név, játék, szervező…" enterKeyHint="search" aria-label="Keresés" />
@@ -418,7 +388,6 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
         </nav>
 
         <main className={s.main}>
-          {tab === 'ma' && todayView()}
           {tab === 'esemenyek' && eventsView()}
           {tab === 'telitettseg' && (<><h1 className={s.title}>Napi telítettség</h1><OccupancyManager app={app} /></>)}
           {tab === 'tovabbiak' && moreView()}

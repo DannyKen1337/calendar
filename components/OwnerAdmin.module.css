@@ -29,7 +29,7 @@
 /* Alsó fülsáv (telefon) */
 .tabbar {
   position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; height: var(--tabbar);
-  display: grid; grid-template-columns: repeat(4, 1fr); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: var(--ground); border-top: 1px solid var(--line);
 }
 .brand, .sideUser { display: none; }

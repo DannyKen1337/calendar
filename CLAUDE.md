@@ -24,7 +24,7 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - Nyitott kérdés: most a jelentkezők száma számít; ha a verseny teljes létszáma kellene, `eventSeats()`-et kell átírni.
 
 ## Admin
-- A tulajdonos (Admin2) saját felületet kap: `components/OwnerAdmin.jsx` – egyszerű, gyors, nem díszes. Fülek: Ma (Ma/Holnap/Hét), Események, Telítettség, Továbbiak. Telefonon kártyák nagy gombokkal (Check-in, Jelentkezők, Lezárás), gépen táblázat soronkénti műveletekkel. iPhone 18 Pro, Safari web app (manifest: `public/admin.webmanifest`, `app/(naptar)/admin/layout.jsx`).
+- A tulajdonos (Admin2) saját felületet kap: `components/OwnerAdmin.jsx` – egyszerű, gyors, nem díszes. Fülek: Események (kezdőoldal, felül a mai napi telítettség), Telítettség, Továbbiak – a „Ma” fület a felhasználó kérésére kivettük. Telefonon kártyák nagy gombokkal (Check-in, Jelentkezők, Lezárás), gépen táblázat soronkénti műveletekkel. iPhone 18 Pro, Safari web app (manifest: `public/admin.webmanifest`, `app/(naptar)/admin/layout.jsx`).
 - A többi szervező a régi `AdminEvents` nézetet látja; az ablakok közösek (`AdminModals`).
 - A felhasználó kérése: a backend legyen átlátható és gyors, ne dizájnos.
 
