@@ -1,0 +1,163 @@
+/* A nyilvános naptár (components/PublicCalendar.jsx, MonthCalendar.jsx): a Tavern arculata (sötét alap, arany, Cinzel + Manrope).
+   A havi rács a régi naptárnézet: naponta legfeljebb 3 játékszínű csík, utána "+N további"; a nap alján a napi telítettség,
+   ha a tulajdonos a nyilvános naptárban is bekapcsolta. Telefonon kompakt rács, alatta a kiválasztott nap eseményei. */
+
+.page {
+  --ground: #0f0b0c; --surface: #191314; --past: #151011; --raised: #2a2022; --line: #241b1d; --control: #4a3a3d;
+  --ink: #f3ece3; --muted: #b8aca7; --faint: #9a8d89; --gold: #e5b15d; --red: #ef7b74;
+  min-height: 100vh; background: var(--ground); color: var(--ink);
+  font-family: var(--font-manrope), system-ui, sans-serif; font-size: 15px; line-height: 1.45;
+}
+.embed { min-height: 0; }
+.page :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 28px clamp(14px, 3vw, 32px) 56px; display: flex; flex-direction: column; gap: 18px; }
+.embed .wrap { padding: 14px 12px 24px; }
+
+.notice { padding: 10px 14px; border-radius: 10px; background: #2b2111; color: #f5c776; font-size: 14px; text-align: center; }
+
+/* Fejléc: a bolt neve */
+.head { display: flex; flex-direction: column; gap: 4px; }
+.title { margin: 0; font-family: var(--font-cinzel), Georgia, serif; font-size: clamp(26px, 20px + 1.6vw, 34px); font-weight: 700; line-height: 1.1; color: var(--ink); }
+.sub { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* Boltváltó: a három bolt, mindegyiken a mai telítettség (ha a nyilvános naptárban is be van kapcsolva) */
+.stores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.store {
+  display: flex; flex-direction: column; justify-content: center; gap: 7px; min-height: 56px; padding: 10px 14px;
+  border-radius: 12px; border: 1.5px solid transparent; background: var(--surface); color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.store:hover { background: #221a1c; }
+.storeOn { border-color: var(--gold); background: rgba(229, 177, 93, 0.08); }
+.storeTop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.storeName { font-weight: 800; font-size: 15px; }
+.storeMeta { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.meter { display: block; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--gold); }
+.meterOver > span { background: var(--red); }
+
+/* Boltválasztó (első látogatás) */
+.pickStores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.pickStore { display: flex; flex-direction: column; gap: 6px; min-height: 132px; padding: 18px; border-radius: 14px; border: 1.5px solid transparent; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.pickStore:hover { border-color: var(--gold); background: #221a1c; }
+.pickName { font-family: var(--font-cinzel), Georgia, serif; font-size: 22px; font-weight: 700; }
+.pickGo { margin-top: auto; color: var(--gold); font-weight: 800; }
+@media (max-width: 760px) { .pickStores { grid-template-columns: 1fr; } .pickStore { min-height: 0; } }
+
+/* Kereső, játékszűrő, nézetváltó */
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.search { flex: 1 1 280px; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border-radius: 999px; background: var(--surface); color: var(--faint); }
+.search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; color: var(--ink); font: inherit; font-size: 16px; }
+.search input::placeholder { color: #8f817d; }
+.search button { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 4px; }
+.segment { display: flex; padding: 3px; border-radius: 999px; background: var(--surface); }
+.segment button { height: 36px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.segment button[aria-pressed="true"] { background: var(--ink); color: #120d0e; font-weight: 800; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid #3a2d30; background: transparent; color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: transparent; background: var(--ink); color: #120d0e; font-weight: 800; }
+.chipDot { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+.ics { margin-left: auto; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid #3a2d30; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ics:hover, .chip:hover { border-color: var(--control); color: var(--ink); }
+.resultCount { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* Hónaplapozó */
+.monthBar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.monthNav { display: flex; align-items: center; gap: 8px; }
+.round { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--control); background: transparent; color: var(--ink); cursor: pointer; }
+.round:hover { background: var(--raised); }
+.monthTitle { margin: 0; min-width: 180px; text-align: center; font-family: var(--font-cinzel), Georgia, serif; font-size: 22px; font-weight: 700; }
+.todayBtn { height: 34px; padding: 0 14px; border-radius: 999px; border: 0; background: transparent; color: var(--gold); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+/* Havi rács (asztali) */
+.gridScroll { overflow-x: auto; }
+.grid { min-width: 900px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.compact .grid { min-width: 0; }
+.wd { padding: 0 4px 4px; font-size: 13px; font-weight: 700; color: var(--faint); }
+.cell {
+  min-height: 132px; box-sizing: border-box; padding: 8px; border-radius: 10px; background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-width: 0;
+}
+.compact .cell { min-height: 110px; padding: 6px; }
+.cell:hover { background: #1e1718; }
+.cellPast { background: var(--past); }
+.cellToday { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.dayNum { font-size: 14px; font-weight: 800; color: #d9cdc8; }
+.cellPast .dayNum { color: #7d706d; }
+.cellToday .dayNum { color: var(--gold); }
+.strips { display: flex; flex-direction: column; gap: 4px; }
+.strip {
+  display: flex; justify-content: space-between; align-items: center; gap: 6px; width: 100%; padding: 4px 7px; border: 0; border-radius: 6px;
+  font: inherit; font-size: 12px; font-weight: 700; line-height: 1.3; text-align: left; cursor: pointer;
+}
+.strip:hover { filter: brightness(1.12); }
+.stripText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stripCount { flex: none; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stripPast { opacity: 0.62; }
+.stripOther { opacity: 0.45; }
+.more { align-self: flex-start; border: 0; background: transparent; padding: 2px 4px; color: var(--muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.fill { margin-top: auto; display: flex; align-items: center; gap: 6px; }
+.fill .meter { flex: 1; height: 4px; }
+.fillText { font-size: 12px; font-weight: 700; color: #d9cdc8; font-variant-numeric: tabular-nums; }
+.fillOver { color: var(--red); }
+.closed { margin-top: auto; font-size: 12px; color: #7d706d; }
+
+/* Egy nap eseményei (telefonon a rács alatt, gépen a nap ablakában) */
+.dayHead { margin: 0; padding-bottom: 7px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 800; }
+.dayHeadToday { border-bottom-color: var(--gold); }
+.daySummary { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 14px; }
+.daySummary .meter { flex: 1; height: 8px; }
+.list { list-style: none; margin: 10px 0 0; padding: 0; border-radius: 14px; background: var(--surface); overflow: hidden; }
+.list li + li .row { border-top: 1px solid var(--line); }
+.row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; box-sizing: border-box; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.row:hover { background: #1e1718; }
+.rowDot { width: 10px; height: 10px; border-radius: 999px; flex: none; }
+.rowBooking { box-shadow: inset 0 0 0 2px #d9cdc8; }
+.rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rowTop { display: flex; gap: 8px; align-items: baseline; }
+.rowTime { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rowName { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowSub { font-size: 13px; color: var(--muted); }
+.rowCount { flex: none; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.empty { margin: 10px 0 0; padding: 16px; border-radius: 12px; background: var(--surface); color: var(--muted); }
+
+/* Mai program a naptár alatt */
+.today { display: flex; flex-direction: column; }
+.todayHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--gold); }
+.todayTitle { margin: 0; font-size: 16px; font-weight: 800; }
+.todayMeta { color: var(--muted); font-size: 14px; }
+
+.footerLinks { display: flex; justify-content: center; }
+.footerLinks a { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--control); color: var(--ink); text-decoration: none; font-weight: 700; }
+.footerLinks a:hover { background: var(--raised); }
+
+/* Telefon: kompakt havi rács */
+.mobileGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.mWd { text-align: center; font-size: 12px; font-weight: 700; color: var(--faint); padding-bottom: 2px; }
+.mCell {
+  height: 58px; padding: 6px 5px; border: 0; border-radius: 9px; background: var(--surface); color: var(--ink);
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; font: inherit; cursor: pointer; min-width: 0;
+}
+.mCellPast { background: var(--past); }
+.mCellSel { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.mNum { font-size: 14px; font-weight: 800; color: #e9e0d6; font-variant-numeric: tabular-nums; }
+.mCellPast .mNum { color: #7d706d; }
+.mCellToday .mNum { color: var(--gold); }
+.mDots { display: flex; gap: 2px; min-height: 6px; }
+.mDots span { width: 6px; height: 6px; border-radius: 999px; display: block; }
+.mCell .meter { width: 100%; height: 4px; }
+
+@media (max-width: 760px) {
+  .stores { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .store { padding: 8px 10px; min-height: 52px; }
+  .storeName { font-size: 13px; }
+  .storeMeta { display: none; }
+  .segment { flex: 1; }
+  .segment button { flex: 1; padding: 0 8px; }
+  .ics { display: none; }
+  .monthTitle { font-size: 19px; min-width: 0; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 0 14px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; }
+}

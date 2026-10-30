@@ -39,6 +39,10 @@ export const useCalendar = () => {
   const [logs, setLogs] = useState([]);
   const [blacklist, setBlacklist] = useState([]);
   const [isMaintenance, setIsMaintenance] = useState(false);
+  // Napi telítettség (lib/occupancy.js): a beállítás és a kézi foglalások (adminnak), illetve a nyilvános összesítés
+  const [occupancy, setOccupancy] = useState({ enabled: false, public: false, capacity: {} });
+  const [bookings, setBookings] = useState([]);
+  const [publicOccupancy, setPublicOccupancy] = useState(null);
   const [extraLinks, setExtraLinks] = useState({ leagues: false }); // van-e publikált liga
   const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
 
@@ -128,6 +132,7 @@ export const useCalendar = () => {
       }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.extraLinks) setExtraLinks(data.extraLinks);
+      if ('occupancy' in data) setPublicOccupancy(data.occupancy || null);
       if (typeof data.serverTime === 'number') serverOffsetRef.current = data.serverTime - Date.now();
       if (data.error && !isBackground) messageApi.error('Nem sikerült betölteni az eseményeket.');
     } catch {
@@ -162,6 +167,8 @@ export const useCalendar = () => {
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
       if (data.extraLinks) setExtraLinks(data.extraLinks);
+      if (data.occupancy) setOccupancy(data.occupancy);
+      if (Array.isArray(data.bookings)) setBookings(data.bookings);
       if (typeof data.serverTime === 'number') serverOffsetRef.current = data.serverTime - Date.now();
       if (data.error && !isBackground) messageApi.error(data.error);
     } catch {
@@ -238,6 +245,27 @@ export const useCalendar = () => {
   const toggleMaintenance = async (newState) => {
     if (!(await postAction('TOGGLE_MAINTENANCE', { isMaintenance: newState }))) return;
     setIsMaintenance(newState); messageApi.success(newState ? "Karbantartás BEKAPCSOLVA." : "Karbantartás KIKAPCSOLVA."); fetchData(true);
+  };
+
+  // Napi telítettség: a modul és a férőhelyek beállítása (tulajdonos), kézi helyfoglalás mentése / törlése
+  const saveOccupancy = async (changes) => {
+    const res = await postAction('SET_OCCUPANCY', changes);
+    if (!res) return false;
+    if (res.occupancy) setOccupancy(res.occupancy);
+    fetchData(true);
+    return true;
+  };
+  const saveBooking = async (booking) => {
+    const res = await postAction('SAVE_BOOKING', booking);
+    if (!res) return false;
+    await fetchData(true);
+    return true;
+  };
+  const deleteBooking = async (id) => {
+    if (!(await postAction('DELETE_BOOKING', { id }))) return false;
+    setBookings(list => list.filter(b => b._id !== id));
+    fetchData(true);
+    return true;
   };
 
   const handleBanEmail = async (values) => {
@@ -634,7 +662,7 @@ export const useCalendar = () => {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
     allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
-    isMaintenance, extraLinks, toggleMaintenance, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
+    isMaintenance, extraLinks, toggleMaintenance, occupancy, bookings, publicOccupancy, saveOccupancy, saveBooking, deleteBooking, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,

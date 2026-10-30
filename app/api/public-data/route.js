@@ -4,6 +4,8 @@ import { getTavernDb } from '@/lib/mongodb';
 import { getExtraLinks } from '@/lib/extraLinks';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { syncDueRgnEvents } from '@/lib/rgnSync';
+import { normalizeOccupancy, publicBookedSeats } from '@/lib/occupancy';
+import { budapestDateTime } from '@/lib/eventDates';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,9 +23,20 @@ export async function GET() {
       db.collection('settings').findOne({ _id: 'global_settings' })
     ]);
 
+    // Napi telítettség a nyilvános naptárban: csak ha a tulajdonos bekapcsolta és a nyilvános megjelenítést is engedte.
+    // A kézi foglalásokból csak a helyek napi összege kerül ki, név nélkül.
+    const occ = normalizeOccupancy(settings?.occupancy);
+    let occupancy = null;
+    if (occ.enabled && occ.public) {
+      const from = budapestDateTime(Date.now() - 62 * 24 * 60 * 60 * 1000).slice(0, 10);
+      const bookings = await db.collection('store_bookings').find({ date: { $gte: from } }, { projection: { _id: 0, store: 1, date: 1, seats: 1 } }).toArray();
+      occupancy = { capacity: occ.capacity, booked: publicBookedSeats(bookings) };
+    }
+
     return NextResponse.json({
         tournaments: attachPublicAttendees(tournaments, registrations),
         isMaintenance: settings?.isMaintenance || false,
+        occupancy,
         serverTime: Date.now(),
         extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false })) 
     });

@@ -1,72 +1,65 @@
 "use client";
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ConfigProvider, Drawer, Popconfirm, Select, Switch } from 'antd';
+import { ConfigProvider, Drawer, Popconfirm, Switch } from 'antd';
 import {
-  CalendarOutlined, HomeOutlined, AppstoreOutlined, UserOutlined, PlusOutlined, SearchOutlined, SyncOutlined, RightOutlined, LeftOutlined,
-  MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined, UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined,
-  FormOutlined, BarChartOutlined, ShoppingCartOutlined, TrophyOutlined, GlobalOutlined, TeamOutlined, DashboardOutlined, StopOutlined,
-  ToolOutlined, CloudDownloadOutlined, ClearOutlined, EyeOutlined, LogoutOutlined, KeyOutlined, GiftOutlined, StarFilled, CloseOutlined, FilterOutlined,
+  SyncOutlined, RightOutlined, LeftOutlined, MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined,
+  UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined,
 } from '@ant-design/icons';
 import { tavernTheme, STORES, AdminModals, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
-import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
-import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
+import { getGameColor } from '@/lib/gameConfig';
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { rgnEventId } from '@/lib/rgn';
+import { dayOccupancy, eventDay, STORE_IDS } from '@/lib/occupancy';
+import OccupancyManager from '@/components/OccupancyManager';
 import s from './OwnerAdmin.module.css';
 
-// A tulajdonos (Admin2) admin felülete, telefonra (iPhone, Safari web app) tervezve: alul fülsáv (Ma, Események,
-// Eszközök, Fiók), az események tömör sorokban, egy sorra koppintva alulról felcsúszó lapon minden teendő.
-// Széles képernyőn a fülsáv bal oldali sávvá válik. Az ablakok (szerkesztés, jelentkezők, ...) a szervezői nézettel
-// közösek (AdminModals). A szervezők továbbra is a régi nézetet (AdminEvents) látják.
+// A tulajdonos (Admin2) admin felülete: egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
+// Fülek: Ma (Ma / Holnap / Hét), Események (hónaponként), Telítettség (napi telítettség, kézi helyfoglalás, a modul
+// kapcsolója és a boltok férőhelye), Továbbiak (eszközök és fiók). Telefonon kártyák nagy gombokkal, gépen táblázat
+// soronkénti műveletekkel; egy eseményre koppintva alulról felcsúszó lapon minden teendője.
+// Az ablakok (szerkesztés, jelentkezők, ...) a szervezői nézettel közösek (AdminModals).
 
-const TABS = [
-  { key: 'ma', label: 'Ma', icon: <HomeOutlined /> },
-  { key: 'esemenyek', label: 'Események', icon: <CalendarOutlined /> },
-  { key: 'eszkozok', label: 'Eszközök', icon: <AppstoreOutlined /> },
-  { key: 'fiok', label: 'Fiók', icon: <UserOutlined /> },
-];
+const TABS = [['ma', 'Ma'], ['esemenyek', 'Események'], ['telitettseg', 'Telítettség'], ['tovabbiak', 'Továbbiak']];
 const TAB_STORAGE = 'tavern-owner-tab';
 const MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
 const WEEKDAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];
-const SHORT_GAMES = { 'Pokémon TCG': 'Pokémon', 'One Piece Card Game': 'One Piece', 'Magic: The Gathering': 'Magic', 'Disney Lorcana': 'Lorcana', 'Flesh and Blood': 'FaB', 'CyberPunk TCG': 'CyberPunk' };
 const SHORT_STORES = { debrecen: 'Debrecen', miskolc: 'Miskolc', jatekceh: 'JátékCéh' };
 
 const eid = (e) => String(e._id || e.id);
-const dayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-const sameDay = (a, b) => dayStart(a).getTime() === dayStart(b).getTime();
-const timeOf = (d) => d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+const pad = (n) => String(n).padStart(2, '0');
+const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const shiftKey = (key, n) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + n); return keyOf(d); };
+const timeOf = (e) => String(e.date || '').slice(11, 16);
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
-const dayTitle = (d, today) => {
-  const diff = Math.round((dayStart(d) - today) / 86400000);
-  const date = `${MONTHS[d.getMonth()]} ${d.getDate()}., ${WEEKDAYS[d.getDay()]}`;
-  return diff === 0 ? `Ma · ${date}` : diff === 1 ? `Holnap · ${date}` : cap(date);
+const dayTitle = (key, todayKey) => {
+  const d = new Date(`${key}T12:00:00`);
+  const label = `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}.`;
+  return key === todayKey ? `Ma · ${label}` : key === shiftKey(todayKey, 1) ? `Holnap · ${label}` : cap(label);
 };
 
-// Létszám egy eseménynél: { text, ratio (0–1, ha van korlát), tone }
+// Létszám egy eseménynél: { text, full, counted }
 function capacity(e) {
-  if (e.isOpenAttendance) return { text: 'Kötetlen', tone: 'muted' };
-  if (e.external_url && !(rgnEventId(e.external_url) && e.rgn?.syncedAt)) return { text: 'Külső', tone: 'muted' };
+  if (e.isOpenAttendance) return { text: 'kötetlen', counted: false };
+  if (e.external_url && !(rgnEventId(e.external_url) && e.rgn?.syncedAt)) return { text: 'külső', counted: false };
   const cur = e.current_players || 0;
   const max = e.external_url ? e.rgn?.capacity : e.max_players;
-  if (!max) return { text: String(cur), tone: 'plain' };
-  return { text: `${cur}/${max}`, ratio: Math.min(1, cur / max), tone: cur >= max ? 'full' : 'plain' };
+  return { text: max ? `${cur} / ${max}` : String(cur), full: !!max && cur >= max, counted: true };
 }
 
 export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   const [tab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 'ma';
     const saved = window.sessionStorage.getItem(TAB_STORAGE);
-    return TABS.some(t => t.key === saved) ? saved : 'ma';
+    return TABS.some(t => t[0] === saved) ? saved : 'ma';
   });
+  const [range, setRange] = useState('ma');
   const [selected, setSelected] = useState(null); // a megnyitott esemény azonosítója (teendőlap)
   const [store, setStore] = useState('Mind');
-  const [games, setGames] = useState([]);
   const [query, setQuery] = useState('');
-  const [showPast, setShowPast] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [updatedAt, setUpdatedAt] = useState(() => new Date());
   const [standalone, setStandalone] = useState(true);
 
   useEffect(() => { window.sessionStorage.setItem(TAB_STORAGE, tab); }, [tab]);
@@ -79,31 +72,33 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   const goTab = (key) => { setTab(key); window.scrollTo({ top: 0 }); };
   const refresh = async () => {
     setRefreshing(true);
-    try { await app.fetchData(true); } finally { setRefreshing(false); }
+    try { await app.fetchData(true); setUpdatedAt(new Date()); } finally { setRefreshing(false); }
   };
 
-  const today = dayStart(new Date());
-  const all = (app.tournaments || [])
-    .filter(e => {
-      const st = e.store || 'debrecen';
-      if (store !== 'Mind' && st !== store) return false;
-      if (games.length && !games.includes(e.category || 'Egyéb')) return false;
-      return eventMatchesQuery(e, query, `${eventExtraSearchText(e, STORES[st]?.name)} ${app.hostNames(e).join(' ')}`);
-    })
-    .map(e => ({ e, d: new Date(e.date) }))
-    .filter(x => !isNaN(x.d.getTime()))
-    .sort((a, b) => a.d - b.d);
-  const upcoming = all.filter(x => x.d >= today);
-  const filtered = store !== 'Mind' || games.length > 0;
+  const todayKey = keyOf(new Date());
+  const occ = app.occupancy || { enabled: false, capacity: {} };
+  const allEvents = (app.tournaments || [])
+    .filter(e => store === 'Mind' || (e.store || 'debrecen') === store)
+    .filter(e => eventMatchesQuery(e, query, `${eventExtraSearchText(e, STORES[e.store || 'debrecen']?.name)} ${app.hostNames(e).join(' ')}`))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const allBookings = (app.bookings || []).filter(b => store === 'Mind' || b.store === store);
 
-  const stats = [
-    ['Közelgő esemény', upcoming.length],
-    ['Jelentkező', upcoming.reduce((n, { e }) => n + (capacity(e).ratio !== undefined ? e.current_players || 0 : 0), 0)],
-    ['Várólistán', upcoming.reduce((n, { e }) => n + (e.queue_count || 0), 0)],
-    ['Lezárva', upcoming.filter(({ e }) => !e.is_open && !e.isOpenAttendance && !e.external_url).length],
-  ];
+  const inRange = (key, r) => (r === 'ma' ? key === todayKey : r === 'holnap' ? key === shiftKey(todayKey, 1) : key >= todayKey && key <= shiftKey(todayKey, 6));
+  const rangeCount = (r) => allEvents.filter(e => inRange(eventDay(e), r)).length;
 
-  const selectedEvent = selected ? (app.tournaments || []).find(e => eid(e) === selected) : null;
+  // Egy időszak sorai: események és kézi foglalások napokra bontva
+  const rowsFor = (pred) => {
+    const items = [
+      ...allEvents.filter(e => pred(eventDay(e))).map(e => ({ kind: 'event', key: eventDay(e), sort: timeOf(e), e })),
+      ...allBookings.filter(b => pred(b.date)).map(b => ({ kind: 'booking', key: b.date, sort: b.from, b })),
+    ].sort((a, b) => a.key.localeCompare(b.key) || a.sort.localeCompare(b.sort));
+    const groups = [];
+    for (const it of items) {
+      const last = groups[groups.length - 1];
+      if (last && last.key === it.key) last.items.push(it); else groups.push({ key: it.key, items: [it] });
+    }
+    return groups;
+  };
 
   const openNewEvent = () => {
     app.eventForm.resetFields();
@@ -113,227 +108,291 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     app.setIsExternalForm(false);
     app.setIsEventModalOpen(true);
   };
+  const openAttendees = (e) => { app.setSelectedEventIdForAttendees(eid(e)); app.setIsAttendeesModalOpen(true); };
+  const toggleGate = (e) => app.handleToggleGate(eid(e), !e.is_open);
+  const bumpBooking = (b, d) => app.saveBooking({ id: b._id, store: b.store, date: b.date, label: b.label, from: b.from, to: b.to, seats: Math.max(1, b.seats + d) });
+  const selectedEvent = selected ? (app.tournaments || []).find(e => eid(e) === selected) : null;
 
   // --- Részek ---
 
-  const eventRow = ({ e, d }, showDay = false) => {
+  const stateOf = (e) => {
     const c = capacity(e);
-    const special = isSpecialEvent(e) ? getEventTypeConfig(e) : null;
-    const closed = !e.is_open && !e.isOpenAttendance && !e.external_url;
+    if (e.isOpenAttendance) return { label: 'Nincs jelentkezés', tone: 'quiet' };
+    if (e.external_url) return { label: 'Külső jelentkezés', tone: 'quiet' };
+    if (!e.is_open) return { label: 'Lezárva', tone: 'red' };
+    if (c.full) return { label: 'Betelt', tone: 'plain' };
+    return { label: 'Nyitva', tone: 'plain' };
+  };
+
+  // Telefonon: egy esemény kártyája a három leggyakoribb teendővel
+  const eventCard = (e) => {
+    const c = capacity(e);
+    const hasRegs = !e.external_url && !e.isOpenAttendance;
+    const note = e.isOpenAttendance ? 'kötetlen létszám' : !e.is_open && hasRegs ? 'jelentkezés lezárva'
+      : c.full ? `betelt${e.queue_count ? `, ${e.queue_count} vár` : ''}` : hasRegs ? `${Math.max(0, e.max_players - (e.current_players || 0))} hely szabad` : 'külső jelentkezés';
     return (
-      <li key={eid(e)}>
-        <button type="button" className={s.row} style={{ '--game': getGameColor(e) }} onClick={() => setSelected(eid(e))}>
-          <span className={s.rowTime}>
-            <b>{timeOf(d)}</b>
-            {showDay && <small>{`${MONTHS[d.getMonth()].slice(0, 3)}. ${d.getDate()}.`}</small>}
-          </span>
-          <span className={s.rowMain}>
-            <span className={s.rowName}>
-              {(e.isFeatured || special) && <span className={s.rowStar} aria-label={special ? special.label : 'Kiemelt'}>{special?.icon || <StarFilled />}</span>}
-              {e.name}
-            </span>
-            <span className={s.rowMeta}>
-              {SHORT_GAMES[e.category] || e.category || 'Egyéb'} · {SHORT_STORES[e.store || 'debrecen']}
-              {app.hostNames(e).length > 0 && ` · ${app.hostNames(e).join(', ')}`}
-            </span>
-          </span>
-          <span className={s.rowSide}>
-            <span className={`${s.count} ${s[`tone_${c.tone}`]}`}>{c.text}</span>
-            {c.ratio !== undefined && <span className={s.meter}><i style={{ width: `${Math.round(c.ratio * 100)}%` }} /></span>}
-            {closed ? <span className={s.pill}>Lezárva</span> : e.queue_count > 0 ? <span className={s.pillWarn}>+{e.queue_count} vár</span> : null}
-          </span>
+      <div key={eid(e)} className={s.card}>
+        <button type="button" className={s.cardHead} onClick={() => setSelected(eid(e))}>
+          <span className={s.cardTitle}><b className={s.num}>{timeOf(e)}</b> <b>{e.name}</b></span>
+          <b className={s.num}>{c.text}</b>
         </button>
-      </li>
-    );
-  };
-
-  const dayGroups = (items, emptyText) => {
-    if (!items.length) return <p className={s.empty}>{emptyText}</p>;
-    const groups = [];
-    for (const x of items) {
-      const last = groups[groups.length - 1];
-      if (last && sameDay(last.d, x.d)) last.items.push(x);
-      else groups.push({ d: x.d, items: [x] });
-    }
-    return groups.map(g => (
-      <section key={g.d.toDateString()} className={s.day}>
-        <h3 className={`${s.dayTitle} ${sameDay(g.d, today) ? s.dayToday : ''}`}>{dayTitle(g.d, today)}<span>{g.items.length}</span></h3>
-        <ul className={s.list}>{g.items.map(x => eventRow(x))}</ul>
-      </section>
-    ));
-  };
-
-  const header = (title, sub, action) => (
-    <header className={s.head}>
-      <div>
-        <h1 className={s.title}>{title}</h1>
-        {sub && <p className={s.sub}>{sub}</p>}
+        <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']} · {note}</span>
+        <div className={s.cardBtns}>
+          {hasRegs ? (
+            <>
+              <Link className={s.bigBtn} href={checkinPageUrl(e)}>Check-in</Link>
+              <button type="button" className={s.bigBtn} onClick={() => openAttendees(e)}>Jelentkezők</button>
+              <button type="button" className={s.bigBtn} onClick={() => toggleGate(e)} disabled={app.togglingGateId === eid(e)}>{e.is_open ? 'Lezárás' : 'Megnyitás'}</button>
+            </>
+          ) : (
+            <>
+              <button type="button" className={s.bigBtn} onClick={() => app.openEditEvent(e)}>Szerkesztés</button>
+              <button type="button" className={s.bigBtn} onClick={() => setSelected(eid(e))}>Teendők</button>
+            </>
+          )}
+        </div>
       </div>
-      {action}
-    </header>
+    );
+  };
+
+  const bookingCard = (b) => (
+    <div key={b._id} className={s.card}>
+      <span className={s.cardHead} style={{ cursor: 'default' }}>
+        <span className={s.cardTitle}><b className={s.num}>{b.from}–{b.to}</b> <b>{b.label}</b></span>
+        <b className={s.num}>{b.seats} hely</b>
+      </span>
+      <span className={s.cardSub}><i className={`${s.dot} ${s.dotBooking}`} aria-hidden="true" />{SHORT_STORES[b.store]} · kézi foglalás</span>
+      <div className={s.cardBtns}>
+        <button type="button" className={s.bigBtn} onClick={() => bumpBooking(b, -1)} disabled={b.seats <= 1}>−1 hely</button>
+        <button type="button" className={s.bigBtn} onClick={() => bumpBooking(b, 1)}>+1 hely</button>
+        <button type="button" className={s.bigBtn} onClick={() => goTab('telitettseg')}>Szerkesztés</button>
+      </div>
+    </div>
   );
 
-  const refreshButton = (
-    <button type="button" className={s.roundBtn} onClick={refresh} aria-label="Frissítés" disabled={refreshing}>
-      <SyncOutlined spin={refreshing} />
-    </button>
+  // Gépen: egy időszak táblázata napokra bontva
+  const table = (groups, emptyText) => (
+    <div className={s.tableBox}>
+      <table className={s.table}>
+        <thead>
+          <tr><th style={{ width: 96 }}>Idő</th><th>Esemény / foglalás</th><th>Bolt</th><th className={s.right}>Létszám</th><th className={s.right}>Vár</th><th>Állapot</th><th className={s.right}>Műveletek</th></tr>
+        </thead>
+        <tbody>
+          {groups.length === 0 && <tr><td colSpan={7} className={s.emptyCell}>{emptyText}</td></tr>}
+          {groups.map(g => [
+            <tr key={g.key} className={s.dayRow}><td colSpan={7} className={g.key === todayKey ? s.dayToday : undefined}>{dayTitle(g.key, todayKey)}</td></tr>,
+            ...g.items.map(it => {
+              if (it.kind === 'booking') {
+                const b = it.b;
+                return (
+                  <tr key={`b${b._id}`} className={s.tr}>
+                    <td className={s.num}><b>{b.from}–{b.to}</b></td>
+                    <td><b>{b.label}</b> <span className={s.quiet}>· kézi foglalás</span></td>
+                    <td className={s.quiet}>{STORES[b.store]?.name}</td>
+                    <td className={`${s.right} ${s.num}`}><b>{b.seats} hely</b></td>
+                    <td className={`${s.right} ${s.quiet}`}>—</td>
+                    <td><span className={s.pill}>Foglalva</span></td>
+                    <td className={s.right}>
+                      <button type="button" className={s.act} onClick={() => bumpBooking(b, 1)}>Bővítés</button>
+                      <button type="button" className={s.act} onClick={() => goTab('telitettseg')}>Szerkesztés</button>
+                      <Popconfirm title="Törlöd ezt a foglalást?" okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }} onConfirm={() => app.deleteBooking(b._id)}>
+                        <button type="button" className={`${s.act} ${s.actDanger}`}>Törlés</button>
+                      </Popconfirm>
+                    </td>
+                  </tr>
+                );
+              }
+              const e = it.e;
+              const c = capacity(e);
+              const st = stateOf(e);
+              const hasRegs = !e.external_url && !e.isOpenAttendance;
+              return (
+                <tr key={eid(e)} className={s.tr}>
+                  <td className={s.num}><b>{timeOf(e)}</b></td>
+                  <td><button type="button" className={s.linkCell} onClick={() => setSelected(eid(e))}><b>{e.name}</b></button> <span className={s.quiet}>· {e.category || 'Egyéb'}</span></td>
+                  <td className={s.quiet}>{STORES[e.store || 'debrecen']?.name}</td>
+                  <td className={`${s.right} ${s.num}`}><b>{c.text}</b></td>
+                  <td className={`${s.right} ${s.num} ${s.quiet}`}>{e.queue_count > 0 ? e.queue_count : '—'}</td>
+                  <td><span className={`${s.pill} ${st.tone === 'red' ? s.pillRed : st.tone === 'quiet' ? s.pillQuiet : ''}`}>{st.label}</span></td>
+                  <td className={s.right}>
+                    {hasRegs && <Link className={`${s.act} ${s.actStrong}`} href={checkinPageUrl(e)}>Check-in</Link>}
+                    {hasRegs && <button type="button" className={s.act} onClick={() => openAttendees(e)}>Jelentkezők</button>}
+                    {hasRegs && <button type="button" className={s.act} onClick={() => toggleGate(e)} disabled={app.togglingGateId === eid(e)}>{e.is_open ? 'Lezárás' : 'Megnyitás'}</button>}
+                    <button type="button" className={s.act} onClick={() => app.openEditEvent(e)}>Szerkesztés</button>
+                  </td>
+                </tr>
+              );
+            }),
+          ])}
+        </tbody>
+      </table>
+    </div>
   );
 
-  // Ma: áttekintés, a mai és a következő napok eseményei
-  const todayView = () => {
-    const in7 = new Date(today); in7.setDate(in7.getDate() + 7);
-    const week = upcoming.filter(x => x.d < in7);
-    return (
-      <>
-        {header('Ma', `${cap(WEEKDAYS[today.getDay()])}, ${MONTHS[today.getMonth()]} ${today.getDate()}.`, refreshButton)}
-        {app.isMaintenance && (
-          <button type="button" className={s.alert} onClick={() => goTab('eszkozok')}>
-            <ToolOutlined /> A karbantartás be van kapcsolva: a látogatók nem tudnak jelentkezni.<RightOutlined />
-          </button>
-        )}
-        <div className={s.stats}>
-          {stats.map(([label, value]) => <div key={label} className={s.stat}><b>{value}</b><span>{label}</span></div>)}
-        </div>
-        <h2 className={s.sectionTitle}>A következő 7 nap</h2>
-        {dayGroups(week, filtered ? 'A szűrőknek megfelelő esemény nincs a következő 7 napban.' : 'A következő 7 napban nincs esemény.')}
-        {upcoming.length > week.length && (
-          <button type="button" className={s.more} onClick={() => goTab('esemenyek')}>Az összes közelgő esemény ({upcoming.length})<RightOutlined /></button>
-        )}
-      </>
-    );
-  };
+  // Telefonon: napokra bontott kártyák
+  const cards = (groups, emptyText) => (groups.length === 0 ? <p className={s.empty}>{emptyText}</p> : groups.map(g => (
+    <section key={g.key} className={s.dayGroup}>
+      <h3 className={`${s.dayHead} ${g.key === todayKey ? s.dayHeadToday : ''}`}>{dayTitle(g.key, todayKey)}</h3>
+      {g.items.map(it => (it.kind === 'booking' ? bookingCard(it.b) : eventCard(it.e)))}
+    </section>
+  )));
 
-  // Események: hónaponként (keresésnél minden hónap), szűrőkkel
-  const eventsView = () => {
-    const searching = query.trim() !== '';
-    const isCurrent = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
-    const inMonth = all.filter(x => x.d.getFullYear() === month.getFullYear() && x.d.getMonth() === month.getMonth());
-    const hiddenPast = isCurrent && !showPast ? inMonth.filter(x => x.d < today).length : 0;
-    const items = searching ? all : inMonth.filter(x => !(isCurrent && !showPast && x.d < today));
-    const shift = (n) => setMonth(m => new Date(m.getFullYear(), m.getMonth() + n, 1));
-    return (
-      <>
-        {header('Események', searching ? `${items.length} találat` : `${items.length} esemény`, refreshButton)}
-        <div className={s.toolbar}>
-          <label className={s.search}>
-            <SearchOutlined />
-            <input type="search" value={query} onChange={(ev) => setQuery(ev.target.value)} placeholder="Név, játék, szervező…" enterKeyHint="search" />
-            {query && <button type="button" onClick={() => setQuery('')} aria-label="Keresés törlése"><CloseOutlined /></button>}
-          </label>
-          <button type="button" className={`${s.roundBtn} ${filtered ? s.roundBtnOn : ''}`} onClick={() => setFiltersOpen(true)} aria-label="Szűrők">
-            <FilterOutlined />
-          </button>
-        </div>
-        <div className={s.chips} role="group" aria-label="Bolt">
-          {['Mind', ...Object.keys(STORES)].map(id => (
-            <button key={id} type="button" className={`${s.chip} ${store === id ? s.chipOn : ''}`} aria-pressed={store === id} onClick={() => setStore(id)}>
-              {id === 'Mind' ? 'Mind' : SHORT_STORES[id]}
-            </button>
-          ))}
-        </div>
-        {!searching && (
-          <div className={s.pager}>
-            <button type="button" className={s.roundBtn} onClick={() => shift(-1)} aria-label="Előző hónap"><LeftOutlined /></button>
-            <button type="button" className={s.pagerLabel} onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))} disabled={isCurrent}>
-              {month.getFullYear()}. {MONTHS[month.getMonth()]}
-              {!isCurrent && <small>Vissza a mostanihoz</small>}
-            </button>
-            <button type="button" className={s.roundBtn} onClick={() => shift(1)} aria-label="Következő hónap"><RightOutlined /></button>
-          </div>
-        )}
-        {!searching && isCurrent && (hiddenPast > 0 || showPast) && (
-          <button type="button" className={s.linkBtn} onClick={() => setShowPast(p => !p)}>
-            {showPast ? 'A mai nap előttiek elrejtése' : `A hónap korábbi eseményei (${hiddenPast})`}
-          </button>
-        )}
-        {dayGroups(items, searching ? 'Nincs találat.' : filtered ? 'A szűrőknek megfelelő esemény nincs ebben a hónapban.' : 'Ebben a hónapban nincs esemény.')}
-      </>
-    );
-  };
-
-  const toolRow = ({ key, icon, label, hint, href, onClick, danger, external, extra }) => {
-    const inner = (
-      <>
-        <span className={`${s.toolIcon} ${danger ? s.toolIconDanger : ''}`}>{icon}</span>
-        <span className={s.toolText}><b>{label}</b>{hint && <small>{hint}</small>}</span>
-        {extra ?? <RightOutlined className={s.chev} />}
-      </>
-    );
-    if (href) {
-      return external
-        ? <li key={key}><a className={`${s.tool} ${danger ? s.toolDanger : ''}`} href={href}>{inner}</a></li>
-        : <li key={key}><Link className={`${s.tool} ${danger ? s.toolDanger : ''}`} href={href}>{inner}</Link></li>;
-    }
-    return <li key={key}><button type="button" className={`${s.tool} ${danger ? s.toolDanger : ''}`} onClick={onClick}>{inner}</button></li>;
-  };
-
-  // Eszközök: minden, ami nem egy eseményhez tartozik
-  const toolsView = () => (
+  const listOf = (groups, emptyText) => (
     <>
-      {header('Eszközök')}
-      <h2 className={s.groupTitle}>Események</h2>
-      <ul className={s.group}>
-        {toolRow({ key: 'uj', icon: <PlusOutlined />, label: 'Új esemény', onClick: openNewEvent })}
-        {toolRow({ key: 'gen', icon: <CalendarOutlined />, label: 'Generátor', hint: 'Ismétlődő események egyszerre', href: '/admin/generator' })}
-        {toolRow({ key: 'checkin', icon: <MobileOutlined />, label: 'Check-in', href: '/admin/checkin' })}
-        {toolRow({ key: 'stat', icon: <BarChartOutlined />, label: 'Statisztika', href: '/admin/statisztika' })}
-        {toolRow({ key: 'naptar', icon: <EyeOutlined />, label: 'Nyilvános naptár', href: '/', external: true })}
-      </ul>
-      <h2 className={s.groupTitle}>Modulok</h2>
-      <ul className={s.group}>
-        {toolRow({ key: 'pre', icon: <ShoppingCartOutlined />, label: 'Előrendelés', href: '/admin/elorendeles' })}
-        {toolRow({ key: 'liga', icon: <TrophyOutlined />, label: 'Ligák', href: '/admin/liga' })}
-        {toolRow({ key: 'web', icon: <GlobalOutlined />, label: 'Weboldal', hint: 'Hírek és az oldal tartalma', href: `${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`, external: true })}
-      </ul>
-      <h2 className={s.groupTitle}>Tulajdonos</h2>
-      <ul className={s.group}>
-        {toolRow({ key: 'users', icon: <TeamOutlined />, label: 'Felhasználók és csoportok', href: '/admin/felhasznalok' })}
-        {toolRow({ key: 'sys', icon: <DashboardOutlined />, label: 'Rendszer és napló', href: '/admin/rendszer' })}
-        {toolRow({ key: 'ban', icon: <StopOutlined />, label: 'Feketelista', hint: `${(app.blacklist || []).length} tiltott e-mail`, onClick: () => app.setIsBlacklistModalOpen(true) })}
-        <li key="maint">
-          <div className={s.tool}>
-            <span className={`${s.toolIcon} ${app.isMaintenance ? s.toolIconDanger : ''}`}><ToolOutlined /></span>
-            <span className={s.toolText}><b>Karbantartás</b><small>{app.isMaintenance ? 'Bekapcsolva: nem lehet jelentkezni' : 'Kikapcsolva'}</small></span>
-            <Popconfirm title={`Biztosan ${app.isMaintenance ? 'kikapcsolod' : 'bekapcsolod'} a karbantartást?`} onConfirm={() => app.toggleMaintenance(!app.isMaintenance)} okText="Igen" cancelText="Mégse">
-              <Switch checked={!!app.isMaintenance} aria-label="Karbantartás" />
-            </Popconfirm>
-          </div>
-        </li>
-      </ul>
-      <h2 className={s.groupTitle}>Adatok</h2>
-      <ul className={s.group}>
-        {toolRow({ key: 'backup', icon: <CloudDownloadOutlined />, label: 'Teljes adatbázis mentés', hint: 'JSON fájl letöltése', onClick: app.handleExportDB })}
-        <li key="cleanup">
-          <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={app.handleCleanupOldEvents} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
-            <button type="button" className={`${s.tool} ${s.toolDanger}`}>
-              <span className={`${s.toolIcon} ${s.toolIconDanger}`}><ClearOutlined /></span>
-              <span className={s.toolText}><b>Régi események törlése</b><small>2 hónapnál régebbiek, jelentkezőikkel</small></span>
-              <RightOutlined className={s.chev} />
-            </button>
-          </Popconfirm>
-        </li>
-      </ul>
+      <div className={s.onPhone}>{cards(groups, emptyText)}</div>
+      <div className={s.onDesk}>{table(groups, emptyText)}</div>
     </>
   );
 
-  // Fiók
-  const accountView = () => (
+  const storeChips = (
+    <div className={s.chips} role="group" aria-label="Bolt">
+      {['Mind', ...STORE_IDS].map(id => (
+        <button key={id} type="button" className={s.chip} aria-pressed={store === id} onClick={() => setStore(id)}>{id === 'Mind' ? 'Minden bolt' : SHORT_STORES[id]}</button>
+      ))}
+    </div>
+  );
+
+  // A mai napi telítettség boltonként (a Telítettség fülre visz)
+  const occupancyCard = () => {
+    const rows = STORE_IDS.map(id => ({ id, o: dayOccupancy({ store: id, day: todayKey, tournaments: app.tournaments, bookings: app.bookings, capacity: occ.capacity }) }));
+    const anyCap = rows.some(r => r.o.cap);
+    return (
+      <button type="button" className={s.occCard} onClick={() => goTab('telitettseg')}>
+        <span className={s.occHead}><b>Napi telítettség · ma</b><span className={s.quiet}>Foglalás, beállítás ›</span></span>
+        {!occ.enabled && <span className={s.hint}>A modul ki van kapcsolva: csak te látod.</span>}
+        {anyCap ? rows.map(({ id, o }) => (
+          <span key={id} className={s.occRow}>
+            <span className={s.occName}>{SHORT_STORES[id]}</span>
+            {o.cap ? (
+              <>
+                <span className={s.occBar} aria-hidden="true">
+                  <span style={{ width: `${Math.min(100, (o.events / o.cap) * 100)}%`, background: o.over ? '#ef7b74' : '#e5b15d' }} />
+                  <span style={{ width: `${Math.min(100 - Math.min(100, (o.events / o.cap) * 100), (o.manual / o.cap) * 100)}%`, background: '#d9cdc8' }} />
+                </span>
+                <b className={`${s.num} ${o.over ? s.red : ''}`} style={{ width: 64, textAlign: 'right' }}>{o.used}/{o.cap}</b>
+              </>
+            ) : <span className={s.quiet} style={{ flex: 1 }}>nincs férőhely megadva</span>}
+          </span>
+        )) : <span className={s.hint}>Állítsd be a boltok napi férőhelyét a Telítettség fülön.</span>}
+      </button>
+    );
+  };
+
+  // Ma: Ma / Holnap / Hét
+  const todayView = () => {
+    const queued = allEvents.filter(e => inRange(eventDay(e), range) && e.queue_count > 0 && capacity(e).full);
+    return (
+      <>
+        <div className={s.titleRow}>
+          <div>
+            <h1 className={s.title}>{range === 'ma' ? 'Ma' : range === 'holnap' ? 'Holnap' : 'A héten'}</h1>
+            <p className={s.sub}>{dayTitle(range === 'holnap' ? shiftKey(todayKey, 1) : todayKey, '').replace(/^./, c => c.toUpperCase())}</p>
+          </div>
+          <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
+        </div>
+        <div className={s.segment} role="group" aria-label="Időszak">
+          {[['ma', 'Ma'], ['holnap', 'Holnap'], ['het', 'Hét']].map(([k, label]) => (
+            <button key={k} type="button" aria-pressed={range === k} onClick={() => setRange(k)}>{label} <span className={s.num}>{rangeCount(k)}</span></button>
+          ))}
+        </div>
+        {occupancyCard()}
+        {queued.slice(0, 2).map(e => (
+          <button key={eid(e)} type="button" className={s.notice} onClick={() => openAttendees(e)}>
+            <span><b>{e.name}</b> ({timeOf(e)}) betelt, <span className={s.num}>{e.queue_count}</span> fő vár helyre.</span>
+            <span className={s.quiet}>Várólista ›</span>
+          </button>
+        ))}
+        {listOf(rowsFor(key => inRange(key, range)), range === 'ma' ? 'Mára nincs esemény.' : range === 'holnap' ? 'Holnapra nincs esemény.' : 'A következő 7 napban nincs esemény.')}
+      </>
+    );
+  };
+
+  // Események: hónaponként (keresésnél minden hónap)
+  const eventsView = () => {
+    const searching = query.trim() !== '';
+    const mKey = `${month.getFullYear()}-${pad(month.getMonth() + 1)}`;
+    const isCurrent = keyOf(month).slice(0, 7) === todayKey.slice(0, 7);
+    const groups = rowsFor(key => searching || key.slice(0, 7) === mKey);
+    const count = groups.reduce((n, g) => n + g.items.filter(i => i.kind === 'event').length, 0);
+    return (
+      <>
+        <div className={s.titleRow}>
+          <div>
+            <h1 className={s.title}>Események</h1>
+            <p className={s.sub}>{searching ? `${count} találat` : `${count} esemény · ${month.getFullYear()}. ${MONTHS[month.getMonth()]}`}</p>
+          </div>
+          <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
+        </div>
+        <label className={s.search}>
+          <SearchOutlined />
+          <input type="search" value={query} onChange={(ev) => setQuery(ev.target.value)} placeholder="Név, játék, szervező…" enterKeyHint="search" aria-label="Keresés" />
+          {query && <button type="button" onClick={() => setQuery('')} aria-label="Keresés törlése"><CloseOutlined /></button>}
+        </label>
+        {storeChips}
+        {!searching && (
+          <div className={s.pager}>
+            <button type="button" className={s.round} onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label="Előző hónap"><LeftOutlined /></button>
+            <b>{month.getFullYear()}. {MONTHS[month.getMonth()]}</b>
+            {!isCurrent && <button type="button" className={s.linkBtn} onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Mostani hónap</button>}
+            <button type="button" className={s.round} onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label="Következő hónap"><RightOutlined /></button>
+          </div>
+        )}
+        {listOf(groups, searching ? 'Nincs találat.' : 'Ebben a hónapban nincs esemény.')}
+      </>
+    );
+  };
+
+  const linkRow = (label, hint, href, external) => (external
+    ? <a className={s.tool} href={href}><span><b>{label}</b>{hint && <small>{hint}</small>}</span><RightOutlined className={s.chev} /></a>
+    : <Link className={s.tool} href={href}><span><b>{label}</b>{hint && <small>{hint}</small>}</span><RightOutlined className={s.chev} /></Link>);
+  const buttonRow = (label, hint, onClick, danger) => (
+    <button type="button" className={`${s.tool} ${danger ? s.toolDanger : ''}`} onClick={onClick}><span><b>{label}</b>{hint && <small>{hint}</small>}</span><RightOutlined className={s.chev} /></button>
+  );
+
+  // Továbbiak: minden, ami nem egy eseményhez tartozik, és a fiók
+  const moreView = () => (
     <>
-      {header('Fiók')}
-      <div className={s.profile}>
-        <span className={s.avatar} aria-hidden="true">{(app.userName || '?').charAt(0).toUpperCase()}</span>
-        <div><b>{app.userName}</b><span>Tulajdonos</span></div>
+      <h1 className={s.title}>Továbbiak</h1>
+      <h2 className={s.groupTitle}>Események</h2>
+      <div className={s.group}>
+        {buttonRow('Új esemény', null, openNewEvent)}
+        {linkRow('Generátor', 'Ismétlődő események egyszerre', '/admin/generator')}
+        {linkRow('Check-in', null, '/admin/checkin')}
+        {linkRow('Statisztika', null, '/admin/statisztika')}
+        {linkRow('Nyilvános naptár', null, '/', true)}
       </div>
-      <ul className={s.group}>
-        {toolRow({ key: 'news', icon: <GiftOutlined />, label: 'Újdonságok', onClick: onShowChangelog, extra: unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : undefined })}
-        {toolRow({ key: 'pw', icon: <KeyOutlined />, label: 'Saját jelszó', onClick: () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); } })}
-      </ul>
-      <ul className={s.group}>
-        {toolRow({ key: 'out', icon: <LogoutOutlined />, label: 'Kijelentkezés', danger: true, onClick: () => app.handleLogout(), extra: null })}
-      </ul>
-      {!standalone && (
-        <p className={s.tip}>Tipp: telepítsd web appként. Safariban: Megosztás → Főképernyőhöz adás. Így teljes képernyőn, saját ikonnal nyílik.</p>
-      )}
+      <h2 className={s.groupTitle}>Modulok</h2>
+      <div className={s.group}>
+        {linkRow('Előrendelés', null, '/admin/elorendeles')}
+        {linkRow('Ligák', null, '/admin/liga')}
+        {linkRow('Weboldal', 'Hírek és az oldal tartalma', `${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`, true)}
+      </div>
+      <h2 className={s.groupTitle}>Tulajdonos</h2>
+      <div className={s.group}>
+        {linkRow('Felhasználók és csoportok', null, '/admin/felhasznalok')}
+        {linkRow('Rendszer és napló', null, '/admin/rendszer')}
+        {buttonRow('Feketelista', `${(app.blacklist || []).length} tiltott e-mail`, () => app.setIsBlacklistModalOpen(true))}
+        <div className={s.tool}>
+          <span><b>Karbantartás</b><small>{app.isMaintenance ? 'Bekapcsolva: nem lehet jelentkezni' : 'Kikapcsolva'}</small></span>
+          <Popconfirm title={`Biztosan ${app.isMaintenance ? 'kikapcsolod' : 'bekapcsolod'} a karbantartást?`} onConfirm={() => app.toggleMaintenance(!app.isMaintenance)} okText="Igen" cancelText="Mégse">
+            <Switch checked={!!app.isMaintenance} aria-label="Karbantartás" />
+          </Popconfirm>
+        </div>
+      </div>
+      <h2 className={s.groupTitle}>Adatok</h2>
+      <div className={s.group}>
+        {buttonRow('Teljes adatbázis mentés', 'JSON fájl letöltése', app.handleExportDB)}
+        <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={app.handleCleanupOldEvents} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+          {buttonRow('Régi események törlése', '2 hónapnál régebbiek, jelentkezőikkel', undefined, true)}
+        </Popconfirm>
+      </div>
+      <h2 className={s.groupTitle}>Fiók · {app.userName}</h2>
+      <div className={s.group}>
+        <button type="button" className={s.tool} onClick={onShowChangelog}><span><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
+        {buttonRow('Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
+        {buttonRow('Kijelentkezés', null, () => app.handleLogout(), true)}
+      </div>
+      {!standalone && <p className={s.tip}>Tipp: telepítsd web appként. Safariban: Megosztás → Főképernyőhöz adás.</p>}
     </>
   );
 
@@ -342,64 +401,37 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
       {/* iPhone: a 16 px alatti beviteli mezőkbe koppintva a Safari ránagyít; az ablakokban (antd) is legyen 16 px */}
       <style>{'@media (pointer: coarse) { .ant-input, .ant-input-affix-wrapper input, .ant-select-selection-search-input, .ant-select-selection-item, .ant-picker input, textarea.ant-input { font-size: 16px !important; } }'}</style>
       <div className={s.shell}>
+        <header className={s.topbar}>
+          <b>Tavern Admin</b>
+          <span className={`${s.quiet} ${s.num}`} style={{ marginLeft: 'auto' }}>Frissítve {updatedAt.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+          <button type="button" className={s.iconBtn} onClick={refresh} aria-label="Frissítés" disabled={refreshing}><SyncOutlined spin={refreshing} /></button>
+        </header>
+
         <nav className={s.tabbar} aria-label="Admin">
-          <span className={s.brand}>Tavern</span>
-          {TABS.map(t => (
-            <button key={t.key} type="button" className={`${s.tabBtn} ${tab === t.key ? s.tabOn : ''}`} aria-current={tab === t.key ? 'page' : undefined} onClick={() => goTab(t.key)}>
-              <span className={s.tabIcon}>{t.icon}{t.key === 'fiok' && unseenCount > 0 && <i className={s.dot} />}</span>
-              <span>{t.label}</span>
+          <b className={s.brand}>Tavern Admin</b>
+          {TABS.map(([key, label]) => (
+            <button key={key} type="button" className={s.tabBtn} aria-current={tab === key ? 'page' : undefined} onClick={() => goTab(key)}>
+              {label}{key === 'tovabbiak' && unseenCount > 0 && <i className={s.tabDot} aria-label="Új újdonság" />}
             </button>
           ))}
+          <span className={s.sideUser}>{app.userName} · tulajdonos</span>
         </nav>
 
         <main className={s.main}>
           {tab === 'ma' && todayView()}
           {tab === 'esemenyek' && eventsView()}
-          {tab === 'eszkozok' && toolsView()}
-          {tab === 'fiok' && accountView()}
+          {tab === 'telitettseg' && (<><h1 className={s.title}>Napi telítettség</h1><OccupancyManager app={app} /></>)}
+          {tab === 'tovabbiak' && moreView()}
         </main>
-
-        {(tab === 'ma' || tab === 'esemenyek') && (
-          <button type="button" className={s.fab} onClick={openNewEvent} aria-label="Új esemény"><PlusOutlined /></button>
-        )}
       </div>
 
       <EventSheet app={app} evt={selectedEvent} onClose={() => setSelected(null)} />
-
-      <Drawer
-        open={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        placement="bottom"
-        size="auto"
-        title="Szűrők"
-        rootClassName={s.sheetRoot}
-        closeIcon={<CloseOutlined />}
-      >
-        <div className={s.sheetBody}>
-          <p className={s.sheetLabel}>Bolt</p>
-          <div className={s.chips}>
-            {['Mind', ...Object.keys(STORES)].map(id => (
-              <button key={id} type="button" className={`${s.chip} ${store === id ? s.chipOn : ''}`} aria-pressed={store === id} onClick={() => setStore(id)}>
-                {id === 'Mind' ? 'Mind' : STORES[id].name}
-              </button>
-            ))}
-          </div>
-          <p className={s.sheetLabel}>Játék</p>
-          <Select mode="multiple" allowClear value={games} onChange={setGames} placeholder="Minden játék" style={{ width: '100%' }} size="large"
-            options={Object.keys(GAME_CONFIG).map(g => ({ value: g, label: g }))} />
-          <div className={s.sheetActions}>
-            <button type="button" className={s.secondaryBtn} onClick={() => { setStore('Mind'); setGames([]); }}>Alaphelyzet</button>
-            <button type="button" className={s.primaryBtn} onClick={() => setFiltersOpen(false)}>Kész</button>
-          </div>
-        </div>
-      </Drawer>
-
       <AdminModals app={app} />
     </ConfigProvider>
   );
 }
 
-// Egy esemény teendői alulról felcsúszó lapon
+// Egy esemény összes teendője alulról felcsúszó lapon
 function EventSheet({ app, evt, onClose }) {
   const open = !!evt;
   const [last, setLast] = useState(evt);
@@ -409,12 +441,12 @@ function EventSheet({ app, evt, onClose }) {
   if (!e) return null;
 
   const id = eid(e);
-  const d = new Date(e.date);
   const c = capacity(e);
   const hasRegs = !e.external_url && !e.isOpenAttendance;
   const isRgn = !!rgnEventId(e.external_url);
   const closed = !e.is_open;
   const run = (fn) => () => { onClose(); fn(); };
+  const d = new Date(`${eventDay(e)}T12:00:00`);
 
   const share = async () => {
     const url = eventShareUrl(e);
@@ -425,20 +457,19 @@ function EventSheet({ app, evt, onClose }) {
   };
 
   const action = (key, icon, label, props) => {
-    const { href, onClick, tone, external } = props;
-    const cls = `${s.action} ${tone ? s[`action_${tone}`] : ''}`;
+    const { href, onClick, external } = props;
     if (href) return external
-      ? <a key={key} className={cls} href={href} target="_blank" rel="noopener noreferrer">{icon}<span>{label}</span></a>
-      : <Link key={key} className={cls} href={href}>{icon}<span>{label}</span></Link>;
-    return <button key={key} type="button" className={cls} onClick={onClick}>{icon}<span>{label}</span></button>;
+      ? <a key={key} className={s.action} href={href} target="_blank" rel="noopener noreferrer">{icon}<span>{label}</span></a>
+      : <Link key={key} className={s.action} href={href}>{icon}<span>{label}</span></Link>;
+    return <button key={key} type="button" className={s.action} onClick={onClick}>{icon}<span>{label}</span></button>;
   };
 
   return (
     <Drawer open={open} onClose={onClose} placement="bottom" size="auto" title={null} closable={false} rootClassName={s.sheetRoot}>
       <div className={s.sheetBody}>
         <span className={s.grabber} aria-hidden="true" />
-        <div className={s.sheetHead} style={{ '--game': getGameColor(e) }}>
-          <p className={s.sheetWhen}>{cap(`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}.`)} · {timeOf(d)}</p>
+        <div className={s.sheetHead}>
+          <p className={s.sheetWhen}>{cap(`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}.`)} · {timeOf(e)}</p>
           <h2 className={s.sheetTitle}>{e.name}</h2>
           <p className={s.sheetMeta}>
             {e.category || 'Egyéb'} · {STORES[e.store || 'debrecen']?.name}
@@ -453,11 +484,11 @@ function EventSheet({ app, evt, onClose }) {
         </div>
 
         <div className={s.actions}>
-          {hasRegs && action('checkin', <MobileOutlined />, 'Check-in', { href: checkinPageUrl(e), tone: 'gold' })}
+          {hasRegs && action('checkin', <MobileOutlined />, 'Check-in', { href: checkinPageUrl(e) })}
           {hasRegs && action('regs', <UnorderedListOutlined />, 'Jelentkezők', { onClick: run(() => { app.setSelectedEventIdForAttendees(id); app.setIsAttendeesModalOpen(true); }) })}
           {isRgn && action('rgn', <UnorderedListOutlined />, 'Riftbound jelentkezők', { onClick: run(() => app.setSelectedRgnEventId(id)) })}
           {action('edit', <EditOutlined />, 'Szerkesztés', { onClick: run(() => app.openEditEvent(e)) })}
-          {hasRegs && action('gate', closed ? <UnlockOutlined /> : <LockOutlined />, app.togglingGateId === id ? 'Folyamatban…' : closed ? 'Megnyitás' : 'Lezárás', { onClick: () => app.handleToggleGate(id, closed), tone: closed ? undefined : 'warn' })}
+          {hasRegs && action('gate', closed ? <UnlockOutlined /> : <LockOutlined />, app.togglingGateId === id ? 'Folyamatban…' : closed ? 'Megnyitás' : 'Lezárás', { onClick: () => app.handleToggleGate(id, closed) })}
           {action('copy', <CopyOutlined />, 'Másolás új időpontra', { onClick: run(() => app.openCopyEvent(e)) })}
           {action('share', <ShareAltOutlined />, 'Megosztás', { onClick: share })}
           {hasRegs && action('page', <FormOutlined />, 'Jelentkezési oldal', { href: registrationPageUrl(e), external: true })}

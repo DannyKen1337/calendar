@@ -50,27 +50,6 @@ export const getCategoryImage = (category) => {
   return getGameConfig(category).logo || defaultLogoUrl;
 };
 
-export const StoreSelector = ({ onSelect, embed = false }) => {
-  return (
-    <ConfigProvider theme={tavernTheme}>
-      <main className={`${embed ? 'py-10' : 'min-h-screen'} bg-[#121212] flex flex-col items-center justify-center p-4`}>
-        <div className={`text-center ${embed ? 'mb-8' : 'mb-12'}`}>
-          <h1 className={`${embed ? 'text-3xl' : 'text-5xl'} font-bold text-[#E5B15D] font-serif mb-4 tracking-wider`}>Közösségi Naptár</h1>
-          <p className="text-[#baaaac] text-lg">Kérlek válaszd ki, melyik helyszín eseményeire vagy kíváncsi!</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
-          {Object.values(STORES).map(store => (
-            <div key={store.id} onClick={() => onSelect(store.id)} className="bg-[#1a1012] border-2 border-[#4A2E33] hover:border-[#E5B15D] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-[#E5B15D]/20 group">
-              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">{store.icon}</div>
-              <h2 className="text-2xl font-bold font-serif text-center" style={{ color: store.color }}>{store.name}</h2>
-              <div className="mt-6 px-6 py-2 rounded-full border border-gray-700 group-hover:border-[#E5B15D] text-gray-400 group-hover:text-[#E5B15D] transition-colors font-bold uppercase text-sm tracking-widest">Belépés</div>
-            </div>
-          ))}
-        </div>
-      </main>
-    </ConfigProvider>
-  );
-};
 
 export const registrationPageUrl = (evt) => `/jelentkezes/${encodeURIComponent(String(evt._id || evt.id))}`;
 export const checkinPageUrl = (evt) => `/admin/checkin?event=${encodeURIComponent(String(evt._id || evt.id))}`;
@@ -343,13 +322,14 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
 const MAX_STRIPS_PER_DAY = 3;
 
 // compact: beágyazott (iframe) nézet – nincs dupla cím, keskenyebb rács, alacsonyabb cellák
-export const CalendarView = ({ app, compact = false }) => {
+// weekly: mindig a heti nézet (a nyilvános naptár „Heti” füle); különben gépen havi rács, telefonon heti nézet
+export const CalendarView = ({ app, compact = false, weekly = false }) => {
   const { tournaments, setSelectedEventDetails, setIsEventDetailsModalOpen, selectedStore } = app;
   // A naptár csak kliensoldalon renderelődik (betöltés után), így a mai dátum közvetlenül beállítható
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [realToday] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(null); // napi események felugró ablak
-  const screens = useBreakpoint(); const isMobile = screens.md === false;
+  const screens = useBreakpoint(); const isMobile = weekly || screens.md === false;
   
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   let firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -1088,6 +1068,7 @@ export const AdminEvents = ({ app: v }) => {
               <Link href="/admin/checkin"><Button block icon={<MobileOutlined />} style={sideBtn}>Check-in</Button></Link>
               {v.hasFeature('preorders') && <Link href="/admin/elorendeles"><Button block icon={<ShoppingCartOutlined />} style={sideBtn}>Előrendelés</Button></Link>}
               {v.hasFeature('leagues') && <Link href="/admin/liga"><Button block icon={<TrophyOutlined />} style={sideBtn}>Ligák</Button></Link>}
+              {v.occupancy?.enabled && <Link href="/admin/telitettseg"><Button block icon={<TeamOutlined />} style={sideBtn}>Napi telítettség</Button></Link>}
               {v.hasFeature('website') && <a href={`${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`} target="_blank" rel="noopener"><Button block icon={<GlobalOutlined />} style={sideBtn}>Weboldal</Button></a>}
               {v.userRole !== 'owner' && v.hasFeature('users') && <Link href="/admin/felhasznalok" className="col-span-2"><Button block icon={<TeamOutlined />} style={sideBtn}>Felhasználók és csoportok</Button></Link>}
             </div>

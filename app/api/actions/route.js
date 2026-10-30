@@ -6,7 +6,8 @@ import bcrypt from 'bcryptjs';
 import { randomInt, randomBytes } from 'crypto';
 import { verifyAdmin, verifyOwner } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
-import { canManageEvent, sanitizeCategories, sanitizeStores, sanitizeFeatures, FEATURES, STORE_NAMES } from '@/lib/permissions';
+import { canManageEvent, canManageStore, sanitizeCategories, sanitizeStores, sanitizeFeatures, FEATURES, STORE_NAMES } from '@/lib/permissions';
+import { normalizeOccupancy, sanitizeBooking, STORE_IDS } from '@/lib/occupancy';
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
@@ -786,6 +787,62 @@ export async function POST(request) {
       await db.collection('users').updateOne(getQuery(ownerSession.id), { $set: { password: hashedPassword } });
       await addLog(db, session.username, 'SAJÁT JELSZÓ CSERE', 'Megváltoztatta a saját jelszavát.');
       return NextResponse.json({ success: true });
+    }
+
+    // --- NAPI TELÍTETTSÉG (lib/occupancy.js) ---
+    // A modul be- és kikapcsolása, a nyilvános megjelenítés és a boltok napi férőhelye: csak a tulajdonos
+    if (actionType === 'SET_OCCUPANCY') {
+      const ownerSession = await verifyOwner();
+      if (!ownerSession) return NextResponse.json({ error: 'Csak a tulajdonos állíthatja.' }, { status: 403 });
+      const settings = await db.collection('settings').findOne({ _id: 'global_settings' });
+      const current = normalizeOccupancy(settings?.occupancy);
+      const next = { ...current, capacity: { ...current.capacity } };
+      if (typeof payload.enabled === 'boolean') next.enabled = payload.enabled;
+      if (typeof payload.public === 'boolean') next.public = payload.public;
+      if (payload.capacity && typeof payload.capacity === 'object') {
+        for (const id of STORE_IDS) {
+          if (!(id in payload.capacity)) continue;
+          const v = payload.capacity[id];
+          if (v === null || v === '') { next.capacity[id] = null; continue; }
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 1 || n > 1000) return NextResponse.json({ error: 'A férőhely 1 és 1000 fő között legyen.' }, { status: 400 });
+          next.capacity[id] = n;
+        }
+      }
+      if (!next.enabled) next.public = false;
+      await db.collection('settings').updateOne({ _id: 'global_settings' }, { $set: { occupancy: next } }, { upsert: true });
+      const caps = STORE_IDS.map(id => `${STORE_NAMES[id]}: ${next.capacity[id] ?? '—'}`).join(', ');
+      await addLog(db, session.username, 'TELÍTETTSÉG', `Modul: ${next.enabled ? 'BE' : 'KI'}${next.public ? ' (nyilvános is)' : ''} · férőhely: ${caps}`);
+      return NextResponse.json({ success: true, occupancy: next });
+    }
+
+    // Kézi helyfoglalás felvétele / módosítása / törlése: a tulajdonos mindig; a szervező bekapcsolt modulnál, a saját boltjaiban
+    if (actionType === 'SAVE_BOOKING' || actionType === 'DELETE_BOOKING') {
+      const settings = await db.collection('settings').findOne({ _id: 'global_settings' });
+      const enabled = normalizeOccupancy(settings?.occupancy).enabled;
+      const canUse = (store) => session.role === 'owner' || (enabled && canManageStore(session, store));
+      const existing = payload.id ? await db.collection('store_bookings').findOne(getQuery(payload.id)) : null;
+      if (payload.id && !existing) return NextResponse.json({ error: 'Ez a foglalás már nem létezik.' }, { status: 404 });
+      if (existing && !canUse(existing.store)) return NextResponse.json({ error: 'Ennek a boltnak a foglalásait nem kezelheted.' }, { status: 403 });
+
+      if (actionType === 'DELETE_BOOKING') {
+        if (!existing) return NextResponse.json({ error: 'Hiányzó foglalás.' }, { status: 400 });
+        await db.collection('store_bookings').deleteOne({ _id: existing._id });
+        await addLog(db, session.username, 'HELYFOGLALÁS', `Törölve: ${existing.label} (${STORE_NAMES[existing.store]}, ${existing.date} ${existing.from}–${existing.to}, ${existing.seats} hely)`);
+        return NextResponse.json({ success: true });
+      }
+
+      const { booking, error } = sanitizeBooking(payload);
+      if (error) return NextResponse.json({ error }, { status: 400 });
+      if (!canUse(booking.store)) return NextResponse.json({ error: 'Ennek a boltnak a foglalásait nem kezelheted.' }, { status: 403 });
+      if (existing) {
+        await db.collection('store_bookings').updateOne({ _id: existing._id }, { $set: { ...booking, updatedBy: session.username, updatedAt: new Date() } });
+        await addLog(db, session.username, 'HELYFOGLALÁS', `Módosítva: ${booking.label} (${STORE_NAMES[booking.store]}, ${booking.date} ${booking.from}–${booking.to}, ${booking.seats} hely)`);
+        return NextResponse.json({ success: true, id: String(existing._id) });
+      }
+      const res = await db.collection('store_bookings').insertOne({ ...booking, createdBy: session.username, createdAt: new Date() });
+      await addLog(db, session.username, 'HELYFOGLALÁS', `Új: ${booking.label} (${STORE_NAMES[booking.store]}, ${booking.date} ${booking.from}–${booking.to}, ${booking.seats} hely)`);
+      return NextResponse.json({ success: true, id: String(res.insertedId) });
     }
 
     // --- RENDSZER BEÁLLÍTÁSOK ÉS TILTÓLISTA ---

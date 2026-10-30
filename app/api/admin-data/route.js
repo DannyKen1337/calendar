@@ -9,6 +9,8 @@ import { getAttendanceStats } from '@/lib/attendanceHistory';
 import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
 import { syncDueRgnEvents, getRgnRegistrations } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
+import { budapestDateTime } from '@/lib/eventDates';
+import { normalizeOccupancy } from '@/lib/occupancy';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +43,14 @@ export async function GET() {
 
     const groupsById = await getGroupsMap(db);
 
+    // Napi telítettség: a tulajdonos mindig látja; a többi szervező csak bekapcsolt modulnál (a beállítás és a kézi foglalások)
+    const occupancy = normalizeOccupancy(settings?.occupancy);
+    const showOccupancy = isOwner || occupancy.enabled;
+    const bookingsFrom = budapestDateTime(Date.now() - 62 * 24 * 60 * 60 * 1000).slice(0, 10);
+    const bookings = showOccupancy
+      ? (await db.collection('store_bookings').find({ date: { $gte: bookingsFrom } }).sort({ date: 1, from: 1 }).toArray()).map(b => ({ ...b, _id: String(b._id) }))
+      : [];
+
     // A szervező minden eseményt lát (a nyilvános, rövidített jelentkezőnevekkel együtt),
     // de a teljes jelentkezési adatokat (e-mail) csak azoknál, amelyek játékát kezelheti
     const manageableIds = new Set(tournaments.filter(t => canManageEvent(session, t)).map(t => String(t._id || t.id)));
@@ -63,6 +73,8 @@ export async function GET() {
         logs,
         blacklist,
         isMaintenance: settings?.isMaintenance || false,
+        occupancy: showOccupancy ? occupancy : { enabled: false, public: false, capacity: {} },
+        bookings,
         serverTime: Date.now(),
         extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false }))
     });
