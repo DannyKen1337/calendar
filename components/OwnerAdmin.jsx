@@ -292,6 +292,13 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           </div>
           <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
         </div>
+        {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
+        <nav className={s.chips} aria-label="Gyors gombok">
+          {[['Generátor', '/admin/generator'], ['Check-in', '/admin/checkin'], ['Előrendelés', '/admin/elorendeles'], ['Ligák', '/admin/liga'], ['Statisztika', '/admin/statisztika'], ['Felhasználók', '/admin/felhasznalok']].map(([label, href]) => (
+            <Link key={href} href={href} className={s.chip} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>{label}</Link>
+          ))}
+          <a href={`${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`} className={s.chip} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Weboldal</a>
+        </nav>
         {occupancyCard()}
         <label className={s.search}>
           <SearchOutlined />
