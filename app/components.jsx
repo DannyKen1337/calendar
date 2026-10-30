@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Radio } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, BarChartOutlined, WarningOutlined, ShoppingCartOutlined, TrophyOutlined, DashboardOutlined, GlobalOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, WarningOutlined, DashboardOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -12,6 +12,7 @@ import { findHostConflicts } from '@/lib/hostConflicts';
 
 import { rgnEventId } from '@/lib/rgn';
 import RgnAttendeesModal from '@/components/RgnAttendeesModal';
+import QuickActions from '@/components/QuickActions';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text, Paragraph } = Typography;
@@ -1061,17 +1062,8 @@ export const AdminEvents = ({ app: v }) => {
         <aside className="flex flex-col gap-4 xl:sticky xl:top-4">
           <div className={panel}>
             <Button type="primary" block size="large" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold', marginBottom: 8 }} onClick={openNewEvent}>Új esemény</Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Link href="/admin/generator"><Button block icon={<CalendarOutlined />} style={{ ...sideBtn, color: '#E5B15D' }}>Generátor</Button></Link>
-              <Button block icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/', '_blank', 'noopener')}>Naptár</Button>
-              <Link href="/admin/statisztika"><Button block icon={<BarChartOutlined />} style={sideBtn}>Statisztika</Button></Link>
-              <Link href="/admin/checkin"><Button block icon={<MobileOutlined />} style={sideBtn}>Check-in</Button></Link>
-              {v.hasFeature('preorders') && <Link href="/admin/elorendeles"><Button block icon={<ShoppingCartOutlined />} style={sideBtn}>Előrendelés</Button></Link>}
-              {v.hasFeature('leagues') && <Link href="/admin/liga"><Button block icon={<TrophyOutlined />} style={sideBtn}>Ligák</Button></Link>}
-              {v.occupancy?.enabled && <Link href="/admin/telitettseg"><Button block icon={<TeamOutlined />} style={sideBtn}>Napi telítettség</Button></Link>}
-              {v.hasFeature('website') && <a href={`${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`} target="_blank" rel="noopener"><Button block icon={<GlobalOutlined />} style={sideBtn}>Weboldal</Button></a>}
-              {v.userRole !== 'owner' && v.hasFeature('users') && <Link href="/admin/felhasznalok" className="col-span-2"><Button block icon={<TeamOutlined />} style={sideBtn}>Felhasználók és csoportok</Button></Link>}
-            </div>
+            {/* Gyors gombok a szervező rangja és jogai szerint */}
+            <QuickActions app={v} layout="sidebar" />
           </div>
 
           <div className={panel}>
