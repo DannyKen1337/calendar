@@ -7,19 +7,9 @@ const noFraming = [
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
 ];
 
-// A Tavern weboldal (külön Vercel-projekt, BASE_PATH=/weblapteszt-tel fordítva) a naptár címén, a /weblapteszt alatt
-// érhető el: ezt az alútvonalat a weboldal saját címére továbbítjuk (WEBSITE_ORIGIN, pl. https://tavern-web.vercel.app).
-// Így a böngészőben végig taverncalendar.vercel.app/weblapteszt/... látszik.
-const websiteOrigin = process.env.WEBSITE_ORIGIN?.replace(/\/+$/, "");
-
 const nextConfig: NextConfig = {
-  async rewrites() {
-    if (!websiteOrigin) return [];
-    return [
-      { source: "/weblapteszt", destination: `${websiteOrigin}/weblapteszt` },
-      { source: "/weblapteszt/:path+", destination: `${websiteOrigin}/weblapteszt/:path+` },
-    ];
-  },
+  // A weboldal (app/(weblap)/weblapteszt) hírszerkesztőjében a feltöltött kép (legfeljebb 4 MB) az űrlappal megy fel
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
   headers() {
     return [
       {
@@ -33,6 +23,7 @@ const nextConfig: NextConfig = {
       },
       { source: "/admin", headers: noFraming },
       { source: "/admin/:path*", headers: noFraming },
+      { source: "/weblapteszt/admin", headers: noFraming },
       { source: "/leiratkozas", headers: noFraming },
     ];
   },
