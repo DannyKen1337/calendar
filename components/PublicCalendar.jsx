@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Grid } from 'antd';
+import { Grid, ConfigProvider } from 'antd';
 import { SearchOutlined, CloseCircleFilled, TrophyOutlined } from '@ant-design/icons';
 import { useCalendar } from '@/app/useCalendar';
-import { CalendarView, SearchResults, EventList, PublicModals, STORES } from '@/app/components';
+import { CalendarView, SearchResults, EventList, PublicModals, STORES, tavernTheme } from '@/app/components';
 import MonthCalendar from '@/components/MonthCalendar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
 import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
@@ -126,7 +126,9 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   // Telefonon a havi nézet alatt már ott a kiválasztott nap (alapból ma), ezért ott nem kell külön mai program
   const showToday = !isSearching && !(isMobile && view === 'month');
 
+  // Az ablakok (esemény részletei, jelentkezés) és a listák a sötét Tavern témát kapják
   return (
+    <ConfigProvider theme={tavernTheme}>
     <main className={`${s.page} ${embed ? s.embed : ''}`}>
       {embed && <EmbedBridge />}
       {app.contextHolder}
@@ -249,5 +251,6 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
         )}
       </div>
     </main>
+    </ConfigProvider>
   );
 }
