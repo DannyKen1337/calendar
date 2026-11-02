@@ -29,6 +29,7 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - Az aloldalak (`/admin/generator`, `checkin`, `elorendeles`, `liga`, `statisztika`, `felhasznalok`, `rendszer`, `telitettseg`) közös kerete: `components/AdminPage.jsx` (felső sáv „‹ Admin”, cím, `width`: narrow/normal/wide), antd téma: `adminTheme` (ugyanott; az OwnerAdmin is ezt használja). A belső komponensek a régi bordó/Georgia helyett az admin színeit használják.
 - Ligák admin telefonon (md alatt, `Grid.useBreakpoint`): játékválasztó legördülő, kártyás listák (alkalmak, játékosok kereséssel, állás, szezonok), teljes képernyős pontbeíró ± gombbal (az iPhone számbillentyűzetén nincs mínusz). Stílus: `components/LeagueAdmin.module.css`.
 - A többi szervező a régi `AdminEvents` nézetet látja; az ablakok közösek (`AdminModals`).
+- Eseménylista (mindkét nézetben): belépéskor a mai vagy a legközelebbi esemény van felül (annak a hónapja nyílik meg, az aktuális hónap elmúlt napjai rejtve); a múltbeli eseményeket a feltűnő „Előző események” gomb mutatja, a legfrissebb nap elöl.
 - A felhasználó kérése: a backend legyen átlátható és gyors, ne dizájnos.
 
 ## Szabályok

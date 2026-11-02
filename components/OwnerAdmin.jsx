@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ConfigProvider, Drawer, Popconfirm, Switch } from 'antd';
 import {
   SyncOutlined, RightOutlined, LeftOutlined, MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined,
-  UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined,
+  UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
 } from '@ant-design/icons';
 import { STORES, AdminModals, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
@@ -61,7 +61,8 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   const [store, setStore] = useState('Mind');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [month, setMonth] = useState(null); // a kiválasztott hónap; amíg nincs, a legközelebbi esemény hónapja látszik
+  const [showPast, setShowPast] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
   const [standalone, setStandalone] = useState(true);
 
@@ -279,22 +280,33 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     );
   };
 
-  // Események: hónaponként (keresésnél minden hónap)
+  // Események: a mai vagy a legközelebbi esemény van felül, hónaponként lapozva (keresésnél minden hónap);
+  // az Előző események gombra a múltbeliek látszanak, a legfrissebb nap elöl
   const eventsView = () => {
     const searching = query.trim() !== '';
-    const mKey = `${month.getFullYear()}-${pad(month.getMonth() + 1)}`;
-    const isCurrent = keyOf(month).slice(0, 7) === todayKey.slice(0, 7);
-    const groups = rowsFor(key => searching || key.slice(0, 7) === mKey);
+    const isPast = (key) => key !== '' && key < todayKey;
+    const firstUpcoming = allEvents.find(e => eventDay(e) >= todayKey);
+    const shownMonth = month || new Date(`${(firstUpcoming ? eventDay(firstUpcoming) : todayKey).slice(0, 7)}-01T12:00:00`);
+    const mKey = keyOf(shownMonth).slice(0, 7);
+    const isCurrent = mKey === todayKey.slice(0, 7);
+    const pastCount = allEvents.filter(e => isPast(eventDay(e))).length;
+    const groups = showPast
+      ? rowsFor(isPast).reverse()
+      : rowsFor(key => searching || (key.slice(0, 7) === mKey && (!isCurrent || key >= todayKey)));
+    const goMonth = (n) => setMonth(new Date(shownMonth.getFullYear(), shownMonth.getMonth() + n, 1));
     const count = groups.reduce((n, g) => n + g.items.filter(i => i.kind === 'event').length, 0);
     return (
       <>
         <div className={s.titleRow}>
           <div>
-            <h1 className={s.title}>Események</h1>
-            <p className={s.sub}>{searching ? `${count} találat` : `${count} esemény · ${month.getFullYear()}. ${MONTHS[month.getMonth()]}`}</p>
+            <h1 className={s.title}>{showPast ? 'Előző események' : 'Események'}</h1>
+            <p className={s.sub}>{searching ? `${count} találat` : showPast ? `${count} esemény` : `${count} esemény · ${shownMonth.getFullYear()}. ${MONTHS[shownMonth.getMonth()]}`}</p>
           </div>
           <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
         </div>
+        <button type="button" className={s.pastBtn} aria-pressed={showPast} onClick={() => setShowPast(p => !p)}>
+          {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események ({pastCount})</>}
+        </button>
         {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
         <QuickActions app={app} layout="bar" />
         {occupancyCard()}
@@ -304,15 +316,15 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           {query && <button type="button" onClick={() => setQuery('')} aria-label="Keresés törlése"><CloseOutlined /></button>}
         </label>
         {storeChips}
-        {!searching && (
+        {!searching && !showPast && (
           <div className={s.pager}>
-            <button type="button" className={s.round} onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label="Előző hónap"><LeftOutlined /></button>
-            <b>{month.getFullYear()}. {MONTHS[month.getMonth()]}</b>
+            <button type="button" className={s.round} onClick={() => goMonth(-1)} aria-label="Előző hónap"><LeftOutlined /></button>
+            <b>{shownMonth.getFullYear()}. {MONTHS[shownMonth.getMonth()]}</b>
             {!isCurrent && <button type="button" className={s.linkBtn} onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Mostani hónap</button>}
-            <button type="button" className={s.round} onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label="Következő hónap"><RightOutlined /></button>
+            <button type="button" className={s.round} onClick={() => goMonth(1)} aria-label="Következő hónap"><RightOutlined /></button>
           </div>
         )}
-        {listOf(groups, searching ? 'Nincs találat.' : 'Ebben a hónapban nincs esemény.')}
+        {listOf(groups, searching ? 'Nincs találat.' : showPast ? 'Nincs korábbi esemény.' : isCurrent ? 'Ebben a hónapban már nincs több esemény.' : 'Ebben a hónapban nincs esemény.')}
       </>
     );
   };

@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Radio } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, WarningOutlined, DashboardOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, WarningOutlined, DashboardOutlined, HistoryOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -939,7 +939,7 @@ export const AdminEvents = ({ app: v }) => {
   const [adminSearch, setAdminSearch] = useState('');
   const [showPast, setShowPast] = useState(false);
   const [onlyMine, setOnlyMine] = useState(false); // csak az általam tartott események
-  const [adminMonth, setAdminMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }); // a megjelenített hónap (= oldal)
+  const [pickedMonth, setPickedMonth] = useState(null); // a kiválasztott hónap (= oldal); amíg nincs, a legközelebbi esemény hónapja látszik
   const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
   // Korlátozott szervezőnél egy kattintással a saját játékaira szűr (aki mindent kezelhet, annak ez = nincs szűrő)
   const hasRestrictedGames = manageableGames.length > 0 && manageableGames.length < Object.keys(GAME_CONFIG).length;
@@ -964,6 +964,10 @@ export const AdminEvents = ({ app: v }) => {
   const evtTime = (e) => new Date(e.date).getTime();
   const upcomingEvents = filteredAndSortedTournaments.filter(e => !(evtTime(e) < startOfToday.getTime()));
 
+  // Az Előző események gombra a múltbeliek látszanak: a legfrissebb nap elöl, napon belül időrendben
+  const dayStart = (e) => new Date(e.date).setHours(0, 0, 0, 0);
+  const pastEvents = filteredAndSortedTournaments.filter(e => evtTime(e) < startOfToday.getTime()).sort((a, b) => dayStart(b) - dayStart(a));
+
   // Hónaponkénti lapozás: egyszerre egy hónap eseményei látszanak, 2026 januárjától bármelyik hónap kiválasztható.
   // Keresésnél az összes hónap találata megjelenik.
   const FIRST_YEAR = 2026;
@@ -971,11 +975,13 @@ export const AdminEvents = ({ app: v }) => {
   const MONTH_NAMES = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
   const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const currentMonthStart = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1);
+  // Belépéskor a mai vagy a legközelebbi esemény legyen felül
+  const firstUpcoming = upcomingEvents.find(e => !isNaN(evtTime(e)));
+  const adminMonth = pickedMonth || (firstUpcoming ? new Date(new Date(firstUpcoming.date).getFullYear(), new Date(firstUpcoming.date).getMonth(), 1) : currentMonthStart);
   const isCurrentMonth = monthKey(adminMonth) === monthKey(currentMonthStart);
   const isSearching = adminSearch.trim() !== '';
-  // Az aktuális hónapban a mai nap előtti események alapból rejtve; a múltbeli hónapok oldalán minden esemény látszik
-  const hideEarlierToday = (e) => !showPast && evtTime(e) < startOfToday.getTime();
-  const pastInCurrentMonth = filteredAndSortedTournaments.filter(e => { const d = new Date(e.date); return !isNaN(d.getTime()) && monthKey(d) === monthKey(currentMonthStart) && evtTime(e) < startOfToday.getTime(); }).length;
+  // Az aktuális hónapban a mai nap előtti események rejtve; a múltbeli hónapok oldalán minden esemény látszik
+  const hideEarlierToday = (e) => evtTime(e) < startOfToday.getTime();
   const monthCounts = new Map();
   filteredAndSortedTournaments.forEach(e => {
     const d = new Date(e.date); if (isNaN(d.getTime())) return;
@@ -984,7 +990,7 @@ export const AdminEvents = ({ app: v }) => {
     monthCounts.set(k, (monthCounts.get(k) || 0) + 1);
   });
   // Dátum nélküli események az aktuális hónap oldalán jelennek meg, hogy ne vesszenek el
-  const monthEvents = isSearching ? filteredAndSortedTournaments : filteredAndSortedTournaments.filter(e => {
+  const monthEvents = showPast ? pastEvents : isSearching ? filteredAndSortedTournaments : filteredAndSortedTournaments.filter(e => {
     const d = new Date(e.date);
     if (isNaN(d.getTime())) return isCurrentMonth;
     return monthKey(d) === monthKey(adminMonth) && !(isCurrentMonth && hideEarlierToday(e));
@@ -997,7 +1003,7 @@ export const AdminEvents = ({ app: v }) => {
   const canGoPrev = adminMonth > firstMonthStart;
   const goToMonth = (d, scroll = false) => {
     const target = new Date(d.getFullYear(), d.getMonth(), 1);
-    setAdminMonth(target < firstMonthStart ? firstMonthStart : target);
+    setPickedMonth(target < firstMonthStart ? firstMonthStart : target);
     if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1087,7 +1093,6 @@ export const AdminEvents = ({ app: v }) => {
                   Általam tartott{onlyMine ? ' ✓' : ''}
                 </Button>
               </div>
-              <Checkbox checked={showPast} onChange={(e) => setShowPast(e.target.checked)} style={{ marginTop: 4 }}>Mai nap előtti események az aktuális hónapban ({pastInCurrentMonth})</Checkbox>
             </div>
           </div>
 
@@ -1136,13 +1141,16 @@ export const AdminEvents = ({ app: v }) => {
 
         {/* ESEMÉNYEK: napokra csoportosítva, kártyarácsban */}
         <section className="min-w-0 flex flex-col gap-6">
-          {isSearching ? (
+          <Button type="primary" block size="large" icon={showPast ? <LeftOutlined /> : <HistoryOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setShowPast(p => !p)}>
+            {showPast ? 'Vissza a mai és közelgő eseményekhez' : `Előző események (${pastEvents.length})`}
+          </Button>
+          {showPast ? null : isSearching ? (
             <div className={panel}><Text style={{ color: '#baaaac' }}>Keresési találatok az összes hónapból: <strong style={{ color: '#E5B15D' }}>{monthEvents.length}</strong> esemény</Text></div>
           ) : (
             renderMonthPager()
           )}
-          <AdminDayGroups events={monthEvents} app={v} emptyText={isSearching ? 'Nincs a keresésnek megfelelő esemény.' : adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' || onlyMine ? 'Nincs a szűrőknek megfelelő esemény ebben a hónapban.' : 'Nincs esemény ebben a hónapban.'} />
-          {!isSearching && monthEvents.length > 0 && renderMonthPager(true)}
+          <AdminDayGroups events={monthEvents} app={v} emptyText={showPast ? 'Nincs korábbi esemény.' : isSearching ? 'Nincs a keresésnek megfelelő esemény.' : adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' || onlyMine ? 'Nincs a szűrőknek megfelelő esemény ebben a hónapban.' : 'Nincs esemény ebben a hónapban.'} />
+          {!isSearching && !showPast && monthEvents.length > 0 && renderMonthPager(true)}
         </section>
       </div>
       <AdminModals app={v} />
