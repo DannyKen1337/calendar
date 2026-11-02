@@ -1,0 +1,21 @@
+/* Asztalfoglalások az admin felületen (components/TableBookingAdmin.jsx); a színek az AdminApp változói. */
+.wrap { display: flex; flex-direction: column; gap: 10px; }
+.linkRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.linkRow a, .line a { color: var(--gold); }
+.quiet { margin: 0; color: var(--faint); font-size: 13px; }
+.group { margin: 8px 2px 0; font-size: 14px; font-weight: 800; }
+.empty { margin: 0; padding: 14px; border-radius: 10px; background: var(--surface); color: var(--muted); }
+.card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 10px; background: var(--surface); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.line { margin: 0; overflow-wrap: anywhere; font-size: 14px; }
+.note { margin: 4px 0; padding: 8px 10px; border-radius: 8px; background: var(--raised); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pill { flex: none; padding: 2px 8px; border-radius: 6px; background: var(--raised); color: #d9cdc8; font-size: 12px; font-weight: 700; }
+.pillOk { color: var(--gold); }
+.actions { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin-top: 8px; }
+.seats { display: flex; align-items: center; gap: 8px; padding-left: 12px; border-radius: 8px; background: var(--raised); font-size: 14px; font-weight: 700; }
+.seats input { width: 56px; height: 44px; border: 0; border-left: 1px solid var(--control); background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: center; }
+.accept, .reject, .copy { min-height: 44px; padding: 0 14px; border: 0; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.accept { flex: 1; background: var(--gold); color: #120d0e; }
+.reject { flex: 1; background: rgba(239, 123, 116, 0.12); color: var(--red); }
+.copy { background: var(--raised); color: var(--ink); font-weight: 700; }
+.accept:disabled, .reject:disabled { opacity: 0.5; cursor: default; }

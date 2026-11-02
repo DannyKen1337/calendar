@@ -33,8 +33,15 @@ export async function GET() {
       occupancy = { capacity: occ.capacity, booked: publicBookedSeats(bookings) };
     }
 
+    // Elfogadott asztalfoglalások a naptárba: csak a bolt és az időpont, név és elérhetőség nélkül
+    const tableBookingsFrom = budapestDateTime(Date.now() - 62 * 24 * 60 * 60 * 1000).slice(0, 10);
+    const tableBookings = await db.collection('store_bookings')
+      .find({ tableBookingId: { $exists: true }, date: { $gte: tableBookingsFrom } }, { projection: { _id: 0, store: 1, date: 1, from: 1, to: 1 } })
+      .sort({ date: 1, from: 1 }).toArray();
+
     return NextResponse.json({
         tournaments: attachPublicAttendees(tournaments, registrations),
+        tableBookings,
         isMaintenance: settings?.isMaintenance || false,
         occupancy,
         serverTime: Date.now(),

@@ -23,7 +23,7 @@
 }
 .iconBtn { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font-size: 17px; cursor: pointer; }
 .iconBtn:hover { background: var(--surface); }
-.topTitle { font-size: 17px; }
+.topTitle { margin-right: auto; font-size: 17px; }
 .phoneOnly { display: inline-grid; }
 .deskOnly { display: none; }
 

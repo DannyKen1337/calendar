@@ -1,0 +1,31 @@
+/* A nyilvános asztalfoglaló oldal (components/TableBookingPage.jsx): a Tavern arculata, mint a nyilvános naptárban. */
+.page { min-height: 100dvh; display: flex; justify-content: center; padding: 32px 16px 48px; background: #0f0b0c; color: #f3ece3; font-family: var(--font-manrope), system-ui, sans-serif; font-size: 16px; line-height: 1.45; }
+.box { width: 100%; max-width: 560px; }
+.header { margin-bottom: 20px; text-align: center; }
+.kicker { margin: 0 0 4px; color: #e5b15d; font-size: 12px; font-weight: 700; letter-spacing: 0.25em; text-transform: uppercase; }
+.title { margin: 0; font-family: var(--font-cinzel), Georgia, serif; font-size: 32px; font-weight: 700; line-height: 1.15; }
+.panel { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 20px; border-radius: 14px; background: #191314; }
+.panel p { margin: 0; }
+.doneTitle { margin: 0; font-size: 20px; font-weight: 800; }
+.fieldset { margin: 0; padding: 0; border: 0; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.label { padding: 0; margin-bottom: 0; font-size: 14px; font-weight: 700; }
+.fieldset .label { margin-bottom: 6px; }
+.input { width: 100%; min-height: 48px; padding: 10px 12px; box-sizing: border-box; border: 1px solid #3a2d30; border-radius: 10px; background: #2a2022; color: #f3ece3; font: inherit; color-scheme: dark; }
+.input:focus { outline: 2px solid #e5b15d; outline-offset: 1px; }
+.input[aria-invalid="true"] { border-color: #ef7b74; }
+textarea.input { resize: vertical; }
+.stores { display: flex; flex-direction: column; gap: 8px; }
+.store { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 1px solid #3a2d30; border-radius: 10px; background: #2a2022; cursor: pointer; }
+.store:has(input:checked) { border-color: #e5b15d; }
+.store input { width: 18px; height: 18px; accent-color: #e5b15d; }
+.times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hint { color: #b8aca7; font-size: 13px; }
+.warn { color: #ef7b74; font-size: 13px; font-weight: 700; }
+.error { padding: 10px 12px; border-radius: 10px; background: rgba(239, 123, 116, 0.12); color: #ef7b74; font-weight: 700; }
+.primary { min-height: 52px; border: 0; border-radius: 10px; background: #e5b15d; color: #120d0e; font: inherit; font-weight: 800; cursor: pointer; }
+.primary:disabled { opacity: 0.6; cursor: default; }
+.secondary { align-self: flex-start; min-height: 44px; padding: 0 16px; border: 1px solid #3a2d30; border-radius: 10px; background: transparent; color: #f3ece3; font: inherit; font-weight: 700; cursor: pointer; }
+.privacy { color: #9a8d89; font-size: 12px; }
+.privacy a { color: #e5b15d; }
+.trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }

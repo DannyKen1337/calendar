@@ -6,7 +6,7 @@ import { ConfigProvider, Drawer, Popconfirm, Switch } from 'antd';
 import {
   SyncOutlined, RightOutlined, LeftOutlined, MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined,
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
-  CalendarOutlined, PieChartOutlined, AppstoreOutlined,
+  CalendarOutlined, PieChartOutlined, AppstoreOutlined, ScheduleOutlined,
 } from '@ant-design/icons';
 import { STORES, AdminModals, AttendeeNames, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
@@ -16,6 +16,7 @@ import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { rgnEventId } from '@/lib/rgn';
 import { dayOccupancy, eventDay, STORE_IDS } from '@/lib/occupancy';
 import OccupancyManager from '@/components/OccupancyManager';
+import TableBookingAdmin from '@/components/TableBookingAdmin';
 import QuickActions from '@/components/QuickActions';
 import { Fab, PullToRefresh } from '@/components/PhoneApp';
 import s from './AdminApp.module.css';
@@ -28,7 +29,7 @@ import s from './AdminApp.module.css';
 // A Telítettség fület szervező csak bekapcsolt modulnál látja. A jogokat a szerver is ellenőrzi.
 
 // Kezdőoldal: Események (a „Ma” fül a tulajdonos kérésére kikerült)
-const TABS = [['esemenyek', 'Események', CalendarOutlined], ['telitettseg', 'Telítettség', PieChartOutlined], ['tovabbiak', 'Továbbiak', AppstoreOutlined]];
+const TABS = [['esemenyek', 'Események', CalendarOutlined], ['foglalasok', 'Foglalások', ScheduleOutlined], ['telitettseg', 'Telítettség', PieChartOutlined], ['tovabbiak', 'Továbbiak', AppstoreOutlined]];
 const TAB_STORAGE = 'tavern-owner-tab';
 const MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
 const WEEKDAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];
@@ -61,7 +62,8 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   const isOwner = app.userRole === 'owner';
   const has = (feature) => isOwner || app.hasFeature(feature);
   const occ = app.occupancy || { enabled: false, capacity: {} };
-  const tabs = TABS.filter(t => t[0] !== 'telitettseg' || isOwner || occ.enabled);
+  const tabs = TABS.filter(t => (t[0] !== 'telitettseg' || isOwner || occ.enabled) && (t[0] !== 'foglalasok' || has('tableBookings')));
+  const pendingTables = (app.tableBookings || []).filter(b => b.status === 'pending').length;
   const [savedTab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 'esemenyek';
     return window.sessionStorage.getItem(TAB_STORAGE) || 'esemenyek';
@@ -134,7 +136,8 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   };
   const openAttendees = (e) => { app.setSelectedEventIdForAttendees(eid(e)); app.setIsAttendeesModalOpen(true); };
   const toggleGate = (e) => app.handleToggleGate(eid(e), !e.is_open);
-  const canBook = (b) => isOwner || app.canManageStore(b.store);
+  // Az asztalfoglalásból jött foglalást a Foglalások fülön kezelik (a lemondás e-mailt is küld)
+  const canBook = (b) => !b.tableBookingId && (isOwner || (occ.enabled && app.canManageStore(b.store)));
   const bumpBooking = (b, d) => app.saveBooking({ id: b._id, store: b.store, date: b.date, label: b.label, from: b.from, to: b.to, seats: Math.max(1, b.seats + d) });
   const selectedEvent = selected ? (app.tournaments || []).find(e => eid(e) === selected) : null;
 
@@ -189,7 +192,10 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         <span className={s.cardTitle}><b className={s.num}>{b.from}–{b.to}</b> <b>{b.label}</b></span>
         <b className={s.num}>{b.seats} hely</b>
       </span>
-      <span className={s.cardSub}><i className={`${s.dot} ${s.dotBooking}`} aria-hidden="true" />{SHORT_STORES[b.store]} · kézi foglalás</span>
+      <span className={s.cardSub}><i className={`${s.dot} ${s.dotBooking}`} aria-hidden="true" />{SHORT_STORES[b.store]} · {b.tableBookingId ? 'asztalfoglalás' : 'kézi foglalás'}</span>
+      {b.tableBookingId && has('tableBookings') && app.canManageStore(b.store) && (
+        <div className={s.cardBtns}><button type="button" className={s.bigBtn} onClick={() => goTab('foglalasok')}>Részletek</button></div>
+      )}
       {canBook(b) && (
         <div className={s.cardBtns}>
           <button type="button" className={s.bigBtn} onClick={() => bumpBooking(b, -1)} disabled={b.seats <= 1}>−1 hely</button>
@@ -217,7 +223,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
                 return (
                   <tr key={`b${b._id}`} className={s.tr}>
                     <td className={s.num}><b>{b.from}–{b.to}</b></td>
-                    <td><b>{b.label}</b> <span className={s.quiet}>· kézi foglalás</span></td>
+                    <td><b>{b.label}</b> <span className={s.quiet}>· {b.tableBookingId ? 'asztalfoglalás' : 'kézi foglalás'}</span></td>
                     <td className={s.quiet}>{STORES[b.store]?.name}</td>
                     <td className={`${s.right} ${s.num}`}><b>{b.seats} hely</b></td>
                     <td className={`${s.right} ${s.quiet}`}>—</td>
@@ -231,7 +237,9 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
                             <button type="button" className={`${s.act} ${s.actDanger}`}>Törlés</button>
                           </Popconfirm>
                         </>
-                      ) : <span className={s.quiet}>Csak megtekintés</span>}
+                      ) : b.tableBookingId && has('tableBookings') && app.canManageStore(b.store)
+                        ? <button type="button" className={s.act} onClick={() => goTab('foglalasok')}>Részletek</button>
+                        : <span className={s.quiet}>Csak megtekintés</span>}
                     </td>
                   </tr>
                 );
@@ -468,8 +476,8 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       <div className={s.shell}>
         <header className={s.topbar}>
           <b className={s.topTitle}>{tab === 'esemenyek' && showPast ? 'Előző események' : tabs.find(t => t[0] === tab)[1]}</b>
-          {tab === 'esemenyek' && <button type="button" className={`${s.iconBtn} ${s.phoneOnly}`} style={{ marginLeft: 'auto' }} onClick={toggleSearch} aria-label={searchOpen ? 'Keresés bezárása' : 'Keresés'} aria-expanded={searchOpen}>{searchOpen ? <CloseOutlined /> : <SearchOutlined />}</button>}
-          <span className={`${s.quiet} ${s.num} ${s.deskOnly}`} style={{ marginLeft: 'auto' }}>Frissítve {updatedAt.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+          {tab === 'esemenyek' && <button type="button" className={`${s.iconBtn} ${s.phoneOnly}`} onClick={toggleSearch} aria-label={searchOpen ? 'Keresés bezárása' : 'Keresés'} aria-expanded={searchOpen}>{searchOpen ? <CloseOutlined /> : <SearchOutlined />}</button>}
+          <span className={`${s.quiet} ${s.num} ${s.deskOnly}`}>Frissítve {updatedAt.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
           <button type="button" className={s.iconBtn} onClick={refresh} aria-label="Frissítés" disabled={refreshing}><SyncOutlined spin={refreshing} /></button>
         </header>
 
@@ -478,7 +486,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
           {tabs.map(([key, label, Icon]) => (
             <button key={key} type="button" className={s.tabBtn} aria-current={tab === key ? 'page' : undefined} onClick={() => goTab(key)}>
               <Icon className={s.tabIcon} aria-hidden="true" />
-              {label}{key === 'tovabbiak' && unseenCount > 0 && <i className={s.tabDot} aria-label="Új újdonság" />}
+              {label}{key === 'tovabbiak' && unseenCount > 0 && <i className={s.tabDot} aria-label="Új újdonság" />}{key === 'foglalasok' && pendingTables > 0 && <i className={s.tabDot} aria-label={`${pendingTables} új foglalási kérés`} />}
             </button>
           ))}
           <span className={s.sideUser}>{app.userName} · {isOwner ? 'tulajdonos' : 'szervező'}</span>
@@ -486,6 +494,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
 
         <main key={tab} className={`${s.main} admin-screen-in`}>
           {tab === 'esemenyek' && eventsView()}
+          {tab === 'foglalasok' && (<><h1 className={s.title}>Asztalfoglalások</h1><TableBookingAdmin app={app} todayKey={todayKey} /></>)}
           {tab === 'telitettseg' && (<><h1 className={s.title}>Napi telítettség</h1><OccupancyManager app={app} /></>)}
           {tab === 'tovabbiak' && moreView()}
         </main>

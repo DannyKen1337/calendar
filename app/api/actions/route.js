@@ -6,7 +6,8 @@ import bcrypt from 'bcryptjs';
 import { randomInt, randomBytes } from 'crypto';
 import { verifyAdmin, verifyOwner } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
-import { canManageEvent, canManageStore, sanitizeCategories, sanitizeStores, sanitizeFeatures, FEATURES, STORE_NAMES } from '@/lib/permissions';
+import { canManageEvent, canManageStore, hasFeature, sanitizeCategories, sanitizeStores, sanitizeFeatures, FEATURES, STORE_NAMES } from '@/lib/permissions';
+import { DECISIONS, tableBookingWhen } from '@/lib/tableBookings';
 import { normalizeOccupancy, sanitizeBooking, STORE_IDS } from '@/lib/occupancy';
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
@@ -817,6 +818,54 @@ export async function POST(request) {
     }
 
     // Kézi helyfoglalás felvétele / módosítása / törlése: a tulajdonos mindig; a szervező bekapcsolt modulnál, a saját boltjaiban
+    // Asztalfoglalási kérés elfogadása, elutasítása vagy az elfogadott lemondása (lib/tableBookings.js)
+    if (actionType === 'TABLE_BOOKING_DECIDE') {
+      if (!hasFeature(session, 'tableBookings')) return NextResponse.json({ error: 'Nincs jogosultságod az asztalfoglalásokhoz. A tulajdonos adhat hozzáférést.' }, { status: 403 });
+      const step = Object.hasOwn(DECISIONS, String(payload.decision)) ? DECISIONS[payload.decision] : null;
+      if (!step) return NextResponse.json({ error: 'Ismeretlen művelet.' }, { status: 400 });
+      const tableRequest = payload.id ? await db.collection('table_bookings').findOne(getQuery(payload.id)) : null;
+      if (!tableRequest) return NextResponse.json({ error: 'Ez a foglalás már nem létezik.' }, { status: 404 });
+      if (!canManageStore(session, tableRequest.store)) return NextResponse.json({ error: 'Ennek a boltnak a foglalásait nem kezelheted.' }, { status: 403 });
+
+      let storeBooking = null;
+      if (payload.decision === 'accept') {
+        if (tableRequest.date < budapestDateTime(Date.now()).slice(0, 10)) return NextResponse.json({ error: 'Ez az időpont már elmúlt.' }, { status: 400 });
+        const checked = sanitizeBooking({ store: tableRequest.store, date: tableRequest.date, from: tableRequest.from, to: tableRequest.to, seats: payload.seats, label: `Asztal: ${tableRequest.name}` });
+        if (checked.error) return NextResponse.json({ error: checked.error }, { status: 400 });
+        storeBooking = checked.booking;
+      }
+
+      // Csak az a döntés él, amelyik még a várt állapotban találja (két szervező egyszerre, dupla kattintás)
+      const updated = await db.collection('table_bookings').findOneAndUpdate(
+        { _id: tableRequest._id, status: step.from },
+        { $set: { status: step.to, decidedBy: session.username, decidedAt: new Date(), ...(storeBooking ? { seats: storeBooking.seats } : {}) } },
+      );
+      if (!updated) return NextResponse.json({ error: 'Ezt a kérést közben már kezelte valaki. Frissítsd az oldalt.' }, { status: 409 });
+
+      if (storeBooking) await db.collection('store_bookings').insertOne({ ...storeBooking, tableBookingId: String(tableRequest._id), createdBy: session.username, createdAt: new Date() });
+      if (payload.decision === 'cancel') await db.collection('store_bookings').deleteMany({ tableBookingId: String(tableRequest._id) });
+      const labels = { accept: 'Elfogadva', reject: 'Elutasítva', cancel: 'Lemondva' };
+      await addLog(db, session.username, 'ASZTALFOGLALÁS', `${labels[payload.decision]}: ${tableRequest.name} (${STORE_NAMES[tableRequest.store]}, ${tableBookingWhen(tableRequest)})`);
+
+      let mailSent = false;
+      if (isMailConfigured()) {
+        const place = `<b>${escapeHtml(STORE_NAMES[tableRequest.store])}</b>, ${escapeHtml(tableBookingWhen(tableRequest))}`;
+        const texts = {
+          accept: ['Az asztalfoglalásodat elfogadtuk – Tavern', 'Foglalás visszaigazolva', `<p>Várunk: ${place}.</p>`],
+          reject: ['Az asztalfoglalásodat nem tudjuk teljesíteni – Tavern', 'Foglalás elutasítva', `<p>Sajnos ezt az időpontot nem tudjuk vállalni: ${place}. Próbálj másik időpontot választani!</p>`],
+          cancel: ['Az asztalfoglalásod lemondásra került – Tavern', 'Foglalás lemondva', `<p>Az alábbi foglalásodat lemondtuk: ${place}.</p>`],
+        }[payload.decision];
+        try {
+          await sendMail({ to: tableRequest.email, subject: texts[0], html: mailLayout(texts[1], `<p>Kedves ${escapeHtml(tableRequest.name)}!</p>${texts[2]}`) });
+          mailSent = true;
+        } catch (mailErr) {
+          console.error('table booking decision mail error:', mailErr);
+          await logSystemError('table booking decision mail', mailErr);
+        }
+      }
+      return NextResponse.json({ success: true, mailSent });
+    }
+
     if (actionType === 'SAVE_BOOKING' || actionType === 'DELETE_BOOKING') {
       const settings = await db.collection('settings').findOne({ _id: 'global_settings' });
       const enabled = normalizeOccupancy(settings?.occupancy).enabled;
@@ -828,6 +877,10 @@ export async function POST(request) {
       if (actionType === 'DELETE_BOOKING') {
         if (!existing) return NextResponse.json({ error: 'Hiányzó foglalás.' }, { status: 400 });
         await db.collection('store_bookings').deleteOne({ _id: existing._id });
+        // Asztalfoglalásból jött: a kérés állapota is kövesse (lib/tableBookings.js)
+        if (existing.tableBookingId) {
+          await db.collection('table_bookings').updateOne({ ...getQuery(existing.tableBookingId), status: 'accepted' }, { $set: { status: 'cancelled', decidedBy: session.username, decidedAt: new Date() } });
+        }
         await addLog(db, session.username, 'HELYFOGLALÁS', `Törölve: ${existing.label} (${STORE_NAMES[existing.store]}, ${existing.date} ${existing.from}–${existing.to}, ${existing.seats} hely)`);
         return NextResponse.json({ success: true });
       }

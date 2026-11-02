@@ -53,6 +53,8 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
     byDay.get(k).push(e);
   }
   for (const list of byDay.values()) list.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  // Elfogadott asztalfoglalások: csak az időpont, név nélkül
+  const tablesOn = (key) => (app.publicTableBookings || []).filter(b => b.store === store && b.date === key);
 
   const occFor = (key) => {
     if (!occupancy?.capacity?.[store]) return null;
@@ -108,7 +110,7 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
             <span className={s.num}><b>{o.used} / {o.cap}</b> <span style={{ color: '#b8aca7' }}>hely · {o.free} szabad</span></span>
           </div>
         )}
-        {list.length === 0 && !booked ? (
+        {list.length === 0 && !booked && tablesOn(key).length === 0 ? (
           <p className={s.empty}>{isClosed(date) ? 'A bolt ezen a napon zárva van.' : 'Nincs kiírt esemény ezen a napon.'}</p>
         ) : (
           <ul className={s.list}>
@@ -125,6 +127,16 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
                   </span>
                   {hasCount(e) && <span className={s.rowCount}>{countText(e)}</span>}
                 </button>
+              </li>
+            ))}
+            {tablesOn(key).map(b => (
+              <li key={`${b.from}-${b.to}`}>
+                <div className={s.row} style={{ cursor: 'default' }}>
+                  <span className={`${s.rowDot} ${s.rowBooking}`} aria-hidden="true" />
+                  <span className={s.rowMain}>
+                    <span className={s.rowTop}><span className={s.rowTime}>{b.from}–{b.to}</span><span className={s.rowName}>Foglalás</span></span>
+                  </span>
+                </div>
               </li>
             ))}
             {booked > 0 && (
@@ -168,11 +180,11 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
             const past = key < todayKey;
             return (
               <button key={key} type="button" aria-pressed={selected === key}
-                aria-label={`${MONTHS[d.getMonth()]} ${d.getDate()}.: ${evs.length} esemény${o ? `, ${o.used} / ${o.cap} hely foglalt` : ''}`}
+                aria-label={`${MONTHS[d.getMonth()]} ${d.getDate()}.: ${evs.length} esemény${tablesOn(key).length ? `, ${tablesOn(key).length} foglalás` : ''}${o ? `, ${o.used} / ${o.cap} hely foglalt` : ''}`}
                 className={`${s.mCell} ${past ? s.mCellPast : ''} ${key === todayKey ? s.mCellToday : ''} ${selected === key ? s.mCellSel : ''}`}
                 onClick={() => setSelected(key)}>
                 <span className={s.mNum}>{d.getDate()}</span>
-                <span className={s.mDots} aria-hidden="true">{evs.slice(0, 3).map(e => <span key={String(e._id || e.id)} style={{ background: getGameColor(e) }} />)}</span>
+                <span className={s.mDots} aria-hidden="true">{evs.slice(0, 3).map(e => <span key={String(e._id || e.id)} style={{ background: getGameColor(e) }} />)}{tablesOn(key).length > 0 && <span className={s.rowBooking} />}</span>
                 {o && o.used > 0 ? <span className={`${s.meter} ${o.over ? s.meterOver : ''}`} aria-hidden="true"><span style={{ width: `${Math.min(100, o.pct)}%` }} /></span> : <span style={{ height: 4 }} />}
               </button>
             );
@@ -214,9 +226,11 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
                   {ordered.length > MAX_STRIPS && (
                     <button type="button" className={s.more} onClick={(ev) => { ev.stopPropagation(); setDayModal(key); }}>+{ordered.length - MAX_STRIPS + 1} további esemény</button>
                   )}
+                  {tablesOn(key).length === 1 && <span className={s.tableStrip}>Foglalás {tablesOn(key)[0].from}–{tablesOn(key)[0].to}</span>}
+                  {tablesOn(key).length > 1 && <span className={s.tableStrip}>{tablesOn(key).length} foglalás</span>}
                 </span>
                 {fillBar(o)}
-                {!o?.used && evs.length === 0 && isClosed(d) && <span className={s.closed}>Zárva</span>}
+                {!o?.used && evs.length === 0 && tablesOn(key).length === 0 && isClosed(d) && <span className={s.closed}>Zárva</span>}
               </div>
             );
           })}

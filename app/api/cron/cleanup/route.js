@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { recordRun } from '@/lib/systemLog';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
+import { deleteOldTableBookings } from '@/lib/tableBookings';
 import { deleteExpiredPreorders, deleteInactiveLeaguePlayers, PREORDER_RETENTION_MONTHS, LEAGUE_PLAYER_RETENTION_MONTHS } from '@/lib/retention';
 
 export const dynamic = 'force-dynamic';
@@ -55,7 +56,9 @@ export async function GET(request) {
       await db.collection('audit_logs').insertOne({ adminName: 'Vercel Automata', action: 'AUTOMATA TAKARÍTÁS', details: `${players} ligajátékos törölve (${LEAGUE_PLAYER_RETENTION_MONTHS} hónapja nem jelent meg).`, date: new Date() });
     }
 
-    return { deletedCount: oldEventIds.length, preorderProducts: preorders.products, leaguePlayers: players };
+    const tableBookings = await deleteOldTableBookings(db);
+
+    return { deletedCount: oldEventIds.length, preorderProducts: preorders.products, leaguePlayers: players, tableBookings };
     });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {

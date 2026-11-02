@@ -4,7 +4,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { getExtraLinks } from '@/lib/extraLinks';
 import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
-import { canManageEvent } from '@/lib/permissions';
+import { canManageEvent, canManageStore, hasFeature } from '@/lib/permissions';
 import { getAttendanceStats } from '@/lib/attendanceHistory';
 import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
 import { syncDueRgnEvents, getRgnRegistrations } from '@/lib/rgnSync';
@@ -47,8 +47,16 @@ export async function GET() {
     const occupancy = normalizeOccupancy(settings?.occupancy);
     const showOccupancy = isOwner || occupancy.enabled;
     const bookingsFrom = budapestDateTime(Date.now() - 62 * 24 * 60 * 60 * 1000).slice(0, 10);
-    const bookings = showOccupancy
-      ? (await db.collection('store_bookings').find({ date: { $gte: bookingsFrom } }).sort({ date: 1, from: 1 }).toArray()).map(b => ({ ...b, _id: String(b._id) }))
+    // Az elfogadott asztalfoglalások kikapcsolt modulnál is látszanak a listában (a telítettség nélkül)
+    const bookings = (await db.collection('store_bookings')
+      .find({ date: { $gte: bookingsFrom }, ...(showOccupancy ? {} : { tableBookingId: { $exists: true } }) })
+      .sort({ date: 1, from: 1 }).toArray()).map(b => ({ ...b, _id: String(b._id) }));
+
+    // Asztalfoglalási kérések (elérhetőségekkel): csak az „Asztalfoglalás” joggal, a kezelt boltokból
+    const tableBookings = hasFeature(session, 'tableBookings')
+      ? (await db.collection('table_bookings').find({}).sort({ date: 1, from: 1 }).toArray())
+        .filter(b => canManageStore(session, b.store))
+        .map(({ _id, ...b }) => ({ ...b, id: String(_id) }))
       : [];
 
     // A szervező minden eseményt lát (a nyilvános, rövidített jelentkezőnevekkel együtt),
@@ -75,6 +83,7 @@ export async function GET() {
         isMaintenance: settings?.isMaintenance || false,
         occupancy: showOccupancy ? occupancy : { enabled: false, public: false, capacity: {} },
         bookings,
+        tableBookings,
         serverTime: Date.now(),
         extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false }))
     });
