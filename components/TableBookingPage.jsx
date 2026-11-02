@@ -1,10 +1,10 @@
 "use client";
 import { useState } from 'react';
 import { STORE_NAMES } from '@/lib/permissions';
-import { storeHoursOn, TABLE_NOTE_MAX } from '@/lib/tableBookings';
+import { storeHoursOn, TABLE_NOTE_MAX, TABLE_MAX_PEOPLE } from '@/lib/tableBookings';
 import s from './TableBookingPage.module.css';
 
-const EMPTY = { name: '', email: '', phone: '', date: '', from: '', to: '', note: '', website: '' };
+const EMPTY = { name: '', email: '', phone: '', date: '', from: '', to: '', maxPeople: '', note: '', website: '' };
 
 // Nyilvános asztalfoglaló oldal: a kérés addig nem él, amíg egy szervező el nem fogadja
 export default function TableBookingPage({ maintenance = false, initialStore = '' }) {
@@ -51,7 +51,7 @@ export default function TableBookingPage({ maintenance = false, initialStore = '
           {header}
           <div className={s.panel} role="status">
             <h2 className={s.doneTitle}>Megkaptuk a kérésedet</h2>
-            <p>{STORE_NAMES[done.store]}, {done.date}, {done.from}–{done.to}</p>
+            <p>{STORE_NAMES[done.store]}, {done.date}, {done.from}–{done.to}, legfeljebb {done.maxPeople} fő</p>
             <p>A foglalás akkor él, ha visszaigazoljuk. {done.mailSent ? `A visszaigazolást a(z) ${done.email} címre küldjük.` : 'A megadott elérhetőségeiden keresünk.'}</p>
             <button type="button" className={s.secondary} onClick={() => { setDone(null); setForm({ ...EMPTY, store: done.store }); }}>Újabb foglalás</button>
           </div>
@@ -94,6 +94,11 @@ export default function TableBookingPage({ maintenance = false, initialStore = '
               <input className={s.input} type="time" step="900" value={form.to} onChange={set('to')} required {...invalid('to')} />
             </label>
           </div>
+
+          <label className={s.field}>
+            <span className={s.label}>Maximum hányan lesztek?</span>
+            <input className={s.input} type="number" inputMode="numeric" name="maxPeople" min={1} max={TABLE_MAX_PEOPLE} step={1} value={form.maxPeople} onChange={set('maxPeople')} required {...invalid('maxPeople')} />
+          </label>
 
           <label className={s.field}>
             <span className={s.label}>Név</span>

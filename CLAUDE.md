@@ -35,6 +35,7 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 
 ## Asztalfoglalás (lib/tableBookings.js)
 - Nyilvános oldal: `/asztalfoglalas` (`?bolt=debrecen` előre választ), kérés: `POST /api/table-bookings`, gyűjtemény: `table_bookings` (pending → accepted/rejected, accepted → cancelled). Ellenőrzés a boltok nyitvatartása szerint (`lib/storeHours.js`).
+- A látogató megadja a maximális létszámot (`maxPeople`); elfogadáskor ez a helyek számának alapértéke, a szervező átírhatja.
 - Jog: `tableBookings` (FEATURES, „Asztalfoglalás” csoport); a szervező a saját boltjaiban dönt az admin Foglalások fülön (`components/TableBookingAdmin.jsx`, művelet: `TABLE_BOOKING_DECIDE`). Elérhetőséget csak ők látnak.
 - Elfogadáskor `store_bookings` sor is készül `tableBookingId` mezővel: ez látszik az admin listában (kikapcsolt telítettség modulnál is), név nélkül a nyilvános havi naptárban (a heti nézetben még nem), és beleszámít a napi telítettségbe. E-mail csak beállított Resend esetén megy. A heti takarítás két hónap után törli a kéréseket.
 

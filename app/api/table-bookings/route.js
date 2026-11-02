@@ -39,7 +39,7 @@ export async function POST(request) {
           subject: 'Megkaptuk az asztalfoglalási kérésedet – Tavern',
           html: mailLayout('Asztalfoglalási kérés', `
             <p>Kedves ${escapeHtml(booking.name)}!</p>
-            <p>Megkaptuk a kérésedet: <b>${escapeHtml(STORE_NAMES[booking.store])}</b>, ${escapeHtml(tableBookingWhen(booking))}.</p>
+            <p>Megkaptuk a kérésedet: <b>${escapeHtml(STORE_NAMES[booking.store])}</b>, ${escapeHtml(tableBookingWhen(booking))}, legfeljebb ${booking.maxPeople} fő.</p>
             <p>A foglalás akkor él, ha visszaigazoljuk. Erről külön értesítünk.</p>
           `),
         });

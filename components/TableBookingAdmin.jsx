@@ -10,9 +10,9 @@ const dayLabel = (date) => new Date(`${date}T12:00:00`).toLocaleDateString('hu-H
 const STATUS_LABELS = { accepted: 'Elfogadva', rejected: 'Elutasítva', cancelled: 'Lemondva' };
 
 // Asztalfoglalási kérések kezelése az admin felületen (jog: „Asztalfoglalás”, a szervező a saját boltjaiban).
-// Elfogadáskor a szervező adja meg, hány helyet foglal; a foglalás innentől a naptárban is látszik (lib/tableBookings.js).
+// Elfogadáskor a szervező dönti el, hány helyet foglal (alapból a megadott maximális létszám); a foglalás innentől a naptárban is látszik (lib/tableBookings.js).
 function BookingCard({ b, app, todayKey }) {
-  const [seats, setSeats] = useState(String(DEFAULT_SEATS));
+  const [seats, setSeats] = useState(String(b.maxPeople || DEFAULT_SEATS));
   const [busy, setBusy] = useState(false);
   const eventsThatDay = (app.tournaments || []).filter(e => (e.store || 'debrecen') === b.store && eventDay(e) === b.date).length;
   const othersThatDay = (app.tableBookings || []).filter(o => o.status === 'accepted' && o.store === b.store && o.date === b.date && o.id !== b.id).length;
@@ -38,7 +38,7 @@ function BookingCard({ b, app, todayKey }) {
         {b.status !== 'pending' && <span className={`${s.pill} ${b.status === 'accepted' ? s.pillOk : ''}`}>{STATUS_LABELS[b.status]}</span>}
       </div>
       <p className={s.line}>{STORES[b.store]?.name}</p>
-      <p className={s.line}><b>{b.name}</b></p>
+      <p className={s.line}><b>{b.name}</b>{b.maxPeople ? ` · legfeljebb ${b.maxPeople} fő` : ''}</p>
       <p className={s.line}><a href={`tel:${b.phone.replace(/[^\d+]/g, '')}`}>{b.phone}</a> · <a href={`mailto:${b.email}`}>{b.email}</a></p>
       {b.note && <p className={s.note}>{b.note}</p>}
       {b.status === 'pending' && <p className={s.quiet}>{past ? 'Ez az időpont már elmúlt. ' : ''}Aznap a boltban: {eventsThatDay} esemény, {othersThatDay} elfogadott foglalás.</p>}
