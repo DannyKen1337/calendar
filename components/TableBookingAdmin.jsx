@@ -50,7 +50,7 @@ function BookingCard({ b, app, todayKey }) {
             <>
               <label className={s.seats}>
                 <span>Hely</span>
-                <input type="number" inputMode="numeric" min={1} max={500} value={seats} onChange={(ev) => setSeats(ev.target.value)} />
+                <input type="number" inputMode="numeric" min={1} max={500} value={seats} onFocus={(ev) => ev.target.select()} onChange={(ev) => setSeats(ev.target.value)} aria-label="Foglalt helyek száma" />
               </label>
               <button type="button" className={s.accept} disabled={busy} onClick={() => decide('accept')}>Elfogadás</button>
             </>
