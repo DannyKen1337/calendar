@@ -936,6 +936,7 @@ export const AdminModals = ({ app: v }) => {
 };
 
 const ORGANIZER_TAB_STORAGE = 'tavern-organizer-tab';
+const PAST_DAYS_STEP = 5; // az Előző események ennyi eseményes napot tölt be egyszerre
 
 export const AdminEvents = ({ app: v, onShowChangelog, unseenCount = 0 }) => {
   // Telefonon alsó fülsáv: Események, Szűrés, Továbbiak (960 px felett minden egyszerre látszik)
@@ -946,6 +947,7 @@ export const AdminEvents = ({ app: v, onShowChangelog, unseenCount = 0 }) => {
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   const [adminSearch, setAdminSearch] = useState('');
   const [showPast, setShowPast] = useState(false);
+  const [pastDays, setPastDays] = useState(PAST_DAYS_STEP);
   const [onlyMine, setOnlyMine] = useState(false); // csak az általam tartott események
   const [pickedMonth, setPickedMonth] = useState(null); // a kiválasztott hónap (= oldal); amíg nincs, a legközelebbi esemény hónapja látszik
   const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
@@ -972,9 +974,12 @@ export const AdminEvents = ({ app: v, onShowChangelog, unseenCount = 0 }) => {
   const evtTime = (e) => new Date(e.date).getTime();
   const upcomingEvents = filteredAndSortedTournaments.filter(e => !(evtTime(e) < startOfToday.getTime()));
 
-  // Az Előző események gombra a múltbeliek látszanak: a legfrissebb nap elöl, napon belül időrendben
+  // Az Előző események gombra a legutóbbi 5 nap, amikor volt esemény (a legfrissebb elöl, napon belül időrendben), kereséskor minden találat
   const dayStart = (e) => new Date(e.date).setHours(0, 0, 0, 0);
   const pastEvents = filteredAndSortedTournaments.filter(e => evtTime(e) < startOfToday.getTime()).sort((a, b) => dayStart(b) - dayStart(a));
+  const pastDayStarts = [...new Set(pastEvents.map(dayStart))];
+  const shownPastDays = adminSearch.trim() !== '' ? pastDayStarts : pastDayStarts.slice(0, pastDays);
+  const shownPastEvents = pastEvents.filter(e => shownPastDays.includes(dayStart(e)));
 
   // Hónaponkénti lapozás: egyszerre egy hónap eseményei látszanak, 2026 januárjától bármelyik hónap kiválasztható.
   // Keresésnél az összes hónap találata megjelenik.
@@ -998,7 +1003,7 @@ export const AdminEvents = ({ app: v, onShowChangelog, unseenCount = 0 }) => {
     monthCounts.set(k, (monthCounts.get(k) || 0) + 1);
   });
   // Dátum nélküli események az aktuális hónap oldalán jelennek meg, hogy ne vesszenek el
-  const monthEvents = showPast ? pastEvents : isSearching ? filteredAndSortedTournaments : filteredAndSortedTournaments.filter(e => {
+  const monthEvents = showPast ? shownPastEvents : isSearching ? filteredAndSortedTournaments : filteredAndSortedTournaments.filter(e => {
     const d = new Date(e.date);
     if (isNaN(d.getTime())) return isCurrentMonth;
     return monthKey(d) === monthKey(adminMonth) && !(isCurrentMonth && hideEarlierToday(e));
@@ -1161,7 +1166,7 @@ export const AdminEvents = ({ app: v, onShowChangelog, unseenCount = 0 }) => {
 
         {/* ESEMÉNYEK: napokra csoportosítva, kártyarácsban */}
         <section className={`min-w-0 flex flex-col gap-6 ${phoneShows('esemenyek')}`}>
-          <Button type="primary" block size="large" icon={showPast ? <LeftOutlined /> : <HistoryOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setShowPast(p => !p)}>
+          <Button type="primary" block size="large" icon={showPast ? <LeftOutlined /> : <HistoryOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => { setShowPast(p => !p); setPastDays(PAST_DAYS_STEP); }}>
             {showPast ? 'Vissza a mai és közelgő eseményekhez' : `Előző események (${pastEvents.length})`}
           </Button>
           {showPast ? null : isSearching ? (
@@ -1170,6 +1175,7 @@ export const AdminEvents = ({ app: v, onShowChangelog, unseenCount = 0 }) => {
             renderMonthPager()
           )}
           <AdminDayGroups events={monthEvents} app={v} emptyText={showPast ? 'Nincs korábbi esemény.' : isSearching ? 'Nincs a keresésnek megfelelő esemény.' : adminCatFilter.length > 0 || adminStoreFilter !== 'Mind' || onlyMine ? 'Nincs a szűrőknek megfelelő esemény ebben a hónapban.' : 'Nincs esemény ebben a hónapban.'} />
+          {showPast && shownPastDays.length < pastDayStarts.length && <Button block size="large" style={sideBtn} onClick={() => setPastDays(n => n + PAST_DAYS_STEP)}>Korábbi napok ({pastDayStarts.length - shownPastDays.length} nap van még)</Button>}
           {!isSearching && !showPast && monthEvents.length > 0 && renderMonthPager(true)}
         </section>
       </div>

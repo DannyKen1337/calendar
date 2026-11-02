@@ -31,6 +31,7 @@ const TAB_STORAGE = 'tavern-owner-tab';
 const MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
 const WEEKDAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];
 const SHORT_STORES = { debrecen: 'Debrecen', miskolc: 'Miskolc', jatekceh: 'JátékCéh' };
+const PAST_DAYS_STEP = 5; // az Előző események ennyi eseményes napot tölt be egyszerre
 const WEBSITE_ADMIN = `${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`;
 
 const eid = (e) => String(e._id || e.id);
@@ -68,6 +69,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   const [refreshing, setRefreshing] = useState(false);
   const [month, setMonth] = useState(null); // a kiválasztott hónap; amíg nincs, a legközelebbi esemény hónapja látszik
   const [showPast, setShowPast] = useState(false);
+  const [pastDays, setPastDays] = useState(PAST_DAYS_STEP);
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
   const [standalone, setStandalone] = useState(true);
 
@@ -292,7 +294,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   };
 
   // Események: a mai vagy a legközelebbi esemény van felül, hónaponként lapozva (keresésnél minden hónap);
-  // az Előző események gombra a múltbeliek látszanak, a legfrissebb nap elöl
+  // az Előző események gombra a legutóbbi 5 nap, amikor volt esemény (a legfrissebb elöl), kereséskor minden találat
   const eventsView = () => {
     const searching = query.trim() !== '';
     const isPast = (key) => key !== '' && key < todayKey;
@@ -301,8 +303,9 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     const mKey = keyOf(shownMonth).slice(0, 7);
     const isCurrent = mKey === todayKey.slice(0, 7);
     const pastCount = allEvents.filter(e => isPast(eventDay(e))).length;
+    const pastGroups = showPast ? rowsFor(isPast).reverse().filter(g => g.items.some(i => i.kind === 'event')) : [];
     const groups = showPast
-      ? rowsFor(isPast).reverse()
+      ? (searching ? pastGroups : pastGroups.slice(0, pastDays))
       : rowsFor(key => searching || (key.slice(0, 7) === mKey && (!isCurrent || key >= todayKey)));
     const goMonth = (n) => setMonth(new Date(shownMonth.getFullYear(), shownMonth.getMonth() + n, 1));
     const count = groups.reduce((n, g) => n + g.items.filter(i => i.kind === 'event').length, 0);
@@ -311,11 +314,11 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
         <div className={`${s.titleRow} ${!searching && !showPast ? s.titleRowDesk : ''}`}>
           <div>
             <h1 className={s.title}>{showPast ? 'Előző események' : 'Események'}</h1>
-            <p className={s.sub}>{searching ? `${count} találat` : showPast ? `${count} esemény` : `${count} esemény · ${shownMonth.getFullYear()}. ${MONTHS[shownMonth.getMonth()]}`}</p>
+            <p className={s.sub}>{searching ? `${count} találat` : showPast ? `${groups.length} nap · ${count} esemény` : `${count} esemény · ${shownMonth.getFullYear()}. ${MONTHS[shownMonth.getMonth()]}`}</p>
           </div>
           <button type="button" className={`${s.primary} ${s.deskOnly}`} onClick={openNewEvent}>+ Új esemény</button>
         </div>
-        <button type="button" className={s.pastBtn} aria-pressed={showPast} onClick={() => setShowPast(p => !p)}>
+        <button type="button" className={s.pastBtn} aria-pressed={showPast} onClick={() => { setShowPast(p => !p); setPastDays(PAST_DAYS_STEP); }}>
           {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események ({pastCount})</>}
         </button>
         {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
@@ -336,6 +339,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           </div>
         )}
         {listOf(groups, searching ? 'Nincs találat.' : showPast ? 'Nincs korábbi esemény.' : isCurrent ? 'Ebben a hónapban már nincs több esemény.' : 'Ebben a hónapban nincs esemény.')}
+        {groups.length < pastGroups.length && <button type="button" className={s.bigBtn} onClick={() => setPastDays(n => n + PAST_DAYS_STEP)}>Korábbi napok ({pastGroups.length - groups.length} nap van még)</button>}
         {!showPast && <Fab label="Új esemény" onClick={openNewEvent} />}
       </>
     );
