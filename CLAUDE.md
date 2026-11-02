@@ -40,6 +40,10 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 ## Látványterv
 - Design vászon: https://claude.ai/artifact/9hsmk9SxJqsNa3B5pJERRh (nyilvános naptár, esemény/jelentkezés, admin, napi telítettség).
 
+## Vektoros index
+- Fájlok tömeges olvasása vagy kereső ügynök indítása előtt, és korábbi döntések felidézéséhez először ezt futtasd: `node --disable-warning=ExperimentalWarning .claude/hooks/vectordb.mjs search "kérdés" [db]`. A találat csak kiindulópont: a kódot a jelzett soroknál ellenőrizd, mert az index az előző session végén készült.
+- Minden session végén magától újraépül (SessionEnd hook). Helye a repón kívül van: `~/.claude/projects/<projekt>/vectordb/`. A hibákat a `build.log` mutatja.
+
 ## Teendők / ötletek
 - Élesben ellenőrizni az új nyilvános naptárat és a tulajdonosi admint (telefonon is), a telítettség modult bekapcsolás előtt kipróbálni.
 - A heti nézet még a régi kinézetű (`CalendarView weekly`), a jelentkezési és eseményoldal is.
