@@ -8,7 +8,7 @@ import s from './OccupancyManager.module.css';
 
 // Napi telítettség kezelése (lib/occupancy.js): egy bolt egy napja – a versenyek jelentkezői, a kézi helyfoglalások
 // (felvétel, szerkesztés, bővítés/szűkítés, törlés), és a tulajdonosnak a modul kapcsolója meg a boltok napi férőhelye.
-// A tulajdonosi admin (OwnerAdmin) és a /admin/telitettseg oldal is ezt használja.
+// Az admin felület (AdminApp) és a /admin/telitettseg oldal is ezt használja.
 
 const MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
 const DAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];

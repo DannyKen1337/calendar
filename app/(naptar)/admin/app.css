@@ -23,14 +23,6 @@ html, body { background: #0f0b0c; }
   .ant-modal-root .ant-modal:not(.ant-modal-confirm) .ant-modal-close { top: calc(env(safe-area-inset-top) + 10px); width: 44px; height: 44px; }
 }
 
-/* A szervezői eseménykártyák és a hónapváltó telefonon: nagyobb gombok, egy sorba férő lapozó */
-@media (max-width: 959px) {
-  .admin-event-actions .ant-btn { min-width: 44px; height: 44px; }
-  .admin-month-pager .ant-select { min-width: 0 !important; flex: 1 1 0; }
-  .admin-month-pager .ant-btn { flex: none; min-width: 44px; height: 44px; }
-  .admin-month-pager .ant-select { height: 44px; }
-}
-
 @media (max-width: 959px) and (prefers-reduced-motion: no-preference) {
   @keyframes admin-screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @keyframes admin-push-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }

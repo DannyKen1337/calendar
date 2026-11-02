@@ -1,11 +1,10 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
-import { AdminEvents, ChangelogModal } from '@/app/components';
-import OwnerAdmin from '@/components/OwnerAdmin';
+import { ChangelogModal } from '@/app/components';
+import AdminApp from '@/components/AdminApp';
 import { CHANGELOG, LATEST_CHANGELOG_ID, unseenReleases } from '@/lib/changelog';
-import { STORE_NAMES } from '@/lib/permissions';
-import { LogoutOutlined, LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
+import { LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
 import { Form, Input, Button, ConfigProvider, theme, message } from 'antd';
 
 const tavernTheme = {
@@ -204,7 +203,7 @@ export default function AdminPage() {
   }
 
   const changelogModal = (
-    // Magától felugrik, ha van olvasatlan újdonság; a fejléc (tulajdonosnál a Fiók fül) gombjával bármikor újra megnyitható (ilyenkor az összes látszik)
+    // Magától felugrik, ha van olvasatlan újdonság; a fejléc (a Továbbiak fülön) gombjával bármikor újra megnyitható (ilyenkor az összes látszik)
     <ChangelogModal
       open={showAllChangelog || unseen.length > 0}
       releases={showAllChangelog ? CHANGELOG : unseen}
@@ -216,68 +215,11 @@ export default function AdminPage() {
     />
   );
 
-  // A tulajdonos saját, telefonra tervezett felületet kap (components/OwnerAdmin.jsx)
-  if (app.userRole === 'owner') {
-    return (
-      <>
-        {app.contextHolder}
-        <OwnerAdmin app={app} onShowChangelog={() => setShowAllChangelog(true)} unseenCount={unseen.length} />
-        {changelogModal}
-      </>
-    );
-  }
-
-  // HA BE VAN JELENTKEZVE, betölt a megszokott admin pult
   return (
-    <main className="min-h-screen bg-[#121212] max-[959px]:bg-[#0f0b0c] text-white px-4 py-4 max-[959px]:pt-0 max-[959px]:pb-[calc(144px+env(safe-area-inset-bottom))] min-[960px]:px-6 2xl:px-10">
+    <>
       {app.contextHolder}
-      <div className="max-w-[2200px] mx-auto space-y-6">
-
-        <div className="flex flex-wrap justify-between items-center gap-4 border-b border-[#4A2E33] pb-4 max-[959px]:hidden">
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold text-[#E5B15D] font-serif m-0">
-              Admin Vezérlőpult
-            </h1>
-            <span className="text-[#9a8a8c]">
-              Bejelentkezve: <b className="text-[#E0D6C8]">{app.userName}</b>
-              {app.userRole === 'owner' ? ' (tulajdonos)' : [
-                Array.isArray(app.allowedCategories) ? (app.allowedCategories.join(', ') || 'nincs kezelt játék') : null,
-                Array.isArray(app.allowedStores) ? (app.allowedStores.map(s => STORE_NAMES[s] || s).join(', ') || 'nincs kezelt bolt') : null,
-              ].filter(Boolean).map(t => ` · ${t}`).join('')}
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setShowAllChangelog(true)}
-              className="text-[#E0D6C8] hover:text-[#E5B15D] flex items-center gap-2 font-bold transition text-lg cursor-pointer bg-transparent border-none"
-            >
-              ✨ Újdonságok
-            </button>
-            {app.userRole === 'owner' && (
-              <button
-                type="button"
-                onClick={() => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); }}
-                className="text-[#E0D6C8] hover:text-[#E5B15D] flex items-center gap-2 font-bold transition text-lg cursor-pointer bg-transparent border-none"
-              >
-                <LockOutlined /> Saját jelszó
-              </button>
-            )}
-            <div className="h-6 w-px bg-[#4A2E33]"></div>
-            
-            <button 
-              onClick={() => app.handleLogout()}
-              className="text-[#ff4d4f] hover:text-red-400 flex items-center gap-2 font-bold transition text-lg cursor-pointer bg-transparent border-none"
-            >
-              <LogoutOutlined /> Kijelentkezés
-            </button>
-          </div>
-        </div>
-
-        <AdminEvents app={app} onShowChangelog={() => setShowAllChangelog(true)} unseenCount={unseen.length} />
-
-      </div>
+      <AdminApp app={app} onShowChangelog={() => setShowAllChangelog(true)} unseenCount={unseen.length} />
       {changelogModal}
-    </main>
+    </>
   );
 }

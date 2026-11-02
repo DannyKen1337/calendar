@@ -1,4 +1,4 @@
-/* A tulajdonosi admin (components/OwnerAdmin.jsx): egyszerű, átlátható, gyors – nem díszes. Telefonon (iPhone, Safari web app)
+/* Az admin felület (components/AdminApp.jsx): egyszerű, átlátható, gyors – nem díszes. Telefonon (iPhone, Safari web app)
    felső sáv + alsó fülsáv, kártyák nagy gombokkal; 960 px felett bal oldali menü és táblázat soronkénti műveletekkel. */
 
 .shell {
@@ -32,7 +32,7 @@
 /* Alsó fülsáv (telefon) */
 .tabbar {
   position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; height: var(--tabbar);
-  display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: rgba(15, 11, 12, 0.92); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--line);
 }
 .brand, .sideUser { display: none; }

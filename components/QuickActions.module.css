@@ -6,11 +6,7 @@
 .btn:active { filter: brightness(1.15); }
 .btn:focus-visible { outline: 2px solid #e5b15d; outline-offset: 2px; }
 
-/* A szervezői oldalsávban a panelen belül egy lépéssel világosabb csempe */
-.sidebar .btn { background: #2a2022; min-height: 64px; }
-.sidebar .btn:hover { background: #33272a; }
-
-/* Telefonon a tulajdonosi kezdőoldalon egy görgethető sor, hogy az események minél feljebb legyenek */
+/* Telefonon egy görgethető sor, hogy az események minél feljebb legyenek */
 @media (max-width: 959px) {
   .bar { display: flex; gap: 8px; margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; scroll-padding: 0 16px; scroll-snap-type: x proximity; }
   .bar::-webkit-scrollbar { display: none; }

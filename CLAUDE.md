@@ -24,17 +24,13 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - Nyitott kérdés: most a jelentkezők száma számít; ha a verseny teljes létszáma kellene, `eventSeats()`-et kell átírni.
 
 ## Admin
-- A tulajdonos (Admin2) saját felületet kap: `components/OwnerAdmin.jsx` – egyszerű, gyors, nem díszes. Fülek: Események (kezdőoldal, felül a mai napi telítettség), Telítettség, Továbbiak – a „Ma” fület a felhasználó kérésére kivettük. Telefonon kártyák nagy gombokkal (Check-in, Jelentkezők, Lezárás), gépen táblázat soronkénti műveletekkel. iPhone 18 Pro, Safari web app (manifest: `public/admin.webmanifest`, `app/(naptar)/admin/layout.jsx`).
-- Gyors gombok: `components/QuickActions.jsx` (`quickActionsFor(app)`), rang és jog szerint: mindenkinek Generátor, Check-in, Statisztika, Naptár; Előrendelés / Ligák / Felhasználók / Weboldal a csoport moduljai szerint; Telítettség a szervezőknek, ha a modul be van kapcsolva; Rendszer csak a tulajdonosnak. A tulajdonosi kezdőoldalon (`layout="bar"`) és a szervezői oldalsávban (`layout="sidebar"`) is ez van; telefonon 3 oszlop.
-- Az aloldalak (`/admin/generator`, `checkin`, `elorendeles`, `liga`, `statisztika`, `felhasznalok`, `rendszer`, `telitettseg`) közös kerete: `components/AdminPage.jsx` (felső sáv „‹ Admin”, cím, `width`: narrow/normal/wide), antd téma: `adminTheme` (ugyanott; az OwnerAdmin is ezt használja). A belső komponensek a régi bordó/Georgia helyett az admin színeit használják.
-- Ligák admin telefonon (md alatt, `Grid.useBreakpoint`): játékválasztó legördülő, kártyás listák (alkalmak, játékosok kereséssel, állás, szezonok), teljes képernyős pontbeíró ± gombbal (az iPhone számbillentyűzetén nincs mínusz). Stílus: `components/LeagueAdmin.module.css`.
-- A többi szervező a régi `AdminEvents` nézetet látja; az ablakok közösek (`AdminModals`).
-- Eseménylista (mindkét nézetben): belépéskor a mai vagy a legközelebbi esemény van felül (annak a hónapja nyílik meg, az aktuális hónap elmúlt napjai rejtve); a múltbeli eseményeket a feltűnő „Előző események” gomb mutatja: a legutóbbi 5 nap, amikor volt esemény (a legfrissebb elöl), a „Korábbi napok” gomb 5-tel többet tölt be, kereséskor minden találat látszik.
+- A tulajdonos és a szervezők is ugyanazt a felületet kapják: `components/AdminApp.jsx` – egyszerű, gyors, nem díszes (a régi `AdminEvents` kikerült). Fülek: Események (kezdőoldal), Telítettség (szervezőnek csak bekapcsolt modulnál), Továbbiak. Telefonon kártyák nagy gombokkal (Check-in, Jelentkezők, Lezárás), gépen táblázat soronkénti műveletekkel. iPhone 18 Pro, Safari web app (manifest: `public/admin.webmanifest`, `app/(naptar)/admin/layout.jsx`).
+- Jogok az AdminApp-ban: amit a szervező nem kezelhet (`app.canManage`), az „csak megtekintés”; a tulajdonosi eszközök (felhasználók kezelése csoportjog szerint, rendszer, feketelista, karbantartás, mentés, saját jelszó) rejtve; a szerver is ellenőriz. A szervezők extra szűrői: Általam tartott, Saját játékaim, játékonként. Az ablakok: `AdminModals`.
+- Eseménylista: belépéskor a mai vagy a legközelebbi esemény van felül (annak a hónapja nyílik meg, az aktuális hónap elmúlt napjai rejtve); a múltbeli eseményeket a feltűnő „Előző események” gomb mutatja: a legutóbbi 5 nap, amikor volt esemény (a legfrissebb elöl), a „Korábbi napok” gomb 5-tel többet tölt be, kereséskor minden találat látszik.
 - A felhasználó kérése: a backend legyen átlátható és gyors, ne dizájnos.
 
 ## Telefonos app nézet (admin, 960 px alatt)
-- Közös elemek: `components/PhoneApp.jsx` (felső sáv, alsó fülsáv, lebegő „+” gomb, lehúzásos frissítés), viselkedés és teljes képernyős ablakok: `app/(naptar)/admin/app.css` (csak az /admin oldalakon töltődik be).
-- Tulajdonos: Események / Telítettség / Továbbiak; szervező: Események / Szűrés / Továbbiak (a fiók és a gyors gombok a Továbbiak fülön). Gépen a régi elrendezés marad.
+- Felső sáv és alsó fülsáv: `components/AdminApp.jsx`; lebegő „+” gomb és lehúzásos frissítés: `components/PhoneApp.jsx`; viselkedés és teljes képernyős ablakok: `app/(naptar)/admin/app.css` (csak az /admin oldalakon töltődik be).
 - Nincs service worker: offline nem működik, és nincs push értesítés.
 
 ## Szabályok

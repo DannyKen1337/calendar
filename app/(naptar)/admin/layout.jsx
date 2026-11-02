@@ -2,7 +2,7 @@ import './app.css';
 
 // Az admin felület web appként is telepíthető (iPhone: Safari → Megosztás → Főképernyőhöz adás):
 // saját név, ikon és manifest, sötét állapotsor, és a kijelző teljes felülete (a lekerekített sarkok és a
-// kezdőképernyő-csík alatti sávot a tulajdonosi nézet a safe-area értékekkel hagyja szabadon).
+// kezdőképernyő-csík alatti sávot a felület a safe-area értékekkel hagyja szabadon).
 export const metadata = {
   title: 'Tavern Admin',
   manifest: '/admin.webmanifest',

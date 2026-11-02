@@ -1,4 +1,4 @@
-/* Az admin aloldalak kerete (components/AdminPage.jsx): ugyanazok a színek és méretek, mint a tulajdonosi adminban. */
+/* Az admin aloldalak kerete (components/AdminPage.jsx): ugyanazok a színek és méretek, mint az admin felületen. */
 
 .shell {
   --ground: #0f0b0c; --surface: #191314; --raised: #2a2022; --line: #241b1d; --control: #3a2d30;

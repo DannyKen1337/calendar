@@ -3,38 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { PlusOutlined, SyncOutlined } from '@ant-design/icons';
 import s from './PhoneApp.module.css';
 
-// Az admin telefonos, app szerű elemei (960 px alatt látszanak): felső sáv, alsó fülsáv, lebegő gomb, lehúzásos frissítés.
+// Az admin telefonos, app szerű elemei (960 px alatt látszanak): lebegő gomb, lehúzásos frissítés.
 
 const PULL_MAX = 110;
 const PULL_TRIGGER = 70;
-
-export function PhoneTopBar({ title, onRefresh }) {
-  const [busy, setBusy] = useState(false);
-  const refresh = async () => {
-    setBusy(true);
-    try { await onRefresh(); } finally { setBusy(false); }
-  };
-  return (
-    <header className={s.topbar}>
-      <b>{title}</b>
-      <button type="button" className={s.iconBtn} onClick={refresh} aria-label="Frissítés" disabled={busy}><SyncOutlined spin={busy} /></button>
-    </header>
-  );
-}
-
-// tabs: [kulcs, felirat, ikon, jelzőpont]
-export function PhoneTabBar({ tabs, active, onChange }) {
-  return (
-    <nav className={s.tabbar} aria-label="Admin">
-      {tabs.map(([key, label, Icon, dot]) => (
-        <button key={key} type="button" className={s.tab} aria-current={active === key ? 'page' : undefined} onClick={() => onChange(key)}>
-          <span className={s.tabIcon}><Icon aria-hidden="true" />{dot && <i className={s.tabDot} />}</span>
-          {label}
-        </button>
-      ))}
-    </nav>
-  );
-}
 
 export function Fab({ label, onClick }) {
   return <button type="button" className={s.fab} onClick={onClick} aria-label={label}><PlusOutlined /></button>;

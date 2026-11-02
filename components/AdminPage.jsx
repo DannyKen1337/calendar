@@ -4,10 +4,10 @@ import { ConfigProvider, theme } from 'antd';
 import s from './AdminPage.module.css';
 
 // Az admin aloldalainak közös kerete (Generátor, Check-in, Előrendelés, Ligák, Statisztika, Felhasználók, Rendszer,
-// Telítettség), a tulajdonosi admin (OwnerAdmin) kinézetével: egyszerű, sötét, gyors. Felül sáv a visszalépéssel,
+// Telítettség), az admin felület (AdminApp) kinézetével: egyszerű, sötét, gyors. Felül sáv a visszalépéssel,
 // alatta a cím és az oldal tartalma. width: 'narrow' (űrlapok, check-in), 'normal' vagy 'wide' (táblázatok).
 
-// Az admin felületek antd témája: a tulajdonosi admin színei (arany csak a fő gombon és a kiemelt adaton)
+// Az admin felületek antd témája: az AdminApp színei (arany csak a fő gombon és a kiemelt adaton)
 export const adminTheme = {
   algorithm: theme.darkAlgorithm,
   token: {

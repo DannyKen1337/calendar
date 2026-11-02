@@ -8,22 +8,24 @@ import {
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
   CalendarOutlined, PieChartOutlined, AppstoreOutlined,
 } from '@ant-design/icons';
-import { STORES, AdminModals, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
+import { STORES, AdminModals, AttendeeNames, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
-import { getGameColor } from '@/lib/gameConfig';
+import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
+import { STORE_NAMES } from '@/lib/permissions';
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { rgnEventId } from '@/lib/rgn';
 import { dayOccupancy, eventDay, STORE_IDS } from '@/lib/occupancy';
 import OccupancyManager from '@/components/OccupancyManager';
 import QuickActions from '@/components/QuickActions';
 import { Fab, PullToRefresh } from '@/components/PhoneApp';
-import s from './OwnerAdmin.module.css';
+import s from './AdminApp.module.css';
 
-// A tulajdonos (Admin2) admin felülete: egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
-// Fülek: Események (hónaponként, ez a kezdőoldal), Telítettség (napi telítettség, kézi helyfoglalás, a modul
-// kapcsolója és a boltok férőhelye), Továbbiak (eszközök és fiók). Telefonon kártyák nagy gombokkal, gépen táblázat
+// Az admin felület (tulajdonos és szervezők): egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
+// Fülek: Események (hónaponként, ez a kezdőoldal), Telítettség (napi telítettség, kézi helyfoglalás; a tulajdonosnak a modul
+// kapcsolója és a boltok férőhelye is), Továbbiak (eszközök és fiók). Telefonon kártyák nagy gombokkal, gépen táblázat
 // soronkénti műveletekkel; egy eseményre koppintva alulról felcsúszó lapon minden teendője.
-// Az ablakok (szerkesztés, jelentkezők, ...) a szervezői nézettel közösek (AdminModals).
+// A szervező minden eseményt lát, de csak azt kezelheti, amihez joga van (app.canManage); a többi „csak megtekintés”.
+// A Telítettség fület szervező csak bekapcsolt modulnál látja. A jogokat a szerver is ellenőrzi.
 
 // Kezdőoldal: Események (a „Ma” fül a tulajdonos kérésére kikerült)
 const TABS = [['esemenyek', 'Események', CalendarOutlined], ['telitettseg', 'Telítettség', PieChartOutlined], ['tovabbiak', 'Továbbiak', AppstoreOutlined]];
@@ -55,14 +57,20 @@ function capacity(e) {
   return { text: max ? `${cur} / ${max}` : String(cur), full: !!max && cur >= max, counted: true };
 }
 
-export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
-  const [tab, setTab] = useState(() => {
+export default function AdminApp({ app, onShowChangelog, unseenCount }) {
+  const isOwner = app.userRole === 'owner';
+  const has = (feature) => isOwner || app.hasFeature(feature);
+  const occ = app.occupancy || { enabled: false, capacity: {} };
+  const tabs = TABS.filter(t => t[0] !== 'telitettseg' || isOwner || occ.enabled);
+  const [savedTab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 'esemenyek';
-    const saved = window.sessionStorage.getItem(TAB_STORAGE);
-    return TABS.some(t => t[0] === saved) ? saved : 'esemenyek';
+    return window.sessionStorage.getItem(TAB_STORAGE) || 'esemenyek';
   });
+  const tab = tabs.some(t => t[0] === savedTab) ? savedTab : 'esemenyek';
   const [selected, setSelected] = useState(null); // a megnyitott esemény azonosítója (teendőlap)
   const [store, setStore] = useState('Mind');
+  const [games, setGames] = useState([]); // üres = minden játék (szervezői szűrő)
+  const [onlyMine, setOnlyMine] = useState(false); // csak az általa tartott események (szervezői szűrő)
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false); // telefonon a felső sáv gombja nyitja a keresőt
   const searchRef = useRef(null);
@@ -93,9 +101,10 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   };
 
   const todayKey = keyOf(new Date());
-  const occ = app.occupancy || { enabled: false, capacity: {} };
   const allEvents = (app.tournaments || [])
     .filter(e => store === 'Mind' || (e.store || 'debrecen') === store)
+    .filter(e => games.length === 0 || games.includes(e.category || 'Egyéb'))
+    .filter(e => !onlyMine || (e.hosts || []).map(String).includes(String(app.userId)))
     .filter(e => eventMatchesQuery(e, query, `${eventExtraSearchText(e, STORES[e.store || 'debrecen']?.name)} ${app.hostNames(e).join(' ')}`))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const allBookings = (app.bookings || []).filter(b => store === 'Mind' || b.store === store);
@@ -125,6 +134,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   };
   const openAttendees = (e) => { app.setSelectedEventIdForAttendees(eid(e)); app.setIsAttendeesModalOpen(true); };
   const toggleGate = (e) => app.handleToggleGate(eid(e), !e.is_open);
+  const canBook = (b) => isOwner || app.canManageStore(b.store);
   const bumpBooking = (b, d) => app.saveBooking({ id: b._id, store: b.store, date: b.date, label: b.label, from: b.from, to: b.to, seats: Math.max(1, b.seats + d) });
   const selectedEvent = selected ? (app.tournaments || []).find(e => eid(e) === selected) : null;
 
@@ -143,7 +153,8 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   const eventCard = (e) => {
     const c = capacity(e);
     const hasRegs = !e.external_url && !e.isOpenAttendance;
-    const note = e.isOpenAttendance ? 'kötetlen létszám' : !e.is_open && hasRegs ? 'jelentkezés lezárva'
+    const manage = app.canManage(e);
+    const note = !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám' : !e.is_open && hasRegs ? 'jelentkezés lezárva'
       : c.full ? `betelt${e.queue_count ? `, ${e.queue_count} vár` : ''}` : hasRegs ? `${Math.max(0, e.max_players - (e.current_players || 0))} hely szabad` : 'külső jelentkezés';
     return (
       <div key={eid(e)} className={s.card}>
@@ -153,7 +164,9 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
         </button>
         <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']} · {note}</span>
         <div className={s.cardBtns}>
-          {hasRegs ? (
+          {!manage ? (
+            <button type="button" className={s.bigBtn} onClick={() => setSelected(eid(e))}>Részletek</button>
+          ) : hasRegs ? (
             <>
               <Link className={s.bigBtn} href={checkinPageUrl(e)}>Check-in</Link>
               <button type="button" className={s.bigBtn} onClick={() => openAttendees(e)}>Jelentkezők</button>
@@ -177,11 +190,13 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
         <b className={s.num}>{b.seats} hely</b>
       </span>
       <span className={s.cardSub}><i className={`${s.dot} ${s.dotBooking}`} aria-hidden="true" />{SHORT_STORES[b.store]} · kézi foglalás</span>
-      <div className={s.cardBtns}>
-        <button type="button" className={s.bigBtn} onClick={() => bumpBooking(b, -1)} disabled={b.seats <= 1}>−1 hely</button>
-        <button type="button" className={s.bigBtn} onClick={() => bumpBooking(b, 1)}>+1 hely</button>
-        <button type="button" className={s.bigBtn} onClick={() => goTab('telitettseg')}>Szerkesztés</button>
-      </div>
+      {canBook(b) && (
+        <div className={s.cardBtns}>
+          <button type="button" className={s.bigBtn} onClick={() => bumpBooking(b, -1)} disabled={b.seats <= 1}>−1 hely</button>
+          <button type="button" className={s.bigBtn} onClick={() => bumpBooking(b, 1)}>+1 hely</button>
+          <button type="button" className={s.bigBtn} onClick={() => goTab('telitettseg')}>Szerkesztés</button>
+        </div>
+      )}
     </div>
   );
 
@@ -208,11 +223,15 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
                     <td className={`${s.right} ${s.quiet}`}>—</td>
                     <td><span className={s.pill}>Foglalva</span></td>
                     <td className={s.right}>
-                      <button type="button" className={s.act} onClick={() => bumpBooking(b, 1)}>Bővítés</button>
-                      <button type="button" className={s.act} onClick={() => goTab('telitettseg')}>Szerkesztés</button>
-                      <Popconfirm title="Törlöd ezt a foglalást?" okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }} onConfirm={() => app.deleteBooking(b._id)}>
-                        <button type="button" className={`${s.act} ${s.actDanger}`}>Törlés</button>
-                      </Popconfirm>
+                      {canBook(b) ? (
+                        <>
+                          <button type="button" className={s.act} onClick={() => bumpBooking(b, 1)}>Bővítés</button>
+                          <button type="button" className={s.act} onClick={() => goTab('telitettseg')}>Szerkesztés</button>
+                          <Popconfirm title="Törlöd ezt a foglalást?" okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }} onConfirm={() => app.deleteBooking(b._id)}>
+                            <button type="button" className={`${s.act} ${s.actDanger}`}>Törlés</button>
+                          </Popconfirm>
+                        </>
+                      ) : <span className={s.quiet}>Csak megtekintés</span>}
                     </td>
                   </tr>
                 );
@@ -221,6 +240,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
               const c = capacity(e);
               const st = stateOf(e);
               const hasRegs = !e.external_url && !e.isOpenAttendance;
+              const manage = app.canManage(e);
               return (
                 <tr key={eid(e)} className={s.tr}>
                   <td className={s.num}><b>{timeOf(e)}</b></td>
@@ -230,10 +250,11 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
                   <td className={`${s.right} ${s.num} ${s.quiet}`}>{e.queue_count > 0 ? e.queue_count : '—'}</td>
                   <td><span className={`${s.pill} ${st.tone === 'red' ? s.pillRed : st.tone === 'quiet' ? s.pillQuiet : ''}`}>{st.label}</span></td>
                   <td className={s.right}>
-                    {hasRegs && <Link className={`${s.act} ${s.actStrong}`} href={checkinPageUrl(e)}>Check-in</Link>}
-                    {hasRegs && <button type="button" className={s.act} onClick={() => openAttendees(e)}>Jelentkezők</button>}
-                    {hasRegs && <button type="button" className={s.act} onClick={() => toggleGate(e)} disabled={app.togglingGateId === eid(e)}>{e.is_open ? 'Lezárás' : 'Megnyitás'}</button>}
-                    <button type="button" className={s.act} onClick={() => app.openEditEvent(e)}>Szerkesztés</button>
+                    {!manage && <span className={s.quiet}>Csak megtekintés</span>}
+                    {manage && hasRegs && <Link className={`${s.act} ${s.actStrong}`} href={checkinPageUrl(e)}>Check-in</Link>}
+                    {manage && hasRegs && <button type="button" className={s.act} onClick={() => openAttendees(e)}>Jelentkezők</button>}
+                    {manage && hasRegs && <button type="button" className={s.act} onClick={() => toggleGate(e)} disabled={app.togglingGateId === eid(e)}>{e.is_open ? 'Lezárás' : 'Megnyitás'}</button>}
+                    {manage && <button type="button" className={s.act} onClick={() => app.openEditEvent(e)}>Szerkesztés</button>}
                   </td>
                 </tr>
               );
@@ -267,14 +288,31 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     </div>
   );
 
-  // A mai napi telítettség boltonként (a Telítettség fülre visz)
+  // A szervezők további szűrői: az általuk tartott események, a saját játékaik, játékonként
+  const toggleGame = (game) => setGames(list => (list.includes(game) ? list.filter(g => g !== game) : [...list, game]));
+  const manageableGames = Object.keys(GAME_CONFIG).filter(g => app.canManageGame(g));
+  const hasRestrictedGames = manageableGames.length > 0 && manageableGames.length < Object.keys(GAME_CONFIG).length;
+  const isOwnGames = games.length === manageableGames.length && manageableGames.every(g => games.includes(g));
+  const organizerChips = !isOwner && (
+    <div className={s.chips} role="group" aria-label="Szűrők">
+      <button type="button" className={s.chip} aria-pressed={onlyMine} onClick={() => setOnlyMine(m => !m)}>Általam tartott</button>
+      {hasRestrictedGames && <button type="button" className={s.chip} aria-pressed={isOwnGames} onClick={() => setGames(isOwnGames ? [] : manageableGames)}>Saját játékaim</button>}
+      {Object.keys(GAME_CONFIG).map(game => (
+        <button key={game} type="button" className={s.chip} aria-pressed={games.includes(game)} onClick={() => toggleGame(game)}>{game}</button>
+      ))}
+    </div>
+  );
+
+  // A mai napi telítettség boltonként (a Telítettség fülre visz); szervezőnek a saját boltjai, bekapcsolt modulnál
   const occupancyCard = () => {
-    const rows = STORE_IDS.map(id => ({ id, o: dayOccupancy({ store: id, day: todayKey, tournaments: app.tournaments, bookings: app.bookings, capacity: occ.capacity }) }));
+    const storeIds = STORE_IDS.filter(id => isOwner || app.canManageStore(id));
+    if (!tabs.some(t => t[0] === 'telitettseg') || storeIds.length === 0) return null;
+    const rows = storeIds.map(id => ({ id, o: dayOccupancy({ store: id, day: todayKey, tournaments: app.tournaments, bookings: app.bookings, capacity: occ.capacity }) }));
     const anyCap = rows.some(r => r.o.cap);
     return (
       <button type="button" className={s.occCard} onClick={() => goTab('telitettseg')}>
-        <span className={s.occHead}><b>Napi telítettség · ma</b><span className={s.quiet}>Foglalás, beállítás ›</span></span>
-        {!occ.enabled && <span className={s.hint}>A modul ki van kapcsolva: csak te látod.</span>}
+        <span className={s.occHead}><b>Napi telítettség · ma</b><span className={s.quiet}>{isOwner ? 'Foglalás, beállítás ›' : 'Foglalás ›'}</span></span>
+        {isOwner && !occ.enabled && <span className={s.hint}>A modul ki van kapcsolva: csak te látod.</span>}
         {anyCap ? <span className={s.occRows}>{rows.map(({ id, o }) => (
           <span key={id} className={s.occRow}>
             <span className={s.occName}>{SHORT_STORES[id]}</span>
@@ -288,7 +326,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
               </>
             ) : <span className={s.quiet} style={{ flex: 1 }}>nincs megadva</span>}
           </span>
-        ))}</span> : <span className={s.hint}>Állítsd be a boltok napi férőhelyét a Telítettség fülön.</span>}
+        ))}</span> : isOwner && <span className={s.hint}>Állítsd be a boltok napi férőhelyét a Telítettség fülön.</span>}
       </button>
     );
   };
@@ -322,7 +360,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események ({pastCount})</>}
         </button>
         {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
-        <QuickActions app={app} layout="bar" />
+        <QuickActions app={app} />
         {occupancyCard()}
         <label className={`${s.search} ${searchOpen || searching ? '' : s.searchClosed}`}>
           <SearchOutlined />
@@ -330,6 +368,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           {query && <button type="button" onClick={() => setQuery('')} aria-label="Keresés törlése"><CloseOutlined /></button>}
         </label>
         {storeChips}
+        {organizerChips}
         {!searching && !showPast && (
           <div className={s.pager}>
             <button type="button" className={s.round} onClick={() => goMonth(-1)} aria-label="Előző hónap"><LeftOutlined /></button>
@@ -352,8 +391,12 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     <button type="button" className={`${s.tool} ${danger ? s.toolDanger : ''}`} onClick={onClick}><span><b>{label}</b>{hint && <small>{hint}</small>}</span><RightOutlined className={s.chev} /></button>
   );
 
-  // Továbbiak: minden, ami nem egy eseményhez tartozik, és a fiók
-  const moreView = () => (
+  // Továbbiak: minden, ami nem egy eseményhez tartozik, és a fiók (mindenkinek csak az, amihez joga van)
+  const moreView = () => {
+    const upcoming = allEvents.filter(e => eventDay(e) >= todayKey);
+    const counted = upcoming.filter(e => capacity(e).counted);
+    const scope = (list, names) => (Array.isArray(list) ? list.map(names).join(', ') || 'nincs' : 'mind');
+    return (
     <>
       <h1 className={s.title}>Továbbiak</h1>
       <h2 className={s.groupTitle}>Események</h2>
@@ -364,12 +407,27 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
         {linkRow('Statisztika', null, '/admin/statisztika')}
         {linkRow('Nyilvános naptár', null, '/', true)}
       </div>
-      <h2 className={s.groupTitle}>Modulok</h2>
-      <div className={s.group}>
-        {linkRow('Előrendelés', null, '/admin/elorendeles')}
-        {linkRow('Ligák', null, '/admin/liga')}
-        {linkRow('Weboldal', 'Hírek és az oldal tartalma', WEBSITE_ADMIN, true)}
-      </div>
+      {!isOwner && (
+        <>
+          <h2 className={s.groupTitle}>Közelgő események</h2>
+          <div className={s.group}>
+            <div className={s.tool}><span><b>{upcoming.length} esemény · {counted.reduce((n, e) => n + (e.current_players || 0), 0)} jelentkező</b><small>{upcoming.reduce((n, e) => n + (e.queue_count || 0), 0)} várólistán · {upcoming.filter(e => !e.is_open && !e.isOpenAttendance && !e.external_url).length} lezárva</small></span></div>
+          </div>
+        </>
+      )}
+      {(has('preorders') || has('leagues') || has('website') || (!isOwner && has('users'))) && (
+        <>
+          <h2 className={s.groupTitle}>Modulok</h2>
+          <div className={s.group}>
+            {has('preorders') && linkRow('Előrendelés', null, '/admin/elorendeles')}
+            {has('leagues') && linkRow('Ligák', null, '/admin/liga')}
+            {has('website') && linkRow('Weboldal', 'Hírek és az oldal tartalma', WEBSITE_ADMIN, true)}
+            {!isOwner && has('users') && linkRow('Felhasználók', null, '/admin/felhasznalok')}
+          </div>
+        </>
+      )}
+      {isOwner && (
+      <>
       <h2 className={s.groupTitle}>Tulajdonos</h2>
       <div className={s.group}>
         {linkRow('Felhasználók és csoportok', null, '/admin/felhasznalok')}
@@ -389,15 +447,19 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
           {buttonRow('Régi események törlése', '2 hónapnál régebbiek, jelentkezőikkel', undefined, true)}
         </Popconfirm>
       </div>
+      </>
+      )}
       <h2 className={s.groupTitle}>Fiók · {app.userName}</h2>
       <div className={s.group}>
         <button type="button" className={s.tool} onClick={onShowChangelog}><span><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
-        {buttonRow('Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
+        {isOwner && buttonRow('Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
         {buttonRow('Kijelentkezés', null, () => app.handleLogout(), true)}
       </div>
+      {!isOwner && <p className={s.tip}>Kezelt játékok: {scope(app.allowedCategories, c => c)}. Kezelt boltok: {scope(app.allowedStores, id => STORE_NAMES[id] || id)}.</p>}
       {!standalone && <p className={s.tip}>Tipp: telepítsd web appként. Safariban: Megosztás → Főképernyőhöz adás.</p>}
     </>
-  );
+    );
+  };
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -405,7 +467,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
       <style>{'@media (pointer: coarse) { .ant-input, .ant-input-affix-wrapper input, .ant-select-selection-search-input, .ant-select-selection-item, .ant-picker input, textarea.ant-input { font-size: 16px !important; } }'}</style>
       <div className={s.shell}>
         <header className={s.topbar}>
-          <b className={s.topTitle}>{tab === 'esemenyek' && showPast ? 'Előző események' : TABS.find(t => t[0] === tab)[1]}</b>
+          <b className={s.topTitle}>{tab === 'esemenyek' && showPast ? 'Előző események' : tabs.find(t => t[0] === tab)[1]}</b>
           {tab === 'esemenyek' && <button type="button" className={`${s.iconBtn} ${s.phoneOnly}`} style={{ marginLeft: 'auto' }} onClick={toggleSearch} aria-label={searchOpen ? 'Keresés bezárása' : 'Keresés'} aria-expanded={searchOpen}>{searchOpen ? <CloseOutlined /> : <SearchOutlined />}</button>}
           <span className={`${s.quiet} ${s.num} ${s.deskOnly}`} style={{ marginLeft: 'auto' }}>Frissítve {updatedAt.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
           <button type="button" className={s.iconBtn} onClick={refresh} aria-label="Frissítés" disabled={refreshing}><SyncOutlined spin={refreshing} /></button>
@@ -413,13 +475,13 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
 
         <nav className={s.tabbar} aria-label="Admin">
           <b className={s.brand}>Tavern Admin</b>
-          {TABS.map(([key, label, Icon]) => (
+          {tabs.map(([key, label, Icon]) => (
             <button key={key} type="button" className={s.tabBtn} aria-current={tab === key ? 'page' : undefined} onClick={() => goTab(key)}>
               <Icon className={s.tabIcon} aria-hidden="true" />
               {label}{key === 'tovabbiak' && unseenCount > 0 && <i className={s.tabDot} aria-label="Új újdonság" />}
             </button>
           ))}
-          <span className={s.sideUser}>{app.userName} · tulajdonos</span>
+          <span className={s.sideUser}>{app.userName} · {isOwner ? 'tulajdonos' : 'szervező'}</span>
         </nav>
 
         <main key={tab} className={`${s.main} admin-screen-in`}>
@@ -450,6 +512,7 @@ function EventSheet({ app, evt, onClose }) {
   const c = capacity(e);
   const hasRegs = !e.external_url && !e.isOpenAttendance;
   const isRgn = !!rgnEventId(e.external_url);
+  const manage = app.canManage(e);
   const closed = !e.is_open;
   const run = (fn) => () => { onClose(); fn(); };
   const d = new Date(`${eventDay(e)}T12:00:00`);
@@ -502,24 +565,28 @@ function EventSheet({ app, evt, onClose }) {
             {e.queue_count > 0 && <> · várólistán {e.queue_count}</>}
             {hasRegs && <> · {closed ? 'jelentkezés lezárva' : 'jelentkezés nyitva'}</>}
           </p>
+          {!manage && <p className={s.sheetMeta}>Csak megtekintés: ezt az eseményt nem kezelheted.</p>}
+          {!manage && <AttendeeNames attendees={e.attendees} max={12} size="small" />}
           <button type="button" className={s.sheetClose} onClick={onClose} aria-label="Bezárás"><CloseOutlined /></button>
         </div>
 
         <div className={s.actions}>
-          {hasRegs && action('checkin', <MobileOutlined />, 'Check-in', { href: checkinPageUrl(e) })}
-          {hasRegs && action('regs', <UnorderedListOutlined />, 'Jelentkezők', { onClick: run(() => { app.setSelectedEventIdForAttendees(id); app.setIsAttendeesModalOpen(true); }) })}
-          {isRgn && action('rgn', <UnorderedListOutlined />, 'Riftbound jelentkezők', { onClick: run(() => app.setSelectedRgnEventId(id)) })}
-          {action('edit', <EditOutlined />, 'Szerkesztés', { onClick: run(() => app.openEditEvent(e)) })}
-          {hasRegs && action('gate', closed ? <UnlockOutlined /> : <LockOutlined />, app.togglingGateId === id ? 'Folyamatban…' : closed ? 'Megnyitás' : 'Lezárás', { onClick: () => app.handleToggleGate(id, closed) })}
-          {action('copy', <CopyOutlined />, 'Másolás új időpontra', { onClick: run(() => app.openCopyEvent(e)) })}
+          {manage && hasRegs && action('checkin', <MobileOutlined />, 'Check-in', { href: checkinPageUrl(e) })}
+          {manage && hasRegs && action('regs', <UnorderedListOutlined />, 'Jelentkezők', { onClick: run(() => { app.setSelectedEventIdForAttendees(id); app.setIsAttendeesModalOpen(true); }) })}
+          {manage && isRgn && action('rgn', <UnorderedListOutlined />, 'Riftbound jelentkezők', { onClick: run(() => app.setSelectedRgnEventId(id)) })}
+          {manage && action('edit', <EditOutlined />, 'Szerkesztés', { onClick: run(() => app.openEditEvent(e)) })}
+          {manage && hasRegs && action('gate', closed ? <UnlockOutlined /> : <LockOutlined />, app.togglingGateId === id ? 'Folyamatban…' : closed ? 'Megnyitás' : 'Lezárás', { onClick: () => app.handleToggleGate(id, closed) })}
+          {manage && action('copy', <CopyOutlined />, 'Másolás új időpontra', { onClick: run(() => app.openCopyEvent(e)) })}
           {action('share', <ShareAltOutlined />, 'Megosztás', { onClick: share })}
           {hasRegs && action('page', <FormOutlined />, 'Jelentkezési oldal', { href: registrationPageUrl(e), external: true })}
           {e.external_url && action('ext', <LinkOutlined />, isRgn ? 'Riftbound oldal' : 'Külső oldal', { href: e.external_url, external: true })}
         </div>
 
-        <Popconfirm title="Biztosan törlöd ezt az eseményt?" description={hasRegs ? 'A jelentkezések is törlődnek.' : undefined} onConfirm={run(() => app.handleDeleteTournament(id))} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
-          <button type="button" className={s.deleteBtn}><DeleteOutlined /> Esemény törlése</button>
-        </Popconfirm>
+        {manage && (
+          <Popconfirm title="Biztosan törlöd ezt az eseményt?" description={hasRegs ? 'A jelentkezések is törlődnek.' : undefined} onConfirm={run(() => app.handleDeleteTournament(id))} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+            <button type="button" className={s.deleteBtn}><DeleteOutlined /> Esemény törlése</button>
+          </Popconfirm>
+        )}
       </div>
     </Drawer>
   );
