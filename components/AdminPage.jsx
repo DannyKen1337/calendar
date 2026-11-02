@@ -56,8 +56,8 @@ export default function AdminPage({ title, sub, actions, width = 'normal', back 
           <b className={s.topTitle}>{title}</b>
           <span className={s.topSpacer} />
         </header>
-        <main className={`${s.main} ${WIDTHS[width] || s.normal}`}>
-          <div className={s.titleRow}>
+        <main className={`${s.main} ${WIDTHS[width] || s.normal} admin-push-in`}>
+          <div className={`${s.titleRow} ${!sub && !actions ? s.titleOnly : ''}`}>
             <div className={s.titleText}>
               <h1 className={s.title}>{title}</h1>
               {sub && <p className={s.sub}>{sub}</p>}

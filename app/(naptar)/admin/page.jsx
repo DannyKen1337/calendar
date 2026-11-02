@@ -229,11 +229,11 @@ export default function AdminPage() {
 
   // HA BE VAN JELENTKEZVE, betölt a megszokott admin pult
   return (
-    <main className="min-h-screen bg-[#121212] text-white px-4 py-4 md:px-6 2xl:px-10">
+    <main className="min-h-screen bg-[#121212] max-[959px]:bg-[#0f0b0c] text-white px-4 py-4 max-[959px]:pt-0 max-[959px]:pb-[calc(144px+env(safe-area-inset-bottom))] min-[960px]:px-6 2xl:px-10">
       {app.contextHolder}
       <div className="max-w-[2200px] mx-auto space-y-6">
 
-        <div className="flex flex-wrap justify-between items-center gap-4 border-b border-[#4A2E33] pb-4">
+        <div className="flex flex-wrap justify-between items-center gap-4 border-b border-[#4A2E33] pb-4 max-[959px]:hidden">
           <div className="flex items-baseline gap-3 flex-wrap">
             <h1 className="text-3xl font-bold text-[#E5B15D] font-serif m-0">
               Admin Vezérlőpult
@@ -274,7 +274,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <AdminEvents app={app} />
+        <AdminEvents app={app} onShowChangelog={() => setShowAllChangelog(true)} unseenCount={unseen.length} />
 
       </div>
       {changelogModal}

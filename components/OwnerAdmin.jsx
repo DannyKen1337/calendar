@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { ConfigProvider, Drawer, Popconfirm, Switch } from 'antd';
 import {
   SyncOutlined, RightOutlined, LeftOutlined, MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined,
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
+  CalendarOutlined, PieChartOutlined, AppstoreOutlined,
 } from '@ant-design/icons';
 import { STORES, AdminModals, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
@@ -14,6 +16,7 @@ import { rgnEventId } from '@/lib/rgn';
 import { dayOccupancy, eventDay, STORE_IDS } from '@/lib/occupancy';
 import OccupancyManager from '@/components/OccupancyManager';
 import QuickActions from '@/components/QuickActions';
+import { Fab, PullToRefresh } from '@/components/PhoneApp';
 import s from './OwnerAdmin.module.css';
 
 // A tulajdonos (Admin2) admin felülete: egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
@@ -23,7 +26,7 @@ import s from './OwnerAdmin.module.css';
 // Az ablakok (szerkesztés, jelentkezők, ...) a szervezői nézettel közösek (AdminModals).
 
 // Kezdőoldal: Események (a „Ma” fül a tulajdonos kérésére kikerült)
-const TABS = [['esemenyek', 'Események'], ['telitettseg', 'Telítettség'], ['tovabbiak', 'Továbbiak']];
+const TABS = [['esemenyek', 'Események', CalendarOutlined], ['telitettseg', 'Telítettség', PieChartOutlined], ['tovabbiak', 'Továbbiak', AppstoreOutlined]];
 const TAB_STORAGE = 'tavern-owner-tab';
 const MONTHS = ['január', 'február', 'március', 'április', 'május', 'június', 'július', 'augusztus', 'szeptember', 'október', 'november', 'december'];
 const WEEKDAYS = ['vasárnap', 'hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat'];
@@ -60,6 +63,8 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   const [selected, setSelected] = useState(null); // a megnyitott esemény azonosítója (teendőlap)
   const [store, setStore] = useState('Mind');
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false); // telefonon a felső sáv gombja nyitja a keresőt
+  const searchRef = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
   const [month, setMonth] = useState(null); // a kiválasztott hónap; amíg nincs, a legközelebbi esemény hónapja látszik
   const [showPast, setShowPast] = useState(false);
@@ -74,6 +79,12 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
   }, []);
 
   const goTab = (key) => { setTab(key); window.scrollTo({ top: 0 }); };
+  const toggleSearch = () => {
+    if (searchOpen) { setSearchOpen(false); setQuery(''); return; }
+    // A billentyűzet csak a koppintáson belül kért fókuszra nyílik meg iPhone-on
+    flushSync(() => setSearchOpen(true));
+    searchRef.current?.focus();
+  };
   const refresh = async () => {
     setRefreshing(true);
     try { await app.fetchData(true); setUpdatedAt(new Date()); } finally { setRefreshing(false); }
@@ -262,7 +273,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
       <button type="button" className={s.occCard} onClick={() => goTab('telitettseg')}>
         <span className={s.occHead}><b>Napi telítettség · ma</b><span className={s.quiet}>Foglalás, beállítás ›</span></span>
         {!occ.enabled && <span className={s.hint}>A modul ki van kapcsolva: csak te látod.</span>}
-        {anyCap ? rows.map(({ id, o }) => (
+        {anyCap ? <span className={s.occRows}>{rows.map(({ id, o }) => (
           <span key={id} className={s.occRow}>
             <span className={s.occName}>{SHORT_STORES[id]}</span>
             {o.cap ? (
@@ -273,9 +284,9 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
                 </span>
                 <b className={`${s.num} ${o.over ? s.red : ''}`} style={{ width: 64, textAlign: 'right' }}>{o.used}/{o.cap}</b>
               </>
-            ) : <span className={s.quiet} style={{ flex: 1 }}>nincs férőhely megadva</span>}
+            ) : <span className={s.quiet} style={{ flex: 1 }}>nincs megadva</span>}
           </span>
-        )) : <span className={s.hint}>Állítsd be a boltok napi férőhelyét a Telítettség fülön.</span>}
+        ))}</span> : <span className={s.hint}>Állítsd be a boltok napi férőhelyét a Telítettség fülön.</span>}
       </button>
     );
   };
@@ -297,12 +308,12 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
     const count = groups.reduce((n, g) => n + g.items.filter(i => i.kind === 'event').length, 0);
     return (
       <>
-        <div className={s.titleRow}>
+        <div className={`${s.titleRow} ${!searching && !showPast ? s.titleRowDesk : ''}`}>
           <div>
             <h1 className={s.title}>{showPast ? 'Előző események' : 'Események'}</h1>
             <p className={s.sub}>{searching ? `${count} találat` : showPast ? `${count} esemény` : `${count} esemény · ${shownMonth.getFullYear()}. ${MONTHS[shownMonth.getMonth()]}`}</p>
           </div>
-          <button type="button" className={s.primary} onClick={openNewEvent}>+ Új esemény</button>
+          <button type="button" className={`${s.primary} ${s.deskOnly}`} onClick={openNewEvent}>+ Új esemény</button>
         </div>
         <button type="button" className={s.pastBtn} aria-pressed={showPast} onClick={() => setShowPast(p => !p)}>
           {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események ({pastCount})</>}
@@ -310,21 +321,22 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
         {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
         <QuickActions app={app} layout="bar" />
         {occupancyCard()}
-        <label className={s.search}>
+        <label className={`${s.search} ${searchOpen || searching ? '' : s.searchClosed}`}>
           <SearchOutlined />
-          <input type="search" value={query} onChange={(ev) => setQuery(ev.target.value)} placeholder="Név, játék, szervező…" enterKeyHint="search" aria-label="Keresés" />
+          <input ref={searchRef} type="search" value={query} onChange={(ev) => setQuery(ev.target.value)} placeholder="Név, játék, szervező…" enterKeyHint="search" aria-label="Keresés" />
           {query && <button type="button" onClick={() => setQuery('')} aria-label="Keresés törlése"><CloseOutlined /></button>}
         </label>
         {storeChips}
         {!searching && !showPast && (
           <div className={s.pager}>
             <button type="button" className={s.round} onClick={() => goMonth(-1)} aria-label="Előző hónap"><LeftOutlined /></button>
-            <b>{shownMonth.getFullYear()}. {MONTHS[shownMonth.getMonth()]}</b>
+            <span className={s.pagerLabel}><b>{shownMonth.getFullYear()}. {MONTHS[shownMonth.getMonth()]}</b><small className={s.phoneOnly}>{count} esemény</small></span>
             {!isCurrent && <button type="button" className={s.linkBtn} onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Mostani hónap</button>}
             <button type="button" className={s.round} onClick={() => goMonth(1)} aria-label="Következő hónap"><RightOutlined /></button>
           </div>
         )}
         {listOf(groups, searching ? 'Nincs találat.' : showPast ? 'Nincs korábbi esemény.' : isCurrent ? 'Ebben a hónapban már nincs több esemény.' : 'Ebben a hónapban nincs esemény.')}
+        {!showPast && <Fab label="Új esemény" onClick={openNewEvent} />}
       </>
     );
   };
@@ -389,28 +401,31 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
       <style>{'@media (pointer: coarse) { .ant-input, .ant-input-affix-wrapper input, .ant-select-selection-search-input, .ant-select-selection-item, .ant-picker input, textarea.ant-input { font-size: 16px !important; } }'}</style>
       <div className={s.shell}>
         <header className={s.topbar}>
-          <b>Tavern Admin</b>
-          <span className={`${s.quiet} ${s.num}`} style={{ marginLeft: 'auto' }}>Frissítve {updatedAt.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+          <b className={s.topTitle}>{tab === 'esemenyek' && showPast ? 'Előző események' : TABS.find(t => t[0] === tab)[1]}</b>
+          {tab === 'esemenyek' && <button type="button" className={`${s.iconBtn} ${s.phoneOnly}`} style={{ marginLeft: 'auto' }} onClick={toggleSearch} aria-label={searchOpen ? 'Keresés bezárása' : 'Keresés'} aria-expanded={searchOpen}>{searchOpen ? <CloseOutlined /> : <SearchOutlined />}</button>}
+          <span className={`${s.quiet} ${s.num} ${s.deskOnly}`} style={{ marginLeft: 'auto' }}>Frissítve {updatedAt.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
           <button type="button" className={s.iconBtn} onClick={refresh} aria-label="Frissítés" disabled={refreshing}><SyncOutlined spin={refreshing} /></button>
         </header>
 
         <nav className={s.tabbar} aria-label="Admin">
           <b className={s.brand}>Tavern Admin</b>
-          {TABS.map(([key, label]) => (
+          {TABS.map(([key, label, Icon]) => (
             <button key={key} type="button" className={s.tabBtn} aria-current={tab === key ? 'page' : undefined} onClick={() => goTab(key)}>
+              <Icon className={s.tabIcon} aria-hidden="true" />
               {label}{key === 'tovabbiak' && unseenCount > 0 && <i className={s.tabDot} aria-label="Új újdonság" />}
             </button>
           ))}
           <span className={s.sideUser}>{app.userName} · tulajdonos</span>
         </nav>
 
-        <main className={s.main}>
+        <main key={tab} className={`${s.main} admin-screen-in`}>
           {tab === 'esemenyek' && eventsView()}
           {tab === 'telitettseg' && (<><h1 className={s.title}>Napi telítettség</h1><OccupancyManager app={app} /></>)}
           {tab === 'tovabbiak' && moreView()}
         </main>
       </div>
 
+      <PullToRefresh onRefresh={refresh} />
       <EventSheet app={app} evt={selectedEvent} onClose={() => setSelected(null)} />
       <AdminModals app={app} />
     </ConfigProvider>
@@ -421,6 +436,7 @@ export default function OwnerAdmin({ app, onShowChangelog, unseenCount }) {
 function EventSheet({ app, evt, onClose }) {
   const open = !!evt;
   const [last, setLast] = useState(evt);
+  const dragRef = useRef(null);
   // Bezáráskor a lap még lecsúszik: addig az utolsó esemény maradjon rajta
   if (evt && evt !== last) setLast(evt);
   const e = evt || last;
@@ -433,6 +449,22 @@ function EventSheet({ app, evt, onClose }) {
   const closed = !e.is_open;
   const run = (fn) => () => { onClose(); fn(); };
   const d = new Date(`${eventDay(e)}T12:00:00`);
+
+  // A lap fejrészét lefelé húzva bezárul
+  const dragStart = (ev) => { dragRef.current = { y: ev.touches[0].clientY, panel: ev.currentTarget.closest('.ant-drawer-section'), dy: 0 }; };
+  const dragMove = (ev) => {
+    const drag = dragRef.current;
+    if (!drag?.panel) return;
+    drag.dy = Math.max(0, ev.touches[0].clientY - drag.y);
+    drag.panel.style.transform = `translateY(${drag.dy}px)`;
+  };
+  const dragEnd = () => {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (!drag?.panel) return;
+    drag.panel.style.transform = '';
+    if (drag.dy > 80) onClose();
+  };
 
   const share = async () => {
     const url = eventShareUrl(e);
@@ -453,8 +485,8 @@ function EventSheet({ app, evt, onClose }) {
   return (
     <Drawer open={open} onClose={onClose} placement="bottom" size="auto" title={null} closable={false} rootClassName={s.sheetRoot}>
       <div className={s.sheetBody}>
-        <span className={s.grabber} aria-hidden="true" />
-        <div className={s.sheetHead}>
+        <span className={s.sheetDrag} onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd} onTouchCancel={dragEnd}><span className={s.grabber} aria-hidden="true" /></span>
+        <div className={s.sheetHead} onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd} onTouchCancel={dragEnd}>
           <p className={s.sheetWhen}>{cap(`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}.`)} · {timeOf(e)}</p>
           <h2 className={s.sheetTitle}>{e.name}</h2>
           <p className={s.sheetMeta}>

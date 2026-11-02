@@ -1,3 +1,5 @@
+import './app.css';
+
 // Az admin felület web appként is telepíthető (iPhone: Safari → Megosztás → Főképernyőhöz adás):
 // saját név, ikon és manifest, sötét állapotsor, és a kijelző teljes felülete (a lekerekített sarkok és a
 // kezdőképernyő-csík alatti sávot a tulajdonosi nézet a safe-area értékekkel hagyja szabadon).
@@ -13,7 +15,7 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#121212',
+  themeColor: '#0f0b0c',
 };
 
 export default function AdminLayout({ children }) {

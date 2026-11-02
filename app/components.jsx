@@ -2,7 +2,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Radio } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, WarningOutlined, DashboardOutlined, HistoryOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, EditOutlined, DeleteOutlined, PlusOutlined, UnorderedListOutlined, SafetyCertificateOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, EnvironmentOutlined, StarFilled, UserAddOutlined, UserOutlined, CopyOutlined, SearchOutlined, MobileOutlined, WarningOutlined, DashboardOutlined, HistoryOutlined, FilterOutlined, AppstoreOutlined, LogoutOutlined } from "@ant-design/icons";
+import { Fab, PhoneTabBar, PhoneTopBar, PullToRefresh } from "@/components/PhoneApp";
 import { S } from "./styles";
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { resolveAttendance } from '@/lib/attendance';
@@ -256,14 +257,15 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                   <img src={evt.imageUrl || getCategoryImage(evt.category)} alt={evt.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { if (e.target.getAttribute('data-retried') !== 'true') { e.target.setAttribute('data-retried', 'true'); e.target.src = getCategoryImage(evt.category); } else { e.target.src = defaultLogoUrl; } }} />
                 </div>
                 
-                <div style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
+                {/* Az admin telefonos nézetében a nap a csoport fejlécében, az időpont a név előtt van */}
+                <div className={isAdmin ? 'max-[959px]:hidden' : undefined} style={S.eventDateBox}><CalendarOutlined style={S.eventDateIcon} /><div style={S.eventDateText}>{formatEventDate(evt.date)}</div></div>
                 <div>
                   <EventTypeTag evt={evt} />
                   {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ marginBottom: 5, fontWeight: 'bold' }}>Kiemelt</Tag>}
                   <Tag color={eventColor} style={{...S.eventTag, background: eventColor, color: '#fff', borderColor: eventColor}}>{evt.category || "Egyéb"}</Tag>
                   {isAdmin && <Tag color="default" style={{ borderColor: storeInfo?.color, color: storeInfo?.color, background: 'transparent' }}>{storeInfo?.name}</Tag>}
                   {!isAdmin && <OtherStoreTag evt={evt} />}
-                  <Title level={4} style={S.eventTitle}>{evt.name}</Title>
+                  <Title level={4} style={S.eventTitle}>{isAdmin && <span className="min-[960px]:hidden">{String(evt.date || '').slice(11, 16)} </span>}{evt.name}</Title>
                   {isAdmin && app.hostNames(evt).length > 0 && <Text style={{ display: 'block', color: '#baaaac', fontSize: 13, marginBottom: 4 }}><UserOutlined style={{ color: '#E5B15D' }} /> Tartja: <Text strong style={{ color: '#E0D6C8' }}>{app.hostNames(evt).join(', ')}</Text></Text>}
                   {evt.isOpenAttendance ? ( isAdmin ? <Tag color="green" style={{ margin: 0 }}>Kötetlen létszám · nincs jelentkezés</Tag> : null ) : evt.external_url ? ( rgnEventId(evt.external_url) && evt.rgn?.syncedAt && evt.rgn?.ok !== false ? <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players}{evt.rgn.capacity ? ` / ${evt.rgn.capacity}` : ''}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}{isAdmin ? <a href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ ...S.extLinkText, color: '#E5B15D' }}><LinkOutlined style={S.linkIcon}/> Riftbound oldal megnyitása</a> : <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Jelentkezés a Riftbound oldalán</Text>}</> : isAdmin ? <a href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ ...S.extLinkText, color: '#E5B15D', overflowWrap: 'anywhere' }}><LinkOutlined style={S.linkIcon}/> Külső oldal megnyitása</a> : <Text type="secondary" style={S.extLinkText}><LinkOutlined style={S.linkIcon}/> Külső oldal</Text> ) : ( <><Text type="secondary" style={{color: '#baaaac'}}>Létszám: <Text strong style={{color: '#E0D6C8'}}>{evt.current_players} / {evt.max_players}</Text></Text>{evt.queue_count > 0 && <Tag color="warning" style={S.queueTag}>Várólistán: {evt.queue_count}</Tag>}<AttendeeNames attendees={evt.attendees} max={8} size="small" /></> )}
                 </div>
@@ -281,14 +283,14 @@ export const EventList = ({ tournamentsData, isAdmin = false, app, grid = false 
                 )
               ) : !app.canManage(evt) ? (
                 // Más játék eseménye: a szervező látja, de nem szerkesztheti és a jelentkezőit sem látja
-                <Space style={{ flexWrap: 'wrap' }}>
+                <Space className="admin-event-actions" style={{ flexWrap: 'wrap' }}>
                   <Tag icon={<EyeOutlined />} style={{ background: 'transparent', color: '#baaaac', borderColor: '#4A2E33' }}>Csak megtekintés</Tag>
                   {evt.external_url && <Button size="small" icon={<LinkOutlined />} title={evt.external_url} href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }}>Külső oldal</Button>}
                   <ShareEventButton evt={evt} messageApi={app.messageApi} copyOnly iconOnly size="small" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} />
                   {!evt.external_url && !evt.isOpenAttendance && <Button size="small" icon={<FormOutlined />} title="Jelentkezési oldal megnyitása" style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => window.open(registrationPageUrl(evt), '_blank', 'noopener')} />}
                 </Space>
               ) : (
-                <Space style={{ flexWrap: 'wrap' }}>
+                <Space className="admin-event-actions" style={{ flexWrap: 'wrap' }}>
                   {evt.external_url && <Button icon={<LinkOutlined />} title={evt.external_url} href={evt.external_url} target="_blank" rel="noopener noreferrer" style={{ background: '#2B1A1C', color: '#E5B15D', borderColor: '#4A2E33' }}>Külső oldal</Button>}
                   {rgnEventId(evt.external_url) && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => app.setSelectedRgnEventId(eId)} title="A Riftbound oldalon jelentkezettek">Jelentkezők (Riftbound)</Button>}
                   {!evt.external_url && !evt.isOpenAttendance && <Button type="dashed" icon={<UnorderedListOutlined />} style={{ background: '#2B1A1C', color: '#E0D6C8', borderColor: '#4A2E33' }} onClick={() => { setSelectedEventIdForAttendees(eId); setIsAttendeesModalOpen(true); }}>Jelentkezők</Button>}
@@ -933,7 +935,13 @@ export const AdminModals = ({ app: v }) => {
   );
 };
 
-export const AdminEvents = ({ app: v }) => {
+const ORGANIZER_TAB_STORAGE = 'tavern-organizer-tab';
+
+export const AdminEvents = ({ app: v, onShowChangelog, unseenCount = 0 }) => {
+  // Telefonon alsó fülsáv: Események, Szűrés, Továbbiak (960 px felett minden egyszerre látszik)
+  const [phoneTab, setPhoneTab] = useState(() => window.sessionStorage.getItem(ORGANIZER_TAB_STORAGE) || 'esemenyek');
+  const goPhoneTab = (key) => { window.sessionStorage.setItem(ORGANIZER_TAB_STORAGE, key); setPhoneTab(key); window.scrollTo({ top: 0 }); };
+  const phoneShows = (key) => (phoneTab === key ? '' : 'max-[959px]:hidden');
   const [adminCatFilter, setAdminCatFilter] = useState([]); // üres = minden játék
   const [adminStoreFilter, setAdminStoreFilter] = useState('Mind');
   const [adminSearch, setAdminSearch] = useState('');
@@ -1043,36 +1051,39 @@ export const AdminEvents = ({ app: v }) => {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
+  const hasFilters = isSearching || adminStoreFilter !== 'Mind' || adminCatFilter.length > 0 || onlyMine;
+  const phoneTabs = [['esemenyek', 'Események', CalendarOutlined], ['szures', 'Szűrés', FilterOutlined, hasFilters], ['tovabbiak', 'Továbbiak', AppstoreOutlined, unseenCount > 0]];
   const panel = "bg-[#1a1012] p-4 rounded-xl border border-[#4A2E33]";
   const panelTitle = { color: '#E5B15D', margin: '0 0 12px 0', fontFamily: 'Georgia, serif' };
   const sideBtn = { color: '#E0D6C8', borderColor: '#4A2E33', background: '#2B1A1C' };
 
   // Nem komponensként (hanem függvényhívásként) renderelve, hogy ne jöjjön létre minden rendernél új komponens típus
   const renderMonthPager = (scroll = false) => (
-    <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1a1012] p-3 rounded-xl border border-[#4A2E33]">
-      <Button icon={<LeftOutlined />} disabled={!canGoPrev} style={canGoPrev ? sideBtn : undefined} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() - 1, 1), scroll)}>Előző hónap</Button>
-      <div className="flex flex-wrap items-center justify-center gap-2">
+    <div className="admin-month-pager flex flex-wrap max-[959px]:flex-nowrap items-center justify-between gap-3 max-[959px]:gap-2 bg-[#1a1012] p-3 max-[959px]:p-2 rounded-xl border border-[#4A2E33]">
+      <Button icon={<LeftOutlined />} aria-label="Előző hónap" disabled={!canGoPrev} style={canGoPrev ? sideBtn : undefined} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() - 1, 1), scroll)}><span className="max-[959px]:hidden">Előző hónap</span></Button>
+      <div className="flex flex-wrap items-center justify-center gap-2 max-[959px]:flex-1 max-[959px]:min-w-0">
         <Select value={adminMonth.getFullYear()} options={yearOptions} style={{ minWidth: 110 }} onChange={(y) => goToMonth(new Date(y, adminMonth.getMonth(), 1), scroll)} />
         <Select value={adminMonth.getMonth()} options={monthOptions} style={{ minWidth: 160 }} onChange={(m) => goToMonth(new Date(adminMonth.getFullYear(), m, 1), scroll)} />
-        {!isCurrentMonth && <Button style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => goToMonth(currentMonthStart, scroll)}>Aktuális hónap</Button>}
+        {!isCurrentMonth && <Button className="max-[959px]:!w-full" style={{ ...sideBtn, color: '#E5B15D' }} onClick={() => goToMonth(currentMonthStart, scroll)}>Aktuális hónap</Button>}
       </div>
-      <Button style={sideBtn} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() + 1, 1), scroll)}>Következő hónap <RightOutlined /></Button>
+      <Button aria-label="Következő hónap" style={sideBtn} onClick={() => goToMonth(new Date(adminMonth.getFullYear(), adminMonth.getMonth() + 1, 1), scroll)}><span className="max-[959px]:hidden">Következő hónap </span><RightOutlined /></Button>
     </div>
   );
 
   return (
     <ConfigProvider theme={tavernTheme}>
+      <PhoneTopBar title={showPast && phoneTab === 'esemenyek' ? 'Előző események' : phoneTabs.find(t => t[0] === phoneTab)?.[1]} onRefresh={() => v.fetchData(true)} />
       <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[340px_minmax(0,1fr)] items-start">
 
         {/* OLDALSÁV: műveletek, szűrők, áttekintés, tulajdonosi eszközök (széles képernyőn görgetéskor is látszik) */}
-        <aside className="flex flex-col gap-4 xl:sticky xl:top-4">
-          <div className={panel}>
-            <Button type="primary" block size="large" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold', marginBottom: 8 }} onClick={openNewEvent}>Új esemény</Button>
+        <aside className={`flex flex-col gap-4 xl:sticky xl:top-4 ${phoneTab === 'esemenyek' ? 'max-[959px]:hidden' : ''}`}>
+          <div className={`${panel} ${phoneShows('tovabbiak')}`}>
+            <Button className="max-[959px]:!hidden" type="primary" block size="large" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold', marginBottom: 8 }} onClick={openNewEvent}>Új esemény</Button>
             {/* Gyors gombok a szervező rangja és jogai szerint */}
             <QuickActions app={v} layout="sidebar" />
           </div>
 
-          <div className={panel}>
+          <div className={`${panel} ${phoneShows('szures')}`}>
             <Title level={5} style={panelTitle}><SearchOutlined /> Szűrés</Title>
             <div className="flex flex-col gap-2">
               <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Név, játék, dátum, helyszín, szervező..." value={adminSearch} onChange={(e) => setAdminSearch(e.target.value)} />
@@ -1096,7 +1107,7 @@ export const AdminEvents = ({ app: v }) => {
             </div>
           </div>
 
-          <div className={panel}>
+          <div className={`${panel} ${phoneShows('tovabbiak')}`}>
             <Title level={5} style={panelTitle}>Közelgő események</Title>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -1110,6 +1121,15 @@ export const AdminEvents = ({ app: v }) => {
                   <div style={{ color: '#9a8a8c', fontSize: 12 }}>{label}</div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Telefonon a felső sáv helyett itt van a fiók */}
+          <div className={`${panel} min-[960px]:hidden ${phoneShows('tovabbiak')}`}>
+            <Title level={5} style={panelTitle}>Fiók · {v.userName}</Title>
+            <div className="flex flex-col gap-2">
+              <Button block size="large" style={sideBtn} onClick={onShowChangelog}>✨ Újdonságok{unseenCount > 0 ? ` (${unseenCount})` : ''}</Button>
+              <Button block size="large" danger icon={<LogoutOutlined />} style={{ background: '#2B1A1C' }} onClick={() => v.handleLogout()}>Kijelentkezés</Button>
             </div>
           </div>
 
@@ -1140,7 +1160,7 @@ export const AdminEvents = ({ app: v }) => {
         </aside>
 
         {/* ESEMÉNYEK: napokra csoportosítva, kártyarácsban */}
-        <section className="min-w-0 flex flex-col gap-6">
+        <section className={`min-w-0 flex flex-col gap-6 ${phoneShows('esemenyek')}`}>
           <Button type="primary" block size="large" icon={showPast ? <LeftOutlined /> : <HistoryOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setShowPast(p => !p)}>
             {showPast ? 'Vissza a mai és közelgő eseményekhez' : `Előző események (${pastEvents.length})`}
           </Button>
@@ -1153,6 +1173,9 @@ export const AdminEvents = ({ app: v }) => {
           {!isSearching && !showPast && monthEvents.length > 0 && renderMonthPager(true)}
         </section>
       </div>
+      {phoneTab === 'esemenyek' && !showPast && <Fab label="Új esemény" onClick={openNewEvent} />}
+      <PhoneTabBar tabs={phoneTabs} active={phoneTab} onChange={goPhoneTab} />
+      <PullToRefresh onRefresh={() => v.fetchData(true)} />
       <AdminModals app={v} />
     </ConfigProvider>
   );

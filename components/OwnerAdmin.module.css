@@ -8,7 +8,7 @@
   min-height: 100dvh; background: var(--ground); color: var(--ink);
   font-family: var(--font-manrope), system-ui, sans-serif; font-size: 15px; line-height: 1.4;
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
-  padding-bottom: calc(var(--tabbar) + 24px);
+  padding-bottom: calc(var(--tabbar) + 88px);
 }
 .shell button, .shell a { touch-action: manipulation; }
 .shell :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
@@ -23,6 +23,9 @@
 }
 .iconBtn { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font-size: 17px; cursor: pointer; }
 .iconBtn:hover { background: var(--surface); }
+.topTitle { font-size: 17px; }
+.phoneOnly { display: inline-grid; }
+.deskOnly { display: none; }
 
 .main { max-width: 760px; margin: 0 auto; padding: 14px max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 12px; }
 
@@ -30,16 +33,19 @@
 .tabbar {
   position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; height: var(--tabbar);
   display: grid; grid-template-columns: repeat(3, 1fr); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: var(--ground); border-top: 1px solid var(--line);
+  background: rgba(15, 11, 12, 0.92); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--line);
 }
 .brand, .sideUser { display: none; }
-.tabBtn { position: relative; border: 0; background: transparent; color: var(--faint); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.tabBtn { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: transparent; color: var(--faint); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.tabIcon { font-size: 21px; }
 .tabBtn[aria-current="page"] { color: #ffffff; }
-.tabDot { position: absolute; top: 12px; margin-left: 4px; width: 8px; height: 8px; border-radius: 999px; background: var(--red); display: inline-block; }
+.tabBtn[aria-current="page"] .tabIcon { color: var(--gold); }
+.tabDot { position: absolute; top: 6px; left: calc(50% + 12px); width: 8px; height: 8px; border-radius: 999px; background: var(--red); display: inline-block; }
 
 /* Cím, váltók */
 .titleRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.title { margin: 0; font-size: 22px; font-weight: 800; line-height: 1.2; }
+.titleRowDesk { display: none; }
+.title { display: none; margin: 0; font-size: 22px; font-weight: 800; line-height: 1.2; }
 .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
 .primary { flex: none; height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--ink); color: #120d0e; font: inherit; font-size: 15px; font-weight: 800; cursor: pointer; }
 .pastBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; padding: 8px 16px; border: 0; border-radius: 10px; background: var(--gold); color: #120d0e; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
@@ -51,10 +57,13 @@
 .chip { flex: none; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--control); background: transparent; color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .chip[aria-pressed="true"] { border-color: transparent; background: var(--ink); color: #120d0e; font-weight: 800; }
 .search { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; background: var(--surface); color: var(--faint); }
+.searchClosed { display: none; }
 .search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; color: var(--ink); font: inherit; font-size: 16px; }
 .search input::-webkit-search-cancel-button { display: none; }
 .search button { border: 0; background: none; color: var(--muted); padding: 6px; cursor: pointer; }
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pagerLabel { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.pagerLabel small { color: var(--faint); font-size: 12px; }
 .round { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--control); background: transparent; color: var(--ink); cursor: pointer; }
 .linkBtn { border: 0; background: transparent; color: var(--gold); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 
@@ -62,10 +71,11 @@
 .occCard, .notice { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px 14px; border: 0; border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .notice { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
 .occHead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.hint { color: var(--faint); font-size: 12px; }
-.occRow { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.hint { display: none; color: var(--faint); font-size: 12px; }
+.occRow { display: flex; flex-direction: column; align-items: stretch; gap: 4px; font-size: 13px; }
 .occName { width: 78px; flex: none; }
-.occBar { flex: 1; display: flex; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.occRows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.occBar { flex: none; display: flex; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
 .occBar span { display: block; height: 100%; }
 
 /* Kártyák (telefon) */
@@ -127,6 +137,7 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
 .sheetRoot :global(.ant-drawer-body) { padding: 0; }
 .sheetRoot :global(.ant-drawer-mask) { background: rgba(0, 0, 0, 0.55); }
 .sheetBody { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 10px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 16px) max(16px, env(safe-area-inset-left)); font-family: var(--font-manrope), system-ui, sans-serif; }
+.sheetDrag { display: flex; justify-content: center; margin: -10px 0 -4px; padding: 10px 40px; align-self: center; touch-action: none; }
 .grabber { align-self: center; width: 38px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); }
 .sheetHead { position: relative; padding: 2px 44px 12px 0; border-bottom: 1px solid #2c2124; }
 .sheetWhen { margin: 0 0 4px; color: #e5b15d; font-size: 14px; font-weight: 700; }
@@ -145,18 +156,28 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
   .shell { padding-bottom: 48px; padding-left: 216px; }
   .topbar { padding-left: 24px; }
   .topbar > b:first-child { visibility: hidden; }
+  .phoneOnly { display: none; }
+  .deskOnly { display: inline-flex; align-items: center; }
+  .titleRowDesk { display: flex; }
+  .title { display: block; }
+  .searchClosed { display: flex; }
+  .hint { display: block; }
+  .tabIcon { display: none; }
+  .tabBtn { display: block; }
   .main { max-width: 1240px; padding: 20px 24px 0; }
   .tabbar { top: 0; right: auto; width: 216px; height: auto; display: flex; flex-direction: column; gap: 2px; padding: 14px 10px; border-top: 0; border-right: 1px solid var(--line); z-index: 11; }
   .brand { display: block; padding: 6px 10px 14px; font-size: 16px; }
   .tabBtn { height: 36px; padding: 0 10px; border-radius: 6px; text-align: left; font-size: 14px; font-weight: 500; color: var(--muted); }
   .tabBtn:hover { color: #ffffff; }
   .tabBtn[aria-current="page"] { background: #1d1617; font-weight: 700; }
-  .tabDot { position: static; }
+  .tabDot { position: static; margin-left: 4px; }
   .sideUser { display: block; margin-top: auto; padding: 10px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
   .onPhone { display: none; }
   .onDesk { display: block; }
   .occCard { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
   .occHead { flex: 1 1 100%; }
-  .occRow { flex: 1 1 220px; }
+  .occRows { display: contents; }
+  .occRow { flex: 1 1 220px; flex-direction: row; align-items: center; gap: 10px; font-size: 14px; }
+  .occBar { flex: 1; }
   .segment { max-width: 420px; }
 }

@@ -33,6 +33,11 @@
 .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* Telefonon a cím a felső sávban van, mint egy app képernyőjén */
+@media (max-width: 959px) {
+  .title, .titleOnly { display: none; }
+}
+
 @media (min-width: 960px) {
   .topbar { padding-left: 16px; padding-right: 24px; }
   .main { padding: 20px 24px 0; }

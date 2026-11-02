@@ -1,0 +1,37 @@
+/* Az admin telefonos elemei (components/PhoneApp.jsx). 960 px felett nem látszanak. */
+.topbar {
+  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  height: 52px; margin: 0 -16px 12px; padding: env(safe-area-inset-top) 8px 0 16px; box-sizing: content-box;
+  background: #0f0b0c; border-bottom: 1px solid #241b1d; color: #f3ece3;
+  font-family: var(--font-manrope), system-ui, sans-serif; font-size: 17px;
+}
+.iconBtn { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #f3ece3; font-size: 17px; cursor: pointer; }
+
+.tabbar {
+  position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; height: calc(56px + env(safe-area-inset-bottom));
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: rgba(15, 11, 12, 0.92); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid #241b1d;
+  font-family: var(--font-manrope), system-ui, sans-serif;
+}
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: transparent; color: #9a8d89; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.tab[aria-current="page"] { color: #f3ece3; }
+.tab[aria-current="page"] .tabIcon { color: #e5b15d; }
+.tabIcon { position: relative; font-size: 21px; line-height: 1; }
+.tabDot { position: absolute; top: -1px; right: -7px; width: 8px; height: 8px; border-radius: 999px; background: #ef7b74; }
+
+.fab {
+  position: fixed; z-index: 19; right: max(16px, env(safe-area-inset-right)); bottom: calc(56px + env(safe-area-inset-bottom) + 16px);
+  display: grid; place-items: center; width: 56px; height: 56px; border: 0; border-radius: 18px;
+  background: #f3ece3; color: #120d0e; font-size: 22px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); cursor: pointer;
+}
+
+.pull {
+  position: fixed; z-index: 30; left: 50%; top: env(safe-area-inset-top);
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px;
+  background: #2a2022; color: #e5b15d; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); pointer-events: none;
+}
+
+@media (min-width: 960px) {
+  .topbar, .tabbar, .fab, .pull { display: none; }
+}

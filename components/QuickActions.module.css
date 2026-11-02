@@ -10,6 +10,13 @@
 .sidebar .btn { background: #2a2022; min-height: 64px; }
 .sidebar .btn:hover { background: #33272a; }
 
+/* Telefonon a tulajdonosi kezdőoldalon egy görgethető sor, hogy az események minél feljebb legyenek */
+@media (max-width: 959px) {
+  .bar { display: flex; gap: 8px; margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; scroll-padding: 0 16px; scroll-snap-type: x proximity; }
+  .bar::-webkit-scrollbar { display: none; }
+  .bar .btn { flex: none; width: 84px; min-height: 62px; scroll-snap-align: start; }
+}
+
 @media (min-width: 960px) {
   .bar { grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
   .bar .btn { min-height: 64px; font-size: 13px; }

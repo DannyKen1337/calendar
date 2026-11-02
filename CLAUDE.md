@@ -32,6 +32,11 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - Eseménylista (mindkét nézetben): belépéskor a mai vagy a legközelebbi esemény van felül (annak a hónapja nyílik meg, az aktuális hónap elmúlt napjai rejtve); a múltbeli eseményeket a feltűnő „Előző események” gomb mutatja, a legfrissebb nap elöl.
 - A felhasználó kérése: a backend legyen átlátható és gyors, ne dizájnos.
 
+## Telefonos app nézet (admin, 960 px alatt)
+- Közös elemek: `components/PhoneApp.jsx` (felső sáv, alsó fülsáv, lebegő „+” gomb, lehúzásos frissítés), viselkedés és teljes képernyős ablakok: `app/(naptar)/admin/app.css` (csak az /admin oldalakon töltődik be).
+- Tulajdonos: Események / Telítettség / Továbbiak; szervező: Események / Szűrés / Továbbiak (a fiók és a gyors gombok a Továbbiak fülön). Gépen a régi elrendezés marad.
+- Nincs service worker: offline nem működik, és nincs push értesítés.
+
 ## Szabályok
 - **A weboldalról és a csak tulajdonosnak szóló változásokról ne kerüljön bejegyzés az Újdonságok közé** (`lib/changelog.js`); csak a szervezőket érintő változásokról.
 - Játékképek: `public/jatekok/*.png` (arányosan kicsinyített helyi másolatok, max. 320×320); a naptár, a jelentkezési oldal és a weboldal is ezeket használja (`lib/gameConfig.js`).
