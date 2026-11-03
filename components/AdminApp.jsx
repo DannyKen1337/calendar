@@ -70,7 +70,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   });
   const tab = tabs.some(t => t[0] === savedTab) ? savedTab : 'esemenyek';
   const [selected, setSelected] = useState(null); // a megnyitott esemény azonosítója (teendőlap)
-  const [store, setStore] = useState('Mind');
+  const [stores, setStores] = useState([]); // üres = minden bolt, több is választható
   const [games, setGames] = useState([]); // üres = minden játék (szervezői szűrő)
   const [onlyMine, setOnlyMine] = useState(false); // csak az általa tartott események (szervezői szűrő)
   const [query, setQuery] = useState('');
@@ -104,12 +104,12 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
 
   const todayKey = keyOf(new Date());
   const allEvents = (app.tournaments || [])
-    .filter(e => store === 'Mind' || (e.store || 'debrecen') === store)
+    .filter(e => stores.length === 0 || stores.includes(e.store || 'debrecen'))
     .filter(e => games.length === 0 || games.includes(e.category || 'Egyéb'))
     .filter(e => !onlyMine || (e.hosts || []).map(String).includes(String(app.userId)))
     .filter(e => eventMatchesQuery(e, query, `${eventExtraSearchText(e, STORES[e.store || 'debrecen']?.name)} ${app.hostNames(e).join(' ')}`))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const allBookings = (app.bookings || []).filter(b => store === 'Mind' || b.store === store);
+  const allBookings = (app.bookings || []).filter(b => stores.length === 0 || stores.includes(b.store));
 
 
   // Egy időszak sorai: események és kézi foglalások napokra bontva
@@ -128,7 +128,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
 
   const openNewEvent = () => {
     app.eventForm.resetFields();
-    app.eventForm.setFieldsValue({ store: app.defaultStoreFor(store !== 'Mind' ? store : undefined) });
+    app.eventForm.setFieldsValue({ store: app.defaultStoreFor(stores.length === 1 ? stores[0] : undefined) });
     app.setEditingEventId(null);
     app.setIsCopyingEvent(false);
     app.setIsExternalForm(false);
@@ -288,10 +288,16 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     </>
   );
 
+  // Több bolt is választható; ha mind ki van jelölve, az ugyanaz, mint a Minden bolt
+  const toggleStore = (id) => setStores(list => {
+    const next = list.includes(id) ? list.filter(x => x !== id) : [...list, id];
+    return next.length === STORE_IDS.length ? [] : next;
+  });
   const storeChips = (
     <div className={s.chips} role="group" aria-label="Bolt">
-      {['Mind', ...STORE_IDS].map(id => (
-        <button key={id} type="button" className={s.chip} aria-pressed={store === id} onClick={() => setStore(id)}>{id === 'Mind' ? 'Minden bolt' : SHORT_STORES[id]}</button>
+      <button type="button" className={s.chip} aria-pressed={stores.length === 0} onClick={() => setStores([])}>Minden bolt</button>
+      {STORE_IDS.map(id => (
+        <button key={id} type="button" className={s.chip} aria-pressed={stores.includes(id)} onClick={() => toggleStore(id)}>{SHORT_STORES[id]}</button>
       ))}
     </div>
   );
@@ -365,7 +371,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
           <button type="button" className={`${s.primary} ${s.deskOnly}`} onClick={openNewEvent}>+ Új esemény</button>
         </div>
         <button type="button" className={s.pastBtn} aria-pressed={showPast} onClick={() => { setShowPast(p => !p); setPastDays(PAST_DAYS_STEP); }}>
-          {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események ({pastCount})</>}
+          {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események betöltése ({pastCount})</>}
         </button>
         {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
         <QuickActions app={app} />
@@ -386,7 +392,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
           </div>
         )}
         {listOf(groups, searching ? 'Nincs találat.' : showPast ? 'Nincs korábbi esemény.' : isCurrent ? 'Ebben a hónapban már nincs több esemény.' : 'Ebben a hónapban nincs esemény.')}
-        {groups.length < pastGroups.length && <button type="button" className={s.bigBtn} onClick={() => setPastDays(n => n + PAST_DAYS_STEP)}>Korábbi napok ({pastGroups.length - groups.length} nap van még)</button>}
+        {groups.length < pastGroups.length && <button type="button" className={s.pastBtn} onClick={() => setPastDays(n => n + PAST_DAYS_STEP)}><HistoryOutlined /> Előző {Math.min(PAST_DAYS_STEP, pastGroups.length - groups.length)} nap betöltése (még {pastGroups.length - groups.length} nap van)</button>}
         {!showPast && <Fab label="Új esemény" onClick={openNewEvent} />}
       </>
     );
