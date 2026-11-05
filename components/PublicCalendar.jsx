@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Grid, ConfigProvider } from 'antd';
-import { SearchOutlined, CloseCircleFilled, TrophyOutlined } from '@ant-design/icons';
+import { SearchOutlined, CloseCircleFilled } from '@ant-design/icons';
 import { useCalendar } from '@/app/useCalendar';
 import { CalendarView, SearchResults, EventList, PublicModals, STORES, tavernTheme } from '@/app/components';
 import MonthCalendar from '@/components/MonthCalendar';
@@ -242,13 +241,6 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
           </section>
         )}
 
-        {/* Ligák: csak akkor, ha van publikált liga. Beágyazva új lapon nyílik. (Az előrendelés szándékosan nem szerepel:
-            csak az admin felületről kimásolt linkkel érhető el.) */}
-        {app.extraLinks?.leagues && (
-          <nav className={s.footerLinks} aria-label="További oldalak">
-            <Link href="/liga" target={embed ? '_blank' : undefined} rel={embed ? 'noopener' : undefined}><TrophyOutlined /> Ligák ranglistája</Link>
-          </nav>
-        )}
       </div>
     </main>
     </ConfigProvider>

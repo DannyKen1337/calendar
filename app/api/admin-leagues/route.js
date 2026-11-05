@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
@@ -6,14 +7,17 @@ import { canManageCategory, hasFeature, eventStore, STORE_NAMES } from '@/lib/pe
 import { toObjectId } from '@/lib/preorderData';
 import { PREORDER_GAMES } from '@/lib/preorders';
 import { budapestDateTime, addDays } from '@/lib/eventDates';
-import { DEFAULT_RULES, LEAGUE_NAME_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, nicknameKey, riotIdKey, computeStandings, buildSnapshot } from '@/lib/leagues';
+import { DEFAULT_RULES, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, normalizeNickname, uniqueNickname, nicknameKey, riotIdKey, computeStandings, buildSnapshot, describePointChanges, hasManualPoints } from '@/lib/leagues';
+import { parseTdf, sanitizeTdfRules, tdfPoints, defaultTdfNickname, isFullNameNickname, TDF_CATEGORY, TDF_MAX_BYTES } from '@/lib/tdf';
 import { syncLeaguePlayers, leagueSeasonStart, playerKeys } from '@/lib/leagueSync';
 
 export const dynamic = 'force-dynamic';
 
 // Ligák kezelése az admin felületen. Játékonként egy liga; a szervező csak az általa kezelt játékok ligáit
 // látja és szerkesztheti. A pontokat a szervező írja be alkalmanként, a játékosok viszont a liga boltjainak
-// eseményeiről automatikusan bekerülnek (lib/leagueSync.js). A nyilvános ranglista csak a PUBLISH művelettel frissül.
+// eseményeiről automatikusan bekerülnek (lib/leagueSync.js), a Pokémon ligában a pontok TOM fájlból is számolhatók
+// (UPLOAD_TDF, lib/tdf.js). A nyilvános ranglista csak a PUBLISH művelettel frissül.
+// A pontok minden változása naplózódik (LIGA PONTOK, LIGA TDF); a liga naplóját a külön „Liga napló” jog mutatja.
 
 async function addLog(db, adminName, action, details) {
   await db.collection('audit_logs').insertOne({ adminName: adminName || 'Rendszer', action, details, date: new Date() });
@@ -29,8 +33,19 @@ const leagueOut = (l) => ({
   ignoredCount: (l.ignoredPlayers || []).length,
   published: l.published ? { at: l.published.at, by: l.published.by || '', rows: l.published.rows || [] } : null,
 });
-const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, source: p.source || 'manual', eventIds: p.eventIds || [], createdAt: p.createdAt });
-const sessionOut = (s) => ({ id: String(s._id), leagueId: s.leagueId, date: s.date, title: s.title || '', tournamentId: s.tournamentId || null, results: s.results || [], updatedAt: s.updatedAt });
+const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, popId: p.popId || null, birthDate: p.birthDate || null, source: p.source || 'manual', eventIds: p.eventIds || [], createdAt: p.createdAt });
+const sessionOut = (s) => ({ id: String(s._id), leagueId: s.leagueId, date: s.date, title: s.title || '', tournamentId: s.tournamentId || null, tdf: s.tdf || null, results: s.results || [], updatedAt: s.updatedAt });
+
+const LOG_LIMIT = 300;
+// Egy liga naplója: minden LIGA műveletnél a részletek tartalmazzák a játékot zárójelben, pl. "(Pokémon TCG)"
+const leagueLogFilter = (category) => ({ action: { $regex: '^LIGA' }, details: { $regex: `\\(${category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)` } });
+async function leagueLogs(db, leagues) {
+  const lists = await Promise.all(leagues.map(async (l) => {
+    const rows = await db.collection('audit_logs').find(leagueLogFilter(l.category)).sort({ date: -1 }).limit(LOG_LIMIT).toArray();
+    return rows.map(r => ({ id: String(r._id), leagueId: String(l._id), date: r.date, adminName: r.adminName || '', action: r.action || '', details: r.details || '' }));
+  }));
+  return lists.flat();
+}
 
 // Az alkalomhoz választható események: a liga játékának eseményei (a beállított boltokban) a szezon kezdetétől holnapig
 async function sessionEvents(db, leagues) {
@@ -68,6 +83,9 @@ export async function GET() {
       seasons: seasons.map(s => ({ id: String(s._id), leagueId: s.leagueId, name: s.name, closedAt: s.closedAt, closedBy: s.closedBy || '', players: (s.rows || []).length, winners: (s.rows || []).filter(r => r.rank === 1).map(r => r.nickname) })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
       events: await sessionEvents(db, leagues),
+      // A liga naplóját csak a külön joggal rendelkezők kapják meg
+      canViewLog: hasFeature(session, 'leagueLog'),
+      logs: hasFeature(session, 'leagueLog') ? await leagueLogs(db, leagues) : [],
     });
   } catch (error) {
     console.error('admin-leagues GET error:', error);
@@ -159,13 +177,14 @@ export async function POST(request) {
       const leagueId = String(league._id);
       const existingId = payload.id ? toObjectId(payload.id) : null;
       if (payload.id && !existingId) return bad('A játékos nem található.', 404);
-      // Az eseményekről beemelt játékosnál a teljes név és az e-mail nem kötelező (a jelentkezésnél sem volt az)
+      // Az eseményekről vagy TDF fájlból beemelt játékosnál a teljes név és az e-mail nem kötelező
       const current = existingId ? await players.findOne({ _id: existingId, leagueId }, { projection: { source: 1 } }) : null;
-      const { player, error, field } = sanitizePlayer(payload, { relaxed: current?.source === 'event' || current?.source === 'rgn' });
+      const { player, error, field } = sanitizePlayer(payload, { relaxed: ['event', 'rgn', 'tdf'].includes(current?.source) });
       if (error) return bad(error, 400, { field });
-      const others = await players.find({ leagueId, ...(existingId ? { _id: { $ne: existingId } } : {}) }, { projection: { nickname: 1, email: 1, riotId: 1 } }).toArray();
+      const others = await players.find({ leagueId, ...(existingId ? { _id: { $ne: existingId } } : {}) }, { projection: { nickname: 1, email: 1, riotId: 1, popId: 1 } }).toArray();
       if (player.email && others.some(o => o.email === player.email)) return bad('Ezzel az e-mail címmel már van játékos ebben a ligában.', 400, { field: 'email' });
       if (player.riotId && others.some(o => o.riotId && riotIdKey(o.riotId) === riotIdKey(player.riotId))) return bad('Ezzel a Riot-azonosítóval már van játékos ebben a ligában.', 400, { field: 'riotId' });
+      if (player.popId && others.some(o => o.popId === player.popId)) return bad('Ezzel a POP-azonosítóval már van játékos ebben a ligában.', 400, { field: 'popId' });
       if (others.some(o => nicknameKey(o.nickname) === nicknameKey(player.nickname))) return bad('Ez a becenév már foglalt ebben a ligában.', 400, { field: 'nickname' });
       if (existingId) {
         const upd = await players.updateOne({ _id: existingId, leagueId }, { $set: { ...player, updatedAt: new Date() } });
@@ -196,7 +215,9 @@ export async function POST(request) {
       const { league, res } = await loadLeague(payload.leagueId);
       if (res) return res;
       const leagueId = String(league._id);
-      const validIds = new Set((await players.find({ leagueId }, { projection: { _id: 1 } }).toArray()).map(p => String(p._id)));
+      const nickById = new Map((await players.find({ leagueId }, { projection: { nickname: 1 } }).toArray()).map(p => [String(p._id), p.nickname]));
+      const validIds = new Set(nickById.keys());
+      const nicknameOf = (id) => nickById.get(String(id)) || 'törölt játékos';
       const { session: data, error } = sanitizeSession(payload, validIds);
       if (error) return bad(error);
       // Az alkalom egy eseményhez köthető (nem kötelező): csak a liga játékának eseménye lehet
@@ -208,18 +229,102 @@ export async function POST(request) {
         tournamentId = String(event._id);
       }
       const now = new Date();
+      const rules = { ...DEFAULT_RULES, ...(league.rules || {}) };
       const total = data.results.reduce((s, r) => s + r.points, 0);
       const summary = `${data.date}${data.title ? ` ${data.title}` : ''}, ${data.results.length} játékos, ${total} pont`;
       if (payload.id) {
         const oid = toObjectId(payload.id);
-        const upd = oid ? await sessions.updateOne({ _id: oid, leagueId }, { $set: { ...data, tournamentId, updatedAt: now, updatedBy: session.username } }) : { matchedCount: 0 };
-        if (upd.matchedCount === 0) return bad('Az alkalom nem található.', 404);
-        await addLog(db, session.username, 'LIGA', `Alkalom módosítva (${league.category}): ${summary}`);
+        const existing = oid ? await sessions.findOne({ _id: oid, leagueId }) : null;
+        if (!existing) return bad('Az alkalom nem található.', 404);
+        // A TDF fájlból jött meccsadatok a pont átírása után is megmaradnak (a kapott pont már a kézzel beírt)
+        const before = new Map((existing.results || []).map(r => [String(r.playerId), r]));
+        const results = data.results.map(r => {
+          const old = before.get(r.playerId);
+          if (!old || !hasManualPoints(old) || !Number.isInteger(old.wins)) return r;
+          const { wins, draws, losses, byes, place, division, popId } = old;
+          return { ...r, wins, draws, losses, byes, place, division, popId };
+        });
+        await sessions.updateOne({ _id: oid, leagueId }, { $set: { ...data, results, tournamentId, updatedAt: now, updatedBy: session.username } });
+        const changes = describePointChanges(existing.results, results, nicknameOf, rules);
+        await addLog(db, session.username, 'LIGA PONTOK', `Alkalom módosítva (${league.category}): ${summary}. ${changes ? `Változások: ${changes}` : 'A pontok nem változtak.'}`);
         return NextResponse.json({ success: true, id: payload.id });
       }
       const inserted = await sessions.insertOne({ ...data, tournamentId, leagueId, createdAt: now, updatedAt: now, createdBy: session.username });
-      await addLog(db, session.username, 'LIGA', `Új alkalom (${league.category}): ${summary}`);
+      await addLog(db, session.username, 'LIGA PONTOK', `Új alkalom (${league.category}): ${summary}. Pontok: ${describePointChanges([], data.results, nicknameOf, rules) || 'nincs'}`);
       return NextResponse.json({ success: true, id: String(inserted.insertedId) });
+    }
+
+    // TOM (.tdf) fájl feldolgozása: a pontozást feltöltésenként adják meg, a pontokat a szerver számolja a fájlból.
+    // assignments: játékosonként (POP-azonosító) a liga meglévő játékosa (playerId), vagy új játékos a megadott becenévvel.
+    if (actionType === 'UPLOAD_TDF') {
+      const { league, res } = await loadLeague(payload.leagueId);
+      if (res) return res;
+      if (league.category !== TDF_CATEGORY) return bad(`TDF fájlt csak a(z) ${TDF_CATEGORY} ligához lehet feltölteni.`);
+      const leagueId = String(league._id);
+      const rules = sanitizeTdfRules(payload.rules);
+      if (!rules) return bad('Add meg, hány pont jár a megjelenésért, a győzelemért és a döntetlenért (0 is lehet).');
+      if (typeof payload.xml !== 'string' || Buffer.byteLength(payload.xml) > TDF_MAX_BYTES) return bad('A fájl hiányzik, vagy túl nagy.');
+      const parsed = parseTdf(payload.xml);
+      if (parsed.error) return bad(parsed.error);
+      const { tournament } = parsed;
+      const duplicate = await sessions.findOne({ leagueId, 'tdf.id': tournament.id }, { projection: { date: 1 } });
+      if (duplicate) return bad(`Ezt a versenyt (${tournament.id}) már feltöltötték ${duplicate.date} dátummal. Ha újra fel akarod tölteni, előbb töröld a korábbi alkalmat.`, 409);
+
+      const assignments = new Map((Array.isArray(payload.assignments) ? payload.assignments : []).map(a => [String(a?.popId), a]));
+      const existing = await players.find({ leagueId }, { projection: { nickname: 1, fullName: 1, popId: 1 } }).toArray();
+      const byId = new Map(existing.map(p => [String(p._id), p]));
+      const taken = new Set(existing.map(p => nicknameKey(p.nickname)));
+      const usedIds = new Set();
+      const links = [];
+      const created = [];
+      const now = new Date();
+      const entries = [];
+      for (const p of parsed.players) {
+        const choice = assignments.get(p.popId);
+        const playerId = choice?.playerId ? String(choice.playerId) : null;
+        if (playerId) {
+          const target = byId.get(playerId);
+          if (!target) return bad(`${p.fullName}: a kiválasztott ligajátékos nem található.`);
+          if (target.popId && target.popId !== p.popId) return bad(`${target.nickname} egy másik POP-azonosítóhoz tartozik, ${p.fullName} nem párosítható vele.`);
+          if (usedIds.has(playerId)) return bad(`${target.nickname} két játékoshoz is ki van választva.`);
+          usedIds.add(playerId);
+          // A ranglistára ne kerüljön ki a teljes név: ha az volt a beceneve, rövidítjük
+          let nickname = target.nickname;
+          if (isFullNameNickname(nickname, p)) {
+            taken.delete(nicknameKey(nickname));
+            nickname = uniqueNickname(defaultTdfNickname(p), taken);
+            taken.add(nicknameKey(nickname));
+          }
+          links.push({ updateOne: { filter: { _id: target._id }, update: { $set: { popId: p.popId, nickname, ...(p.birthDate ? { birthDate: p.birthDate } : {}), ...(target.fullName ? {} : { fullName: p.fullName }) } } } });
+          entries.push({ p, playerId, nickname });
+          continue;
+        }
+        const nickname = normalizeNickname(choice?.nickname);
+        if (!nickname) return bad(`${p.fullName}: a becenév 2-24 karakter lehet (betű, szám, szóköz, pont, aláhúzás, kötőjel).`);
+        if (taken.has(nicknameKey(nickname))) return bad(`A(z) „${nickname}” becenév már foglalt ebben a ligában.`);
+        // A POP-azonosító egyedi: ha már van ilyen játékos, azt kell kiválasztani, különben kettészakadnának a pontjai
+        const samePop = existing.find(o => o.popId === p.popId);
+        if (samePop) return bad(`${p.fullName} már szerepel a ligában ${samePop.nickname} néven, válaszd ki őt.`);
+        taken.add(nicknameKey(nickname));
+        const _id = new ObjectId();
+        created.push({ _id, fullName: p.fullName, nickname, email: null, riotId: null, popId: p.popId, birthDate: p.birthDate, source: 'tdf', eventIds: [], leagueId, createdAt: now, createdBy: session.username });
+        entries.push({ p, playerId: String(_id), nickname });
+      }
+
+      if (created.length) await players.insertMany(created);
+      if (links.length) await players.bulkWrite(links);
+      const results = entries.map(({ p, playerId }) => ({
+        playerId, attended: true, points: tdfPoints(p, rules),
+        wins: p.wins, draws: p.draws, losses: p.losses, byes: p.byes, place: p.place, division: p.division, popId: p.popId,
+      }));
+      const title = tournament.name.slice(0, SESSION_TITLE_MAX);
+      const inserted = await sessions.insertOne({
+        date: tournament.date, title, results, tournamentId: null, leagueId, createdAt: now, updatedAt: now, createdBy: session.username,
+        tdf: { id: tournament.id, name: tournament.name, city: tournament.city, rules, swissRounds: tournament.swissRounds, skippedRounds: tournament.skippedRounds, fileName: String(payload.fileName || '').slice(0, 120) },
+      });
+      const nicks = new Map(entries.map(e => [e.playerId, e.nickname]));
+      await addLog(db, session.username, 'LIGA TDF', `TDF feltöltve (${league.category}): ${tournament.date} ${tournament.name} (${tournament.id}), pontozás: megjelenés ${rules.attendance}, győzelem ${rules.win}, döntetlen ${rules.draw}. ${results.length} játékos, ebből ${created.length} új. Pontok: ${describePointChanges([], results, id => nicks.get(id))}`);
+      return NextResponse.json({ success: true, id: String(inserted.insertedId), added: created.length });
     }
 
     if (actionType === 'DELETE_SESSION') {
@@ -228,8 +333,9 @@ export async function POST(request) {
       if (!s) return bad('Az alkalom nem található.', 404);
       const { league, res } = await loadLeague(s.leagueId);
       if (res) return res;
+      const nickById = new Map((await players.find({ leagueId: s.leagueId }, { projection: { nickname: 1 } }).toArray()).map(p => [String(p._id), p.nickname]));
       await sessions.deleteOne({ _id: s._id });
-      await addLog(db, session.username, 'LIGA', `Alkalom törölve (${league.category}): ${s.date}${s.title ? ` ${s.title}` : ''}`);
+      await addLog(db, session.username, 'LIGA PONTOK', `Alkalom törölve (${league.category}): ${s.date}${s.title ? ` ${s.title}` : ''}. Törölt pontok: ${describePointChanges(s.results, [], id => nickById.get(String(id)) || 'törölt játékos', { ...DEFAULT_RULES, ...(league.rules || {}) }) || 'nincs'}`);
       return NextResponse.json({ success: true });
     }
 

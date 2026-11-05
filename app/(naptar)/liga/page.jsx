@@ -7,6 +7,7 @@ import Leaderboard from '@/components/Leaderboard';
 export const metadata = {
   title: 'Ligák – Tavern',
   description: 'A Tavern kártyajáték-ligáinak aktuális ranglistái.',
+  robots: { index: false, follow: false }, // egyelőre nem hirdetjük: csak az elküldött linkkel érhető el
 };
 
 // Minden kérésnél frissen töltjük (a publikált ranglista bármikor változhat)

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
-import { getExtraLinks } from '@/lib/extraLinks';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { syncDueRgnEvents } from '@/lib/rgnSync';
 import { normalizeOccupancy, publicBookedSeats } from '@/lib/occupancy';
@@ -44,8 +43,7 @@ export async function GET() {
         tableBookings,
         isMaintenance: settings?.isMaintenance || false,
         occupancy,
-        serverTime: Date.now(),
-        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false })) 
+        serverTime: Date.now()
     });
   } catch (error) {
     console.error('public-data error:', error);

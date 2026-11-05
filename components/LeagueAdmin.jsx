@@ -1,11 +1,13 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Table, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert, Grid } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, EyeOutlined, LinkOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TrophyOutlined, CloudUploadOutlined, FlagOutlined, UndoOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined, EyeOutlined, LinkOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TrophyOutlined, CloudUploadOutlined, FlagOutlined, UndoOutlined, UploadOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
 import { getGameColor } from '@/lib/gameConfig';
 import { STORE_NAMES } from '@/lib/permissions';
 import Leaderboard, { formatPublishedAt } from '@/components/Leaderboard';
+import TdfImportModal from '@/components/TdfImportModal';
+import { TDF_CATEGORY } from '@/lib/tdf';
 import m from './LeagueAdmin.module.css';
 import {
   POINTS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX,
@@ -21,7 +23,9 @@ const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${Stri
 const formatDay = (s) => { const d = new Date(`${s}T12:00:00`); return isNaN(d) ? s : d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' }); };
 const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
 const deltaColor = (d) => (d > 0 ? '#8fd18f' : d < 0 ? '#ff9b9b' : '#6f6466');
-const sourceTag = (src) => (src === 'rgn' ? <Tag color="blue" style={{ margin: 0 }}>Riftbound oldal</Tag> : src === 'event' ? <Tag color="green" style={{ margin: 0 }}>Eseményről</Tag> : <Tag style={{ margin: 0 }}>Kézzel</Tag>);
+const sourceTag = (src) => (src === 'tdf' ? <Tag color="gold" style={{ margin: 0 }}>TDF fájlból</Tag> : src === 'rgn' ? <Tag color="blue" style={{ margin: 0 }}>Riftbound oldal</Tag> : src === 'event' ? <Tag color="green" style={{ margin: 0 }}>Eseményről</Tag> : <Tag style={{ margin: 0 }}>Kézzel</Tag>);
+// Az alkalom jelölése a listában: a TDF fájlból számolt alkalomnál a használt pontozás is látszik
+const tdfRulesText = (tdf) => (tdf?.rules ? `megjelenés ${tdf.rules.attendance}, győzelem ${tdf.rules.win}, döntetlen ${tdf.rules.draw}` : '');
 const storeNames = (stores) => stores.map(s => STORE_NAMES[s] || s).join(', ');
 const STORE_OPTIONS = Object.entries(STORE_NAMES).map(([value, label]) => ({ value, label }));
 
@@ -61,6 +65,8 @@ export default function LeagueAdmin() {
   const [onlyEventPlayers, setOnlyEventPlayers] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false); // szezon lezárása ablak
+  const [tdfOpen, setTdfOpen] = useState(false);
+  const [onlyPointLogs, setOnlyPointLogs] = useState(false);
   const [playerQuery, setPlayerQuery] = useState('');
   // Telefonon kártyás listák és teljes képernyős pontbeíró, gépen táblázatok
   const screens = Grid.useBreakpoint();
@@ -114,6 +120,7 @@ export default function LeagueAdmin() {
   const events = useMemo(() => (league ? (data.events || []).filter(e => e.leagueId === league.id) : []), [data, league]);
   const standings = useMemo(() => (league ? computeStandings(league.rules, players, sessions) : []), [league, players, sessions]);
   const snapshot = useMemo(() => buildSnapshot(standings, league?.published?.rows), [standings, league]);
+  const logs = useMemo(() => (league ? (data.logs || []).filter(l => l.leagueId === league.id && (!onlyPointLogs || l.action === 'LIGA PONTOK' || l.action === 'LIGA TDF')) : []), [data, league, onlyPointLogs]);
   const statsById = useMemo(() => new Map(standings.map(s => [s.playerId, s])), [standings]);
   const unpublished = league ? hasUnpublishedChanges(snapshot, league.published?.rows) : false;
 
@@ -159,7 +166,7 @@ export default function LeagueAdmin() {
     messageApi.success('Liga törölve.');
     load();
   };
-  const openPlayer = (p) => { setPlayerEdit(p); playerForm.resetFields(); playerForm.setFieldsValue({ fullName: p.fullName || '', nickname: p.nickname || '', email: p.email || '', riotId: p.riotId || '' }); };
+  const openPlayer = (p) => { setPlayerEdit(p); playerForm.resetFields(); playerForm.setFieldsValue({ fullName: p.fullName || '', nickname: p.nickname || '', email: p.email || '', riotId: p.riotId || '', popId: p.popId || '' }); };
   const savePlayer = async (values) => {
     if (!(await post('SAVE_PLAYER', { leagueId: league.id, id: playerEdit?.id, ...values }, playerForm))) return;
     messageApi.success(playerEdit?.id ? 'Játékos mentve.' : 'Játékos felvéve.');
@@ -176,7 +183,7 @@ export default function LeagueAdmin() {
     setSessionQuery('');
     setOnlyEventPlayers(true);
     setSessionEdit(s
-      ? { id: s.id, date: s.date, title: s.title, tournamentId: s.tournamentId, points: Object.fromEntries(s.results.map(r => [r.playerId, resultPoints(r, league.rules)])) }
+      ? { id: s.id, date: s.date, title: s.title, tournamentId: s.tournamentId, tdf: s.tdf, points: Object.fromEntries(s.results.map(r => [r.playerId, resultPoints(r, league.rules)])) }
       : { date: todayStr(), title: '', tournamentId: null, points: {} });
   };
   const pickEvent = (id) => setSessionEdit(s => {
@@ -278,14 +285,16 @@ export default function LeagueAdmin() {
   const playerColumns = [
     { title: 'Becenév', dataIndex: 'nickname', render: (t) => <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{t}</span>, sorter: (a, b) => a.nickname.localeCompare(b.nickname, 'hu') },
     { title: 'Teljes név', dataIndex: 'fullName', render: (t) => (t ? <span style={{ color: '#E0D6C8' }}>{t}</span> : <span style={{ color: '#6b7280' }}>—</span>) },
-    { title: 'E-mail / Riot-azonosító', key: 'contact', render: (_, p) => (
+    { title: 'E-mail / azonosító', key: 'contact', render: (_, p) => (
       <span className="flex flex-col">
         {p.email && <a href={`mailto:${p.email}`} style={{ color: '#baaaac' }}>{p.email}</a>}
         {p.riotId && <span style={{ color: '#E0D6C8', whiteSpace: 'nowrap' }}>{p.riotId}</span>}
-        {!p.email && !p.riotId && <span style={{ color: '#6b7280' }}>—</span>}
+        {p.popId && <span style={{ color: '#E0D6C8', whiteSpace: 'nowrap' }}>POP: {p.popId}</span>}
+        {p.birthDate && <span style={{ color: '#9a8a8c', whiteSpace: 'nowrap' }}>Született: {p.birthDate}</span>}
+        {!p.email && !p.riotId && !p.popId && <span style={{ color: '#6b7280' }}>—</span>}
       </span>
     ) },
-    { title: 'Honnan', dataIndex: 'source', render: (src) => sourceTag(src), filters: [{ text: 'Eseményről', value: 'event' }, { text: 'Riftbound oldal', value: 'rgn' }, { text: 'Kézzel', value: 'manual' }], onFilter: (v, p) => p.source === v },
+    { title: 'Honnan', dataIndex: 'source', render: (src) => sourceTag(src), filters: [{ text: 'Eseményről', value: 'event' }, { text: 'Riftbound oldal', value: 'rgn' }, { text: 'TDF fájlból', value: 'tdf' }, { text: 'Kézzel', value: 'manual' }], onFilter: (v, p) => p.source === v },
     { title: 'Jelentkezés', key: 'events', align: 'right', render: (_, p) => p.eventIds.length, sorter: (a, b) => a.eventIds.length - b.eventIds.length },
     { title: 'Alkalom', key: 'sessions', align: 'right', render: (_, p) => statsById.get(p.id)?.sessions ?? 0 },
     { title: 'Pont', key: 'points', align: 'right', render: (_, p) => <b style={{ color: '#E0D6C8' }}>{statsById.get(p.id)?.points ?? 0}</b>, sorter: (a, b) => (statsById.get(a.id)?.points ?? 0) - (statsById.get(b.id)?.points ?? 0) },
@@ -301,7 +310,7 @@ export default function LeagueAdmin() {
 
   const sessionColumns = [
     { title: 'Dátum', dataIndex: 'date', render: (d) => <span style={{ color: '#E0D6C8', whiteSpace: 'nowrap' }}>{formatDay(d)}</span> },
-    { title: 'Megnevezés', dataIndex: 'title', render: (t) => <span style={{ color: '#baaaac' }}>{t || '—'}</span> },
+    { title: 'Megnevezés', dataIndex: 'title', render: (t, s) => <span className="flex flex-wrap items-center gap-2" style={{ color: '#baaaac' }}>{t || '—'}{s.tdf && <Tag color="gold" style={{ margin: 0 }} title={tdfRulesText(s.tdf)}>TDF</Tag>}</span> },
     { title: 'Játékos', key: 'att', align: 'right', render: (_, s) => s.results.length },
     { title: 'Kiosztott pont', key: 'pts', align: 'right', render: (_, s) => s.results.reduce((sum, r) => sum + resultPoints(r, league.rules), 0) },
     { title: '', key: 'actions', width: 96, render: (_, s) => (
@@ -324,14 +333,14 @@ export default function LeagueAdmin() {
 
   // --- Telefonos kártyák ---
   const pq = playerQuery.trim().toLowerCase();
-  const shownPlayers = pq ? players.filter(p => `${p.nickname} ${p.fullName} ${p.email} ${p.riotId || ''}`.toLowerCase().includes(pq)) : players;
+  const shownPlayers = pq ? players.filter(p => `${p.nickname} ${p.fullName} ${p.email} ${p.riotId || ''} ${p.popId || ''}`.toLowerCase().includes(pq)) : players;
   const emptyBox = (text) => <p className={m.empty}>{text}</p>;
   const sessionCards = () => (sessions.length === 0 ? emptyBox('Még nincs rögzített alkalom.') : (
     <div className={m.list}>
       {sessions.map(x => (
         <div key={x.id} className={m.card}>
           <div className={m.cardTop}><span className={m.cardTitle}>{formatDay(x.date)}</span><span className={m.cardValue}>{x.results.reduce((sum, r) => sum + resultPoints(r, league.rules), 0)} pont</span></div>
-          <span className={m.cardSub}>{x.title || 'Megnevezés nélkül'} · {x.results.length} játékos</span>
+          <span className={m.cardSub}>{x.title || 'Megnevezés nélkül'} · {x.results.length} játékos{x.tdf ? ` · TDF: ${tdfRulesText(x.tdf)}` : ''}</span>
           <div className={m.cardBtns}>
             <button type="button" className={m.cardBtn} onClick={() => openSession(x)}><EditOutlined /> Pontok</button>
             <Popconfirm title="Törlöd ezt az alkalmat?" description="A benne kiosztott pontok is törlődnek." onConfirm={() => deleteSession(x)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
@@ -347,7 +356,7 @@ export default function LeagueAdmin() {
       {shownPlayers.map(p => (
         <div key={p.id} className={m.card}>
           <div className={m.cardTop}><span className={m.cardTitle}>{p.nickname}</span><span className={m.cardValue}>{statsById.get(p.id)?.points ?? 0} pont</span></div>
-          {(p.fullName || p.email || p.riotId) && <span className={m.cardSub}>{[p.fullName, p.email, p.riotId].filter(Boolean).join(' · ')}</span>}
+          {(p.fullName || p.email || p.riotId || p.popId || p.birthDate) && <span className={m.cardSub}>{[p.fullName, p.email, p.riotId, p.popId && `POP: ${p.popId}`, p.birthDate && `Született: ${p.birthDate}`].filter(Boolean).join(' · ')}</span>}
           <span className={`${m.cardSub} flex flex-wrap items-center gap-2`}>{sourceTag(p.source)} {statsById.get(p.id)?.sessions ?? 0} alkalom · {p.eventIds.length} jelentkezés</span>
           <div className={m.cardBtns}>
             <button type="button" className={m.cardBtn} onClick={() => openPlayer(p)}><EditOutlined /> Szerkesztés</button>
@@ -366,6 +375,17 @@ export default function LeagueAdmin() {
           <span className={m.rank}>{r.rank}.</span>
           <span className={m.rankName}>{r.nickname}<small>{r.sessions} alkalom</small></span>
           <span className={m.rankPoints}>{r.points}<small style={{ color: deltaColor(r.delta) }}>{signed(r.delta)}</small></span>
+        </div>
+      ))}
+    </div>
+  ));
+  const logCards = () => (logs.length === 0 ? emptyBox('Nincs naplóbejegyzés.') : (
+    <div className={m.list}>
+      {logs.map(l => (
+        <div key={l.id} className={m.card}>
+          <div className={m.cardTop}><span className={m.cardTitle}>{l.adminName}</span><Tag style={{ margin: 0 }}>{l.action}</Tag></div>
+          <span className={m.cardSub}>{formatPublishedAt(l.date)}</span>
+          <span className={m.cardSub} style={{ overflowWrap: 'anywhere' }}>{l.details}</span>
         </div>
       ))}
     </div>
@@ -467,7 +487,10 @@ export default function LeagueAdmin() {
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Alkalmanként írd be, ki hány pontot kapott. Akinél üresen hagyod, az nem vett részt.</Text>
-                      <Button type="primary" block={phone} size={phone ? 'large' : 'middle'} icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openSession(null)} disabled={players.length === 0}>Új alkalom</Button>
+                      <div className="flex flex-wrap gap-2" style={phone ? { width: '100%' } : undefined}>
+                        {league.category === TDF_CATEGORY && <Button block={phone} size={phone ? 'large' : 'middle'} icon={<UploadOutlined />} style={sideBtn} onClick={() => setTdfOpen(true)}>TDF feltöltése</Button>}
+                        <Button type="primary" block={phone} size={phone ? 'large' : 'middle'} icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openSession(null)} disabled={players.length === 0}>Új alkalom</Button>
+                      </div>
                     </div>
                     {players.length === 0 && <Text style={{ color: '#faad14' }}>Még nincs játékos. Az eseményekre jelentkezők maguktól bekerülnek, vagy a „Játékosok” fülön kézzel is felvehetsz valakit.</Text>}
                     {phone ? sessionCards() : <Table size="small" dataSource={sessions} rowKey="id" columns={sessionColumns} pagination={sessions.length > 15 ? { pageSize: 15 } : false} scroll={{ x: 600 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs rögzített alkalom.</span> }} />}
@@ -480,7 +503,7 @@ export default function LeagueAdmin() {
                 children: (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A ranglistán csak a becenév látszik, és csak az kerül fel, akinek már van pontja. A teljes nevet, az e-mail címet és a Riot-azonosítót csak a szervezők látják.</Text>
+                      <Text style={{ color: '#9a8a8c', fontSize: 13 }}>A ranglistán csak a becenév látszik, és csak az kerül fel, akinek már van pontja. A teljes nevet, az e-mail címet, a Riot- és POP-azonosítót, valamint a születési dátumot csak a szervezők látják.</Text>
                       <Button type="primary" block={phone} size={phone ? 'large' : 'middle'} icon={<UserAddOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openPlayer({})}>Új játékos</Button>
                     </div>
                     <Input allowClear size={phone ? 'large' : 'middle'} prefix={<SearchOutlined style={{ color: '#9a8d89' }} />} placeholder="Játékos keresése (becenév, név, e-mail, Riot-azonosító)…" value={playerQuery} onChange={(e) => setPlayerQuery(e.target.value)} style={{ maxWidth: phone ? undefined : 420 }} />
@@ -521,6 +544,25 @@ export default function LeagueAdmin() {
                   </div>
                 ),
               },
+              // A napló csak a külön „Liga napló” joggal látszik (a szerver is csak nekik küldi el)
+              ...(data.canViewLog ? [{
+                key: 'log',
+                label: 'Napló',
+                children: (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Ki, mikor és mit változtatott ebben a ligában, a legutóbbi 300 bejegyzés. A pontok minden változása itt látszik, játékosonként a régi és az új értékkel.</Text>
+                      <Checkbox checked={onlyPointLogs} onChange={(e) => setOnlyPointLogs(e.target.checked)}>Csak a pontok változásai</Checkbox>
+                    </div>
+                    {phone ? logCards() : <Table size="small" dataSource={logs} rowKey="id" pagination={logs.length > 25 ? { pageSize: 25, showSizeChanger: false } : false} scroll={{ x: 760 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Nincs naplóbejegyzés.</span> }} columns={[
+                      { title: 'Időpont', dataIndex: 'date', width: 190, render: (d) => <span style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{formatPublishedAt(d)}</span> },
+                      { title: 'Ki', dataIndex: 'adminName', width: 120, render: (t) => <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{t}</span> },
+                      { title: 'Művelet', dataIndex: 'action', width: 140, render: (t) => <Tag style={{ margin: 0 }}>{t}</Tag> },
+                      { title: 'Részletek', dataIndex: 'details', render: (t) => <span style={{ color: '#E0D6C8', overflowWrap: 'anywhere' }}>{t}</span> },
+                    ]} />}
+                  </div>
+                ),
+              }] : []),
             ]}
           />
         </div>
@@ -532,6 +574,24 @@ export default function LeagueAdmin() {
           </Popconfirm>
         </div>
       </div>
+
+      {tdfOpen && (
+        <TdfImportModal
+          league={league}
+          players={players}
+          sessions={sessions}
+          busy={busy}
+          post={post}
+          phone={phone}
+          onClose={() => setTdfOpen(false)}
+          onSaved={(res) => {
+            messageApi.success(`Pontok rögzítve.${res.added ? ` ${res.added} új játékos.` : ''} A ranglista a publikáláskor frissül.`);
+            setTdfOpen(false);
+            setTab('sessions');
+            load();
+          }}
+        />
+      )}
 
       {/* Előnézet: pontosan ez kerül ki a nyilvános oldalra */}
       <Modal
@@ -606,17 +666,20 @@ export default function LeagueAdmin() {
       {/* Játékos felvétele / szerkesztése */}
       <Modal title={modalTitle(playerEdit?.id ? 'Játékos szerkesztése' : 'Új játékos')} open={playerEdit !== null} onCancel={() => setPlayerEdit(null)} onOk={() => playerForm.submit()} okText={playerEdit?.id ? 'Mentés' : 'Felvétel'} cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon} forceRender zIndex={1100}>
         <Form form={playerForm} layout="vertical" requiredMark={false} onFinish={savePlayer} className="mt-4">
-          <Form.Item name="fullName" label="Teljes név" dependencies={['riotId']} rules={[({ getFieldValue }) => ({ required: !['event', 'rgn'].includes(playerEdit?.source) && !String(getFieldValue('riotId') || '').trim(), whitespace: true, message: 'Add meg a teljes nevet!' })]} extra="Csak a szervezők látják. Eseményről beemelt vagy Riot-azonosítóval felvett játékosnál nem kötelező.">
+          <Form.Item name="fullName" label="Teljes név" dependencies={['riotId']} rules={[({ getFieldValue }) => ({ required: !['event', 'rgn', 'tdf'].includes(playerEdit?.source) && !String(getFieldValue('riotId') || '').trim(), whitespace: true, message: 'Add meg a teljes nevet!' })]} extra="Csak a szervezők látják. Eseményről vagy TDF fájlból beemelt, illetve Riot-azonosítóval felvett játékosnál nem kötelező.">
             <Input maxLength={120} placeholder="Vezetéknév Keresztnév" autoComplete="off" />
           </Form.Item>
           <Form.Item name="nickname" label="Becenév" rules={[{ required: true, whitespace: true, message: 'Add meg a becenevet!' }, { min: 2, max: 24, message: '2-24 karakter' }]} extra="Ez látszik a ranglistán.">
             <Input maxLength={24} placeholder="Pl.: PikaMester" autoComplete="off" />
           </Form.Item>
-          <Form.Item name="email" label="E-mail cím" dependencies={['riotId']} rules={[({ getFieldValue }) => ({ required: !['event', 'rgn'].includes(playerEdit?.source) && !String(getFieldValue('riotId') || '').trim(), type: 'email', message: 'Érvényes e-mail címet adj meg!' })]} extra="Csak a szervezők látják. Egy ligában egy e-mail címmel egy játékos lehet; az eseményekre jelentkezőket ez alapján ismeri fel a rendszer. Ha a játékos 12 hónapig egy alkalmon sem vesz részt, az adatai automatikusan törlődnek.">
+          <Form.Item name="email" label="E-mail cím" dependencies={['riotId']} rules={[({ getFieldValue }) => ({ required: !['event', 'rgn', 'tdf'].includes(playerEdit?.source) && !String(getFieldValue('riotId') || '').trim(), type: 'email', message: 'Érvényes e-mail címet adj meg!' })]} extra="Csak a szervezők látják. Egy ligában egy e-mail címmel egy játékos lehet; az eseményekre jelentkezőket ez alapján ismeri fel a rendszer. Ha a játékos 12 hónapig egy alkalmon sem vesz részt, az adatai automatikusan törlődnek.">
             <Input type="email" placeholder="nev@pelda.hu" autoComplete="off" />
           </Form.Item>
           <Form.Item name="riotId" label="Riot-azonosító (nem kötelező)" extra="Név#TAG formában, pl. Flagger#7777. A Riftbound oldalas események jelentkezőit ez alapján ismeri fel a rendszer.">
             <Input maxLength={52} placeholder="Név#TAG" autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="popId" label="POP-azonosító (nem kötelező)" extra="A Play! Pokémon azonosító. A TDF fájlok játékosait ez alapján ismeri fel a rendszer; ha rossz játékoshoz került, itt javítható.">
+            <Input maxLength={12} inputMode="numeric" placeholder="Pl.: 1234567" autoComplete="off" />
           </Form.Item>
         </Form>
       </Modal>
@@ -674,7 +737,8 @@ export default function LeagueAdmin() {
               {selectedEvent && <Checkbox checked={onlyEventPlayers} onChange={(e) => setOnlyEventPlayers(e.target.checked)}>Csak az esemény jelentkezői</Checkbox>}
               <Button icon={<UserAddOutlined />} style={sideBtn} onClick={() => openPlayer({})}>Új játékos</Button>
             </div>
-            <Text style={{ color: '#7d6e70', fontSize: 12 }}>Írd be a pontot (0 is lehet, levonásnál negatív). Akinél üresen marad, az nem vett részt ezen az alkalmon.</Text>
+            {sessionEdit.tdf && <Alert type="info" showIcon title={`Ezeket a pontokat a TDF fájl alapján számolta a rendszer (${tdfRulesText(sessionEdit.tdf)}). Itt kézzel átírhatod őket, a változás naplózódik.`} />}
+            <Text style={{ color: '#7d6e70', fontSize: 12 }}>Írd be a pontot (0 is lehet, levonásnál negatív). Akinél üresen marad, az nem vett részt ezen az alkalmon. A pontok minden változása naplózódik.</Text>
             {phone ? (
               editorRows.length === 0 ? <p className={m.empty}>{selectedEvent && onlyEventPlayers && !q ? 'Erre az eseményre még nincs beemelt jelentkező.' : 'Nincs találat.'}</p> : (
                 <div className={m.editorList}>

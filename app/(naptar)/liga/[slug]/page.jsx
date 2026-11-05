@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const category = categoryFromSlug(slug);
-  return { title: category ? `${category} liga – Tavern` : 'Liga – Tavern' };
+  // Egyelőre nem hirdetjük: csak az elküldött linkkel érhető el
+  return { title: category ? `${category} liga – Tavern` : 'Liga – Tavern', robots: { index: false, follow: false } };
 }
 
 const formatDay = (iso) => (iso ? new Date(iso).toLocaleDateString('hu-HU', { timeZone: 'Europe/Budapest', year: 'numeric', month: 'long', day: 'numeric' }) : '');

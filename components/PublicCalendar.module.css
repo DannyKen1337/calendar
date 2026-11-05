@@ -129,9 +129,6 @@
 .todayTitle { margin: 0; font-size: 16px; font-weight: 800; }
 .todayMeta { color: var(--muted); font-size: 14px; }
 
-.footerLinks { display: flex; justify-content: center; }
-.footerLinks a { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--control); color: var(--ink); text-decoration: none; font-weight: 700; }
-.footerLinks a:hover { background: var(--raised); }
 
 /* Telefon: kompakt havi rács */
 .mobileGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }

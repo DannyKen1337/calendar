@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
-import { getExtraLinks } from '@/lib/extraLinks';
 import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { canManageEvent, canManageStore, hasFeature } from '@/lib/permissions';
@@ -84,8 +83,7 @@ export async function GET() {
         occupancy: showOccupancy ? occupancy : { enabled: false, public: false, capacity: {} },
         bookings,
         tableBookings,
-        serverTime: Date.now(),
-        extraLinks: await getExtraLinks(db).catch(() => ({ leagues: false }))
+        serverTime: Date.now()
     });
   } catch (error) {
     console.error('admin-data error:', error);

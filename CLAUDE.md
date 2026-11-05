@@ -39,6 +39,12 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - Jog: `tableBookings` (FEATURES, „Asztalfoglalás” csoport); a szervező a saját boltjaiban dönt az admin Foglalások fülön (`components/TableBookingAdmin.jsx`, művelet: `TABLE_BOOKING_DECIDE`). Elérhetőséget csak ők látnak.
 - Elfogadáskor `store_bookings` sor is készül `tableBookingId` mezővel: ez látszik az admin listában (kikapcsolt telítettség modulnál is), név nélkül a nyilvános havi naptárban (a heti nézetben még nem), és beleszámít a napi telítettségbe. E-mail csak beállított Resend esetén megy. A heti takarítás két hónap után törli a kéréseket.
 
+## Liga (lib/leagues.js, components/LeagueAdmin.jsx)
+- Egyelőre „árnyékban” működik: a nyilvános naptárban nincs gomb, a `/liga` oldalakat a keresők nem indexelik, a ranglista az admin „Link másolása” gombjával küldhető el (publikálás után). A `weblap` tesztoldal menüje még linkel rá (`weblap/lib/content.js`).
+- Pokémon TOM fájl (`.tdf`): parser `lib/tdf.js`, ablak `components/TdfImportModal.jsx`, művelet `UPLOAD_TDF`. A pontozást (megjelenés, győzelem, döntetlen) feltöltésenként kell beírni, nincs alapérték. A bye győzelem, csak a svájci fordulók számítanak, ismeretlen kimenetelkódot elutasít. A kódok (1, 2, 5 valódi fájlból igazolva; 3, 8, 10 nyilvános leírásokból): ha új kód jön, a `lib/tdf.js` tetején kell felvenni.
+- Név: a ranglistán rövidítve (`K. Levente`); teljes név, POP-azonosító, születési dátum csak az admin felületen (`league_players`). A `.tdf` fájlok személyes adatot tartalmaznak, ezért a git kihagyja őket.
+- A pontok kézzel is átírhatók az alkalom szerkesztésével (a TDF-es meccsadatok megmaradnak). Minden pontváltozás naplózódik játékosonként (`LIGA PONTOK`, `LIGA TDF` az `audit_logs`-ban); a liga Napló fülét a külön `leagueLog` jog („Liga napló” csoport) mutatja.
+
 ## Szabályok
 - **A weboldalról és a csak tulajdonosnak szóló változásokról ne kerüljön bejegyzés az Újdonságok közé** (`lib/changelog.js`); csak a szervezőket érintő változásokról.
 - Játékképek: `public/jatekok/*.png` (arányosan kicsinyített helyi másolatok, max. 320×320); a naptár, a jelentkezési oldal és a weboldal is ezeket használja (`lib/gameConfig.js`).

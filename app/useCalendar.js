@@ -46,7 +46,6 @@ export const useCalendar = () => {
   const [tableBookings, setTableBookings] = useState([]);
   const [fetchedPublicTableBookings, setPublicTableBookings] = useState([]);
   const [publicOccupancy, setPublicOccupancy] = useState(null);
-  const [extraLinks, setExtraLinks] = useState({ leagues: false }); // van-e publikált liga
   const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -134,7 +133,6 @@ export const useCalendar = () => {
         setTournaments(coloredTournaments);
       }
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
-      if (data.extraLinks) setExtraLinks(data.extraLinks);
       if ('occupancy' in data) setPublicOccupancy(data.occupancy || null);
       if (Array.isArray(data.tableBookings)) setPublicTableBookings(data.tableBookings);
       if (typeof data.serverTime === 'number') serverOffsetRef.current = data.serverTime - Date.now();
@@ -170,7 +168,6 @@ export const useCalendar = () => {
       if (data.logs) setLogs(data.logs);
       if (data.blacklist) setBlacklist(data.blacklist);
       if (typeof data.isMaintenance !== 'undefined') setIsMaintenance(data.isMaintenance);
-      if (data.extraLinks) setExtraLinks(data.extraLinks);
       if (data.occupancy) setOccupancy(data.occupancy);
       if (Array.isArray(data.bookings)) setBookings(data.bookings);
       if (Array.isArray(data.tableBookings)) setTableBookings(data.tableBookings);
@@ -674,7 +671,7 @@ export const useCalendar = () => {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
     allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
     selectedStore, handleSelectStore, 
-    isMaintenance, extraLinks, toggleMaintenance, occupancy, bookings, publicOccupancy, saveOccupancy, saveBooking, deleteBooking, tableBookings, decideTableBooking, publicTableBookings, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
+    isMaintenance, toggleMaintenance, occupancy, bookings, publicOccupancy, saveOccupancy, saveBooking, deleteBooking, tableBookings, decideTableBooking, publicTableBookings, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,

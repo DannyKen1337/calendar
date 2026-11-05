@@ -20,6 +20,9 @@
 # production
 /build
 
+# TOM fájlok: valódi neveket és születési dátumokat tartalmaznak
+*.tdf
+
 # misc
 .DS_Store
 *.pem
