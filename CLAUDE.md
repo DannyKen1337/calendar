@@ -41,7 +41,7 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 
 ## Liga (lib/leagues.js, components/LeagueAdmin.jsx)
 - Egyelőre „árnyékban” működik: a nyilvános naptárban nincs gomb, a `/liga` oldalakat a keresők nem indexelik, a ranglista az admin „Link másolása” gombjával küldhető el (publikálás után). A `weblap` tesztoldal menüje még linkel rá (`weblap/lib/content.js`).
-- Pokémon TOM fájl (`.tdf`): parser `lib/tdf.js`, ablak `components/TdfImportModal.jsx`, művelet `UPLOAD_TDF`. A pontozást (megjelenés, győzelem, döntetlen) feltöltésenként kell beírni, nincs alapérték. A bye győzelem, csak a svájci fordulók számítanak, ismeretlen kimenetelkódot elutasít. A kódok (1, 2, 5 valódi fájlból igazolva; 3, 8, 10 nyilvános leírásokból): ha új kód jön, a `lib/tdf.js` tetején kell felvenni.
+- Pokémon TOM fájl (`.tdf`): parser `lib/tdf.js`, ablak `components/TdfImportModal.jsx`, művelet `UPLOAD_TDF`. A pontozást (megjelenés, győzelem, döntetlen) feltöltésenként kell beírni, nincs alapérték. A bye és a top cut győzelme is győzelem (a felhasználó döntése), ismeretlen kimenetelkódot elutasít. A kódok (1, 2, 5 valódi fájlból igazolva; 3, 8, 10 nyilvános leírásokból): ha új kód jön, a `lib/tdf.js` tetején kell felvenni.
 - Név: a ranglistán rövidítve (`K. Levente`); teljes név, POP-azonosító, születési dátum csak az admin felületen (`league_players`). A `.tdf` fájlok személyes adatot tartalmaznak, ezért a git kihagyja őket.
 - A pontok kézzel is átírhatók az alkalom szerkesztésével (a TDF-es meccsadatok megmaradnak). Minden pontváltozás naplózódik játékosonként (`LIGA PONTOK`, `LIGA TDF` az `audit_logs`-ban); a liga Napló fülét a külön `leagueLog` jog („Liga napló” csoport) mutatja.
 

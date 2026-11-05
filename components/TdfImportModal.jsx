@@ -110,7 +110,7 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
             </label>
           ))}
         </div>
-        <Text style={{ color: '#7d6e70', fontSize: 12 }}>A bye győzelemnek számít, a vereség nem ad pontot. A rájátszás (top cut) meccsei nem számítanak, csak a svájci fordulók.</Text>
+        <Text style={{ color: '#7d6e70', fontSize: 12 }}>A bye és a top cut meccsein szerzett győzelem is győzelemnek számít, a vereség nem ad pontot.</Text>
 
         <Text style={{ color: '#baaaac', fontWeight: 700, marginTop: 4 }}>2. A TOM fájl</Text>
         <div className="flex flex-wrap items-center gap-3">
@@ -124,12 +124,11 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
           <>
             <div>
               <div style={{ color: '#f3ece3', fontWeight: 800 }}>{parsed.tournament.name}</div>
-              <Text style={{ color: '#9a8a8c', fontSize: 13 }}>{formatDay(parsed.tournament.date)}{parsed.tournament.city ? ` · ${parsed.tournament.city}` : ''} · {parsed.tournament.swissRounds} forduló · azonosító: {parsed.tournament.id}</Text>
+              <Text style={{ color: '#9a8a8c', fontSize: 13 }}>{formatDay(parsed.tournament.date)}{parsed.tournament.city ? ` · ${parsed.tournament.city}` : ''} · {parsed.tournament.rounds} forduló{parsed.tournament.topCutRounds ? ` (ebből ${parsed.tournament.topCutRounds} top cut)` : ''} · azonosító: {parsed.tournament.id}</Text>
             </div>
             {winners.length > 0 && <Text style={{ color: '#E5B15D', fontWeight: 700 }}>Győztes: {winners.map(p => `${p.fullName}${winners.length > 1 && p.division !== null ? ` (${divisionName(p.division)})` : ''}`).join(', ')}</Text>}
             {duplicate && <Alert type="error" showIcon title={`Ezt a versenyt már feltöltötték (${duplicate.date}). Ha újra fel akarod tölteni, előbb töröld a korábbi alkalmat.`} />}
             {beforeSeason && <Alert type="warning" showIcon title={`A verseny dátuma a szezon kezdete (${league.seasonStart}) előtti. Biztosan ez a jó fájl?`} />}
-            {parsed.tournament.skippedRounds > 0 && <Alert type="info" showIcon title={`${parsed.tournament.skippedRounds} rájátszásforduló nem számít bele a pontokba.`} />}
             {parsed.absent.length > 0 && <Alert type="info" showIcon title={`Nem játszott, ezért nem kap pontot: ${parsed.absent.join(', ')}`} />}
             {!validRules && <Alert type="warning" showIcon title="A pontok kiszámításához add meg mindhárom értéket (0 is lehet)." />}
 

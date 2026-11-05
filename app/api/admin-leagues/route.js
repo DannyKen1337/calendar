@@ -320,7 +320,7 @@ export async function POST(request) {
       const title = tournament.name.slice(0, SESSION_TITLE_MAX);
       const inserted = await sessions.insertOne({
         date: tournament.date, title, results, tournamentId: null, leagueId, createdAt: now, updatedAt: now, createdBy: session.username,
-        tdf: { id: tournament.id, name: tournament.name, city: tournament.city, rules, swissRounds: tournament.swissRounds, skippedRounds: tournament.skippedRounds, fileName: String(payload.fileName || '').slice(0, 120) },
+        tdf: { id: tournament.id, name: tournament.name, city: tournament.city, rules, rounds: tournament.rounds, topCutRounds: tournament.topCutRounds, fileName: String(payload.fileName || '').slice(0, 120) },
       });
       const nicks = new Map(entries.map(e => [e.playerId, e.nickname]));
       await addLog(db, session.username, 'LIGA TDF', `TDF feltöltve (${league.category}): ${tournament.date} ${tournament.name} (${tournament.id}), pontozás: megjelenés ${rules.attendance}, győzelem ${rules.win}, döntetlen ${rules.draw}. ${results.length} játékos, ebből ${created.length} új. Pontok: ${describePointChanges([], results, id => nicks.get(id))}`);
