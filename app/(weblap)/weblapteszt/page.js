@@ -1,20 +1,19 @@
 import Link from 'next/link';
 import Image from '@/weblap/components/Image';
-import { cinzel, manrope } from '@/weblap/lib/fonts';
-import HomeMotion from '@/weblap/components/HomeMotion';
+import { bigShoulders, publicSans } from '@/weblap/lib/fonts';
+import Motion from '@/weblap/components/Motion';
 import SiteNav from '@/weblap/components/SiteNav';
-import FeatureMenu from '@/weblap/components/FeatureMenu';
-import StoreStatus from '@/weblap/components/StoreStatus';
-import DayProgram from '@/weblap/components/DayProgram';
-import PostCard from '@/weblap/components/PostCard';
+import WeekProgram from '@/weblap/components/WeekProgram';
+import NewsList from '@/weblap/components/NewsList';
+import Overlays from '@/weblap/components/Overlays';
 import { getHomeData } from '@/weblap/lib/home';
-import { getFeed } from '@/weblap/lib/posts';
-import { formatDay, dayOf, timeOf, weekdayOf, DAY_NAMES, eventUrl } from '@/weblap/lib/calendar';
-import { compactHours } from '@/weblap/lib/stores';
+import { getFeed, postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
+import { CALENDAR_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl, DAY_NAMES } from '@/weblap/lib/calendar';
+import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
 import { getContent } from '@/weblap/lib/content';
-import s from '@/weblap/home.module.css';
-import { withBase } from '@/weblap/lib/basePath';
+import { withBase, BASE_PATH } from '@/weblap/lib/basePath';
+import s from '@/weblap/fooldal.module.css';
 
 // Minden szöveg, kép és link a szerkeszthető tartalomból jön (weblap/lib/content.js; a szerkesztőfelület fülei)
 export async function generateMetadata() {
@@ -22,158 +21,197 @@ export async function generateMetadata() {
   return { title: general.title, description: general.description };
 }
 
-// Sötét oldal: a böngésző sávja, görgetősávja és az oldal szélén túlgörgetés is a cégér feketéje
-export const viewport = { themeColor: '#111111', colorScheme: 'dark' };
+// Sötét oldal: a böngésző sávja és az oldal szélén túlgörgetés is a korom fekete
+export const viewport = { themeColor: '#0f0f0f', colorScheme: 'dark' };
 
 // A program, a nyitvatartás és a hírek 5 percenként frissülnek (a szerkesztőfelület mentéskor azonnal frissíti)
 export const revalidate = 300;
 
-// Az oldal egy kocsma nyomtatványkészlete: elöl a cégér egy kártyán a félhomályos szoba előtt, utána
-// a kínálat étlapként, a hét műsora napfülekkel, a boltok névjegye a saját fotójukon, a hírek
-// cédulás fotókként, a végén a kártya hátoldala. Mozgás: components/HomeMotion.jsx.
+const SHORT_DAYS = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
+const FIELD_STYLES = [s.fSoot, s.fGold, s.fPaper, s.fDark];
+// A boltok saját logója a programban (ha van)
+const STORE_LOGOS = { jatekceh: '/photos/jatekceh-logo.png' };
+const ARROW = <span className={s.round} aria-hidden="true"><svg viewBox="0 0 10 10"><path d="M1 5h7M5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg></span>;
+
+// A cím rövid formája: város és irányítószám nélkül ("Gambrinus köz", "Nagy Imre u. 17")
+const streetOf = (address) => address.replace(/^(Debrecen|Miskolc), /, '').replace(/ - .*| ?, \d{4}$/, '');
+// A naptár oldalai (esemény, teljes naptár, előrendelés) az oldalon belül, a naptárablakban nyílnak meg
+const opensInCalendar = (href) => !!href && (href.startsWith(CALENDAR_URL) || (href.startsWith('/') && !href.startsWith(BASE_PATH)));
+
+// Az oldal: a cégér az egész első képernyőn (beúszik, görgetésre kiúszik), a heti program a naptárból,
+// a hírek a boltokból, nagy mondatok színes mezőkön, galéria, a boltok sorai (kattintásra térképablak),
+// Kapcsolat a boltok Facebook-oldalaival, lábléc. A naptár és a térkép ugyanezen az oldalon nyílik meg (Overlays).
 export default async function Home() {
   const content = await getContent();
-  const { general, hero, menu, program, news, contact } = content;
-  const [{ stores, week }, posts] = await Promise.all([getHomeData(content), getFeed(8)]);
-  const weekCount = week.reduce((n, d) => n + stores.reduce((m, st) => m + d.events[st.id].length, 0), 0);
-  // A kínálat étlapként; a {heti} helyére a heti versenyek száma kerül
-  const weekly = weekCount ? `${weekCount} a héten` : 'Minden héten';
-  const groups = menu.groups
-    .map(g => ({ ...g, items: g.items.map(it => ({ ...it, value: it.value.replaceAll('{heti}', weekly) })) }))
-    .filter(g => g.items.length);
-  const calendarHref = general.cta.href;
+  const { general, hero, program, features, gallery, news, contact } = content;
+  const [{ stores, events, now }, feed] = await Promise.all([getHomeData(content), getFeed(8)]);
+
+  // A következő hét nap eseményei a programhoz
+  const until = addDays(now.day, 7);
+  const week = events
+    .filter(e => dayOf(e.date) < until)
+    .map(e => {
+      const day = dayOf(e.date);
+      const diff = day === now.day ? 0 : day === addDays(now.day, 1) ? 1 : 2;
+      return {
+        id: String(e._id || e.id),
+        store: e.store || 'debrecen',
+        name: e.name.trim(),
+        category: e.category || '',
+        game: gameShort(e.category),
+        // A listában mindig a játék logója (az esemény saját képe lehet külső, nem mindig elérhető kép)
+        logo: getGameConfig(e.category).logo || DEFAULT_GAME_LOGO,
+        href: eventUrl(e),
+        date: e.date,
+        day: diff === 0 ? 'ma' : diff === 1 ? 'holnap' : SHORT_DAYS[weekdayOf(day)],
+        time: timeOf(e.date),
+        full: !e.isOpenAttendance && e.max_players > 0 && (e.current_players || 0) >= e.max_players,
+      };
+    });
+  const games = [...new Set(week.map(e => e.category))].map(c => ({ category: c, label: gameShort(c) }));
+
+  // A hírek: a boltok Facebook-posztjai a bolt nevével, a kirakott hírek a saját oldalukra visznek
+  const storeName = (id) => stores.find(st => st.id === id)?.name;
+  const posts = feed.map(p => ({
+    key: p.key,
+    store: p.store || null,
+    who: storeName(p.store) || SOURCE_NAMES[p.source],
+    date: postDate(p.date),
+    image: p.image,
+    heading: postHeading(p) || `${SOURCE_NAMES[p.source]}-poszt`,
+    href: p.source === 'manual' ? withBase(postHref(p)) : p.url,
+    external: p.source !== 'manual',
+    go: p.source === 'facebook' ? 'Facebookon ↗' : p.source === 'instagram' ? 'Instagramon ↗' : 'Elolvasom →',
+  }));
+  const postStores = stores.filter(st => posts.some(p => p.store === st.id)).map(st => ({ id: st.id, name: st.name }));
+  const facebookPages = stores.filter(st => st.facebook);
 
   return (
-    <HomeMotion className={`${cinzel.variable} ${manrope.variable} ${s.page}`}>
-      <SiteNav s={s} {...navProps(content)} />
-
-      {/* Nyitóképernyő: a cégér egy kártyán, mögötte egy régi kocsmai kártyázás félhomályban */}
-      <section className={s.hero} aria-labelledby="fooldal-cim" data-hero>
-        <div className={s.heroBg} data-hero-bg>
-          <Image src={hero.picture.src} alt={hero.picture.alt} fill priority sizes="100vw" style={{ objectFit: 'cover', objectPosition: hero.picture.position }} />
-        </div>
-        <div className={s.heroCard} data-hero-card>
-          <h1 id="fooldal-cim" className={s.heroTitle}>
-            <span className={s.heroSign} data-hero-sign>
-              <Image src={general.logo.src} alt={general.logo.alt} width={1100} height={296} priority sizes="(max-width: 900px) 90vw, 50vw" />
-            </span>
-            <span className={s.heroWords}>
-              {hero.words.map(w => <span key={w} className={s.heroWord}><span data-hero-word>{w}</span>{' '}</span>)}
-            </span>
-          </h1>
-          <div className={s.heroFacts}>
-            {hero.intro && <p data-hero-rise>{hero.intro}</p>}
-            <ul data-hero-rise>
-              {stores.map(st => <li key={st.id}><b>{st.name}</b> · {st.address.replace(/^(Debrecen|Miskolc), /, '').replace(/ - .*| ?, \d{4}$/, '')}</li>)}
-            </ul>
-            {hero.tagline && <p className={s.heroLine} data-hero-rise>{hero.tagline}</p>}
-          </div>
-          <div className={s.heroFoot} data-hero-rise>
-            <span className={s.heroCredit}>{hero.credit}</span>
-            <a className={s.btn} href="#program">{hero.button}</a>
-            {hero.calendarLink && <a className={s.heroLink} href={calendarHref}>{hero.calendarLink}</a>}
-          </div>
-        </div>
-      </section>
+    <div className={`${bigShoulders.variable} ${publicSans.variable} ${s.page}`}>
+      <Motion />
+      <SiteNav {...navProps(content)} />
 
       <main>
-        {/* A kínálat: kocsmai étlap, mellette a kiválasztott tétel fotója */}
-        <section className={s.section} id="kinalat" aria-labelledby="lapok-cim">
-          {groups.length > 0 && <FeatureMenu s={s} title={menu.title} groups={groups} />}
-        </section>
-
-        {/* A hét műsora */}
-        <section className={s.section} id="program" aria-labelledby="program-title">
-          <div className={s.agendaHead}>
-            <h2 id="program-title" className={s.h2} data-heading>{program.soft && <span className={s.soft}>{program.soft}</span>} {program.title}</h2>
-            {program.button && <a className={s.btn} href={program.buttonHref || calendarHref}>{program.button}</a>}
+        <section className={s.hero} aria-labelledby="fooldal-cim">
+          <h1 id="fooldal-cim" className={s.sign} data-sign>
+            <Image src={hero.sign.src} alt={hero.sign.alt || 'Tavern'} width={1096} height={286} priority sizes="100vw" />
+            <span className={s.srOnly}> – {general.title}</span>
+          </h1>
+          <div className={s.heroFoot}>
+            {hero.text && <p>{hero.text}</p>}
+            {hero.button && <div className={s.heroActions}><a className={s.btn} href="#program">{hero.button}</a></div>}
           </div>
-          <DayProgram week={week} stores={stores} s={s} />
         </section>
 
-        {/* A boltok: mindegyik a saját fotóján, rajta a névjegye */}
-        <div id="boltok" className={s.visits}>
-          {stores.map((st, i) => (
-            <section key={st.id} id={`bolt-${st.id}`} className={`${s.visit} ${i % 2 ? s.visitLeft : ''}`} aria-labelledby={`bolt-${st.id}-nev`} data-visit>
-              <figure className={s.visitPicture} data-visit-picture>
-                <Image src={st.photo.src} alt={st.photo.alt} fill sizes="100vw" style={{ objectFit: 'cover', objectPosition: st.photo.position }} />
-                {st.caption && <figcaption className={s.visitCaption}>{st.caption}</figcaption>}
-              </figure>
-              <div className={s.visitCard} data-visit-card>
-                <h2 id={`bolt-${st.id}-nev`} className={s.visitName}>{st.name}</h2>
-                <p className={s.visitStatus} data-visit-rise><StoreStatus hours={st.hours} initial={st.status} dotOpen="#2f8a4f" dotClosed="#8a8079" /></p>
-                <p className={s.visitAddress} data-visit-rise>{st.address}<span>{st.where}</span></p>
-                {compactHours(st.hours).length > 0 && (
-                  <dl className={s.visitHours} data-visit-rise>
-                    {compactHours(st.hours).map(([days, time]) => <div key={days}><dt>{days}</dt><dd>{time}</dd></div>)}
-                  </dl>
-                )}
-                <div className={s.visitNext} data-visit-rise>
-                  <h3>{content.stores.nextTitle}</h3>
-                  <ul>
-                    {st.upcoming.slice(0, 3).map(e => (
-                      <li key={e._id}><span>{formatDay(dayOf(e.date))} {DAY_NAMES[weekdayOf(dayOf(e.date))].toLowerCase()} {timeOf(e.date)}</span><a href={eventUrl(e)}>{e.name}</a></li>
-                    ))}
-                    {!st.upcoming.length && <li><span>{content.stores.noEvents}</span></li>}
-                  </ul>
-                </div>
-                {st.maps && <a className={s.visitButton} href={st.maps}>{content.stores.routeButton}</a>}
-              </div>
-            </section>
-          ))}
-        </div>
+        <section className={s.program} id="program" aria-labelledby="program-cim">
+          <div className={s.programHead}>
+            <h2 id="program-cim" className={s.disp} data-reveal>{program.title}</h2>
+            {program.button && general.cta.href && <a className={s.btnDark} href={general.cta.href} data-cal data-title={general.cta.label || program.button}>{program.button}</a>}
+          </div>
+          {week.length ? (
+            <WeekProgram
+              stores={stores.map(st => ({ id: st.id, name: st.name, street: streetOf(st.address), logo: STORE_LOGOS[st.id] ? withBase(STORE_LOGOS[st.id]) : null }))}
+              events={week}
+              games={games}
+              allLabel={program.allGames}
+            />
+          ) : (
+            <p className={s.programEmpty}>{program.empty}</p>
+          )}
+        </section>
 
-        {/* Hírek: cédulás fotók */}
-        <section className={s.section} id="hirek" aria-labelledby="news-title">
+        <section className={s.news} id="hirek" aria-labelledby="hirek-cim">
           <div className={s.newsHead}>
-            <h2 id="news-title" className={s.h2} data-heading>{news.title}</h2>
-            {posts.length > 0 && <Link className={s.textlink} href={withBase('/hirek')}>{news.allLink}</Link>}
+            <h2 id="hirek-cim" className={s.disp} data-reveal>{news.title}</h2>
           </div>
           {posts.length ? (
-            <div className={s.posts} data-tiles>
-              {posts.map(p => <PostCard key={p.key} post={p} s={s} />)}
-            </div>
+            <>
+              <NewsList posts={posts} stores={postStores} allLabel={news.allStores} />
+              <Link className={`${s.textlink} ${s.newsAll}`} href={withBase('/hirek')}>{news.allLink}</Link>
+            </>
           ) : (
-            <div className={s.newsEmpty} data-tiles>
-              <figure className={s.newsEmptyPicture} data-tile data-tile-picture>
-                <Image src={news.emptyPicture.src} alt={news.emptyPicture.alt} fill sizes="(max-width: 900px) 100vw, 50vw" style={{ objectFit: 'cover', objectPosition: news.emptyPicture.position }} />
-              </figure>
-              <div className={s.newsEmptyText} data-tile>
-                <p>{news.emptyText}</p>
-                <p className={s.newsLinks}>{general.facebook && <a className={s.textlink} href={general.facebook}>Facebook ↗</a>}{general.instagram && <a className={s.textlink} href={general.instagram}>Instagram ↗</a>}</p>
-              </div>
-            </div>
+            <>
+              <p className={s.newsEmpty}>{news.emptyText}</p>
+              <p className={s.newsLinks}>{facebookPages.map(st => <a key={st.id} className={s.textlink} href={st.facebook} target="_blank" rel="noopener noreferrer">{st.name} ↗</a>)}</p>
+            </>
           )}
+        </section>
+
+        {features.items.map((f, i) => {
+          const withButton = f.button && f.href;
+          return (
+            <section key={f.id || i} id={i === 0 ? 'kinalat' : undefined} className={`${s.field} ${FIELD_STYLES[i % FIELD_STYLES.length]} ${i % 2 ? s.mirror : ''} ${withButton ? s.withButton : ''}`} aria-labelledby={`mezo-${i}`}>
+              <div className={s.say} data-reveal>
+                {f.text && <p>{f.text}</p>}
+                {withButton && <a className={s.btn} href={f.href} {...(opensInCalendar(f.href) ? { 'data-cal': '', 'data-title': f.button } : {})}>{f.button}</a>}
+              </div>
+              <h2 id={`mezo-${i}`} className={s.disp} data-reveal>{f.title}</h2>
+            </section>
+          );
+        })}
+
+        {gallery.pictures.length > 0 && (
+          <section className={s.prints} aria-labelledby="galeria-cim">
+            <h2 id="galeria-cim" className={s.disp} data-reveal>{gallery.title}</h2>
+            {gallery.pictures.slice(0, 3).map((g, i) => (
+              <figure key={g.id || i} className={s.print} data-reveal>
+                <Image src={g.picture.src} alt={g.picture.alt} width={600} height={800} sizes="20vw" style={{ objectPosition: g.picture.position }} />
+              </figure>
+            ))}
+            {gallery.note && <p className={s.printsNote}>{gallery.note}</p>}
+          </section>
+        )}
+
+        <section className={s.stores} id="boltok" aria-labelledby="boltok-cim">
+          <h2 id="boltok-cim" className={s.disp} data-reveal>{content.stores.title}</h2>
+          {stores.map(st => (
+            <a key={st.id} className={s.row} href={st.maps || '#boltok'} data-map={st.id}>
+              <h3>{st.name}</h3>
+              <small>{streetOf(st.address)}{st.where ? `, ${st.where[0].toLowerCase()}${st.where.slice(1)}` : ''}</small>
+              {st.photo?.src && <Image src={st.photo.src} alt={st.photo.alt} width={140} height={140} style={{ objectFit: 'cover', objectPosition: st.photo.position }} />}
+            </a>
+          ))}
+          <div className={s.today}>
+            <b>{content.stores.todayLabel}, {DAY_NAMES[now.weekday].toLowerCase()}:</b>
+            {stores.map(st => <span key={st.id}>{st.name.replace(/^Tavern /, '')} {st.hours?.[now.weekday] ? st.hours[now.weekday].join('–') : 'zárva'}</span>)}
+          </div>
+          <div className={s.contact} id="kapcsolat">
+            <h2>{contact.title}</h2>
+            {contact.text && <p>{contact.text}</p>}
+            <div className={s.fb}>
+              {facebookPages.map(st => (
+                <a key={st.id} href={st.facebook} target="_blank" rel="noopener noreferrer">
+                  <b>{st.name}</b><span>{st.facebook.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>{ARROW}
+                </a>
+              ))}
+            </div>
+          </div>
         </section>
       </main>
 
-      {/* A kártya hátoldala */}
-      <footer className={s.footer} id="kapcsolat">
-        <div className={s.back} data-back>
-          <svg className={s.scallops} aria-hidden="true" focusable="false">
-            <defs><pattern id="hullam" width="64" height="20" patternUnits="userSpaceOnUse"><circle cx="32" cy="20" r="20" /></pattern></defs>
-            <rect width="100%" height="20" fill="url(#hullam)" />
-          </svg>
-          <figure className={s.stamp} data-stamp>
-            <Image src={contact.stamp.src} alt={contact.stamp.alt} width={88} height={117} style={{ objectFit: 'cover', objectPosition: contact.stamp.position }} />
-          </figure>
-          <div className={s.backMessage}>
-            <p className={s.backTitle}>{contact.title}</p>
-            {contact.text && <p>{contact.text}</p>}
-            {contact.button.label && contact.button.href && <a className={s.btnDark} href={contact.button.href}>{contact.button.label}</a>}
+      <footer className={s.footer}>
+        <div className={s.blocks} aria-hidden="true">{'TAVERN'.split('').map((ch, i) => <span key={i}>{ch}</span>)}</div>
+        <div className={s.foot}>
+          <div className={s.footLinks}>
+            {contact.links.filter(l => l.label && l.href).map(l => (
+              <a key={l.id} href={l.href} {...(opensInCalendar(l.href) ? { 'data-cal': '', 'data-title': l.label } : {})}>{l.label}</a>
+            ))}
+            {facebookPages.map(st => <a key={st.id} href={st.facebook} target="_blank" rel="noopener noreferrer">Facebook · {st.name}</a>)}
           </div>
-          <div className={s.backAddress}>
-            {stores.map(st => <a key={st.id} href={st.maps}><b>{st.name}</b>{st.address}</a>)}
-            <p className={s.backLinks}>
-              {contact.links.filter(l => l.label && l.href).map(l => <a key={l.id} href={l.href}>{l.label}</a>)}
-            </p>
+          <div className={s.footAddr}>
+            {stores.map(st => <span key={st.id}>{st.name}: {st.address}</span>)}
           </div>
-          <p className={s.imprint}>
-            {contact.imprint}{contact.imprint && ' · '}<Link href={withBase('/admin')}>Szerkesztés</Link>
-          </p>
+          <div className={s.footLast}>
+            <span>{contact.imprint}{contact.imprint && ' · '}<Link href={withBase('/admin')}>Szerkesztés</Link></span>
+          </div>
         </div>
-        <Image src={general.logo.src} alt={general.logo.alt} width={1100} height={296} className={s.footSign} />
       </footer>
-    </HomeMotion>
+
+      <Overlays
+        stores={stores.map(st => ({ id: st.id, name: st.name, address: st.address, mapQuery: st.mapQuery, hours: st.hours }))}
+        sign={hero.sign.src}
+        routeLabel={content.stores.routeButton}
+      />
+    </div>
   );
 }

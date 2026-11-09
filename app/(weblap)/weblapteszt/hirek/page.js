@@ -2,7 +2,7 @@ import SubPage from '@/weblap/components/SubPage';
 import PostCard from '@/weblap/components/PostCard';
 import { getFeed } from '@/weblap/lib/posts';
 import { getContent } from '@/weblap/lib/content';
-import s from '@/weblap/home.module.css';
+import s from '@/weblap/fooldal.module.css';
 
 // A szövegek a tartalom „Hírek rész” fülén szerkeszthetők
 export async function generateMetadata() {
@@ -13,8 +13,11 @@ export async function generateMetadata() {
 export const revalidate = 300;
 
 export default async function News() {
-  const [{ general, news }, posts] = await Promise.all([getContent(), getFeed(30)]);
-  const social = [general.facebook && { href: general.facebook, label: 'Facebook ↗' }, general.instagram && { href: general.instagram, label: 'Instagram ↗' }].filter(Boolean);
+  const [{ general, news, stores }, posts] = await Promise.all([getContent(), getFeed(30)]);
+  const social = [
+    ...['debrecen', 'jatekceh', 'miskolc'].filter(id => stores[id]?.facebook).map(id => ({ href: stores[id].facebook, label: `${stores[id].name} ↗` })),
+    general.instagram && { href: general.instagram, label: 'Instagram ↗' },
+  ].filter(Boolean);
   return (
     <SubPage>
       <section className={s.section} aria-labelledby="news-title">
@@ -23,7 +26,7 @@ export default async function News() {
           {news.pageLead && <p className={s.sectionLead}>{news.pageLead}</p>}
         </div>
         {posts.length ? (
-          <div className={s.posts}>{posts.map(p => <PostCard key={p.key} post={p} s={s} />)}</div>
+          <div className={s.postList}>{posts.map(p => <PostCard key={p.key} post={p} s={s} />)}</div>
         ) : (
           <p className={s.postsEmpty}>{news.pageEmpty}</p>
         )}

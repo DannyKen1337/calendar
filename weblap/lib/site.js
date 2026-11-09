@@ -1,6 +1,6 @@
 // A főoldal részei a fejléc gyorsgombjaihoz (az id a főoldali szakasz azonosítója, a feliratuk a tartalomban van:
 // Általános fül, „A fejléc gyorsgombjai”).
-export const SECTION_IDS = ['kinalat', 'program', 'boltok', 'hirek', 'kapcsolat'];
+export const SECTION_IDS = ['program', 'hirek', 'boltok', 'kapcsolat'];
 
 // A fejléc adatai a tartalomból (főoldal és aloldalak)
 export function navProps(content) {

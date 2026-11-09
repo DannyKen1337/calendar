@@ -10,7 +10,6 @@ const area = (label, o = {}) => ({ type: 'textarea', label, max: 2000, rows: 4, 
 const url = (label, o = {}) => ({ type: 'url', label, ...o });
 const image = (label, o = {}) => ({ type: 'image', label, ...o });
 const hours = (label, o = {}) => ({ type: 'hours', label, ...o });
-const strings = (label, o = {}) => ({ type: 'strings', label, max: 6, itemMax: 40, ...o });
 const object = (label, fields, o = {}) => ({ type: 'object', label, fields, ...o });
 const list = (label, item, o = {}) => ({ type: 'list', label, item, max: 12, ...o });
 
@@ -20,33 +19,32 @@ const STORE_LABELS = { debrecen: 'Tavern Debrecen', jatekceh: 'JátékCéh', mis
 
 const storeFields = (id) => object(STORE_LABELS[id], {
   name: text('Név', { max: 60 }),
-  address: text('Cím', { help: 'A nyitóképen a város és az irányítószám nélkül látszik.' }),
-  where: text('Merre van (a cím alatt)'),
-  maps: url('Útvonaltervezés linkje', { help: 'Google Térkép link.' }),
+  address: text('Cím'),
+  where: text('Merre van (a cím mellett)'),
+  maps: url('Google Térkép link', { help: 'Ide visz a bolt sora, ha valaki új lapon nyitja meg.' }),
+  mapQuery: text('Keresés a beágyazott térképen', { max: 120, help: 'Ezt keresi meg a térképablak és az útvonaltervezés, pl. „Debrecen, Batthyány u. 1, 4024”.' }),
+  facebook: url('Facebook-oldal', { help: 'A Kapcsolat részben és a láblécben jelenik meg.' }),
   hours: hours('Nyitvatartás', { help: 'Ez csak a weboldalon látszik. A naptár eseményeinél ellenőrzött nyitvatartás külön van.' }),
-  photo: image('Fotó'),
-  caption: text('Képaláírás (nem kötelező)'),
+  photo: image('Fotó (kerek kép a bolt sorában)'),
 }, { collapsible: true });
 
 export const CONTENT_TABS = [
   {
     key: 'general', label: 'Általános',
-    intro: 'A böngészőfül címe, a Google-leírás, a cégér, a közösségi oldalak és a fejléc gombjai.',
+    intro: 'A böngészőfül címe, a Google-leírás, a cégér, az Instagram és a fejléc gombjai.',
     schema: object(null, {
       title: text('Az oldal címe (böngészőfül, Google)', { max: 120 }),
       description: area('Rövid leírás (a Google-találat alatt)', { max: 300, rows: 3 }),
-      logo: image('Cégér (a fejlécben, a nyitóképen és a láblécben)', { noPosition: true }),
-      facebook: url('Facebook-oldal'),
+      logo: image('Cégér (az aloldalak fejlécében)', { noPosition: true }),
       instagram: url('Instagram-fiók'),
-      webshop: url('Webshop', { help: 'Ha meg van adva, a fejlécben megjelenik a „Webshop ↗” gomb.' }),
+      webshop: url('Webshop', { help: 'Ha meg van adva, a fejlécben megjelenik a „Webshop ↗” gomb. Amíg nincs, az Előrendelés gomb áll a helyén.' }),
       nav: object('A fejléc gyorsgombjai', {
-        kinalat: text('Kínálat', { max: 30 }),
         program: text('Program', { max: 30 }),
-        boltok: text('Boltok', { max: 30 }),
         hirek: text('Hírek', { max: 30 }),
+        boltok: text('Boltok', { max: 30 }),
         kapcsolat: text('Kapcsolat', { max: 30 }),
       }),
-      cta: object('A fejléc kiemelt gombja (jobbra fent)', {
+      cta: object('A fejléc kiemelt gombja (jobbra fent, a naptárat nyitja meg)', {
         label: text('Felirat', { max: 30 }),
         href: url('Link'),
       }),
@@ -54,76 +52,74 @@ export const CONTENT_TABS = [
   },
   {
     key: 'hero', label: 'Nyitókép',
-    intro: 'Az oldal teteje: a háttérkép és a cégér alatti kártya szövegei. A boltok listája a Boltok fülről jön.',
+    intro: 'Az oldal teteje: a cégér az egész első képernyőn, alatta egy mondat és a gomb.',
     schema: object(null, {
-      picture: image('Háttérkép', { help: 'Kattints a képre: oda kerül a kép közepe.' }),
-      words: strings('Szavak a cégér alatt', { max: 4, itemMax: 20 }),
-      intro: text('Bevezető sor (a boltok listája előtt)'),
-      tagline: text('Zárómondat'),
-      credit: text('Képaláírás (bal alsó sarok)'),
+      sign: image('Cégér (átlátszó hátterű kép)', { noPosition: true }),
+      text: area('Mondat a képernyő alján', { max: 220, rows: 2 }),
       button: text('Gomb felirata (a heti programhoz ugrik)', { max: 40 }),
-      calendarLink: text('Naptár link felirata (jobb alsó sarok)', { max: 40, help: 'A link a fejléc kiemelt gombjáéval egyezik (Általános fül).' }),
-    }),
-  },
-  {
-    key: 'menu', label: 'Kínálat',
-    intro: 'Az „étlap”: csoportok és tételek, mindegyikhez egy fotó, ami rámutatáskor nagyban látszik.',
-    schema: object(null, {
-      title: text('Cím', { max: 60 }),
-      groups: list('Csoportok', object(null, {
-        name: text('A csoport neve', { max: 40 }),
-        items: list('Tételek', object(null, {
-          name: text('Név', { max: 40 }),
-          value: text('Jobb oldali érték', { max: 40, help: 'A {heti} helyére a heti versenyek száma kerül („12 a héten”, vagy „Minden héten”).' }),
-          text: area('Leírás', { max: 300, rows: 2 }),
-          href: url('Link', { help: '#boltok, #program, #hirek, #kapcsolat: ugrás az oldalon belül; vagy egy teljes cím.' }),
-          picture: image('Fotó'),
-        }), { itemLabel: 'tétel', titleKey: 'name', max: 8, collapsible: true }),
-      }), { itemLabel: 'csoport', titleKey: 'name', max: 4 }),
     }),
   },
   {
     key: 'program', label: 'Program',
-    intro: 'A heti program címe és gombja. Az eseményeket és a játékok képeit a naptárból veszi.',
+    intro: 'A heti program címe és gombjai. Az eseményeket a naptárból veszi (a következő hét nap, boltonként).',
     schema: object(null, {
-      soft: text('A cím halvány eleje', { max: 40 }),
-      title: text('A cím folytatása', { max: 60 }),
-      button: text('Gomb felirata', { max: 40 }),
-      buttonHref: url('Gomb linkje'),
+      title: text('Cím', { max: 60 }),
+      button: text('A teljes naptár gomb felirata', { max: 40 }),
+      allGames: text('„Minden játék” szűrő felirata', { max: 30 }),
+      empty: text('Szöveg, ha a héten nincs esemény'),
     }),
   },
   {
-    key: 'stores', label: 'Boltok',
-    intro: 'A három bolt adatai: ezek látszanak a nyitóképen, a boltok névjegyén, a programban és a láblécben.',
+    key: 'features', label: 'Mondatok',
+    intro: 'A nagy, színes mezők a program után. Mindegyikben egy cím és egy mondat, gomb nem kötelező.',
     schema: object(null, {
-      ...Object.fromEntries(STORE_IDS.map(id => [id, storeFields(id)])),
-      nextTitle: text('„Következő események” cím', { max: 40 }),
-      noEvents: text('Szöveg, ha nincs esemény'),
-      routeButton: text('Útvonaltervezés gomb felirata', { max: 40 }),
+      items: list('Mezők', object(null, {
+        title: text('Cím (nagy betűkkel)', { max: 40 }),
+        text: area('Mondat a cím mellett', { max: 220, rows: 2 }),
+        button: text('Gomb felirata (nem kötelező)', { max: 30 }),
+        href: url('Gomb linkje', { help: 'A naptár oldalai (pl. az előrendelés) az oldalon belül nyílnak meg.' }),
+      }), { itemLabel: 'mező', titleKey: 'title', max: 6, collapsible: true }),
+    }),
+  },
+  {
+    key: 'gallery', label: 'Galéria',
+    intro: 'Az „Egy este nálunk” rész: a nagy cím két oldalán három fotó.',
+    schema: object(null, {
+      title: text('Cím', { max: 40 }),
+      note: area('Képaláírás (bal alsó sarok)', { max: 200, rows: 2 }),
+      pictures: list('Képek', object(null, { picture: image('Kép') }), { itemLabel: 'kép', titleKey: 'none', max: 3 }),
     }),
   },
   {
     key: 'news', label: 'Hírek rész',
-    intro: 'A hírek szakasz szövegei a főoldalon és a Hírek oldalon. Magukat a híreket a Hírek fülön írod.',
+    intro: 'A hírek szakasz szövegei a főoldalon és a Hírek oldalon. Magukat a híreket a Hírek fülön írod; a boltok Facebook-posztjai maguktól jönnek, ha be van állítva.',
     schema: object(null, {
       title: text('Cím a főoldalon', { max: 60 }),
       allLink: text('„Összes hír” link felirata', { max: 40 }),
+      allStores: text('„Mind” szűrő felirata', { max: 30 }),
       emptyText: area('Szöveg, amíg nincs hír', { max: 500, rows: 3 }),
-      emptyPicture: image('Kép, amíg nincs hír'),
       pageTitle: text('A Hírek oldal címe', { max: 60 }),
       pageLead: area('A Hírek oldal bevezetője', { max: 400, rows: 2 }),
       pageEmpty: area('A Hírek oldal szövege, amíg nincs hír', { max: 400, rows: 2 }),
     }),
   },
   {
-    key: 'contact', label: 'Lábléc',
-    intro: 'Az oldal alja (Kapcsolat): üzenet, gomb, linkek és az apró betűs sor.',
+    key: 'stores', label: 'Boltok',
+    intro: 'A három bolt adatai: a boltok sorai, a térképablak, a mai nyitvatartás, a Kapcsolat rész és a lábléc.',
     schema: object(null, {
-      stamp: image('Bélyegkép'),
+      title: text('A boltok részének címe', { max: 60 }),
+      todayLabel: text('„Ma” felirat a mai nyitvatartás előtt', { max: 30 }),
+      routeButton: text('Útvonaltervezés gomb felirata', { max: 40 }),
+      ...Object.fromEntries(STORE_IDS.map(id => [id, storeFields(id)])),
+    }),
+  },
+  {
+    key: 'contact', label: 'Kapcsolat és lábléc',
+    intro: 'Az „Írj nekünk” rész (a boltok Facebook-oldalai a Boltok fülről jönnek) és a lábléc.',
+    schema: object(null, {
       title: text('Cím', { max: 60 }),
-      text: area('Szöveg', { max: 600, rows: 3 }),
-      button: object('Gomb', { label: text('Felirat', { max: 40 }), href: url('Link', { help: 'Pl. Messenger: https://m.me/…' }) }),
-      links: list('Linkek', object(null, { label: text('Felirat', { max: 40 }), href: url('Link') }), { itemLabel: 'link', titleKey: 'label', max: 12, inline: true }),
+      text: area('Szöveg', { max: 400, rows: 3 }),
+      links: list('Lábléc linkjei', object(null, { label: text('Felirat', { max: 40 }), href: url('Link') }), { itemLabel: 'link', titleKey: 'label', max: 12, inline: true }),
       imprint: area('Apró betűs sor (a „Szerkesztés” link elé)', { max: 400, rows: 2 }),
     }),
   },

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import SubPage from '@/weblap/components/SubPage';
 import { getManualPost, postDate, postExcerpt } from '@/weblap/lib/posts';
 import { getContent } from '@/weblap/lib/content';
-import s from '@/weblap/home.module.css';
+import s from '@/weblap/fooldal.module.css';
 import { withBase } from '@/weblap/lib/basePath';
 
 export const revalidate = 300;

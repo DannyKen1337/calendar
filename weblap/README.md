@@ -6,7 +6,15 @@ A Tavern közös weboldala a naptár alkalmazásán belül fut: taverncalendar.v
 
 - `app/(naptar)/`: a naptár oldalai a saját gyökér-layoutjukkal (Tailwind, Geist). A címek nem változtak.
 - `app/(weblap)/`: a weboldal gyökér-layoutja (saját alapstílus: `weblap/globals.css`). Alatta a `weblapteszt/` mappában a főoldal, a `hirek` és az `admin` van.
-- `weblap/components`, `weblap/lib`, `weblap/home.module.css`: a weboldal kódja.
+- `weblap/components`, `weblap/lib`, `weblap/fooldal.module.css`: a weboldal kódja.
+
+## A főoldal (bemutató változat a tulajoknak)
+
+- **Felépítés:** a Tavern cégére az egész első képernyőn (beúszik, görgetésre kiúszik), utána a heti program a naptárból, a hírek a boltokból, nagy mondatok színes mezőkön, galéria, a boltok sorai, Kapcsolat a boltok Facebook-oldalaival, lábléc. Színek: korom, papírfehér, cégérarany; betűk: Big Shoulders (címek) és Public Sans (szöveg). A terv a `tavern-web` repó taste skilljével készült.
+- **Heti program:** a következő hét nap eseményei a naptár nyilvános adataiból (`getUpcomingEvents`), boltonként, játékválasztóval (`components/WeekProgram.jsx`). A listában mindig a játék logója látszik.
+- **Naptárablak** (`components/Overlays.jsx`): minden `data-cal` linkre (esemény, a teljes naptár, az előrendelés, a fejléc Naptár gombja) a kattintás helyéről kinyíló aranykörben, ugyanezen az oldalon nyílik meg a naptár. A naptárban magában nincs link a weboldalra.
+- **Térképablak** (ugyanott): a boltok soraira (`data-map`) arany útvonal, gombostű, kihajtódó Google-térkép (kulcs nélküli beágyazás, a bolt „Keresés a beágyazott térképen” mezőjével) és útvonaltervezés gomb.
+- **Mozgás** (`components/Motion.jsx`): a `data-reveal` elemek görgetésre beúsznak (csak a betöltéskor képernyőn kívüliek), a cégér kiúszik. Csökkentett mozgásnál semmi nem mozog.
 - `public/weblapteszt/`: a weboldal képei.
 
 A két rész között átlépve a böngésző az egész oldalt újratölti, mert két külön gyökér-layoutról van szó.
@@ -19,7 +27,7 @@ Mentés után a teljes weboldal a `revalidatePath('/(weblap)/weblapteszt', 'layo
 
 ## Szerkeszthető tartalom
 
-A weboldal minden szövege, képe, linkje, a boltok adatai (név, cím, nyitvatartás, fotó) és a Kínálat menü tételei szerkeszthetők. Ezek a szerkesztőfelület fülein vannak: Általános, Nyitókép, Kínálat, Program, Boltok, Hírek rész, Lábléc.
+A weboldal minden szövege, képe, linkje és a boltok adatai (név, cím, nyitvatartás, fotó, Facebook-oldal, térképkeresés) szerkeszthetők. Ezek a szerkesztőfelület fülein vannak: Általános, Nyitókép, Program, Mondatok, Galéria, Hírek rész, Boltok, Kapcsolat és lábléc.
 
 - **Felépítés:** a mezőket a `weblap/lib/contentSchema.js` írja le. Ebből rajzolódik ki az űrlap, és a szerver is ez alapján ellenőrzi a mentett adatot.
 - **Alapértékek:** az eredeti tartalom a `weblap/lib/content.js`-ben van. Az adatbázisban csak a módosított fülek vannak (`website_content` gyűjtemény, `site` dokumentum).
@@ -37,5 +45,6 @@ A weboldal minden szövege, képe, linkje, a boltok adatai (név, cím, nyitvata
 
 A `MONGODB_URI`, a `JWT_SECRET` és az `IMGBB_API_KEY` közös a naptárral. Ezek nem kötelezők:
 - `WEBSHOP_URL`: a Freewebstore-webshop címe;
-- `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`: a Facebook- és Instagram-posztok behúzása;
+- `META_PAGES`: a három bolt Facebook-oldala, mindegyik a saját oldal-tokenjével (`pages_read_engagement` jog), JSON-ben: `[{"store":"debrecen","id":"…","token":"…"},{"store":"jatekceh",…},{"store":"miskolc",…}]`. A posztok a bolt nevével jelennek meg, boltonként szűrhetők;
+- `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`: a régi, egyoldalas beállítás (ilyenkor az oldal a debreceni bolté), az Instagramhoz továbbra is ez kell;
 - `CALENDAR_URL`: alapból `https://taverncalendar.vercel.app`, innen jön a program.

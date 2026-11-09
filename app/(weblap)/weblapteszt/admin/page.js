@@ -19,7 +19,7 @@ export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { in
 // A fülek: a Hírek (a hírek kirakása, a behúzott posztok), és az oldal tartalma részenként.
 // preview: hova visz a „Megnézem az oldalon” link
 const TABS = [{ key: 'hirek', label: 'Hírek' }, ...CONTENT_TABS];
-const PREVIEW = { general: '/', hero: '/', menu: '/#kinalat', program: '/#program', stores: '/#boltok', news: '/#hirek', contact: '/#kapcsolat' };
+const PREVIEW = { general: '/', hero: '/', program: '/#program', features: '/#kinalat', gallery: '/#kinalat', news: '/#hirek', stores: '/#boltok', contact: '/#kapcsolat' };
 export const dynamic = 'force-dynamic';
 
 // "2026-10-29T18:00" magyar helyi idő a dátummezőhöz
