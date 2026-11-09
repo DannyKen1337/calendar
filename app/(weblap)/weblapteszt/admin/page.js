@@ -6,20 +6,22 @@ import { getAllForEditor, postHeading, postDate, SOURCE_NAMES } from '@/weblap/l
 import { socialConfigured } from '@/weblap/lib/social';
 import { withBase } from '@/weblap/lib/basePath';
 import { getContentForEditor } from '@/weblap/lib/content';
+import { getPendingChanges } from '@/weblap/lib/staging';
 import { CONTENT_TABS, tabByKey } from '@/weblap/lib/contentSchema';
 import { ObjectId } from 'mongodb';
 import PostForm from './PostForm';
 import ContentEditor from './ContentEditor';
 import ConfirmButton from './ConfirmButton';
-import { logoutAction, deletePostAction, toggleAction, resetContentAction } from './actions';
+import { logoutAction, deletePostAction, toggleAction, resetContentAction, publishAction, discardAction } from './actions';
 import s from './admin.module.css';
 
 export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { index: false, follow: false } };
 
 // A fülek: a Hírek (a hírek kirakása, a behúzott posztok), és az oldal tartalma részenként.
-// preview: hova visz a „Megnézem az oldalon” link
+// PREVIEW: hova visz a „Megnézem az előnézetben” link. Minden mentés előbb csak az előnézetben látszik;
+// az éles oldalra a felül lévő „Jóváhagyás és kirakás” gomb viszi ki (tulajdonos vagy „Weblap jóváhagyó” jog).
 const TABS = [{ key: 'hirek', label: 'Hírek' }, ...CONTENT_TABS];
-const PREVIEW = { general: '/', hero: '/', program: '/#program', features: '/#kinalat', gallery: '/#kinalat', news: '/#hirek', stores: '/#boltok', contact: '/#kapcsolat' };
+const PREVIEW = { general: '/elonezet', hero: '/elonezet', program: '/elonezet#program', features: '/elonezet#kinalat', gallery: '/elonezet#kinalat', news: '/elonezet#hirek', stores: '/elonezet#boltok', contact: '/elonezet#kapcsolat' };
 export const dynamic = 'force-dynamic';
 
 // "2026-10-29T18:00" magyar helyi idő a dátummezőhöz
@@ -70,24 +72,61 @@ export default async function Admin({ searchParams }) {
     );
   }
 
-  const { szerkeszt, mentve, lap, visszaallitva } = await searchParams;
+  const { szerkeszt, mentve, lap, visszaallitva, kirakva, elvetve, torolve } = await searchParams;
   const tab = tabByKey(lap);
+  const pending = await getPendingChanges();
+
+  // A felület teteje: mi van még csak az előnézetben, és a kirakás
+  const stage = pending.count ? (
+    <section className={`${s.stage} ${s.stagePending}`} aria-label="Kirakásra vár">
+      <div className={s.stageText}>
+        <b>{pending.count} módosítás még csak az előnézetben látszik</b>
+        <ul className={s.stageList}>{pending.items.slice(0, 8).map((it, i) => <li key={i}>{it}</li>)}{pending.items.length > 8 && <li>…és még {pending.items.length - 8}</li>}</ul>
+      </div>
+      <div className={s.stageActions}>
+        <a className={s.secondary} href={withBase('/elonezet')} target="_blank" rel="noopener">Előnézet megnyitása ↗</a>
+        {editor.canPublish ? (
+          <>
+            <form action={publishAction}><ConfirmButton className={s.primary} message={`Jóváhagyod, és kirakod ezeket az éles oldalra?\n\n${pending.items.join('\n')}`}>Jóváhagyás és kirakás</ConfirmButton></form>
+            <form action={discardAction}><ConfirmButton className={`${s.small} ${s.danger}`} message="Biztosan elveted az összes még ki nem rakott módosítást? Az előnézet visszaáll az éles oldalra, a módosítások elvesznek.">Változások elvetése</ConfirmButton></form>
+          </>
+        ) : <span className={s.muted}>A módosításokat a tulajdonos vagy egy weblap-jóváhagyó nézi át és rakja ki.</span>}
+      </div>
+    </section>
+  ) : (
+    <section className={`${s.stage} ${s.stageCalm}`} aria-label="Hogyan működik">
+      <div className={s.stageText}>
+        <b>Az előnézet és az éles oldal most ugyanaz.</b>
+        <ol className={s.stageSteps}>
+          <li>Módosíts bármit (hír, szöveg, kép), és mentsd el.</li>
+          <li>Nézd meg az előnézetben: ott már látszik, az éles oldalon még nem.</li>
+          <li>Ha minden jó, a tulajdonos vagy egy weblap-jóváhagyó a „Jóváhagyás és kirakás” gombbal kirakja.</li>
+        </ol>
+      </div>
+      <div className={s.stageActions}><a className={s.secondary} href={withBase('/elonezet')} target="_blank" rel="noopener">Előnézet megnyitása ↗</a></div>
+    </section>
+  );
+  const notice = kirakva ? 'Jóváhagyva és kirakva! Az éles oldal frissült.' : elvetve ? 'A módosítások elvetve, az előnézet újra az éles oldalt mutatja.' : torolve ? 'Törölve. Az éles oldalról a kirakás után tűnik el.' : null;
 
   const header = (
     <>
       <header className={s.bar}>
         <b className={s.brand}>Weblap szerkesztése</b>
         <span className={s.muted}>Belépve: {editor.username}</span>
-        <a href={withBase('/')} target="_blank" rel="noopener">Az oldal ↗</a>
+        <a href={withBase('/elonezet')} target="_blank" rel="noopener">Előnézet ↗</a>
+        <a href={withBase('/')} target="_blank" rel="noopener">Éles oldal ↗</a>
         <a href="/admin">Naptár</a>
         <form action={logoutAction}><button className={s.small}>Kilépés</button></form>
       </header>
       <nav className={s.tabs} aria-label="A szerkesztőfelület részei">
         {TABS.map(t => {
           const on = (tab?.key || 'hirek') === t.key;
-          return <a key={t.key} className={`${s.tab} ${on ? s.tabOn : ''}`} aria-current={on ? 'page' : undefined} href={withBase(t.key === 'hirek' ? '/admin' : `/admin?lap=${t.key}`)}>{t.label}</a>;
+          const changed = t.key === 'hirek' ? pending.items.some(it => /hír|poszt/i.test(it)) : pending.tabs.has(t.key);
+          return <a key={t.key} className={`${s.tab} ${on ? s.tabOn : ''}`} aria-current={on ? 'page' : undefined} href={withBase(t.key === 'hirek' ? '/admin' : `/admin?lap=${t.key}`)}>{t.label}{changed && <span className={s.dot} title="Még ki nem rakott módosítás" />}</a>;
         })}
       </nav>
+      {notice && <p className={s.notice} role="status">{notice}</p>}
+      {stage}
     </>
   );
 
@@ -101,16 +140,16 @@ export default async function Admin({ searchParams }) {
           <section className={s.panel} aria-labelledby="tab-title">
             <div className={s.tabHead}>
               <h2 id="tab-title" className={s.h2}>{tab.label}</h2>
-              <a href={withBase(PREVIEW[tab.key])} target="_blank" rel="noopener">Megnézem az oldalon ↗</a>
+              <a href={withBase(PREVIEW[tab.key])} target="_blank" rel="noopener">Megnézem az előnézetben ↗</a>
             </div>
             <p className={s.muted}>{tab.intro}</p>
-            {visszaallitva && <p className={s.ok} role="status">Visszaállítva az eredeti tartalomra.</p>}
+            {visszaallitva && <p className={s.ok} role="status">Visszaállítva az eredeti tartalomra (egyelőre csak az előnézetben).</p>}
             {/* Visszaállítás után újraindul az űrlap; sima mentésnél nem (a mentés eredményét maga mutatja) */}
             <ContentEditor key={`${tab.key}-${updated[tab.key]?.reset ? new Date(updated[tab.key].at).getTime() : ''}`} s={s} tabKey={tab.key} initial={content[tab.key]} updated={updated[tab.key] ? { ...updated[tab.key], at: new Date(updated[tab.key].at).toISOString() } : null} />
           </section>
           <form action={resetContentAction} className={s.resetForm}>
             <input type="hidden" name="tab" value={tab.key} />
-            <ConfirmButton className={`${s.small} ${s.danger}`} message={`Biztosan visszaállítod a(z) „${tab.label}” rész eredeti tartalmát? A mostani módosítások elvesznek.`}>Visszaállítás az eredetire</ConfirmButton>
+            <ConfirmButton className={`${s.small} ${s.danger}`} message={`Biztosan visszaállítod a(z) „${tab.label}” rész eredeti tartalmát? Előbb csak az előnézetben változik.`}>Visszaállítás az eredetire</ConfirmButton>
           </form>
         </main>
       </Shell>
@@ -133,17 +172,17 @@ export default async function Admin({ searchParams }) {
       <main className={s.main}>
         <section className={s.panel} aria-labelledby="form-title" id="urlap">
           <h2 id="form-title" className={s.h2}>{editing ? 'Hír szerkesztése' : 'Új hír'}</h2>
-          {mentve && !editing && <p className={s.ok} role="status">Mentve. Az oldalon már látszik.</p>}
+          {mentve && !editing && <p className={s.ok} role="status">Elmentve. Egyelőre csak az előnézetben látszik.</p>}
           <PostForm s={s} post={editing} nowLocal={toLocalInput(new Date())} />
         </section>
 
         <section className={s.panel} aria-labelledby="list-title">
-          <h2 id="list-title" className={s.h2}>Hírek az oldalon</h2>
+          <h2 id="list-title" className={s.h2}>Hírek</h2>
           <p className={s.sources}>
             <span className={social.facebook ? s.on : s.off}>Facebook {social.facebook ? 'bekötve' : 'nincs bekötve'}</span>
             <span className={social.instagram ? s.on : s.off}>Instagram {social.instagram ? 'bekötve' : 'nincs bekötve'}</span>
           </p>
-          <p className={s.muted}>A Facebook- és Instagram-posztok maguktól jönnek (kb. 15 percenként frissül). Ezeket elrejtheted vagy kiemelheted, a sajátokat szerkesztheted is. Az oldal elején a lista első 7 elemét látni.</p>
+          <p className={s.muted}>A Facebook- és Instagram-posztok maguktól jönnek (kb. 15 percenként frissül). Ezeket elrejtheted vagy kiemelheted, a sajátokat szerkesztheted is. Az oldalon a lista első 8 eleme látszik. Minden változás előbb csak az előnézetben látszik.</p>
           {posts.length ? (
             <ul className={s.list}>
               {posts.map(p => (
@@ -157,7 +196,7 @@ export default async function Admin({ searchParams }) {
                       <span className={s.chip}>{SOURCE_NAMES[p.source]}</span>
                       {postDate(p.date)}
                       {p.pinned && <span className={s.flag}>Kiemelt</span>}
-                      {!p.published && <span className={s.flag}>Piszkozat</span>}
+                      {!p.published && <span className={s.flag}>Nem jelenik meg</span>}
                       {p.hidden && <span className={s.flag}>Elrejtve</span>}
                     </p>
                     <b>{postHeading(p) || '(szöveg nélküli poszt)'}</b>
@@ -167,7 +206,7 @@ export default async function Admin({ searchParams }) {
                       <>
                         <a className={s.small} href={withBase(`/admin?szerkeszt=${p.id}#urlap`)}>Szerkesztés</a>
                         <Toggle k={p.key} field="pinned" value={!p.pinned}>{p.pinned ? 'Kiemelés le' : 'Kiemelés'}</Toggle>
-                        <Toggle k={p.key} field="published" value={!p.published}>{p.published ? 'Visszavonás' : 'Közzététel'}</Toggle>
+                        <Toggle k={p.key} field="published" value={!p.published}>{p.published ? 'Elrejtés' : 'Megjelenítés'}</Toggle>
                         <form action={deletePostAction}>
                           <input type="hidden" name="id" value={p.id} />
                           <ConfirmButton className={`${s.small} ${s.danger}`} message={`Biztosan törlöd? „${p.title}”`}>Törlés</ConfirmButton>

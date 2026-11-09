@@ -7,6 +7,8 @@ import { saveContentAction, uploadImageAction } from './actions';
 // Az oldal tartalmának egy füle (Általános, Nyitókép, Kínálat, ...). Az űrlapot a fül sémája rajzolja ki
 // (weblap/lib/contentSchema.js); mentéskor a teljes fül JSON-ban megy a szervernek, ami a séma szerint ellenőrzi.
 // s: az admin CSS-modulja; tabKey: a fül kulcsa; initial: a fül mostani tartalma; updated: { at, by } az utolsó mentésről
+const PREVIEW_PATH = '/elonezet';
+
 export default function ContentEditor({ s, tabKey, initial, updated }) {
   const tab = tabByKey(tabKey);
   const [value, setValue] = useState(initial);
@@ -37,12 +39,12 @@ export default function ContentEditor({ s, tabKey, initial, updated }) {
       <input type="hidden" name="payload" value={JSON.stringify(value)} />
       <Field f={tab.schema} value={value} onChange={setValue} s={s} top />
       <div className={s.saveBar}>
-        <button className={s.primary} disabled={pending || !dirty}>{pending ? 'Mentés…' : 'Mentés'}</button>
+        <button className={s.primary} disabled={pending || !dirty}>{pending ? 'Mentés…' : 'Mentés az előnézetbe'}</button>
         <p className={s.saveStatus} role="status">
           {state?.error && !pending
             ? <span className={s.error}>{state.error.split('\n').map((l, i) => <span key={i} className={s.errorLine}>{l}</span>)}</span>
             : dirty ? <span className={s.flag}>Nem mentett módosítások</span>
-            : state?.ok ? <span className={s.ok}>Mentve, az oldalon már látszik.</span>
+            : state?.ok ? <span className={s.ok}>Elmentve. Egyelőre csak az előnézetben látszik: <a href={withBase(PREVIEW_PATH)} target="_blank" rel="noopener">megnézem ↗</a></span>
             : last?.at ? <span className={s.muted}>Utoljára mentve: {new Date(last.at).toLocaleString('hu-HU', { dateStyle: 'medium', timeStyle: 'short' })}{last.by ? ` (${last.by})` : ''}{last.reset ? ', visszaállítva az eredetire' : ''}</span>
             : <span className={s.muted}>Még az eredeti tartalom.</span>}
         </p>

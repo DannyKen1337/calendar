@@ -147,3 +147,17 @@ div.listHead { cursor: default; }
   .hoursRow { grid-template-columns: 1fr; gap: 4px; }
   .listInline, .listInline > .fields { grid-template-columns: 1fr; }
 }
+
+/* Előnézet és kirakás: a felület tetején mindig látszik, mi van még csak az előnézetben */
+.stage { margin: 16px clamp(16px, 3vw, 40px) 0; padding: 18px 22px; border-radius: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; }
+.stageCalm { background: var(--surface); }
+.stagePending { background: #3a2d14; outline: 2px solid var(--gold); }
+.stageText { flex: 1 1 340px; display: flex; flex-direction: column; gap: 6px; }
+.stageText b { font-size: 18px; }
+.stageList { margin: 4px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.stageSteps { margin: 2px 0 0; padding-left: 20px; color: var(--muted); }
+.stageActions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.stageActions form { display: contents; }
+.dot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%; background: var(--gold); vertical-align: middle; }
+.tabOn .dot { background: var(--on-gold); }
+.notice { margin: 16px clamp(16px, 3vw, 40px) 0; padding: 12px 18px; border-radius: 14px; background: #1d3325; color: var(--green); font-weight: 600; }

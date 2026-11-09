@@ -1,6 +1,8 @@
 'use server';
 // A szerkesztőfelület műveletei. Mindegyik maga ellenőrzi a jogot (a felület elrejtése nem védelem).
 // A módosítások a naptár naplójába (audit_logs) is bekerülnek, "WEBLAP" művelettel.
+// Minden mentés csak az előnézetbe kerül (/weblapteszt/elonezet); az éles oldalra a Kirakás gomb viszi ki őket
+// (publishAction, csak a tulajdonos és a "Weblap jóváhagyó" jogú szerkesztő).
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { ObjectId } from 'mongodb';
@@ -9,8 +11,9 @@ import { getEditor, logout } from '@/weblap/lib/auth';
 import { withBase } from '@/weblap/lib/basePath';
 import { saveTab, resetTab } from '@/weblap/lib/content';
 import { tabByKey } from '@/weblap/lib/contentSchema';
+import { getPendingChanges, publishAll, discardAll } from '@/weblap/lib/staging';
 
-// A weboldal minden oldala (a route group is a cache-címke része)
+// A weboldal minden oldala (a route group is a cache-címke része); csak kirakáskor kell
 const refreshSite = () => revalidatePath('/(weblap)/weblapteszt', 'layout');
 
 async function addLog(db, editor, details) {
@@ -20,6 +23,12 @@ async function addLog(db, editor, details) {
 async function requireEditor() {
   const editor = await getEditor();
   if (!editor) throw new Error('Nincs bejelentkezve, vagy nincs Weblap mester joga.');
+  return editor;
+}
+
+async function requirePublisher() {
+  const editor = await requireEditor();
+  if (!editor.canPublish) throw new Error('A kirakáshoz „Weblap jóváhagyó” jog kell.');
   return editor;
 }
 
@@ -110,12 +119,11 @@ export async function savePostAction(_prev, formData) {
     if (!_id) return { error: 'Ismeretlen hír.', values };
     const res = await posts.updateOne({ _id }, { $set: doc });
     if (!res.matchedCount) return { error: 'Ezt a hírt közben törölték.', values };
-    await addLog(db, editor, `Hír módosítva: ${title}`);
+    await addLog(db, editor, `Hír módosítva (előnézet): ${title}`);
   } else {
     await posts.insertOne({ ...doc, createdBy: editor.username, createdAt: new Date() });
-    await addLog(db, editor, `Új hír${published ? '' : ' (piszkozat)'}: ${title}`);
+    await addLog(db, editor, `Új hír${published ? '' : ' (piszkozat)'} (előnézet): ${title}`);
   }
-  refreshSite();
   redirect(withBase('/admin?mentve=1'));
 }
 
@@ -125,9 +133,8 @@ export async function deletePostAction(formData) {
   if (!_id) return;
   const db = await getTavernDb();
   const post = await db.collection('website_posts').findOneAndDelete({ _id });
-  if (post) await addLog(db, editor, `Hír törölve: ${post.title}`);
-  refreshSite();
-  redirect(withBase('/admin'));
+  if (post) await addLog(db, editor, `Hír törölve (előnézet): ${post.title}`);
+  redirect(withBase('/admin?torolve=1'));
 }
 
 // Kiemelés / elrejtés. key: "manual:<id>" (csak kiemelés, és közzététel ki-be) vagy "facebook:<id>" / "instagram:<id>"
@@ -151,7 +158,6 @@ export async function toggleAction(formData) {
   } else {
     return;
   }
-  refreshSite();
   redirect(withBase('/admin'));
 }
 
@@ -173,8 +179,7 @@ export async function saveContentAction(_prev, formData) {
   const res = await saveTab(key, value, editor.username);
   if (res.errors) return { error: res.errors.join('\n') };
   const db = await getTavernDb();
-  await addLog(db, editor, `Oldal tartalma módosítva: ${tab.label}`);
-  refreshSite();
+  await addLog(db, editor, `Oldal tartalma módosítva (előnézet): ${tab.label}`);
   return { ok: true, data: res.data, at: Date.now() };
 }
 
@@ -186,9 +191,31 @@ export async function resetContentAction(formData) {
   if (!tab) return;
   await resetTab(key, editor.username);
   const db = await getTavernDb();
-  await addLog(db, editor, `Oldal tartalma visszaállítva az eredetire: ${tab.label}`);
-  refreshSite();
+  await addLog(db, editor, `Oldal tartalma visszaállítva az eredetire (előnézet): ${tab.label}`);
   redirect(withBase(`/admin?lap=${key}&visszaallitva=1`));
+}
+
+// --- Kirakás és elvetés ---
+
+// Minden előnézetben mentett módosítás kirakása az éles oldalra
+export async function publishAction() {
+  const editor = await requirePublisher();
+  const pending = await getPendingChanges();
+  await publishAll();
+  const db = await getTavernDb();
+  await addLog(db, editor, `Kirakva az éles oldalra: ${pending.items.join('; ') || 'nem volt változás'}`);
+  refreshSite();
+  redirect(withBase('/admin?kirakva=1'));
+}
+
+// A még ki nem rakott módosítások elvetése: az előnézet újra az éles oldalt mutatja
+export async function discardAction() {
+  const editor = await requirePublisher();
+  const pending = await getPendingChanges();
+  await discardAll();
+  const db = await getTavernDb();
+  await addLog(db, editor, `Előnézet módosításai elvetve: ${pending.items.join('; ') || 'nem volt változás'}`);
+  redirect(withBase('/admin?elvetve=1'));
 }
 
 // Kép feltöltése egy tartalommezőhöz (ImgBB). Visszaad: { url } vagy { error }

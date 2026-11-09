@@ -56,12 +56,12 @@ export default function PostForm({ s, post, nowLocal }) {
         </label>
       </div>
       <div className={s.checks}>
-        <label className={s.check}><input type="checkbox" name="published" defaultChecked={pick('published', post ? post.published : true)} /> Közzétéve (kikapcsolva piszkozat, nem látszik az oldalon)</label>
+        <label className={s.check}><input type="checkbox" name="published" defaultChecked={pick('published', post ? post.published : true)} /> Megjelenik az oldalon (ha kikapcsolod, félreteszi: nem látszik)</label>
         <label className={s.check}><input type="checkbox" name="pinned" defaultChecked={pick('pinned', post?.pinned || false)} /> Kiemelt (a hírek elejére kerül)</label>
       </div>
       {state?.error && <p className={s.error} role="alert">{state.error}</p>}
       <div className={s.actions}>
-        <button className={s.primary} disabled={pending}>{pending ? 'Mentés…' : editing ? 'Mentés' : 'Kirakom'}</button>
+        <button className={s.primary} disabled={pending}>{pending ? 'Mentés…' : editing ? 'Mentés az előnézetbe' : 'Hír mentése az előnézetbe'}</button>
         {editing && <a className={s.secondary} href={withBase('/admin')}>Mégse</a>}
       </div>
     </form>

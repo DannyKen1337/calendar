@@ -4,7 +4,7 @@ import { withBase } from '@/weblap/lib/basePath';
 // Egy hír csempéje (főoldal és a Hírek oldal): fölül a kép, alatta hozzátapadó címkecsík, mint egy fotó a cédulájával.
 // A behúzott posztok az eredeti posztra visznek, a kirakott hírek a saját oldalukra. Kép nélküli hírnél a csík a kép helyén nagyobb.
 // s: a CSS-modul (post, postPicture, postStrip, postMeta, postSource, postTitle, postText, postPinned, postTextOnly)
-export default function PostCard({ post: p, s }) {
+export default function PostCard({ post: p, s, base = '' }) {
   const external = p.source !== 'manual';
   const heading = postHeading(p) || `${SOURCE_NAMES[p.source]}-poszt`;
   const excerpt = p.image ? null : postExcerpt(p, 180);
@@ -24,7 +24,7 @@ export default function PostCard({ post: p, s }) {
         </p>
         {/* A cím linkje az egész csempét lefedi (CSS: ::after) */}
         <h3 className={s.postTitle}>
-          <a href={withBase(postHref(p))} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{heading}</a>
+          <a href={external ? postHref(p) : withBase(`${base}${postHref(p)}`)} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{heading}</a>
         </h3>
         {excerpt && <p className={s.postText}>{excerpt}</p>}
       </div>

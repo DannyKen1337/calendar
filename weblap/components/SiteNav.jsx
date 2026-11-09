@@ -8,7 +8,7 @@ import s from '@/weblap/fooldal.module.css';
 // A főoldalon nincs cégér a fejlécben (ott a nyitókép maga a cégér), és kiemeli, melyik résznél jársz;
 // az aloldalakon balra a cégér, és a gyorsgombok a főoldal részeire visznek. Keskeny képernyőn csak a Naptár marad.
 // links: [{ id, label }]; extra: külső linkek [{ href, label }]; cta: a kiemelt gomb { label, href }; logo: a cégér { src, alt }
-export default function SiteNav({ home = true, links, extra = [], cta, logo }) {
+export default function SiteNav({ home = true, homeHref = withBase('/'), links, extra = [], cta, logo }) {
   const [active, setActive] = useState(null);
 
   useEffect(() => {
@@ -22,11 +22,11 @@ export default function SiteNav({ home = true, links, extra = [], cta, logo }) {
     return () => io.disconnect();
   }, [home, links]);
 
-  const base = home ? '' : withBase('/');
+  const base = home ? '' : homeHref;
   return (
     <header className={s.nav}>
       {!home && (
-        <a href={withBase('/')} className={s.navBrand} aria-label={`${logo.alt || 'Tavern'} – főoldal`}>
+        <a href={homeHref} className={s.navBrand} aria-label={`${logo.alt || 'Tavern'} – főoldal`}>
           <Image src={logo.src} alt="" width={1096} height={286} priority />
         </a>
       )}

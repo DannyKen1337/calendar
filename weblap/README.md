@@ -34,6 +34,14 @@ A weboldal minden szövege, képe, linkje és a boltok adatai (név, cím, nyitv
 - **Új mező:** a sémába és az alapértékek közé kell felvenni, és az oldalon is meg kell jeleníteni.
 - **Visszaállítás:** minden fül alján van egy „Visszaállítás az eredetire” gomb.
 
+## Előnézet és jóváhagyás
+
+A szerkesztőfelületen semmi nem megy ki azonnal az éles oldalra. Minden mentés (az oldal szövegei és képei, a hírek, a hírek törlése, a Facebook- és Instagram-posztok elrejtése vagy kiemelése) előbb csak az **előnézetben** látszik: `/weblapteszt/elonezet` (és alatta a Hírek oldalak). Ezt csak belépett szerkesztő nyithatja meg, a keresők nem indexelik, és alul egy arany sáv jelzi, hogy még nem az éles oldal.
+
+- **Mi vár kirakásra:** a szerkesztőfelület tetején mindig látszik, emberi nyelven („Nyitókép módosítva”, „Új hír: …”), a módosított fülek mellett pötty.
+- **Jóváhagyás és kirakás:** a tulajdonos és a „Weblap jóváhagyó” jogú szerkesztő (jogkulcs: `websitePublish`) teheti meg; egy gombbal minden függő módosítás kimegy. Ők vethetik el a módosításokat is (az előnézet visszaáll az élesre). Mindkettő a naplóba kerül.
+- **Tárolás:** tartalom: `website_content` „draft” (szerkesztett) és „site” (éles) dokumentum; hírek: `website_posts` és `website_post_flags` a munkapéldány, `website_posts_live` és `website_post_flags_live` az éles másolat (`weblap/lib/staging.js`). Az első induláskor az addigi hírek automatikusan átkerülnek az éles másolatba.
+
 ## Belépés és jog
 
 - **Belépés:** a szerkesztőfelület (`/weblapteszt/admin`) a naptár belépését használja, ugyanazt a `tavern_session` sütit. Külön belépés nincs, és a Kilépés a naptárból is kiléptet.

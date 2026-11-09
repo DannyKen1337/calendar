@@ -111,36 +111,64 @@ export const DEFAULT_CONTENT = {
 };
 
 const COLLECTION = 'website_content';
-const DOC_ID = 'site';
+// Két dokumentum: az éles oldal tartalma ("site"), és a szerkesztett, még ki nem rakott változat ("draft").
+// A szerkesztőfelület mindig a "draft"-ba ment; az előnézet ezt mutatja, az éles oldal a "site"-ot.
+// Kirakáskor a "draft" lesz az új "site", elvetéskor a "draft" törlődik.
+const LIVE_ID = 'site';
+const DRAFT_ID = 'draft';
 
 // A mentett fülek összefésülése az alapértékekkel (a hibás vagy hiányzó mezők helyén az alapérték marad)
 function merge(doc) {
   return Object.fromEntries(CONTENT_TABS.map(t => [t.key, doc?.[t.key] ? sanitizeField(t.schema, doc[t.key], DEFAULT_CONTENT[t.key]) : DEFAULT_CONTENT[t.key]]));
 }
 
-async function loadDoc() {
+async function loadDoc(id) {
   if (!hasDatabase()) return null;
   const db = await getTavernDb();
-  return db.collection(COLLECTION).findOne({ _id: DOC_ID });
+  return db.collection(COLLECTION).findOne({ _id: id });
 }
 
-// A weboldal tartalma (kérésenként egyszer olvassa be). Ha az adatbázis nem érhető el, az alapértékekkel megy.
+// Az éles oldal tartalma (kérésenként egyszer olvassa be). Ha az adatbázis nem érhető el, az alapértékekkel megy.
 export const getContent = cache(async () => {
   try {
-    return merge(await loadDoc());
+    return merge(await loadDoc(LIVE_ID));
   } catch (err) {
     console.error('weblap tartalom:', err);
     return DEFAULT_CONTENT;
   }
 });
 
-// A szerkesztőfelülethez: a tartalom, és hogy melyik fület ki és mikor mentette utoljára
+// Az előnézet tartalma: a szerkesztett változat, ha van, különben az éles
+export async function getDraftContent() {
+  const [draft, live] = await Promise.all([loadDoc(DRAFT_ID), loadDoc(LIVE_ID)]);
+  return merge(draft || live);
+}
+
+// A szerkesztőfelülethez: a szerkesztett tartalom, és hogy melyik fület ki és mikor mentette utoljára
 export async function getContentForEditor() {
-  const doc = await loadDoc();
+  const [draft, live] = await Promise.all([loadDoc(DRAFT_ID), loadDoc(LIVE_ID)]);
+  const doc = draft || live;
   return { content: merge(doc), updated: doc?.updated || {} };
 }
 
-// Egy fül mentése. Visszaad: { data } (az ellenőrzött, elmentett érték) vagy { errors }
+// Mely fülek térnek el az éles oldaltól: [{ key, label }]
+export async function pendingContentTabs() {
+  const [draft, live] = await Promise.all([loadDoc(DRAFT_ID), loadDoc(LIVE_ID)]);
+  if (!draft) return [];
+  const a = merge(draft), b = merge(live);
+  return CONTENT_TABS.filter(t => JSON.stringify(a[t.key]) !== JSON.stringify(b[t.key])).map(t => ({ key: t.key, label: t.label }));
+}
+
+// A szerkesztett változat létrehozása az élesből (az első módosításkor)
+async function ensureDraft(db) {
+  const col = db.collection(COLLECTION);
+  if (await col.findOne({ _id: DRAFT_ID }, { projection: { _id: 1 } })) return;
+  const live = await col.findOne({ _id: LIVE_ID });
+  const { _id, ...rest } = live || {};
+  await col.updateOne({ _id: DRAFT_ID }, { $setOnInsert: { ...rest } }, { upsert: true });
+}
+
+// Egy fül mentése (csak az előnézetbe). Visszaad: { data } (az ellenőrzött, elmentett érték) vagy { errors }
 export async function saveTab(key, value, username) {
   const tab = tabByKey(key);
   if (!tab) return { errors: ['Ismeretlen fül.'] };
@@ -148,21 +176,36 @@ export async function saveTab(key, value, username) {
   const clean = sanitizeField(tab.schema, value, DEFAULT_CONTENT[key], errors);
   if (errors.length) return { errors: errors.slice(0, 8) };
   const db = await getTavernDb();
+  await ensureDraft(db);
   await db.collection(COLLECTION).updateOne(
-    { _id: DOC_ID },
+    { _id: DRAFT_ID },
     { $set: { [key]: clean, [`updated.${key}`]: { at: new Date(), by: username } } },
-    { upsert: true },
   );
   return { data: clean };
 }
 
-// Egy fül visszaállítása az eredeti tartalomra
+// Egy fül visszaállítása az eredeti tartalomra (csak az előnézetben)
 export async function resetTab(key, username) {
   if (!tabByKey(key)) return;
   const db = await getTavernDb();
+  await ensureDraft(db);
   await db.collection(COLLECTION).updateOne(
-    { _id: DOC_ID },
+    { _id: DRAFT_ID },
     { $unset: { [key]: '' }, $set: { [`updated.${key}`]: { at: new Date(), by: username, reset: true } } },
-    { upsert: true },
   );
+}
+
+// Kirakás: a szerkesztett változat lesz az éles tartalom
+export async function publishContent(db) {
+  const col = db.collection(COLLECTION);
+  const draft = await col.findOne({ _id: DRAFT_ID });
+  if (!draft) return;
+  const { _id, ...rest } = draft;
+  await col.replaceOne({ _id: LIVE_ID }, rest, { upsert: true });
+  await col.deleteOne({ _id: DRAFT_ID });
+}
+
+// Elvetés: a szerkesztett változat törlése (az előnézet újra az éles tartalmat mutatja)
+export async function discardContent(db) {
+  await db.collection(COLLECTION).deleteOne({ _id: DRAFT_ID });
 }
