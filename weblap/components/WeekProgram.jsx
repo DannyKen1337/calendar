@@ -30,7 +30,7 @@ export default function WeekProgram({ stores, events, games, allLabel }) {
             <div className={s.items}>
               {list.map(e => (
                 <a key={e.id} className={s.item} href={e.href} data-cal data-title={e.name}>
-                  <img src={e.logo} alt={e.game} loading="lazy" width={56} height={56} />
+                  <img src={e.logo} alt={e.game} loading="lazy" width={96} height={56} />
                   <b>{e.name}</b>
                   <time dateTime={e.date}>{e.full && <span className={s.full}>betelt · </span>}{e.day} <em>{e.time}</em></time>
                 </a>
