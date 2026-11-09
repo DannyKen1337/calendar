@@ -15,7 +15,7 @@ import { withBase, BASE_PATH } from '@/weblap/lib/basePath';
 import s from '@/weblap/fooldal.module.css';
 
 const SHORT_DAYS = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
-const FIELD_STYLES = [s.fSoot, s.fGold, s.fPaper, s.fDark];
+const FIELD_STYLES = [s.fSoot, s.fGold, s.fCellar, s.fDark];
 // A boltok saját logója a programban (ha van)
 const STORE_LOGOS = { jatekceh: '/photos/jatekceh-logo.png' };
 const ARROW = <span className={s.round} aria-hidden="true"><svg viewBox="0 0 10 10"><path d="M1 5h7M5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg></span>;
@@ -95,7 +95,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
         <section className={s.program} id="program" aria-labelledby="program-cim">
           <div className={s.programHead}>
             <h2 id="program-cim" className={s.disp} data-reveal>{program.title}</h2>
-            {program.button && general.cta.href && <a className={s.btnDark} href={general.cta.href} data-cal data-title={general.cta.label || program.button}>{program.button}</a>}
+            {program.button && general.cta.href && <a className={s.btn} href={general.cta.href} data-cal data-title={general.cta.label || program.button}>{program.button}</a>}
           </div>
           {week.length ? (
             <WeekProgram

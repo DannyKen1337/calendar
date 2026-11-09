@@ -114,7 +114,7 @@ export default function Overlays({ stores, sign, routeLabel }) {
           <div className={s.mapHead}>
             <h2>{map?.store.name}</h2>
             <p>{map?.store.address}{status && <> · <b>{status.open ? `Most nyitva, ${status.text.replace(/^Nyitva /, '')}` : `Most zárva, ${status.text[0].toLowerCase()}${status.text.slice(1)}`}</b></>}</p>
-            {map && <a className={s.btnDark} href={`https://www.google.com/maps/dir/?api=1&destination=${query}`} target="_blank" rel="noopener noreferrer">{routeLabel}</a>}
+            {map && <a className={s.btn} href={`https://www.google.com/maps/dir/?api=1&destination=${query}`} target="_blank" rel="noopener noreferrer">{routeLabel}</a>}
             <button ref={el => { closeBtn.current.map = el; }} type="button" className={s.close} aria-label="A térkép bezárása" onClick={() => close('map')}>{CLOSE}</button>
           </div>
           <div className={s.mapBox}>
