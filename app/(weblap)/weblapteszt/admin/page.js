@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { cinzel, manrope } from '@/weblap/lib/fonts';
+import { bigShoulders, publicSans } from '@/weblap/lib/fonts';
 import { getEditor, isLoggedIn } from '@/weblap/lib/auth';
 import { hasDatabase, getTavernDb } from '@/weblap/lib/db';
 import { getAllForEditor, postHeading, postDate, SOURCE_NAMES } from '@/weblap/lib/posts';
@@ -7,7 +7,7 @@ import { socialConfigured } from '@/weblap/lib/social';
 import { withBase } from '@/weblap/lib/basePath';
 import { getContentForEditor } from '@/weblap/lib/content';
 import { getPendingChanges } from '@/weblap/lib/staging';
-import { CONTENT_TABS, tabByKey } from '@/weblap/lib/contentSchema';
+import { EDITABLE_TABS, isEditableTab, tabByKey } from '@/weblap/lib/contentSchema';
 import { ObjectId } from 'mongodb';
 import PostForm from './PostForm';
 import ContentEditor from './ContentEditor';
@@ -17,11 +17,17 @@ import s from './admin.module.css';
 
 export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { index: false, follow: false } };
 
-// A fülek: a Hírek (a hírek kirakása, a behúzott posztok), és az oldal tartalma részenként.
+// A fülek: a Hírek (a hírek kirakása, a behúzott posztok), a Galéria és a Képfal. Az oldal többi része
+// (szövegek, boltok) itt nem szerkeszthető, a tartalma marad, ahogy van.
 // PREVIEW: hova visz a „Megnézem az előnézetben” link. Minden mentés előbb csak az előnézetben látszik;
 // az éles oldalra az előnézet alján lévő „Kirakás az éles oldalra” gomb viszi ki.
-const TABS = [{ key: 'hirek', label: 'Hírek' }, ...CONTENT_TABS];
-const PREVIEW = { general: '/elonezet', hero: '/elonezet', program: '/elonezet#program', features: '/elonezet#kinalat', gallery: '/elonezet#kinalat', news: '/elonezet#hirek', stores: '/elonezet#boltok', contact: '/elonezet#kapcsolat' };
+const ICONS = {
+  hirek: <path d="M4 5h12v14H6a2 2 0 0 1-2-2zM16 9h4v8a2 2 0 0 1-2 2h-2M7 9h6M7 12h6M7 15h4" />,
+  gallery: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="m21 16-5-5-8 8" /></>,
+  slideshow: <><rect x="3" y="4" width="10" height="10" rx="1.5" /><rect x="15" y="4" width="6" height="6" rx="1.5" /><rect x="15" y="12" width="6" height="8" rx="1.5" /><rect x="3" y="16" width="10" height="4" rx="1.5" /></>,
+};
+const TABS = [{ key: 'hirek', label: 'Hírek' }, ...EDITABLE_TABS.map(tabByKey)];
+const PREVIEW = { gallery: '/elonezet#galeria', slideshow: '/elonezet#kepfal' };
 export const dynamic = 'force-dynamic';
 
 // "2026-10-29T18:00" magyar helyi idő a dátummezőhöz
@@ -31,7 +37,7 @@ function toLocalInput(date) {
 }
 
 const Shell = ({ children }) => (
-  <div className={`${cinzel.variable} ${manrope.variable} ${s.page}`}>{children}</div>
+  <div className={`${bigShoulders.variable} ${publicSans.variable} ${s.page}`}>{children}</div>
 );
 
 // Egy kapcsoló gomb (kiemelés, elrejtés, közzététel) – szkript nélkül is működik
@@ -73,10 +79,10 @@ export default async function Admin({ searchParams }) {
   }
 
   const { szerkeszt, mentve, lap, visszaallitva, kirakva, elvetve, torolve } = await searchParams;
-  const tab = tabByKey(lap);
+  const tab = isEditableTab(lap) ? tabByKey(lap) : null;
   const pending = await getPendingChanges();
 
-  // A felület teteje: mi van még csak az előnézetben, és a kirakás
+  // A felület teteje: mi van még csak az előnézetben; a kirakás az előnézet alján van
   const stage = pending.count ? (
     <section className={`${s.stage} ${s.stagePending}`} aria-label="Kirakásra vár">
       <div className={s.stageText}>
@@ -90,15 +96,11 @@ export default async function Admin({ searchParams }) {
     </section>
   ) : (
     <section className={`${s.stage} ${s.stageCalm}`} aria-label="Hogyan működik">
-      <div className={s.stageText}>
-        <b>Az előnézet és az éles oldal most ugyanaz.</b>
-        <ol className={s.stageSteps}>
-          <li>Módosíts bármit (hír, szöveg, kép), és mentsd el.</li>
-          <li>Nézd meg az előnézetben: ott már látszik, az éles oldalon még nem.</li>
-          <li>Ha minden jó, az előnézet alján a „Kirakás az éles oldalra” gombbal kirakod.</li>
-        </ol>
-      </div>
-      <div className={s.stageActions}><a className={s.secondary} href={withBase('/elonezet')} target="_blank" rel="noopener">Előnézet megnyitása ↗</a></div>
+      <ol className={s.stageSteps}>
+        <li><b>Módosíts</b> és ments.</li>
+        <li><b>Nézd meg</b> az előnézetben.</li>
+        <li><b>Rakd ki</b> az előnézet alján.</li>
+      </ol>
     </section>
   );
   const notice = kirakva ? 'Kirakva! Az éles oldal frissült.' : elvetve ? 'A módosítások elvetve, az előnézet újra az éles oldalt mutatja.' : torolve ? 'Törölve. Az éles oldalról a kirakás után tűnik el.' : null;
@@ -106,18 +108,25 @@ export default async function Admin({ searchParams }) {
   const header = (
     <>
       <header className={s.bar}>
-        <b className={s.brand}>Weblap szerkesztése</b>
-        <span className={s.muted}>Belépve: {editor.username}</span>
-        <a href={withBase('/elonezet')} target="_blank" rel="noopener">Előnézet ↗</a>
-        <a href={withBase('/')} target="_blank" rel="noopener">Éles oldal ↗</a>
-        <a href="/admin">Naptár</a>
-        <form action={logoutAction}><button className={s.small}>Kilépés</button></form>
+        <b className={s.brand}>Tavern <span>weblap</span></b>
+        <span className={`${s.muted} ${s.who}`}>{editor.username}</span>
+        <nav className={s.barLinks} aria-label="Hivatkozások">
+          <a href={withBase('/elonezet')}>Előnézet</a>
+          <a className={s.barLive} href={withBase('/')} target="_blank" rel="noopener">Éles oldal ↗</a>
+          <a href="/admin">Naptár</a>
+          <form action={logoutAction}><button className={s.link}>Kilépés</button></form>
+        </nav>
       </header>
       <nav className={s.tabs} aria-label="A szerkesztőfelület részei">
         {TABS.map(t => {
           const on = (tab?.key || 'hirek') === t.key;
           const changed = t.key === 'hirek' ? pending.items.some(it => /hír|poszt/i.test(it)) : pending.tabs.has(t.key);
-          return <a key={t.key} className={`${s.tab} ${on ? s.tabOn : ''}`} aria-current={on ? 'page' : undefined} href={withBase(t.key === 'hirek' ? '/admin' : `/admin?lap=${t.key}`)}>{t.label}{changed && <span className={s.dot} title="Még ki nem rakott módosítás" />}</a>;
+          return (
+            <a key={t.key} className={`${s.tab} ${on ? s.tabOn : ''}`} aria-current={on ? 'page' : undefined} href={withBase(t.key === 'hirek' ? '/admin' : `/admin?lap=${t.key}`)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{ICONS[t.key]}</svg>
+              {t.label}{changed && <span className={s.dot} title="Még ki nem rakott módosítás" />}
+            </a>
+          );
         })}
       </nav>
       {notice && <p className={s.notice} role="status">{notice}</p>}
@@ -125,7 +134,7 @@ export default async function Admin({ searchParams }) {
     </>
   );
 
-  // Az oldal tartalmának egy füle
+  // A Galéria vagy a Képfal
   if (tab) {
     const { content, updated } = await getContentForEditor();
     return (
@@ -134,8 +143,8 @@ export default async function Admin({ searchParams }) {
         <main className={s.single}>
           <section className={s.panel} aria-labelledby="tab-title">
             <div className={s.tabHead}>
-              <h2 id="tab-title" className={s.h2}>{tab.label}</h2>
-              <a href={withBase(PREVIEW[tab.key])} target="_blank" rel="noopener">Megnézem az előnézetben ↗</a>
+              <h1 id="tab-title" className={s.h2}>{tab.label}</h1>
+              <a href={withBase(PREVIEW[tab.key])}>Megnézem az előnézetben</a>
             </div>
             <p className={s.muted}>{tab.intro}</p>
             {visszaallitva && <p className={s.ok} role="status">Visszaállítva az eredeti tartalomra (egyelőre csak az előnézetben).</p>}
@@ -166,7 +175,7 @@ export default async function Admin({ searchParams }) {
 
       <main className={s.main}>
         <section className={s.panel} aria-labelledby="form-title" id="urlap">
-          <h2 id="form-title" className={s.h2}>{editing ? 'Hír szerkesztése' : 'Új hír'}</h2>
+          <h1 id="form-title" className={s.h2}>{editing ? 'Hír szerkesztése' : 'Új hír'}</h1>
           {mentve && !editing && <p className={s.ok} role="status">Elmentve. Egyelőre csak az előnézetben látszik.</p>}
           <PostForm s={s} post={editing} nowLocal={toLocalInput(new Date())} />
         </section>
@@ -177,7 +186,7 @@ export default async function Admin({ searchParams }) {
             <span className={social.facebook ? s.on : s.off}>Facebook {social.facebook ? 'bekötve' : 'nincs bekötve'}</span>
             <span className={social.instagram ? s.on : s.off}>Instagram {social.instagram ? 'bekötve' : 'nincs bekötve'}</span>
           </p>
-          <p className={s.muted}>A Facebook- és Instagram-posztok maguktól jönnek (kb. 15 percenként frissül). Ezeket elrejtheted vagy kiemelheted, a sajátokat szerkesztheted is. Az oldalon a lista első 8 eleme látszik. Minden változás előbb csak az előnézetben látszik.</p>
+          <p className={s.muted}>A Facebook- és Instagram-posztok maguktól jönnek. Ezeket elrejtheted vagy kiemelheted, a sajátokat szerkesztheted is. Az oldalon az első 8 látszik.</p>
           {posts.length ? (
             <ul className={s.list}>
               {posts.map(p => (
@@ -218,7 +227,7 @@ export default async function Admin({ searchParams }) {
                 </li>
               ))}
             </ul>
-          ) : <p className={s.muted}>Még nincs hír. Az elsőt az Új hír űrlappal rakhatod ki.</p>}
+          ) : <p className={s.muted}>Még nincs hír. Az elsőt az Új hír űrlappal írhatod meg.</p>}
         </section>
       </main>
     </Shell>

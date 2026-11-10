@@ -1,10 +1,10 @@
 "use client";
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { tabByKey, emptyValue } from '@/weblap/lib/contentSchema';
 import { withBase } from '@/weblap/lib/basePath';
 import { saveContentAction, uploadImageAction } from './actions';
 
-// Az oldal tartalmának egy füle (Általános, Nyitókép, Kínálat, ...). Az űrlapot a fül sémája rajzolja ki
+// Az oldal tartalmának egy füle (a szerkesztőfelületen a Galéria és a Képfal). Az űrlapot a fül sémája rajzolja ki
 // (weblap/lib/contentSchema.js); mentéskor a teljes fül JSON-ban megy a szervernek, ami a séma szerint ellenőrzi.
 // s: az admin CSS-modulja; tabKey: a fül kulcsa; initial: a fül mostani tartalma; updated: { at, by } az utolsó mentésről
 const PREVIEW_PATH = '/elonezet';
@@ -83,7 +83,7 @@ function Field({ f, value, onChange, s, top }) {
     case 'strings':
       return <StringsField f={f} value={value} onChange={onChange} s={s} />;
     case 'list':
-      return <ListField f={f} value={value} onChange={onChange} s={s} />;
+      return f.photos ? <PhotoGrid f={f} value={value} onChange={onChange} s={s} /> : <ListField f={f} value={value} onChange={onChange} s={s} />;
     case 'object': {
       const inner = Object.entries(f.fields).map(([k, sub]) => (
         <Field key={k} f={sub} value={value?.[k]} onChange={(v) => onChange({ ...value, [k]: v })} s={s} />
@@ -277,6 +277,152 @@ function ListField({ f, value, onChange, s }) {
         ))}
       </ol>
       {list.length < f.max && <button type="button" className={s.small} onClick={add}>+ Új {f.itemLabel}</button>}
+    </fieldset>
+  );
+}
+
+const MAX_IMAGE = 4 * 1024 * 1024;
+const rid = () => Math.random().toString(36).slice(2, 10);
+const isHttp = (v) => { try { return ['http:', 'https:'].includes(new URL(v).protocol); } catch { return false; } };
+const Icon = ({ d }) => <svg viewBox="0 0 24 24" aria-hidden="true"><path d={d} /></svg>;
+const ICON = {
+  left: 'M15 5l-7 7 7 7', right: 'M9 5l7 7-7 7',
+  swap: 'M4 8h13l-3-3M20 16H7l3 3', trash: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12',
+  plus: 'M12 5v14M5 12h14',
+};
+
+// Képek rácsban (Galéria, Képfal): bélyegképek, egyszerre több kép feltöltése (vagy behúzása), kép linkje,
+// sorrend, csere, törlés és felirat. A képre kattintva választható ki, hova essen a kép közepe.
+function PhotoGrid({ f, value, onChange, s }) {
+  const list = value || [];
+  const hasCaption = !!f.item.fields.caption;
+  const [jobs, setJobs] = useState([]); // feltöltések: { id, name, error }
+  const [link, setLink] = useState('');
+  const [linkError, setLinkError] = useState(null);
+  const [drag, setDrag] = useState(false);
+  // a feltöltések egymás után futnak: mindig a legfrissebb listához adjanak hozzá
+  const latest = useRef(list);
+  useEffect(() => { latest.current = value || []; }, [value]);
+  const room = f.max - list.length;
+
+  const update = (next) => { latest.current = next; onChange(next); };
+  const newItem = (src) => ({ ...emptyValue(f.item), id: `uj-${rid()}`, picture: { src, alt: '', position: '50% 50%' } });
+  const setItem = (i, patch) => update(latest.current.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const setPicture = (i, patch) => setItem(i, { picture: { ...latest.current[i].picture, ...patch } });
+  const move = (i, d) => { const a = [...latest.current]; [a[i], a[i + d]] = [a[i + d], a[i]]; update(a); };
+  const remove = (i) => { if (window.confirm('Biztosan törlöd ezt a képet?')) update(latest.current.filter((_, j) => j !== i)); };
+  const job = (id, patch) => setJobs(js => (patch ? js.map(j => (j.id === id ? { ...j, ...patch } : j)) : js.filter(j => j.id !== id)));
+
+  async function send(file) {
+    if (!file.type?.startsWith('image/')) return { error: 'Ez nem kép.' };
+    if (file.size > MAX_IMAGE) return { error: 'A kép legfeljebb 4 MB lehet.' };
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      return (await uploadImageAction(fd)) || { error: 'Nem sikerült feltölteni.' };
+    } catch {
+      return { error: 'Nem sikerült feltölteni. Próbáld újra.' };
+    }
+  }
+
+  async function uploadMany(fileList) {
+    const files = [...fileList];
+    const take = files.slice(0, Math.max(0, f.max - latest.current.length));
+    const skipped = files.length - take.length;
+    const ids = take.map((file) => ({ id: rid(), name: file.name }));
+    setJobs(js => [...js.filter(j => !j.error), ...ids, ...(skipped ? [{ id: 'tobb', name: `${skipped} kép`, error: `Nem fér el: legfeljebb ${f.max} kép lehet.` }] : [])]);
+    for (const [i, file] of take.entries()) {
+      const res = await send(file);
+      if (res.url) { update([...latest.current, newItem(res.url)]); job(ids[i].id, null); }
+      else job(ids[i].id, { error: res.error });
+    }
+  }
+
+  async function replace(i, file) {
+    const id = rid();
+    setJobs(js => [...js, { id, name: file.name }]);
+    const res = await send(file);
+    if (res.url) { setPicture(i, { src: res.url }); job(id, null); } else job(id, { error: res.error });
+  }
+
+  function addLink() {
+    const v = link.trim();
+    if (!isHttp(v)) { setLinkError('A link http:// vagy https:// kezdetű legyen.'); return; }
+    if (room <= 0) { setLinkError(`Legfeljebb ${f.max} kép lehet.`); return; }
+    update([...latest.current, newItem(v)]);
+    setLink('');
+    setLinkError(null);
+  }
+
+  function pick(e, i) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = Math.round(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * 100);
+    const y = Math.round(Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) * 100);
+    setPicture(i, { position: `${x}% ${y}%` });
+  }
+
+  return (
+    <fieldset className={s.group}>
+      <legend className={s.legend}>{f.label} <span className={s.count}>{list.length} / {f.max}</span></legend>
+      {list.length === 0 && <p className={s.muted}>Még nincs kép. Tölts fel egyet, vagy jelölj ki többet egyszerre.</p>}
+      <ol className={s.photos}>
+        {list.map((item, i) => {
+          const [px, py] = (item.picture.position || '50% 50%').split(' ');
+          return (
+            <li key={item.id || i} className={s.photo} data-photo>
+              <div className={s.photoImg} onClick={(e) => pick(e, i)} title="Kattints oda, ahol a kép lényege van">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={withBase(item.picture.src)} alt="" style={{ objectPosition: item.picture.position }} referrerPolicy="no-referrer" />
+                <i className={s.imageDot} style={{ left: px, top: py }} aria-hidden="true" />
+                <span className={s.photoNo}>{i + 1}.</span>
+              </div>
+              <div className={s.photoBody}>
+                {hasCaption
+                  ? <input className={s.photoText} value={item.caption || ''} maxLength={f.item.fields.caption.max} placeholder="Felirat (nem kötelező)" aria-label={`Felirat (${i + 1}. kép)`} onChange={(e) => setItem(i, { caption: e.target.value })} />
+                  : <input className={s.photoText} value={item.picture.alt || ''} maxLength={300} placeholder="Mi látható a képen?" aria-label={`Mi látható a képen? (${i + 1}. kép)`} onChange={(e) => setPicture(i, { alt: e.target.value })} />}
+                <div className={s.photoTools}>
+                  <button type="button" className={s.iconBtn} disabled={i === 0} onClick={() => move(i, -1)}><Icon d={ICON.left} /><span className={s.sr}>Előre</span></button>
+                  <button type="button" className={s.iconBtn} disabled={i === list.length - 1} onClick={() => move(i, 1)}><Icon d={ICON.right} /><span className={s.sr}>Hátra</span></button>
+                  <label className={s.iconBtn}>
+                    <Icon d={ICON.swap} /><span className={s.sr}>Csere</span>
+                    <input type="file" accept="image/*" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) replace(i, file); }} />
+                  </label>
+                  <button type="button" className={`${s.iconBtn} ${s.danger}`} onClick={() => remove(i)}><Icon d={ICON.trash} /><span className={s.sr}>Törlés</span></button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+        {room > 0 && (
+          <li className={`${s.photoAdd} ${drag ? s.photoAddOn : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+            onDrop={(e) => { e.preventDefault(); setDrag(false); uploadMany(e.dataTransfer.files); }}>
+            <label>
+              <Icon d={ICON.plus} />
+              <b>{list.length ? 'Képek hozzáadása' : 'Képek feltöltése'}</b>
+              <small>Egyszerre többet is kijelölhetsz. Legfeljebb 4 MB / kép.</small>
+              <input type="file" accept="image/*" multiple hidden onChange={(e) => { const files = e.target.files; uploadMany(files); e.target.value = ''; }} />
+            </label>
+          </li>
+        )}
+      </ol>
+      {jobs.length > 0 && (
+        <ul className={s.jobs} role="status">
+          {jobs.map(j => (
+            <li key={j.id} className={j.error ? s.jobError : undefined}>
+              <b>{j.name}</b>: {j.error || 'feltöltés…'}
+              {j.error && <button type="button" className={s.link} onClick={() => job(j.id, null)}>Rendben</button>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {room > 0 && (
+        <div className={s.linkRow}>
+          <input value={link} onChange={(e) => setLink(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } }} placeholder="…vagy kép linkje: https://" inputMode="url" aria-label="Kép linkje" />
+          <button type="button" className={s.small} onClick={addLink}>Hozzáadás</button>
+          {linkError && <small className={s.error}>{linkError}</small>}
+        </div>
+      )}
     </fieldset>
   );
 }

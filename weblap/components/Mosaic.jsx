@@ -71,7 +71,7 @@ export default function Mosaic({ title, pictures }) {
   );
 
   return (
-    <section ref={root} className={s.mosaic} aria-labelledby="kepfal-cim">
+    <section ref={root} className={s.mosaic} id="kepfal" aria-labelledby="kepfal-cim">
       <div className={s.mosaicHead}>
         <h2 id="kepfal-cim" className={s.disp} data-reveal>{title}</h2>
         {pictures.length > count && (

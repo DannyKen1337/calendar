@@ -141,7 +141,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
         })}
 
         {gallery.pictures.length > 0 && (
-          <section className={s.prints} aria-labelledby="galeria-cim">
+          <section className={s.prints} id="galeria" aria-labelledby="galeria-cim">
             <h2 id="galeria-cim" className={s.disp} data-reveal>{gallery.title}</h2>
             {gallery.pictures.slice(0, 3).map((g, i) => (
               <figure key={g.id || i} className={s.print} data-reveal>

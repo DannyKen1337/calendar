@@ -9,6 +9,7 @@ export default function PostForm({ s, post, nowLocal }) {
   const v = state?.values || {};
   const pick = (k, fallback) => (k in v ? v[k] : fallback);
   const [preview, setPreview] = useState(null);
+  const [fileName, setFileName] = useState('');
   const editing = !!post?.id;
   return (
     <form action={action} className={s.form} key={post?.id || 'new'}>
@@ -23,14 +24,18 @@ export default function PostForm({ s, post, nowLocal }) {
         <small>Üres sor: új bekezdés. A főoldalon az eleje látszik, a teljes szöveg a hír saját oldalán.</small>
       </label>
       <div className={s.row}>
-        <label className={s.field}>
+        <div className={s.field}>
           <span>Kép feltöltése</span>
-          <input name="imageFile" type="file" accept="image/*" onChange={(e) => {
-            const f = e.target.files?.[0];
-            setPreview(f ? URL.createObjectURL(f) : null);
-          }} />
+          <label className={s.small}>
+            {fileName || 'Kép kiválasztása'}
+            <input name="imageFile" type="file" accept="image/*" hidden onChange={(e) => {
+              const f = e.target.files?.[0];
+              setPreview(f ? URL.createObjectURL(f) : null);
+              setFileName(f?.name || '');
+            }} />
+          </label>
           <small>Legfeljebb 4 MB.</small>
-        </label>
+        </div>
         <label className={s.field}>
           <span>…vagy kép URL-je</span>
           <input name="imageUrl" type="url" placeholder="https://" defaultValue={pick('imageUrl', post?.image || '')} />
