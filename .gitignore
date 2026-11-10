@@ -43,3 +43,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .superpowers/
+tests/e2e/shots/
+tests/e2e/.uri

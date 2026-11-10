@@ -52,7 +52,7 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - **A weboldalról és a csak tulajdonosnak szóló változásokról ne kerüljön bejegyzés az Újdonságok közé** (`lib/changelog.js`); csak a szervezőket érintő változásokról.
 - Játékképek: `public/jatekok/*.png` (arányosan kicsinyített helyi másolatok, max. 320×320); a naptár, a jelentkezési oldal és a weboldal is ezeket használja (`lib/gameConfig.js`).
 - Nyitvatartás: `lib/storeHours.js` (a naptár időpont-ellenőrzése) és a weboldal Boltok füle külön van, változáskor mindkettőt át kell írni.
-- Tesztelés: helyben memóriabeli MongoDB-vel (`mongodb-memory-server`) és headless Chrome-mal (puppeteer-core) néztük végig; iPhone méret 402×874.
+- Tesztelés: `npm test` (unit: `node --test` a `*.test.mjs` fájlokra; e2e: `tests/e2e/run.mjs` – memóriabeli MongoDB + `next dev` a 3179-es porton + headless Chrome, `CHROME_PATH`-szal felülírható; egy fájl: `npm run test:e2e -- naptar-havi`). Közben ne fusson másik `next dev` ebben a mappában. iPhone méret 402×874. Új funkcióhoz új e2e fájl a `tests/e2e/` mappába, és a `run.mjs` ROUNDS listájába.
 
 ## Látványterv
 - Design vászon: https://claude.ai/artifact/9hsmk9SxJqsNa3B5pJERRh (nyilvános naptár, esemény/jelentkezés, admin, napi telítettség).
