@@ -300,11 +300,11 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
                   const counted = !e.isOpenAttendance && !e.external_url;
                   return (
                     <li key={String(e._id || e.id)}>
-                      <button type="button" className={s.row} onClick={() => openEvent(e)}>
+                      <button type="button" className={`${s.row} ${special ? 'special-row' : ''}`} style={special ? { '--special-color': special.color } : undefined} title={special ? special.label : undefined} onClick={() => openEvent(e)}>
                         <span className={s.rowDot} style={{ background: special ? special.color : getGameColor(e) }} aria-hidden="true" />
                         <span className={s.rowMain}>
                           <span className={s.rowTop}><span className={s.rowTime}>{String(e.date).slice(11, 16)}</span><span className={s.rowName}>{special ? '' : e.isFeatured ? '★ ' : ''}{e.name}</span></span>
-                          <span className={s.rowSub}>{special ? `${special.label} · ` : ''}{e.category || 'Egyéb'}{e.isOpenAttendance ? ' · kötetlen létszám' : ''}</span>
+                          <span className={s.rowSub}>{e.category || 'Egyéb'}{e.isOpenAttendance ? ' · kötetlen létszám' : ''}</span>
                         </span>
                         {counted && <span className={s.rowCount}>{e.current_players} / {e.max_players}</span>}
                       </button>

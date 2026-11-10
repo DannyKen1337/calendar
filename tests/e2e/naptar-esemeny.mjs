@@ -55,7 +55,21 @@ try {
   await dsk.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   await dsk.waitForSelector('[aria-label="Előző hónap"]', { timeout: 30000 });
   const strips = await dsk.evaluate(() => [...document.querySelectorAll('[data-day] button')].map(x => x.textContent).join(' | '));
-  ok(/Megjelenés/.test(strips) && !EMOJI.test(strips), `naptár: a különleges esemény sávja emoji nélkül (${strips.slice(0, 60)})`);
+  ok(!EMOJI.test(strips) && !/Megjelenés|Különleges/.test(strips), `naptár: a különleges esemény sávján nincs kiírva a típus (${strips.slice(0, 60)})`);
+  const glow = await dsk.evaluate(() => { const x = [...document.querySelectorAll('[data-day] button')].find(b => b.textContent.includes('19:00')); const cs = x && getComputedStyle(x); return cs ? { anim: cs.animationName, border: cs.borderTopWidth } : null; });
+  ok(glow && /specialGlow/.test(glow.anim) && glow.border === '2px', `naptár: a különleges esemény sávja világító kerettel (${JSON.stringify(glow)})`);
+  // a nap listájában (telefon) is világító keret, felirat nélkül
+  const ph = await page(b, null, 402, 874);
+  await ph.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'jatekceh'); } catch { /* */ } });
+  await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await ph.waitForSelector('[aria-label="Előző hónap"]', { timeout: 30000 });
+  const tomorrow = await ph.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+  await ph.click(`[data-day="${tomorrow}"]`).catch(() => {});
+  await wait(400);
+  const row = await ph.evaluate(() => { const li = [...document.querySelectorAll('[data-ujsor]')].find(l => l.textContent.includes('Szett megjelenés este')); const btn = li?.querySelector('button'); return btn ? { anim: getComputedStyle(btn).animationName, text: li.textContent } : null; });
+  ok(row && /specialGlow/.test(row.anim) && !/Megjelenés ·|Különleges esemény ·/.test(row.text), `nap listája: világító keret, típusfelirat nélkül (${JSON.stringify(row)})`);
+  const dot = await ph.evaluate((k) => { const c = document.querySelector(`[data-day="${k}"]`); const sp = c && [...c.querySelectorAll('span span')].find(x => getComputedStyle(x).animationName.includes('specialGlow')); return !!sp; }, tomorrow);
+  ok(dot, 'telefonos rács: a különleges esemény pöttye világít');
 
   // Karbantartás: a belépett szervező nem látja egy pillanatra sem a karbantartás képernyőt
   await db.collection('settings').updateOne({ _id: 'global_settings' }, { $set: { isMaintenance: true } }, { upsert: true });

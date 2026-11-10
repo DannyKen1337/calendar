@@ -44,7 +44,8 @@ const countText = (e) => (e.rgn?.syncedAt && e.external_url ? `${e.current_playe
 export function EventRows({ events, onOpen, fresh = false }) {
   return events.map(e => (
     <li key={String(e._id || e.id)} data-ujsor={fresh ? '' : undefined}>
-      <button type="button" className={s.row} onClick={() => onOpen(e)}>
+      <button type="button" className={`${s.row} ${isSpecialEvent(e) ? 'special-row' : ''}`} style={isSpecialEvent(e) ? { '--special-color': getEventTypeConfig(e).color } : undefined}
+        title={isSpecialEvent(e) ? getEventTypeConfig(e).label : undefined} onClick={() => onOpen(e)}>
         <span className={s.rowDot} style={{ background: isSpecialEvent(e) ? getEventTypeConfig(e).color : getGameColor(e) }} aria-hidden="true" />
         <span className={s.rowMain}>
           <span className={s.rowTop}><span className={s.rowTime}>{timeOf(e)}</span><span className={s.rowName}>{e.name}</span></span>
@@ -124,11 +125,12 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
     const special = isSpecialEvent(e) ? getEventTypeConfig(e) : null;
     const color = special ? special.color : getGameColor(e);
     const other = e._otherStore ? STORES[e._otherStore]?.name : null;
-    const label = `${special ? `${special.short} · ` : e.isFeatured ? '★ ' : ''}${timeOf(e)} ${SHORT[e.category] || e.category || 'Egyéb'}`;
+    // A különleges eseményt (megjelenés, expo) a világító keret és a színátmenet jelzi, nem felirat (globals.css: special-strip)
+    const label = `${!special && e.isFeatured ? '★ ' : ''}${timeOf(e)} ${SHORT[e.category] || e.category || 'Egyéb'}`;
     return (
-      <button key={String(e._id || e.id)} type="button" className={`${s.strip} ${past ? s.stripPast : ''} ${other ? s.stripOther : ''}`}
-        style={{ background: color, color: inkOn(color) }}
-        title={`${timeOf(e)} ${e.name}${other ? ` (${other})` : ''}${hasCount(e) ? ` · ${countText(e)} jelentkező` : ''}`}
+      <button key={String(e._id || e.id)} type="button" className={`${s.strip} ${past ? s.stripPast : ''} ${other ? s.stripOther : ''} ${special ? 'special-strip' : ''}`}
+        style={special ? { background: special.gradient, color: '#ffffff', '--special-color': special.color } : { background: color, color: inkOn(color) }}
+        title={`${special ? `${special.label}: ` : ''}${timeOf(e)} ${e.name}${other ? ` (${other})` : ''}${hasCount(e) ? ` · ${countText(e)} jelentkező` : ''}`}
         onClick={(ev) => { ev.stopPropagation(); open(e); }}>
         <span className={s.stripText}>{label}</span>
         {hasCount(e) && <span className={s.stripCount}>{countText(e)}</span>}
@@ -230,7 +232,9 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
                 className={`${s.mCell} ${past ? s.mCellPast : ''} ${key === todayKey ? s.mCellToday : ''} ${selected === key ? s.mCellSel : ''}`}
                 onClick={() => setSelected(key)}>
                 <span className={s.mNum}>{d.getDate()}</span>
-                <span className={s.mDots} aria-hidden="true">{evs.slice(0, 3).map(e => <span key={String(e._id || e.id)} style={{ background: getGameColor(e) }} />)}{tablesOn(key).length > 0 && <span className={s.rowBooking} />}</span>
+                <span className={s.mDots} aria-hidden="true">{evs.slice(0, 3).map(e => (isSpecialEvent(e)
+                  ? <span key={String(e._id || e.id)} className="special-dot" style={{ background: getEventTypeConfig(e).color, '--special-color': getEventTypeConfig(e).color }} />
+                  : <span key={String(e._id || e.id)} style={{ background: getGameColor(e) }} />))}{tablesOn(key).length > 0 && <span className={s.rowBooking} />}</span>
                 {o && o.used > 0 ? <span className={`${s.meter} ${o.over ? s.meterOver : ''}`} aria-hidden="true"><span style={{ width: `${Math.min(100, o.pct)}%` }} /></span> : <span style={{ height: 4 }} />}
               </button>
             );
