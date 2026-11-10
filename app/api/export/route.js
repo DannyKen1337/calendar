@@ -6,10 +6,11 @@ import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
 
+// A debreceni bolt mindkét címe helyes (Kossuth utca 7 és Gambrinus köz); a naptárban a Kossuth utcai szerepel
 const STORE_LOCATIONS = {
   debrecen: 'Tavern, Kossuth utca 7, Debrecen',
-  miskolc: 'Tavern Miskolc',
-  jatekceh: 'JátékCéh',
+  miskolc: 'Tavern Miskolc, Nagy Imre u. 17, 3525 Miskolc',
+  jatekceh: 'JátékCéh, Batthyány u. 1, 4024 Debrecen',
 };
 
 // Az események dátuma magyar helyi idő ("2026-10-05T18:00", időzóna nélkül), ezért Europe/Budapest időzónával exportáljuk.

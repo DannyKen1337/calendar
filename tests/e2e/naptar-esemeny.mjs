@@ -28,6 +28,7 @@ try {
   const ics = await get(`/api/export?event=${opId}`);
   const icsText = await ics.text();
   ok(/text\/calendar/.test(ics.headers.get('content-type') || '') && (icsText.match(/BEGIN:VEVENT/g) || []).length === 1 && icsText.includes('One Piece Store Tournament'), 'naptárba mentés: egyetlen esemény ICS-ben');
+  ok(/LOCATION:JátékCéh\\, Batthyány u\. 1\\, 4024 Debrecen/.test(icsText.replace(/\r\n /g, '')), 'naptárba mentés: a JátékCéh pontos címe');
   const nf = await get('/api/export?event=nincsilyen');
   ok(nf.status === 404 && /application\/json/.test(nf.headers.get('content-type') || ''), 'naptárba mentés: ismeretlen eseményre 404, JSON-ként');
   let p = await page(b, null, 402, 874);
