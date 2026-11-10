@@ -84,7 +84,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
       <main>
         <section className={s.hero} aria-labelledby="fooldal-cim">
           <h1 id="fooldal-cim" className={s.sign} data-sign>
-            <Image src={hero.sign.src} alt={hero.sign.alt || 'Tavern'} width={1096} height={286} priority sizes="100vw" />
+            <Image src={hero.sign.src} alt={hero.sign.alt || 'Tavern'} width={1499} height={403} priority sizes="100vw" />
             <span className={s.srOnly}> – {general.title}</span>
           </h1>
           <div className={s.heroFoot}>

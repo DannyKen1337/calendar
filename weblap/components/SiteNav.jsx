@@ -27,7 +27,7 @@ export default function SiteNav({ home = true, homeHref = withBase('/'), links, 
     <header className={s.nav}>
       {!home && (
         <a href={homeHref} className={s.navBrand} aria-label={`${logo.alt || 'Tavern'} – főoldal`}>
-          <Image src={logo.src} alt="" width={1096} height={286} priority />
+          <Image src={logo.src} alt="" width={1499} height={403} priority />
         </a>
       )}
       <nav className={s.navLinks} aria-label="Ugrás az oldal részeihez">

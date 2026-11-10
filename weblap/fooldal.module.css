@@ -61,7 +61,7 @@
 
 /* --- Nyitókép: a cégér borítja be az első képernyőt; beúszik, görgetésre kiúszik (Motion: --p) --- */
 .hero { height: 100svh; min-height: 560px; display: grid; grid-template-rows: 1fr auto; padding: 5.5rem var(--margin) 1.75rem; overflow: hidden; }
-.sign { --p: 0; align-self: center; justify-self: center; width: min(100%, calc((100svh - 13rem) * 3.83)); line-height: 0; transform: translateY(calc(var(--p) * -16svh)) scale(calc(1 - var(--p) * 0.12)); opacity: calc(1 - var(--p)); will-change: transform, opacity; }
+.sign { --p: 0; align-self: center; justify-self: center; width: min(100%, calc((100svh - 13rem) * 3.72)); line-height: 0; transform: translateY(calc(var(--p) * -16svh)) scale(calc(1 - var(--p) * 0.12)); opacity: calc(1 - var(--p)); will-change: transform, opacity; }
 .sign img { width: 100%; height: auto; }
 @media (prefers-reduced-motion: no-preference) {
   .sign img { animation: signIn 1400ms var(--ease-expo) 150ms both; }

@@ -89,7 +89,7 @@ export default function Overlays({ stores, sign, routeLabel }) {
         <div className={s.wipe} />
         <div className={s.calSheet}>
           <div className={s.calBar}>
-            <img src={withBase(sign)} alt="Tavern" width={154} height={40} />
+            <img src={withBase(sign)} alt="Tavern" width={149} height={40} />
             <span>{cal?.title}</span>
             <button ref={el => { closeBtn.current.cal = el; }} type="button" className={s.close} aria-label="A naptár bezárása" onClick={() => close('cal')}>{CLOSE}</button>
           </div>
