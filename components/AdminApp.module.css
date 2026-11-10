@@ -207,5 +207,5 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
 .tool { justify-content: flex-start; }
 .tool > .toolIcon { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--raised); color: var(--gold); font-size: 16px; }
 .tool > .toolText { flex: 1; }
-.tool > .chev, .tool > .ant-switch, .tool > :last-child:not(.toolText):not(.toolIcon) { margin-left: auto; }
+.tool > .chev, .tool > :global(.ant-switch), .tool > :last-child:not(.toolText):not(.toolIcon) { margin-left: auto; }
 .sheetCap .quiet { color: #9a8d89; }

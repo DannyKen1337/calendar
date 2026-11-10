@@ -16,8 +16,10 @@
 .step { width: 44px; min-height: 48px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 20px; font-weight: 800; cursor: pointer; }
 .step:hover:not(:disabled) { background: var(--control); }
 .step:disabled { opacity: 0.35; cursor: default; }
-.seatsLabel { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; font-size: 10px; font-weight: 800; color: var(--faint); letter-spacing: 0.05em; text-transform: uppercase; }
-.seatsLabel input { width: 48px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 18px; font-weight: 800; text-align: center; padding: 0; -moz-appearance: textfield; }
+.seatsLabel { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; font-size: 10px; font-weight: 800; color: var(--faint); letter-spacing: 0.05em; text-transform: uppercase; }
+.seatsLabel input { width: 48px; height: 44px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 18px; font-weight: 800; text-align: center; padding: 0; -moz-appearance: textfield; }
+.seatsLabel span { position: absolute; top: 3px; }
+.seatsLabel input { padding-top: 10px; }
 .seatsLabel input::-webkit-outer-spin-button, .seatsLabel input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .accept, .reject, .copy { min-height: 44px; padding: 0 14px; border: 0; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
 .accept { flex: 1; background: var(--gold); color: #120d0e; }

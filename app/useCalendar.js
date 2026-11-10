@@ -17,6 +17,7 @@ export const useCalendar = ({ eager = false } = {}) => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false); // lefutott-e már a munkamenet-ellenőrzés (eager módban kell)
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState(null);
@@ -98,6 +99,7 @@ export const useCalendar = ({ eager = false } = {}) => {
   const checkSession = () => fetch('/api/auth/session')
     .then((res) => res.json())
     .then((data) => {
+      setSessionChecked(true);
       if (data.user) {
         setUserName(data.user.username);
         setUserId(data.user.id ? String(data.user.id) : null);
@@ -112,7 +114,7 @@ export const useCalendar = ({ eager = false } = {}) => {
         fetchPublicData(false);
       }
     })
-    .catch(() => { if (!eager) fetchPublicData(false); });
+    .catch(() => { setSessionChecked(true); if (!eager) fetchPublicData(false); });
 
   const handleSelectStore = (storeId) => {
     setSelectedStore(storeId);
@@ -672,7 +674,7 @@ export const useCalendar = ({ eager = false } = {}) => {
 
   return {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
-    allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen,
+    allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen, sessionChecked,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, occupancy, bookings, publicOccupancy, saveOccupancy, saveBooking, deleteBooking, tableBookings, decideTableBooking, publicTableBookings, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,

@@ -71,7 +71,8 @@ function CapBar({ e, c, big = false }) {
     </span>
   );
 }
-const MaBadge = () => <span className={s.maBadge} data-ma>MA</span>;
+// A felirat mellett ott a „Ma ·” is, ezért a felolvasónak rejtve
+const MaBadge = () => <span className={s.maBadge} data-ma aria-hidden="true">MA</span>;
 
 export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   const isOwner = app.userRole === 'owner';
@@ -167,19 +168,23 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     return { label: 'Nyitva', tone: 'plain' };
   };
 
+  // Az állapotcímke színe (telefonon és gépen ugyanaz)
+  const pillClass = (st) => `${s.pill} ${st.tone === 'red' ? s.pillRed : st.tone === 'quiet' ? s.pillQuiet : st.label === 'Betelt' ? s.pillFull : s.pillOpen}`;
+
   // Telefonon: egy esemény kártyája: idő, név, állapot, telítettségsáv, és a három leggyakoribb teendő (a Check-in kiemelve)
   const eventCard = (e) => {
     const c = capacity(e);
     const st = stateOf(e);
     const hasRegs = !e.external_url && !e.isOpenAttendance;
     const manage = app.canManage(e);
-    const note = !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám' : e.external_url && !c.counted ? 'külső jelentkezés'
-      : c.counted && !c.full && c.max ? `${Math.max(0, c.max - c.cur)} hely szabad` : '';
+    // Az állapotot a címke mondja (Lezárva, Betelt, Külső jelentkezés); a sor csak a szabad helyeket teszi hozzá
+    const note = !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám'
+      : c.counted && !c.full && c.max && e.is_open ? `${Math.max(0, c.max - c.cur)} hely szabad` : '';
     return (
       <div key={eid(e)} className={s.card} data-kartya>
         <button type="button" className={s.cardHead} onClick={() => setSelected(eid(e))}>
           <span className={s.cardTitle}><b className={s.num}>{timeOf(e)}</b> <b>{e.name}</b></span>
-          <span className={`${s.pill} ${st.tone === 'red' ? s.pillRed : st.tone === 'quiet' ? s.pillQuiet : c.full ? s.pillFull : s.pillOpen}`}>{c.full && st.label === 'Nyitva' ? 'Betelt' : st.label}</span>
+          <span className={pillClass(st)}>{st.label}</span>
         </button>
         <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']}{note ? ` · ${note}` : ''}</span>
         {c.counted && (
@@ -278,7 +283,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
                   <td className={s.quiet}>{STORES[e.store || 'debrecen']?.name}</td>
                   <td className={`${s.right} ${s.num}`}><span className={s.capCell}><CapBar e={e} c={c} /><b>{c.text}</b></span></td>
                   <td className={`${s.right} ${s.num} ${s.quiet}`}>{e.queue_count > 0 ? e.queue_count : '—'}</td>
-                  <td><span className={`${s.pill} ${st.tone === 'red' ? s.pillRed : st.tone === 'quiet' ? s.pillQuiet : ''}`}>{st.label}</span></td>
+                  <td><span className={pillClass(st)}>{st.label}</span></td>
                   <td className={s.right}>
                     {!manage && <span className={s.quiet}>Csak megtekintés</span>}
                     {manage && hasRegs && <Link className={`${s.act} ${s.actMain}`} href={checkinPageUrl(e)}>Check-in</Link>}
@@ -604,7 +609,7 @@ function EventSheet({ app, evt, onClose }) {
             <div className={s.sheetCap}>
               <div className={s.sheetCapRow}>
                 <b className={s.num}>{c.cur}<span>{c.max ? ` / ${c.max}` : ''}</span></b>
-                <span className={c.full ? s.gold : s.ok}>{c.full ? `Betelt${e.queue_count > 0 ? ` · ${e.queue_count} várólistán` : ''}` : c.max ? `${Math.max(0, c.max - c.cur)} hely szabad` : ''}</span>
+                <span className={c.full ? s.gold : s.ok}>{[c.full ? 'Betelt' : c.max ? `${Math.max(0, c.max - c.cur)} hely szabad` : '', e.queue_count > 0 ? `${e.queue_count} várólistán` : ''].filter(Boolean).join(' · ')}</span>
               </div>
               <CapBar e={e} c={c} big />
               {hasRegs && <span className={s.quiet}>{closed ? 'Jelentkezés lezárva' : 'Jelentkezés nyitva'}</span>}

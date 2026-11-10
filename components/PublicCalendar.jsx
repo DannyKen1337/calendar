@@ -46,7 +46,8 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
     return <div className={`${s.page} ${s.embed}`} style={{ display: 'grid', placeItems: 'center', padding: '64px 0', color: '#e5b15d', fontWeight: 700 }}><EmbedBridge />Betöltés...</div>;
   }
   // Betöltés közben a hónap váza, hogy az oldal ne ugráljon, amikor megjön az adat
-  if (app.loading) {
+  // Karbantartás alatt a belépett szervezők látják a naptárt: amíg nem tudjuk, ki van belépve, a váz marad
+  if (app.loading || (app.isMaintenance && !app.sessionChecked)) {
     return (
       <main className={`${s.page} ${s.v2}`} aria-busy="true">
         <div className={s.wrap}>

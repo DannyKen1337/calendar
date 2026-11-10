@@ -78,7 +78,7 @@ export async function GET(request) {
 
     const db = await getTavernDb();
     const events = await db.collection('tournaments').find(query).toArray();
-    if (eventId && events.length === 0) return new Response(JSON.stringify({ error: 'Az esemény nem található.' }), { status: 404 });
+    if (eventId && events.length === 0) return Response.json({ error: 'Az esemény nem található.' }, { status: 404 });
 
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tavern//Naptar//HU', 'CALSCALE:GREGORIAN', ...VTIMEZONE];
     const stamp = formatUtc(new Date());

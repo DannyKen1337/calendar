@@ -12,7 +12,7 @@
    - Különleges események és boltok emoji-ikonjai helyett szöveg/szín (a nyilvános naptárban és az adminban).
    - A beágyazott naptár heti nézete is az új `WeekCalendar`.
    - Eseményoldal: schema.org `Event` JSON-LD (név, kezdés Europe/Budapest időzónával, helyszín a weblap boltcímeivel, szervező, állapot).
-   - Első betöltés: a nyilvános naptár a szerverről kapja az első adatot (nincs külön kérés vendégnek).
+   - Első betöltés: a nyilvános naptár a nyilvános adatot a munkamenet-ellenőrzéssel párhuzamosan tölti (`useCalendar({ eager: true })`). Eltérés a tervtől: szerveroldali előtöltés helyett, mert a bolt választása a böngésző tárolójában van (szerver és kliens eltérő tartalma hidratálási hibát okozna).
 3. **Naptárba mentés egy eseményre** – `/api/export?event=<id>` egy VEVENT-tel; „Naptárba” gomb az eseményoldalon és a sikeres jelentkezés után.
 4. **Admin átalakítása a terv szerint** – telítettségsáv a kártyákon és a táblázatban, MA jelölés, egy fő gomb (Check-in), egységes alsó lap telítettségkártyával, foglalásnál −/+ léptető, Továbbiak ikonokkal; minden mostani funkció és jog marad.
 

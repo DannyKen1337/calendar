@@ -3,12 +3,13 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { MongoClient, ObjectId } from 'mongodb';
+import { fileURLToPath } from 'node:url';
 import { SignJWT } from 'jose';
 import assert from 'node:assert/strict';
 export { ObjectId };
 export const SECRET = 'e2e_secret_e2e_secret_e2e_secret_123';
 export const BASE = 'http://localhost:3179';
-export const SHOTS = new URL('./shots/', import.meta.url).pathname;
+export const SHOTS = fileURLToPath(new URL('./shots/', import.meta.url));
 mkdirSync(SHOTS, { recursive: true });
 export const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 export const wait = (ms) => new Promise(r => setTimeout(r, ms));

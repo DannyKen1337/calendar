@@ -28,7 +28,8 @@ try {
   const ics = await get(`/api/export?event=${opId}`);
   const icsText = await ics.text();
   ok(/text\/calendar/.test(ics.headers.get('content-type') || '') && (icsText.match(/BEGIN:VEVENT/g) || []).length === 1 && icsText.includes('One Piece Store Tournament'), 'naptárba mentés: egyetlen esemény ICS-ben');
-  ok((await get('/api/export?event=nincsilyen')).status === 404, 'naptárba mentés: ismeretlen eseményre 404');
+  const nf = await get('/api/export?event=nincsilyen');
+  ok(nf.status === 404 && /application\/json/.test(nf.headers.get('content-type') || ''), 'naptárba mentés: ismeretlen eseményre 404, JSON-ként');
   let p = await page(b, null, 402, 874);
   await p.goto(`${BASE}/esemeny/${opId}`, { waitUntil: 'networkidle2', timeout: 240000 });
   const cal = await p.evaluate(() => { const a = [...document.querySelectorAll('a')].find(x => /Naptárba/.test(x.textContent)); return a ? { href: a.getAttribute('href'), h: a.getBoundingClientRect().height } : null; });
@@ -54,6 +55,21 @@ try {
   await dsk.waitForSelector('[aria-label="Előző hónap"]', { timeout: 30000 });
   const strips = await dsk.evaluate(() => [...document.querySelectorAll('[data-day] button')].map(x => x.textContent).join(' | '));
   ok(/Megjelenés/.test(strips) && !EMOJI.test(strips), `naptár: a különleges esemény sávja emoji nélkül (${strips.slice(0, 60)})`);
+
+  // Karbantartás: a belépett szervező nem látja egy pillanatra sem a karbantartás képernyőt
+  await db.collection('settings').updateOne({ _id: 'global_settings' }, { $set: { isMaintenance: true } }, { upsert: true });
+  const { token } = await import('./lib.mjs');
+  const staff = (await db.collection('users').insertOne({ username: 'Szervezo', role: 'admin', features: [], allowedCategories: null, allowedStores: null, lastSeenChangelog: '9999' })).insertedId;
+  const ctx = await b.createBrowserContext();
+  const mp = await page(ctx, await token(staff, 'Szervezo', 'admin'), 402, 874);
+  await mp.evaluateOnNewDocument(() => { window.__latottKarbantartas = false; new MutationObserver(() => { if (document.body?.innerText.includes('Karbantartás alatt')) window.__latottKarbantartas = true; }).observe(document, { subtree: true, childList: true, characterData: true }); });
+  await mp.setRequestInterception(true);
+  mp.on('request', r => { if (r.url().includes('/api/auth/session')) setTimeout(() => r.continue().catch(() => {}), 1500); else r.continue().catch(() => {}); });
+  await mp.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await wait(800);
+  ok(!(await mp.evaluate(() => window.__latottKarbantartas)), 'karbantartás: a szervező nem látja a karbantartás képernyőt');
+  await ctx.close();
+  await db.collection('settings').updateOne({ _id: 'global_settings' }, { $set: { isMaintenance: false } });
 
   // Beágyazott naptár: a heti nézet is az új
   p = await page(b, null, 402, 874);
