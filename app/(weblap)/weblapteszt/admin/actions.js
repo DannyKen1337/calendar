@@ -1,8 +1,8 @@
 'use server';
 // A szerkesztőfelület műveletei. Mindegyik maga ellenőrzi a jogot (a felület elrejtése nem védelem).
 // A módosítások a naptár naplójába (audit_logs) is bekerülnek, "WEBLAP" művelettel.
-// Minden mentés csak az előnézetbe kerül (/weblapteszt/elonezet); az éles oldalra a Kirakás gomb viszi ki őket
-// (publishAction, csak a tulajdonos és a "Weblap jóváhagyó" jogú szerkesztő).
+// Minden mentés csak az előnézetbe kerül (/weblapteszt/elonezet); az éles oldalra az előnézet sávjának
+// Kirakás gombja viszi ki őket (publishAction, bármelyik szerkesztő).
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { ObjectId } from 'mongodb';
@@ -23,12 +23,6 @@ async function addLog(db, editor, details) {
 async function requireEditor() {
   const editor = await getEditor();
   if (!editor) throw new Error('Nincs bejelentkezve, vagy nincs Weblap mester joga.');
-  return editor;
-}
-
-async function requirePublisher() {
-  const editor = await requireEditor();
-  if (!editor.canPublish) throw new Error('A kirakáshoz „Weblap jóváhagyó” jog kell.');
   return editor;
 }
 
@@ -199,7 +193,7 @@ export async function resetContentAction(formData) {
 
 // Minden előnézetben mentett módosítás kirakása az éles oldalra
 export async function publishAction() {
-  const editor = await requirePublisher();
+  const editor = await requireEditor();
   const pending = await getPendingChanges();
   await publishAll();
   const db = await getTavernDb();
@@ -210,7 +204,7 @@ export async function publishAction() {
 
 // A még ki nem rakott módosítások elvetése: az előnézet újra az éles oldalt mutatja
 export async function discardAction() {
-  const editor = await requirePublisher();
+  const editor = await requireEditor();
   const pending = await getPendingChanges();
   await discardAll();
   const db = await getTavernDb();

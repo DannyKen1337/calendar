@@ -14,7 +14,7 @@ export async function loadPreview() {
   const editor = await getEditor();
   if (!editor) redirect(withBase('/admin'));
   const [content, pending] = await Promise.all([getDraftContent(), getPendingChanges()]);
-  return { content, preview: { base: PREVIEW_BASE, bar: <PreviewBar pending={pending} canPublish={editor.canPublish} /> } };
+  return { content, preview: { base: PREVIEW_BASE, bar: <PreviewBar pending={pending} /> } };
 }
 
 export const previewMetadata = { title: 'Előnézet – Tavern weboldal', robots: { index: false, follow: false } };

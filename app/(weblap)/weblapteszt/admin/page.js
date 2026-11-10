@@ -12,14 +12,14 @@ import { ObjectId } from 'mongodb';
 import PostForm from './PostForm';
 import ContentEditor from './ContentEditor';
 import ConfirmButton from './ConfirmButton';
-import { logoutAction, deletePostAction, toggleAction, resetContentAction, publishAction, discardAction } from './actions';
+import { logoutAction, deletePostAction, toggleAction, resetContentAction } from './actions';
 import s from './admin.module.css';
 
 export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { index: false, follow: false } };
 
 // A fülek: a Hírek (a hírek kirakása, a behúzott posztok), és az oldal tartalma részenként.
 // PREVIEW: hova visz a „Megnézem az előnézetben” link. Minden mentés előbb csak az előnézetben látszik;
-// az éles oldalra a felül lévő „Jóváhagyás és kirakás” gomb viszi ki (tulajdonos vagy „Weblap jóváhagyó” jog).
+// az éles oldalra az előnézet alján lévő „Kirakás az éles oldalra” gomb viszi ki.
 const TABS = [{ key: 'hirek', label: 'Hírek' }, ...CONTENT_TABS];
 const PREVIEW = { general: '/elonezet', hero: '/elonezet', program: '/elonezet#program', features: '/elonezet#kinalat', gallery: '/elonezet#kinalat', news: '/elonezet#hirek', stores: '/elonezet#boltok', contact: '/elonezet#kapcsolat' };
 export const dynamic = 'force-dynamic';
@@ -84,13 +84,8 @@ export default async function Admin({ searchParams }) {
         <ul className={s.stageList}>{pending.items.slice(0, 8).map((it, i) => <li key={i}>{it}</li>)}{pending.items.length > 8 && <li>…és még {pending.items.length - 8}</li>}</ul>
       </div>
       <div className={s.stageActions}>
-        <a className={s.secondary} href={withBase('/elonezet')} target="_blank" rel="noopener">Előnézet megnyitása ↗</a>
-        {editor.canPublish ? (
-          <>
-            <form action={publishAction}><ConfirmButton className={s.primary} message={`Jóváhagyod, és kirakod ezeket az éles oldalra?\n\n${pending.items.join('\n')}`}>Jóváhagyás és kirakás</ConfirmButton></form>
-            <form action={discardAction}><ConfirmButton className={`${s.small} ${s.danger}`} message="Biztosan elveted az összes még ki nem rakott módosítást? Az előnézet visszaáll az éles oldalra, a módosítások elvesznek.">Változások elvetése</ConfirmButton></form>
-          </>
-        ) : <span className={s.muted}>A módosításokat a tulajdonos vagy egy weblap-jóváhagyó nézi át és rakja ki.</span>}
+        <a className={s.primary} href={withBase('/elonezet')}>Megnézem és kirakom</a>
+        <span className={s.muted}>A kirakás gomb az előnézet alján van.</span>
       </div>
     </section>
   ) : (
@@ -100,13 +95,13 @@ export default async function Admin({ searchParams }) {
         <ol className={s.stageSteps}>
           <li>Módosíts bármit (hír, szöveg, kép), és mentsd el.</li>
           <li>Nézd meg az előnézetben: ott már látszik, az éles oldalon még nem.</li>
-          <li>Ha minden jó, a tulajdonos vagy egy weblap-jóváhagyó a „Jóváhagyás és kirakás” gombbal kirakja.</li>
+          <li>Ha minden jó, az előnézet alján a „Kirakás az éles oldalra” gombbal kirakod.</li>
         </ol>
       </div>
       <div className={s.stageActions}><a className={s.secondary} href={withBase('/elonezet')} target="_blank" rel="noopener">Előnézet megnyitása ↗</a></div>
     </section>
   );
-  const notice = kirakva ? 'Jóváhagyva és kirakva! Az éles oldal frissült.' : elvetve ? 'A módosítások elvetve, az előnézet újra az éles oldalt mutatja.' : torolve ? 'Törölve. Az éles oldalról a kirakás után tűnik el.' : null;
+  const notice = kirakva ? 'Kirakva! Az éles oldal frissült.' : elvetve ? 'A módosítások elvetve, az előnézet újra az éles oldalt mutatja.' : torolve ? 'Törölve. Az éles oldalról a kirakás után tűnik el.' : null;
 
   const header = (
     <>

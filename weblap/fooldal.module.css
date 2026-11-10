@@ -287,7 +287,8 @@
 .previewBar b { text-transform: uppercase; letter-spacing: 0.06em; }
 .previewActions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; }
 .previewActions a { color: var(--on-gold); font-weight: 600; }
-.previewPublish { min-height: 2.75rem; padding: 0 1.2rem; background: var(--on-gold) !important; color: var(--gold) !important; font-weight: 600; }
+.previewDiscard { min-height: 2.75rem; padding: 0 1rem !important; background: transparent !important; color: var(--on-gold) !important; border: 1px solid var(--on-gold) !important; font-weight: 600; }
+.previewPublish { min-height: 2.75rem; padding: 0 1.2rem !important; background: var(--on-gold) !important; color: var(--gold) !important; font-weight: 600; }
 
 /* --- Keskeny képernyő --- */
 @media (max-width: 820px) {
