@@ -1,6 +1,6 @@
 // Tesztszerver: memóriabeli MongoDB + next dev a 3179-es porton; a Mongo címét a .uri fájlba írja.
 // FAKE_IMGBB=1: a képfeltöltés (ImgBB) 1,5 mp után sikeres ál-választ ad (fake-imgbb.mjs), a termékkód változatlan.
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryServer } from 'mongodb-memory-server-core';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
