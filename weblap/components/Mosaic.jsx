@@ -5,7 +5,7 @@ import s from '@/weblap/fooldal.module.css';
 
 // A képfal (Élő mozaik): különböző méretű mezők, pár másodpercenként az egyikben körben kinyílik egy új kép.
 // Gépen 5, telefonon 4 mező (kevesebb képnél annyi, ahány kép; ilyenkor nincs csere).
-// Nem vált: szünet gombra, ha a fókusz benne van, ha nem látszik a képernyőn, rejtett lapon és csökkentett mozgásnál.
+// Nem vált: szünet gombra, ha nem látszik a képernyőn, rejtett lapon és csökkentett mozgásnál.
 // pictures: [{ id, picture: { src, alt, position }, caption }]
 const TILES = 5;
 const EVERY = 2600;
@@ -15,32 +15,26 @@ export default function Mosaic({ title, pictures }) {
   // mezőnként: a látszó kép (cur), és ami épp kinyílik fölötte (next), a kör közepével
   const [tiles, setTiles] = useState(() => Array.from({ length: count }, (_, i) => ({ cur: i, next: null, x: 50, y: 50, k: 0 })));
   const [paused, setPaused] = useState(false);
-  const [calm, setCalm] = useState(true); // csökkentett mozgás, rejtett lap, képernyőn kívül, fókusz: mind megállítja
+  const [calm, setCalm] = useState(true); // csökkentett mozgás, rejtett lap, képernyőn kívül: mind megállítja
   const root = useRef(null);
   const last = useRef(-1);
-  const blocks = useRef({ reduced: false, hidden: false, offscreen: true, focus: false });
+  const blocks = useRef({ reduced: false, hidden: false, offscreen: true });
 
   useEffect(() => {
     const el = root.current;
     const media = matchMedia('(prefers-reduced-motion: reduce)');
-    const sync = () => { const b = blocks.current; setCalm(b.reduced || b.hidden || b.offscreen || b.focus); };
+    const sync = () => { const b = blocks.current; setCalm(b.reduced || b.hidden || b.offscreen); };
     const set = (k, v) => { blocks.current[k] = v; sync(); };
     const onMedia = () => set('reduced', media.matches);
     const onVisibility = () => set('hidden', document.hidden);
-    const onIn = () => set('focus', true);
-    const onOut = (e) => { if (!el.contains(e.relatedTarget)) set('focus', false); };
     const io = new IntersectionObserver(([entry]) => set('offscreen', !entry.isIntersecting));
     onMedia(); onVisibility(); io.observe(el);
     media.addEventListener('change', onMedia);
     document.addEventListener('visibilitychange', onVisibility);
-    el.addEventListener('focusin', onIn);
-    el.addEventListener('focusout', onOut);
     return () => {
       io.disconnect();
       media.removeEventListener('change', onMedia);
       document.removeEventListener('visibilitychange', onVisibility);
-      el.removeEventListener('focusin', onIn);
-      el.removeEventListener('focusout', onOut);
     };
   }, []);
 
@@ -51,7 +45,8 @@ export default function Mosaic({ title, pictures }) {
       // csak a látszó mezők közül (telefonon az ötödik rejtve), nem ugyanaz kétszer egymás után
       const visible = [...root.current.querySelectorAll('[data-tile]')].map((el, i) => (el.offsetParent ? i : -1)).filter(i => i >= 0);
       setTiles(prev => {
-        if (prev.some(t => t.next !== null)) return prev;
+        // egy félbemaradt kinyílás (pl. a mező közben eltűnt) ne állítsa meg a képfalat: ami még nyílik, az kész
+        if (prev.some(t => t.next !== null)) return prev.map(x => (x.next !== null ? { ...x, cur: x.next, next: null } : x));
         const choices = visible.filter(i => i !== last.current);
         const t = choices[Math.floor(Math.random() * choices.length)];
         const used = new Set(prev.map(x => x.cur));

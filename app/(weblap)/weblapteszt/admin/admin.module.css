@@ -99,6 +99,7 @@
 .secondary { min-height: 52px; padding: 0 24px; background: var(--raised); color: var(--ink) !important; }
 .small { min-height: 44px; padding: 0 18px; background: var(--raised); color: var(--ink) !important; font-size: 0.9375rem; font-weight: 600; }
 .small:hover, .secondary:hover { background: var(--line); }
+.small:focus-within:not(:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
 .primary:active, .secondary:active, .small:active, .iconBtn:active { transform: scale(0.97); }
 .danger { color: var(--red) !important; }
 .iconBtn { position: relative; display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; border: 0; border-radius: 12px; background: var(--raised); color: var(--ink); font: inherit; cursor: pointer; transition: background 160ms var(--ease); }

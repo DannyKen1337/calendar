@@ -28,7 +28,7 @@ export default function PostForm({ s, post, nowLocal }) {
           <span>Kép feltöltése</span>
           <label className={s.small}>
             {fileName || 'Kép kiválasztása'}
-            <input name="imageFile" type="file" accept="image/*" hidden onChange={(e) => {
+            <input name="imageFile" type="file" accept="image/*" className={s.sr} onChange={(e) => {
               const f = e.target.files?.[0];
               setPreview(f ? URL.createObjectURL(f) : null);
               setFileName(f?.name || '');

@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { createContext, useActionState, useContext, useEffect, useRef, useState } from 'react';
 import { tabByKey, emptyValue } from '@/weblap/lib/contentSchema';
 import { withBase } from '@/weblap/lib/basePath';
 import { saveContentAction, uploadImageAction } from './actions';
@@ -8,6 +8,8 @@ import { saveContentAction, uploadImageAction } from './actions';
 // (weblap/lib/contentSchema.js); mentéskor a teljes fül JSON-ban megy a szervernek, ami a séma szerint ellenőrzi.
 // s: az admin CSS-modulja; tabKey: a fül kulcsa; initial: a fül mostani tartalma; updated: { at, by } az utolsó mentésről
 const PREVIEW_PATH = '/elonezet';
+// A képfeltöltések száma: amíg fut, nem lehet menteni (különben a közben feltöltött kép elveszne)
+const UploadCount = createContext(() => {});
 
 export default function ContentEditor({ s, tabKey, initial, updated }) {
   const tab = tabByKey(tabKey);
@@ -16,6 +18,7 @@ export default function ContentEditor({ s, tabKey, initial, updated }) {
   const [last, setLast] = useState(updated);
   const [state, action, pending] = useActionState(saveContentAction, null);
   const [applied, setApplied] = useState(null);
+  const [uploads, setUploads] = useState(0);
 
   // Sikeres mentés után a szerver által ellenőrzött (pl. új azonosítókkal kiegészített) tartalom lesz az alap
   if (state?.ok && state.at !== applied) {
@@ -37,11 +40,14 @@ export default function ContentEditor({ s, tabKey, initial, updated }) {
     <form action={action} className={s.form}>
       <input type="hidden" name="tab" value={tabKey} />
       <input type="hidden" name="payload" value={JSON.stringify(value)} />
-      <Field f={tab.schema} value={value} onChange={setValue} s={s} top />
+      <UploadCount.Provider value={(d) => setUploads(n => n + d)}>
+        <Field f={tab.schema} value={value} onChange={setValue} s={s} top />
+      </UploadCount.Provider>
       <div className={s.saveBar}>
-        <button className={s.primary} disabled={pending || !dirty}>{pending ? 'Mentés…' : 'Mentés az előnézetbe'}</button>
+        <button className={s.primary} disabled={pending || !dirty || uploads > 0}>{pending ? 'Mentés…' : 'Mentés az előnézetbe'}</button>
         <p className={s.saveStatus} role="status">
-          {state?.error && !pending
+          {uploads > 0 ? <span className={s.muted}>Várj, amíg a képek feltöltődnek…</span>
+            : state?.error && !pending
             ? <span className={s.error}>{state.error.split('\n').map((l, i) => <span key={i} className={s.errorLine}>{l}</span>)}</span>
             : dirty ? <span className={s.flag}>Nem mentett módosítások</span>
             : state?.ok ? <span className={s.ok}>Elmentve. Egyelőre csak az előnézetben látszik: <a href={withBase(PREVIEW_PATH)} target="_blank" rel="noopener">megnézem ↗</a></span>
@@ -300,12 +306,15 @@ function PhotoGrid({ f, value, onChange, s }) {
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState(null);
   const [drag, setDrag] = useState(false);
-  // a feltöltések egymás után futnak: mindig a legfrissebb listához adjanak hozzá
+  // a feltöltések egymás után futnak: mindig a legfrissebb listához és a legfrissebb onChange-hez írjanak
+  // (különben a közben átírt cím vagy felirat visszaugrana)
   const latest = useRef(list);
-  useEffect(() => { latest.current = value || []; }, [value]);
+  const change = useRef(onChange);
+  useEffect(() => { latest.current = value || []; change.current = onChange; }, [value, onChange]);
+  const counting = useContext(UploadCount);
   const room = f.max - list.length;
 
-  const update = (next) => { latest.current = next; onChange(next); };
+  const update = (next) => { latest.current = next; change.current(next); };
   const newItem = (src) => ({ ...emptyValue(f.item), id: `uj-${rid()}`, picture: { src, alt: '', position: '50% 50%' } });
   const setItem = (i, patch) => update(latest.current.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const setPicture = (i, patch) => setItem(i, { picture: { ...latest.current[i].picture, ...patch } });
@@ -316,12 +325,15 @@ function PhotoGrid({ f, value, onChange, s }) {
   async function send(file) {
     if (!file.type?.startsWith('image/')) return { error: 'Ez nem kép.' };
     if (file.size > MAX_IMAGE) return { error: 'A kép legfeljebb 4 MB lehet.' };
+    counting(1);
     try {
       const fd = new FormData();
       fd.append('file', file);
       return (await uploadImageAction(fd)) || { error: 'Nem sikerült feltölteni.' };
     } catch {
       return { error: 'Nem sikerült feltölteni. Próbáld újra.' };
+    } finally {
+      counting(-1);
     }
   }
 
@@ -338,11 +350,15 @@ function PhotoGrid({ f, value, onChange, s }) {
     }
   }
 
+  // a cserélt képet az azonosítója szerint keresi meg (közben átrendezhették vagy törölhették)
   async function replace(i, file) {
     const id = rid();
+    const itemId = latest.current[i].id;
     setJobs(js => [...js, { id, name: file.name }]);
     const res = await send(file);
-    if (res.url) { setPicture(i, { src: res.url }); job(id, null); } else job(id, { error: res.error });
+    const at = latest.current.findIndex(x => x.id === itemId);
+    if (res.url && at >= 0) { setPicture(at, { src: res.url }); job(id, null); }
+    else job(id, { error: res.error || 'A képet közben törölték.' });
   }
 
   function addLink() {
@@ -385,7 +401,7 @@ function PhotoGrid({ f, value, onChange, s }) {
                   <button type="button" className={s.iconBtn} disabled={i === list.length - 1} onClick={() => move(i, 1)}><Icon d={ICON.right} /><span className={s.sr}>Hátra</span></button>
                   <label className={s.iconBtn}>
                     <Icon d={ICON.swap} /><span className={s.sr}>Csere</span>
-                    <input type="file" accept="image/*" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) replace(i, file); }} />
+                    <input type="file" accept="image/*" className={s.sr} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) replace(i, file); }} />
                   </label>
                   <button type="button" className={`${s.iconBtn} ${s.danger}`} onClick={() => remove(i)}><Icon d={ICON.trash} /><span className={s.sr}>Törlés</span></button>
                 </div>
@@ -401,7 +417,7 @@ function PhotoGrid({ f, value, onChange, s }) {
               <Icon d={ICON.plus} />
               <b>{list.length ? 'Képek hozzáadása' : 'Képek feltöltése'}</b>
               <small>Egyszerre többet is kijelölhetsz. Legfeljebb 4 MB / kép.</small>
-              <input type="file" accept="image/*" multiple hidden onChange={(e) => { const files = e.target.files; uploadMany(files); e.target.value = ''; }} />
+              <input type="file" accept="image/*" multiple className={s.sr} onChange={(e) => { const files = e.target.files; uploadMany(files); e.target.value = ''; }} />
             </label>
           </li>
         )}
