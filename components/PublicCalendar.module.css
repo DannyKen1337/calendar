@@ -159,3 +159,34 @@
   .chips::-webkit-scrollbar { display: none; }
   .chip { flex: none; }
 }
+
+/* Új kinézet (.v2, egyelőre csak a belépett tulajdonosnak): legalább 44 px-es gombok (gépen a rács csíkjai 24 px),
+   telefonon kompakt eszközsor (nézetváltó + kereső ikon), a játékszűrő alsó lapon, ugrás a következő eseményre,
+   telítettségsáv az eseménysoron */
+.v2 .segment button, .v2 .chip, .v2 .ics, .v2 .todayBtn { height: 44px; }
+.v2 .chip { padding: 0 14px; }
+.v2 .search { height: 44px; }
+.v2 .round { width: 44px; height: 44px; }
+.v2 .strip, .v2 .more { min-height: 24px; }
+.v2 .mCell { height: 60px; }
+.v2 .row { min-height: 72px; }
+.iconBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 18px; cursor: pointer; }
+.iconBtn:hover { background: var(--raised); }
+.gamesBtn { display: flex; align-items: center; gap: 10px; width: 100%; height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #3a2d30; background: transparent; color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer; }
+.gamesBtn > span:first-child { flex: 1; }
+.gamesDots { display: flex; gap: 4px; }
+.gamesDots i { width: 10px; height: 10px; border-radius: 999px; display: block; }
+.sheetRoot :global(.ant-drawer-content) { background: #191314; border-radius: 22px 22px 0 0; }
+.sheetRoot :global(.ant-drawer-body) { padding: 0; }
+.sheet { color-scheme: dark; display: flex; flex-direction: column; padding: 16px 16px max(20px, env(safe-area-inset-bottom)); color: #f3ece3; font-family: var(--font-manrope), system-ui, sans-serif; font-size: 16px; }
+.sheetHead { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; }
+.sheetHead b { font-family: var(--font-cinzel), Georgia, serif; font-size: 20px; }
+.linkBtn { min-height: 44px; padding: 0 6px; border: 0; background: transparent; color: #e5b15d; font: inherit; font-weight: 700; cursor: pointer; }
+.sheetRow { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid #241b1d; cursor: pointer; }
+.sheetRow input { width: 22px; height: 22px; accent-color: #e5b15d; }
+.sheetLink { display: flex; align-items: center; min-height: 48px; color: #b8aca7; font-weight: 600; text-decoration: none; }
+.sheetDone { margin-top: 8px; min-height: 50px; border: 0; border-radius: 14px; background: #f3ece3; color: #120d0e; font: inherit; font-weight: 800; cursor: pointer; }
+.nextBtn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 60px; margin-top: 8px; padding: 10px 16px; border: 1px solid var(--gold); border-radius: 12px; background: rgba(229, 177, 93, 0.08); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.nextBtn span { font-size: 13px; color: var(--muted); }
+.nextBtn b { color: var(--gold); }
+.rowMeter { height: 4px; margin-top: 6px; max-width: 220px; }

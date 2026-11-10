@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { Grid, ConfigProvider } from 'antd';
-import { SearchOutlined, CloseCircleFilled } from '@ant-design/icons';
+import { Grid, ConfigProvider, Drawer } from 'antd';
+import { SearchOutlined, CloseCircleFilled, CloseOutlined, DownOutlined } from '@ant-design/icons';
 import { useCalendar } from '@/app/useCalendar';
 import { CalendarView, SearchResults, EventList, PublicModals, STORES, tavernTheme } from '@/app/components';
 import MonthCalendar from '@/components/MonthCalendar';
@@ -18,6 +18,7 @@ import s from './PublicCalendar.module.css';
 const LINKED_STORES = { debrecen: ['jatekceh'], jatekceh: ['debrecen'] };
 const VIEW_KEY = 'tavern-naptar-nezet';
 const VIEWS = [['month', 'Havi'], ['week', 'Heti'], ['list', 'Lista']];
+const SHORT_STORES = { debrecen: 'Debrecen', miskolc: 'Miskolc', jatekceh: 'JátékCéh' };
 const pad = (n) => String(n).padStart(2, '0');
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
@@ -31,6 +32,8 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   const isMobile = screens.md === false;
   const [activeFilters, setActiveFilters] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [gamesOpen, setGamesOpen] = useState(false);
   const [view, setView] = useState(() => {
     if (typeof window === 'undefined') return 'month';
     const saved = window.localStorage.getItem(VIEW_KEY);
@@ -43,6 +46,9 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   }
 
   const isStaff = app.userRole === 'admin' || app.userRole === 'owner';
+  // Az új kinézet (nagyobb gombok, kompakt eszközsor telefonon, játékszűrő alsó lapon, ugrás a következő eseményre):
+  // egyelőre csak a belépett tulajdonos látja, beágyazva soha
+  const fresh = app.userRole === 'owner' && !embed;
 
   // Karbantartás: látogatók elől rejtve, bejelentkezett adminok látják a naptárt
   if (app.isMaintenance && !isStaff) {
@@ -128,7 +134,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   // Az ablakok (esemény részletei, jelentkezés) és a listák a sötét Tavern témát kapják
   return (
     <ConfigProvider theme={tavernTheme}>
-    <main className={`${s.page} ${embed ? s.embed : ''}`}>
+    <main className={`${s.page} ${embed ? s.embed : ''} ${fresh ? s.v2 : ''}`} data-uj-naptar={fresh ? '' : undefined}>
       {embed && <EmbedBridge />}
       {app.contextHolder}
       <div className={s.wrap}>
@@ -150,7 +156,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
                 <button key={st.id} type="button" aria-pressed={on} className={`${s.store} ${on ? s.storeOn : ''}`}
                   onClick={() => { if (!on) { setSearchQuery(''); app.handleSelectStore(st.id); } }}>
                   <span className={s.storeTop}>
-                    <span className={s.storeName}>{st.name}</span>
+                    <span className={s.storeName}>{fresh && isMobile ? SHORT_STORES[st.id] : st.name}</span>
                     {o && <span className={`${s.storeMeta} ${s.num}`}>ma {o.used} / {o.cap} hely</span>}
                   </span>
                   {o && (
@@ -165,31 +171,78 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
           </div>
         )}
 
-        <div className={s.tools}>
-          <label className={s.search}>
-            <SearchOutlined />
-            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }}
-              placeholder={`Keresés a(z) ${currentStore?.name || ''} eseményei között`} aria-label="Keresés az események között" />
-            {searchQuery && <button type="button" onClick={() => setSearchQuery('')} aria-label="Keresés törlése"><CloseCircleFilled /></button>}
-          </label>
-          {!isSearching && (
-            <div className={s.segment} role="group" aria-label="Nézet">
-              {VIEWS.map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => pickView(key)}>{label}</button>)}
-            </div>
-          )}
-        </div>
-        {isSearching && <p className={s.resultCount}>{searchResults.length} találat</p>}
-
-        <div className={s.chips} role="group" aria-label="Játék">
-          <button type="button" className={s.chip} aria-pressed={activeFilters.length === 0} onClick={() => setActiveFilters([])}>Minden játék</button>
-          {Object.keys(GAME_CONFIG).filter(g => g !== 'Egyéb').map(game => (
-            <button key={game} type="button" className={s.chip} aria-pressed={activeFilters.includes(game)} onClick={() => toggleFilter(game)}>
-              <span className={s.chipDot} style={{ background: GAME_CONFIG[game].color }} aria-hidden="true" />{game}
+        {fresh && isMobile ? (
+          <>
+            {searchOpen || isSearching ? (
+              <div className={s.tools}>
+                <label className={s.search}>
+                  <SearchOutlined />
+                  <input autoFocus type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQuery(''); setSearchOpen(false); } }}
+                    placeholder="Keresés…" aria-label="Keresés az események között" enterKeyHint="search" />
+                </label>
+                <button type="button" className={s.iconBtn} onClick={() => { setSearchQuery(''); setSearchOpen(false); }} aria-label="Keresés bezárása"><CloseOutlined /></button>
+              </div>
+            ) : (
+              <div className={s.tools}>
+                <div className={s.segment} role="group" aria-label="Nézet">
+                  {VIEWS.map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => pickView(key)}>{label}</button>)}
+                </div>
+                <button type="button" className={s.iconBtn} onClick={() => setSearchOpen(true)} aria-label="Keresés"><SearchOutlined /></button>
+              </div>
+            )}
+            {isSearching && <p className={s.resultCount}>{searchResults.length} találat</p>}
+            <button type="button" className={s.gamesBtn} aria-haspopup="dialog" onClick={() => setGamesOpen(true)}>
+              {activeFilters.length === 0 ? <span>Játékok · mind</span> : <span>Játékok · {activeFilters.length}</span>}
+              <span className={s.gamesDots} aria-hidden="true">{activeFilters.slice(0, 5).map(g => <i key={g} style={{ background: GAME_CONFIG[g]?.color }} />)}</span>
+              <DownOutlined aria-hidden="true" />
             </button>
-          ))}
-          {!embed && <a className={s.ics} href={`/api/export?${icsParams.toString()}`} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Naptárba mentés (ICS)</a>}
-        </div>
-
+            <Drawer open={gamesOpen} onClose={() => setGamesOpen(false)} placement="bottom" size="auto" title={null} closable={false} rootClassName={s.sheetRoot}>
+              <div className={s.sheet} role="group" aria-label="Játékok">
+                <div className={s.sheetHead}>
+                  <b>Játékok</b>
+                  <button type="button" className={s.linkBtn} onClick={() => setActiveFilters([])}>Minden játék</button>
+                </div>
+                {Object.keys(GAME_CONFIG).filter(g => g !== 'Egyéb').map(game => (
+                  <label key={game} className={s.sheetRow}>
+                    <span className={s.chipDot} style={{ background: GAME_CONFIG[game].color }} aria-hidden="true" />
+                    <span style={{ flex: 1 }}>{game}</span>
+                    <input type="checkbox" checked={activeFilters.includes(game)} onChange={() => toggleFilter(game)} />
+                  </label>
+                ))}
+                <a className={s.sheetLink} href={`/api/export?${icsParams.toString()}`}>Naptárba mentés (ICS)</a>
+                <button type="button" className={s.sheetDone} onClick={() => setGamesOpen(false)}>Kész</button>
+              </div>
+            </Drawer>
+          </>
+        ) : (
+          <>
+        <div className={s.tools}>
+            <label className={s.search}>
+              <SearchOutlined />
+              <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }}
+                placeholder={`Keresés a(z) ${currentStore?.name || ''} eseményei között`} aria-label="Keresés az események között" />
+              {searchQuery && <button type="button" onClick={() => setSearchQuery('')} aria-label="Keresés törlése"><CloseCircleFilled /></button>}
+            </label>
+            {!isSearching && (
+              <div className={s.segment} role="group" aria-label="Nézet">
+                {VIEWS.map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => pickView(key)}>{label}</button>)}
+              </div>
+            )}
+          </div>
+          {isSearching && <p className={s.resultCount}>{searchResults.length} találat</p>}
+  
+          <div className={s.chips} role="group" aria-label="Játék">
+            <button type="button" className={s.chip} aria-pressed={activeFilters.length === 0} onClick={() => setActiveFilters([])}>Minden játék</button>
+            {Object.keys(GAME_CONFIG).filter(g => g !== 'Egyéb').map(game => (
+              <button key={game} type="button" className={s.chip} aria-pressed={activeFilters.includes(game)} onClick={() => toggleFilter(game)}>
+                <span className={s.chipDot} style={{ background: GAME_CONFIG[game].color }} aria-hidden="true" />{game}
+              </button>
+            ))}
+            {!embed && <a className={s.ics} href={`/api/export?${icsParams.toString()}`} style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Naptárba mentés (ICS)</a>}
+          </div>
+  
+          </>
+        )}
         {isSearching ? (
           <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
         ) : view === 'week' ? (
@@ -201,7 +254,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
           </>
         ) : (
           <>
-            <MonthCalendar app={appWithFilteredEvents} store={selectedStore} storeEvents={storeTournaments} occupancy={occ} compact={embed} />
+            <MonthCalendar app={appWithFilteredEvents} store={selectedStore} storeEvents={storeTournaments} occupancy={occ} compact={embed} fresh={fresh} />
             <PublicModals app={appWithFilteredEvents} />
           </>
         )}
