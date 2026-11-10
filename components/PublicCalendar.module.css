@@ -190,3 +190,12 @@
 .nextBtn span { font-size: 13px; color: var(--muted); }
 .nextBtn b { color: var(--gold); }
 .rowMeter { height: 4px; margin-top: 6px; max-width: 220px; }
+/* Betöltés: a hónap váza (csökkentett mozgásnál nem lüktet) */
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skel { display: block; border-radius: 10px; background: var(--surface); animation: skelPulse 1.4s ease-in-out infinite; }
+.skelTitle { width: 240px; height: 34px; }
+.skelBar { height: 44px; }
+.skelCell { height: 60px; }
+@media (min-width: 761px) { .skelCell { height: 120px; } }
+@keyframes skelPulse { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }

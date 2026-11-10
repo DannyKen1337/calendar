@@ -41,14 +41,30 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   });
   const pickView = (v) => { setView(v); try { window.localStorage.setItem(VIEW_KEY, v); } catch { /* privát mód */ } };
 
+  if (app.loading && embed) {
+    return <div className={`${s.page} ${s.embed}`} style={{ display: 'grid', placeItems: 'center', padding: '64px 0', color: '#e5b15d', fontWeight: 700 }}><EmbedBridge />Betöltés...</div>;
+  }
+  // Betöltés közben a hónap váza, hogy az oldal ne ugráljon, amikor megjön az adat
   if (app.loading) {
-    return <div className={`${s.page} ${embed ? s.embed : ''}`} style={{ display: 'grid', placeItems: 'center', padding: embed ? '64px 0' : 0, color: '#e5b15d', fontWeight: 700 }}>{embed && <EmbedBridge />}Betöltés...</div>;
+    return (
+      <main className={`${s.page} ${s.v2}`} aria-busy="true">
+        <div className={s.wrap}>
+          <span className={s.srOnly} role="status">Betöltés…</span>
+          <span className={`${s.skel} ${s.skelTitle}`} data-vaz />
+          <span className={`${s.skel} ${s.skelBar}`} data-vaz />
+          <span className={`${s.skel} ${s.skelBar}`} data-vaz />
+          <div className={s.mobileGrid} aria-hidden="true">
+            {Array.from({ length: 35 }, (_, i) => <span key={i} className={`${s.skel} ${s.skelCell}`} data-vaz />)}
+          </div>
+        </div>
+      </main>
+    );
   }
 
   const isStaff = app.userRole === 'admin' || app.userRole === 'owner';
   // Az új kinézet (nagyobb gombok, kompakt eszközsor telefonon, játékszűrő alsó lapon, ugrás a következő eseményre):
-  // egyelőre csak a belépett tulajdonos látja, beágyazva soha
-  const fresh = app.userRole === 'owner' && !embed;
+  // mindenkinek; a beágyazott (webshopba tett) kompakt nézet marad a régi
+  const fresh = !embed;
 
   // Karbantartás: látogatók elől rejtve, bejelentkezett adminok látják a naptárt
   if (app.isMaintenance && !isStaff) {
