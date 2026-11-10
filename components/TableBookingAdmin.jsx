@@ -48,10 +48,14 @@ function BookingCard({ b, app, todayKey }) {
         <div className={s.actions}>
           {!past && (
             <>
-              <label className={s.seats}>
-                <span>Hely</span>
-                <input type="number" inputMode="numeric" min={1} max={500} value={seats} onFocus={(ev) => ev.target.select()} onChange={(ev) => setSeats(ev.target.value)} aria-label="Foglalt helyek száma" />
-              </label>
+              <div className={s.seats} role="group" aria-label="Foglalt helyek">
+                <button type="button" className={s.step} aria-label="Eggyel kevesebb hely" disabled={busy || Number(seats) <= 1} onClick={() => setSeats(v => String(Math.max(1, (Number(v) || 1) - 1)))}>−</button>
+                <label className={s.seatsLabel}>
+                  <span>Hely</span>
+                  <input type="number" inputMode="numeric" min={1} max={500} value={seats} onFocus={(ev) => ev.target.select()} onChange={(ev) => setSeats(ev.target.value)} aria-label="Foglalt helyek száma" />
+                </label>
+                <button type="button" className={s.step} aria-label="Eggyel több hely" disabled={busy || Number(seats) >= 500} onClick={() => setSeats(v => String(Math.min(500, (Number(v) || 0) + 1)))}>+</button>
+              </div>
               <button type="button" className={s.accept} disabled={busy} onClick={() => decide('accept')}>Elfogadás</button>
             </>
           )}

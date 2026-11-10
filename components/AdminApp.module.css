@@ -181,3 +181,31 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
   .occBar { flex: 1; }
   .segment { max-width: 420px; }
 }
+
+/* A látványterv szerint (2026-11-10): telítettségsáv (arany: jelentkezők, szürke: várólista), állapotcímke, MA jelölés,
+   kiemelt Check-in, telítettségkártya az alsó lapon, ikonos Továbbiak sorok */
+.capRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 13px; }
+.capBar { display: flex; height: 6px; border-radius: 99px; background: #2a2022; overflow: hidden; min-width: 60px; } /* fix színek: az alsó lap a .shell-en kívül (portálban) van */
+.capBar > span { display: block; height: 100%; background: #e5b15d; }
+.capBar > .capWait { background: #6b5e57; }
+.capBarBig { height: 10px; }
+.capCell { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.capCell .capBar { width: 80px; }
+.maBadge { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 5px; background: var(--gold); color: #120d0e; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; vertical-align: 1px; }
+.pillOpen { background: #1d2c26; color: #9fd9bd; }
+.pillFull { background: #33281a; color: #f0c57d; }
+.bigBtnMain, .bigBtnMain:hover { background: var(--ink); color: #120d0e; font-weight: 800; }
+.actMain { background: var(--ink); color: #120d0e !important; font-weight: 800; }
+.actMain:hover { background: #ffffff; color: #120d0e !important; }
+.sheetCap { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: #2a2022; color: #f3ece3; }
+.sheetCapRow { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.sheetCapRow b { font-size: 24px; }
+.sheetCapRow b span { font-size: 16px; color: #9a8d89; }
+.sheetCap .capBar { background: #3a2d30; }
+.gold { color: #f0c57d; font-weight: 700; font-size: 14px; }
+.ok { color: #9fd9bd; font-weight: 700; font-size: 14px; }
+.tool { justify-content: flex-start; }
+.tool > .toolIcon { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--raised); color: var(--gold); font-size: 16px; }
+.tool > .toolText { flex: 1; }
+.tool > .chev, .tool > .ant-switch, .tool > :last-child:not(.toolText):not(.toolIcon) { margin-left: auto; }
+.sheetCap .quiet { color: #9a8d89; }

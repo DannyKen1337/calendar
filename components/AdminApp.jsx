@@ -6,7 +6,9 @@ import { ConfigProvider, Drawer, Popconfirm, Switch } from 'antd';
 import {
   SyncOutlined, RightOutlined, LeftOutlined, MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined,
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
-  CalendarOutlined, PieChartOutlined, AppstoreOutlined, ScheduleOutlined,
+  CalendarOutlined, PieChartOutlined, AppstoreOutlined, ScheduleOutlined, PlusOutlined, BarChartOutlined, GlobalOutlined,
+  ShoppingOutlined, TrophyOutlined, ReadOutlined, TeamOutlined, ProfileOutlined, StopOutlined, ToolOutlined, DownloadOutlined,
+  StarOutlined, LogoutOutlined,
 } from '@ant-design/icons';
 import { STORES, AdminModals, AttendeeNames, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
@@ -55,8 +57,21 @@ function capacity(e) {
   if (e.external_url && !(rgnEventId(e.external_url) && e.rgn?.syncedAt)) return { text: 'külső', counted: false };
   const cur = e.current_players || 0;
   const max = e.external_url ? e.rgn?.capacity : e.max_players;
-  return { text: max ? `${cur} / ${max}` : String(cur), full: !!max && cur >= max, counted: true };
+  return { text: max ? `${cur} / ${max}` : String(cur), full: !!max && cur >= max, counted: true, cur, max };
 }
+
+// Telítettségsáv: arany a jelentkezők, szürke a várólista (a létszámhoz képest)
+function CapBar({ e, c, big = false }) {
+  if (!c.counted || !c.max) return null;
+  const used = Math.min(100, (c.cur / c.max) * 100);
+  const wait = Math.min(100 - used, ((e.queue_count || 0) / c.max) * 100);
+  return (
+    <span className={`${s.capBar} ${big ? s.capBarBig : ''}`} data-sav aria-hidden="true">
+      <span style={{ width: `${used}%` }} /><span className={s.capWait} style={{ width: `${wait}%` }} />
+    </span>
+  );
+}
+const MaBadge = () => <span className={s.maBadge} data-ma>MA</span>;
 
 export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   const isOwner = app.userRole === 'owner';
@@ -152,26 +167,33 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     return { label: 'Nyitva', tone: 'plain' };
   };
 
-  // Telefonon: egy esemény kártyája a három leggyakoribb teendővel
+  // Telefonon: egy esemény kártyája: idő, név, állapot, telítettségsáv, és a három leggyakoribb teendő (a Check-in kiemelve)
   const eventCard = (e) => {
     const c = capacity(e);
+    const st = stateOf(e);
     const hasRegs = !e.external_url && !e.isOpenAttendance;
     const manage = app.canManage(e);
-    const note = !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám' : !e.is_open && hasRegs ? 'jelentkezés lezárva'
-      : c.full ? `betelt${e.queue_count ? `, ${e.queue_count} vár` : ''}` : hasRegs ? `${Math.max(0, e.max_players - (e.current_players || 0))} hely szabad` : 'külső jelentkezés';
+    const note = !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám' : e.external_url && !c.counted ? 'külső jelentkezés'
+      : c.counted && !c.full && c.max ? `${Math.max(0, c.max - c.cur)} hely szabad` : '';
     return (
-      <div key={eid(e)} className={s.card}>
+      <div key={eid(e)} className={s.card} data-kartya>
         <button type="button" className={s.cardHead} onClick={() => setSelected(eid(e))}>
           <span className={s.cardTitle}><b className={s.num}>{timeOf(e)}</b> <b>{e.name}</b></span>
-          <b className={s.num}>{c.text}</b>
+          <span className={`${s.pill} ${st.tone === 'red' ? s.pillRed : st.tone === 'quiet' ? s.pillQuiet : c.full ? s.pillFull : s.pillOpen}`}>{c.full && st.label === 'Nyitva' ? 'Betelt' : st.label}</span>
         </button>
-        <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']} · {note}</span>
+        <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']}{note ? ` · ${note}` : ''}</span>
+        {c.counted && (
+          <span className={s.capRow}>
+            <CapBar e={e} c={c} />
+            <span className={s.num}><b>{c.text}</b>{e.queue_count > 0 && <span className={s.quiet}> · {e.queue_count} vár</span>}</span>
+          </span>
+        )}
         <div className={s.cardBtns}>
           {!manage ? (
             <button type="button" className={s.bigBtn} onClick={() => setSelected(eid(e))}>Részletek</button>
           ) : hasRegs ? (
             <>
-              <Link className={s.bigBtn} href={checkinPageUrl(e)}>Check-in</Link>
+              <Link className={`${s.bigBtn} ${s.bigBtnMain}`} href={checkinPageUrl(e)}>Check-in</Link>
               <button type="button" className={s.bigBtn} onClick={() => openAttendees(e)}>Jelentkezők</button>
               <button type="button" className={s.bigBtn} onClick={() => toggleGate(e)} disabled={app.togglingGateId === eid(e)}>{e.is_open ? 'Lezárás' : 'Megnyitás'}</button>
             </>
@@ -216,7 +238,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         <tbody>
           {groups.length === 0 && <tr><td colSpan={7} className={s.emptyCell}>{emptyText}</td></tr>}
           {groups.map(g => [
-            <tr key={g.key} className={s.dayRow}><td colSpan={7} className={g.key === todayKey ? s.dayToday : undefined}>{dayTitle(g.key, todayKey)}</td></tr>,
+            <tr key={g.key} className={s.dayRow}><td colSpan={7} className={g.key === todayKey ? s.dayToday : undefined}>{g.key === todayKey && <MaBadge />}{dayTitle(g.key, todayKey)}</td></tr>,
             ...g.items.map(it => {
               if (it.kind === 'booking') {
                 const b = it.b;
@@ -254,12 +276,12 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
                   <td className={s.num}><b>{timeOf(e)}</b></td>
                   <td><button type="button" className={s.linkCell} onClick={() => setSelected(eid(e))}><b>{e.name}</b></button> <span className={s.quiet}>· {e.category || 'Egyéb'}</span></td>
                   <td className={s.quiet}>{STORES[e.store || 'debrecen']?.name}</td>
-                  <td className={`${s.right} ${s.num}`}><b>{c.text}</b></td>
+                  <td className={`${s.right} ${s.num}`}><span className={s.capCell}><CapBar e={e} c={c} /><b>{c.text}</b></span></td>
                   <td className={`${s.right} ${s.num} ${s.quiet}`}>{e.queue_count > 0 ? e.queue_count : '—'}</td>
                   <td><span className={`${s.pill} ${st.tone === 'red' ? s.pillRed : st.tone === 'quiet' ? s.pillQuiet : ''}`}>{st.label}</span></td>
                   <td className={s.right}>
                     {!manage && <span className={s.quiet}>Csak megtekintés</span>}
-                    {manage && hasRegs && <Link className={`${s.act} ${s.actStrong}`} href={checkinPageUrl(e)}>Check-in</Link>}
+                    {manage && hasRegs && <Link className={`${s.act} ${s.actMain}`} href={checkinPageUrl(e)}>Check-in</Link>}
                     {manage && hasRegs && <button type="button" className={s.act} onClick={() => openAttendees(e)}>Jelentkezők</button>}
                     {manage && hasRegs && <button type="button" className={s.act} onClick={() => toggleGate(e)} disabled={app.togglingGateId === eid(e)}>{e.is_open ? 'Lezárás' : 'Megnyitás'}</button>}
                     {manage && <button type="button" className={s.act} onClick={() => app.openEditEvent(e)}>Szerkesztés</button>}
@@ -276,7 +298,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   // Telefonon: napokra bontott kártyák
   const cards = (groups, emptyText) => (groups.length === 0 ? <p className={s.empty}>{emptyText}</p> : groups.map(g => (
     <section key={g.key} className={s.dayGroup}>
-      <h3 className={`${s.dayHead} ${g.key === todayKey ? s.dayHeadToday : ''}`}>{dayTitle(g.key, todayKey)}</h3>
+      <h3 className={`${s.dayHead} ${g.key === todayKey ? s.dayHeadToday : ''}`}>{g.key === todayKey && <MaBadge />}{dayTitle(g.key, todayKey)}</h3>
       {g.items.map(it => (it.kind === 'booking' ? bookingCard(it.b) : eventCard(it.e)))}
     </section>
   )));
@@ -398,11 +420,13 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     );
   };
 
-  const linkRow = (label, hint, href, external) => (external
-    ? <a className={s.tool} href={href}><span><b>{label}</b>{hint && <small>{hint}</small>}</span><RightOutlined className={s.chev} /></a>
-    : <Link className={s.tool} href={href}><span><b>{label}</b>{hint && <small>{hint}</small>}</span><RightOutlined className={s.chev} /></Link>);
-  const buttonRow = (label, hint, onClick, danger) => (
-    <button type="button" className={`${s.tool} ${danger ? s.toolDanger : ''}`} onClick={onClick}><span><b>{label}</b>{hint && <small>{hint}</small>}</span><RightOutlined className={s.chev} /></button>
+  // A Továbbiak sorai: ikon, felirat (és magyarázat), nyíl
+  const rowBody = (Icon, label, hint) => <><span className={s.toolIcon} aria-hidden="true"><Icon /></span><span className={s.toolText}><b>{label}</b>{hint && <small>{hint}</small>}</span></>;
+  const linkRow = (Icon, label, hint, href, external) => (external
+    ? <a className={s.tool} href={href} data-eszkoz>{rowBody(Icon, label, hint)}<RightOutlined className={s.chev} /></a>
+    : <Link className={s.tool} href={href} data-eszkoz>{rowBody(Icon, label, hint)}<RightOutlined className={s.chev} /></Link>);
+  const buttonRow = (Icon, label, hint, onClick, danger) => (
+    <button type="button" className={`${s.tool} ${danger ? s.toolDanger : ''}`} onClick={onClick} data-eszkoz>{rowBody(Icon, label, hint)}<RightOutlined className={s.chev} /></button>
   );
 
   // Továbbiak: minden, ami nem egy eseményhez tartozik, és a fiók (mindenkinek csak az, amihez joga van)
@@ -415,11 +439,11 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       <h1 className={s.title}>Továbbiak</h1>
       <h2 className={s.groupTitle}>Események</h2>
       <div className={s.group}>
-        {buttonRow('Új esemény', null, openNewEvent)}
-        {linkRow('Generátor', 'Ismétlődő események egyszerre', '/admin/generator')}
-        {linkRow('Check-in', null, '/admin/checkin')}
-        {linkRow('Statisztika', null, '/admin/statisztika')}
-        {linkRow('Nyilvános naptár', null, '/', true)}
+        {buttonRow(PlusOutlined, 'Új esemény', null, openNewEvent)}
+        {linkRow(UnorderedListOutlined, 'Generátor', 'Ismétlődő események egyszerre', '/admin/generator')}
+        {linkRow(MobileOutlined, 'Check-in', null, '/admin/checkin')}
+        {linkRow(BarChartOutlined, 'Statisztika', null, '/admin/statisztika')}
+        {linkRow(GlobalOutlined, 'Nyilvános naptár', null, '/', true)}
       </div>
       {!isOwner && (
         <>
@@ -433,10 +457,10 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         <>
           <h2 className={s.groupTitle}>Modulok</h2>
           <div className={s.group}>
-            {has('preorders') && linkRow('Előrendelés', null, '/admin/elorendeles')}
-            {has('leagues') && linkRow('Ligák', null, '/admin/liga')}
-            {has('website') && linkRow('Weboldal', 'Hírek és az oldal tartalma', WEBSITE_ADMIN, true)}
-            {!isOwner && has('users') && linkRow('Felhasználók', null, '/admin/felhasznalok')}
+            {has('preorders') && linkRow(ShoppingOutlined, 'Előrendelés', null, '/admin/elorendeles')}
+            {has('leagues') && linkRow(TrophyOutlined, 'Ligák', null, '/admin/liga')}
+            {has('website') && linkRow(ReadOutlined, 'Weboldal', 'Hírek, galéria, képfal', WEBSITE_ADMIN, true)}
+            {!isOwner && has('users') && linkRow(TeamOutlined, 'Felhasználók', null, '/admin/felhasznalok')}
           </div>
         </>
       )}
@@ -444,11 +468,12 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       <>
       <h2 className={s.groupTitle}>Tulajdonos</h2>
       <div className={s.group}>
-        {linkRow('Felhasználók és csoportok', null, '/admin/felhasznalok')}
-        {linkRow('Rendszer és napló', null, '/admin/rendszer')}
-        {buttonRow('Feketelista', `${(app.blacklist || []).length} tiltott e-mail`, () => app.setIsBlacklistModalOpen(true))}
-        <div className={s.tool}>
-          <span><b>Karbantartás</b><small>{app.isMaintenance ? 'Bekapcsolva: nem lehet jelentkezni' : 'Kikapcsolva'}</small></span>
+        {linkRow(TeamOutlined, 'Felhasználók és csoportok', null, '/admin/felhasznalok')}
+        {linkRow(ProfileOutlined, 'Rendszer és napló', null, '/admin/rendszer')}
+        {buttonRow(StopOutlined, 'Feketelista', `${(app.blacklist || []).length} tiltott e-mail`, () => app.setIsBlacklistModalOpen(true))}
+        <div className={s.tool} data-eszkoz>
+          <span className={s.toolIcon} aria-hidden="true"><ToolOutlined /></span>
+          <span className={s.toolText}><b>Karbantartás</b><small>{app.isMaintenance ? 'Bekapcsolva: nem lehet jelentkezni' : 'Kikapcsolva'}</small></span>
           <Popconfirm title={`Biztosan ${app.isMaintenance ? 'kikapcsolod' : 'bekapcsolod'} a karbantartást?`} onConfirm={() => app.toggleMaintenance(!app.isMaintenance)} okText="Igen" cancelText="Mégse">
             <Switch checked={!!app.isMaintenance} aria-label="Karbantartás" />
           </Popconfirm>
@@ -456,18 +481,18 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       </div>
       <h2 className={s.groupTitle}>Adatok</h2>
       <div className={s.group}>
-        {buttonRow('Teljes adatbázis mentés', 'JSON fájl letöltése', app.handleExportDB)}
+        {buttonRow(DownloadOutlined, 'Teljes adatbázis mentés', 'JSON fájl letöltése', app.handleExportDB)}
         <Popconfirm title="Biztosan törlöd a 2 hónapnál régebbi eseményeket és jelentkezőiket?" onConfirm={app.handleCleanupOldEvents} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
-          {buttonRow('Régi események törlése', '2 hónapnál régebbiek, jelentkezőikkel', undefined, true)}
+          {buttonRow(DeleteOutlined, 'Régi események törlése', '2 hónapnál régebbiek, jelentkezőikkel', undefined, true)}
         </Popconfirm>
       </div>
       </>
       )}
       <h2 className={s.groupTitle}>Fiók · {app.userName}</h2>
       <div className={s.group}>
-        <button type="button" className={s.tool} onClick={onShowChangelog}><span><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
-        {isOwner && buttonRow('Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
-        {buttonRow('Kijelentkezés', null, () => app.handleLogout(), true)}
+        <button type="button" className={s.tool} onClick={onShowChangelog} data-eszkoz><span className={s.toolIcon} aria-hidden="true"><StarOutlined /></span><span className={s.toolText}><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
+        {isOwner && buttonRow(LockOutlined, 'Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
+        {buttonRow(LogoutOutlined, 'Kijelentkezés', null, () => app.handleLogout(), true)}
       </div>
       {!isOwner && <p className={s.tip}>Kezelt játékok: {scope(app.allowedCategories, c => c)}. Kezelt boltok: {scope(app.allowedStores, id => STORE_NAMES[id] || id)}.</p>}
       {!standalone && <p className={s.tip}>Tipp: telepítsd web appként. Safariban: Megosztás → Főképernyőhöz adás.</p>}
@@ -575,11 +600,18 @@ function EventSheet({ app, evt, onClose }) {
             {e.category || 'Egyéb'} · {STORES[e.store || 'debrecen']?.name}
             {app.hostNames(e).length > 0 && <> · Tartja: {app.hostNames(e).join(', ')}</>}
           </p>
-          <p className={s.sheetMeta}>
-            Létszám: <b>{c.text}</b>
-            {e.queue_count > 0 && <> · várólistán {e.queue_count}</>}
-            {hasRegs && <> · {closed ? 'jelentkezés lezárva' : 'jelentkezés nyitva'}</>}
-          </p>
+          {c.counted ? (
+            <div className={s.sheetCap}>
+              <div className={s.sheetCapRow}>
+                <b className={s.num}>{c.cur}<span>{c.max ? ` / ${c.max}` : ''}</span></b>
+                <span className={c.full ? s.gold : s.ok}>{c.full ? `Betelt${e.queue_count > 0 ? ` · ${e.queue_count} várólistán` : ''}` : c.max ? `${Math.max(0, c.max - c.cur)} hely szabad` : ''}</span>
+              </div>
+              <CapBar e={e} c={c} big />
+              {hasRegs && <span className={s.quiet}>{closed ? 'Jelentkezés lezárva' : 'Jelentkezés nyitva'}</span>}
+            </div>
+          ) : (
+            <p className={s.sheetMeta}>Létszám: <b>{c.text}</b></p>
+          )}
           {!manage && <p className={s.sheetMeta}>Csak megtekintés: ezt az eseményt nem kezelheted.</p>}
           {!manage && <AttendeeNames attendees={e.attendees} max={12} size="small" />}
           <button type="button" className={s.sheetClose} onClick={onClose} aria-label="Bezárás"><CloseOutlined /></button>
