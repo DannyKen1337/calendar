@@ -26,6 +26,9 @@ try {
   await wait(3500);
   const after = await srcs(p);
   ok(before !== after, 'pár másodperc után egy mező képe kicserélődik');
+  await p.waitForSelector(`${SEL} [data-tile] > div`, { timeout: 8000 }).catch(() => {});
+  const dur = await p.evaluate((sel) => { const o = document.querySelector(`${sel} [data-tile] > div`); if (!o) return null; const sec = (v) => parseFloat(v) * (v.endsWith('ms') ? 0.001 : 1); return { open: sec(getComputedStyle(o).animationDuration), settle: sec(getComputedStyle(o.querySelector('img')).animationDuration) }; }, SEL);
+  ok(dur && dur.settle <= dur.open, `a kép beállása nem tart tovább a kinyílásnál, nincs ugrás a végén (${JSON.stringify(dur)})`);
   ok(await p.$eval(SEL, el => el.textContent.includes('Felirat')), 'a feliratok látszanak');
   await p.screenshot({ path: `${SHOTS}t3-gep.jpg`, quality: 60 });
 

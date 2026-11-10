@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Grid, ConfigProvider, Drawer } from 'antd';
 import { SearchOutlined, CloseCircleFilled, CloseOutlined, DownOutlined } from '@ant-design/icons';
 import { useCalendar } from '@/app/useCalendar';
-import { CalendarView, SearchResults, EventList, PublicModals, STORES, tavernTheme } from '@/app/components';
+import { SearchResults, EventList, PublicModals, STORES, tavernTheme } from '@/app/components';
 import MonthCalendar from '@/components/MonthCalendar';
 import WeekCalendar from '@/components/WeekCalendar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
@@ -28,7 +28,7 @@ const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad(
 // embed: iframe-be ágyazott nézet (pl. webshopba) – kompakt, nincs teljes képernyős magasság.
 // fixedStore: a beágyazó által rögzített helyszín (?store=...), ilyenkor nincs boltválasztó.
 export default function PublicCalendar({ embed = false, fixedStore = null }) {
-  const app = useCalendar();
+  const app = useCalendar({ eager: true });
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false;
   const [activeFilters, setActiveFilters] = useState([]);
@@ -147,7 +147,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
 
   // Telefonon a havi nézet alatt már ott a kiválasztott nap (alapból ma), ezért ott nem kell külön mai program
   // (a heti nézetben, az új kinézetben, a mai nap a héten belül látszik)
-  const showToday = !isSearching && !(isMobile && view === 'month') && !(fresh && view === 'week');
+  const showToday = !isSearching && !(isMobile && view === 'month') && view !== 'week';
 
   // Az ablakok (esemény részletei, jelentkezés) és a listák a sötét Tavern témát kapják
   return (
@@ -264,12 +264,10 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
         {isSearching ? (
           <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
         ) : view === 'week' ? (
-          fresh ? (
-            <>
-              <WeekCalendar app={appWithFilteredEvents} store={selectedStore} />
-              <PublicModals app={appWithFilteredEvents} />
-            </>
-          ) : <CalendarView app={appWithFilteredEvents} compact={embed} weekly />
+          <>
+            <WeekCalendar app={appWithFilteredEvents} store={selectedStore} />
+            <PublicModals app={appWithFilteredEvents} />
+          </>
         ) : view === 'list' ? (
           <>
             {upcoming.length ? <EventList tournamentsData={upcoming} app={appWithFilteredEvents} /> : <p className={s.empty}>Nincs közelgő esemény.</p>}
@@ -304,7 +302,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
                       <button type="button" className={s.row} onClick={() => openEvent(e)}>
                         <span className={s.rowDot} style={{ background: special ? special.color : getGameColor(e) }} aria-hidden="true" />
                         <span className={s.rowMain}>
-                          <span className={s.rowTop}><span className={s.rowTime}>{String(e.date).slice(11, 16)}</span><span className={s.rowName}>{special ? `${special.icon} ` : e.isFeatured ? '★ ' : ''}{e.name}</span></span>
+                          <span className={s.rowTop}><span className={s.rowTime}>{String(e.date).slice(11, 16)}</span><span className={s.rowName}>{special ? '' : e.isFeatured ? '★ ' : ''}{e.name}</span></span>
                           <span className={s.rowSub}>{special ? `${special.label} · ` : ''}{e.category || 'Egyéb'}{e.isOpenAttendance ? ' · kötetlen létszám' : ''}</span>
                         </span>
                         {counted && <span className={s.rowCount}>{e.current_players} / {e.max_players}</span>}

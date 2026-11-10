@@ -37,9 +37,9 @@ export const tavernTheme = {
 const defaultLogoUrl = '/jatekok/egyeb.png';
 
 export const STORES = {
-  debrecen: { id: 'debrecen', name: 'Tavern Debrecen', color: '#E5B15D', icon: '🏰' },
-  miskolc: { id: 'miskolc', name: 'Tavern Miskolc', color: '#8b5cf6', icon: '⛰️' },
-  jatekceh: { id: 'jatekceh', name: 'JátékCéh', color: '#10b981', icon: '🎲' }
+  debrecen: { id: 'debrecen', name: 'Tavern Debrecen', color: '#E5B15D' },
+  miskolc: { id: 'miskolc', name: 'Tavern Miskolc', color: '#8b5cf6' },
+  jatekceh: { id: 'jatekceh', name: 'JátékCéh', color: '#10b981' }
 };
 
 export { getGameConfig };
@@ -80,14 +80,14 @@ export const EventTypeTag = ({ evt, size = 'default' }) => {
   const big = size === 'large';
   return (
     <Tag style={{ background: t.gradient, border: `1px solid ${t.color}`, color: '#fff', fontWeight: 'bold', fontSize: big ? 14 : 12, padding: big ? '4px 12px' : '1px 8px', textShadow: '0 1px 2px rgba(0,0,0,0.5)', boxShadow: `0 0 8px ${t.color}88` }}>
-      {t.icon} {t.label}
+      {t.label}
     </Tag>
   );
 };
 
 // Játékszűrésnél a másik bolt eseménye (lásd PublicCalendar): halványan, a bolt nevével jelenik meg
 const otherStore = (evt) => (evt._otherStore ? STORES[evt._otherStore] : null);
-const OtherStoreTag = ({ evt }) => { const s = otherStore(evt); return s ? <Tag style={{ margin: 0, background: 'transparent', borderColor: s.color, color: s.color }}>{s.icon} {s.name}</Tag> : null; };
+const OtherStoreTag = ({ evt }) => { const s = otherStore(evt); return s ? <Tag style={{ margin: 0, background: 'transparent', borderColor: s.color, color: s.color }}>{s.name}</Tag> : null; };
 
 // A különleges események megjelenéséhez (keret, fény) a globals.css a --special-color változót használja
 const specialVars = (evt) => (isSpecialEvent(evt) ? { '--special-color': getEventTypeConfig(evt).color } : {});
@@ -142,7 +142,7 @@ export const PublicModals = ({ app }) => {
             </div>
             <div className="bg-[#2B1A1C] p-4 rounded-xl border border-[#4A2E33]">
               <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Időpont:</strong> {formatEventDate(selectedEventDetails.date)}</p>
-              {selectedEventDetails._otherStore && <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Helyszín:</strong> {STORES[selectedEventDetails._otherStore]?.icon} {STORES[selectedEventDetails._otherStore]?.name} <span style={{ color: '#9a8a8c' }}>(másik bolt)</span></p>}
+              {selectedEventDetails._otherStore && <p className="mb-2"><strong style={{ color: '#E5B15D' }}>Helyszín:</strong> {STORES[selectedEventDetails._otherStore]?.name} <span style={{ color: '#9a8a8c' }}>(másik bolt)</span></p>}
               
               {!selectedEventDetails.isOpenAttendance && !selectedEventDetails.external_url && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players} / {selectedEventDetails.max_players}</p> )}
               {selectedEventDetails.external_url && rgnEventId(selectedEventDetails.external_url) && selectedEventDetails.rgn?.syncedAt && selectedEventDetails.rgn?.ok !== false && ( <p><strong style={{ color: '#E5B15D' }}>Létszám:</strong> {selectedEventDetails.current_players}{selectedEventDetails.rgn.capacity ? ` / ${selectedEventDetails.rgn.capacity}` : ''}{selectedEventDetails.queue_count > 0 ? ` (várólistán: ${selectedEventDetails.queue_count})` : ''} <span style={{ color: '#9a8a8c' }}>· a Riftbound oldal szerint</span></p> )}
@@ -385,7 +385,7 @@ export const CalendarView = ({ app, compact = false, weekly = false }) => {
                           const special = isSpecialEvent(evt) ? getEventTypeConfig(evt) : null;
                           return (
                             <div key={String(evt._id || evt.id)} className={[special ? 'special-strip' : evt.isFeatured ? 'featured-strip' : '', evt._otherStore ? 'other-store' : ''].filter(Boolean).join(' ') || undefined} style={{...S.calEventStrip, ...(special ? { ...specialVars(evt), background: special.gradient } : { backgroundColor: eventColor }), color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }} onClick={(e) => { e.stopPropagation(); setSelectedEventDetails(evt); setIsEventDetailsModalOpen(true); }} title={`${getEventTime(evt.date)} ${special ? `${special.label}: ` : ''}${evt.name}${otherStore(evt) ? ` (${otherStore(evt).name})` : ''}`}>
-                              {otherStore(evt) ? `${otherStore(evt).icon} ` : ''}{special ? `${special.icon} ${special.short} · ` : evt.isFeatured ? '⭐ ' : ''}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
+                              {special ? `${special.short} · ` : evt.isFeatured ? '⭐ ' : ''}{getEventTime(evt.date)} {evt.category || 'Egyéb'}
                             </div>
                           );
                       })}

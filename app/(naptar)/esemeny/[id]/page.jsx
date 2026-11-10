@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getPublicEvent, isMaintenanceOn, formatEventDateHu } from '@/lib/events';
 import EventPageClient from '@/components/EventPageClient';
+import { eventJsonLd } from '@/lib/storeInfo';
 
 const STORE_NAMES = { debrecen: 'Tavern Debrecen', miskolc: 'Tavern Miskolc', jatekceh: 'JátékCéh' };
 
@@ -29,5 +30,12 @@ export default async function EventPage({ params }) {
   }
   const event = await getPublicEvent(id).catch(() => null);
   if (!event) notFound();
-  return <EventPageClient eventId={id} initialEvent={event} />;
+  // Google-jelölés (schema.org Event): a keresőben dátummal és helyszínnel jelenhet meg az esemény
+  const ld = eventJsonLd(event, id);
+  return (
+    <>
+      {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />}
+      <EventPageClient eventId={id} initialEvent={event} />
+    </>
+  );
 }

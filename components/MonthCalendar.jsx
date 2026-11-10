@@ -124,7 +124,7 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
     const special = isSpecialEvent(e) ? getEventTypeConfig(e) : null;
     const color = special ? special.color : getGameColor(e);
     const other = e._otherStore ? STORES[e._otherStore]?.name : null;
-    const label = `${special ? `${special.icon} ${special.short} · ` : e.isFeatured ? '★ ' : ''}${timeOf(e)} ${SHORT[e.category] || e.category || 'Egyéb'}`;
+    const label = `${special ? `${special.short} · ` : e.isFeatured ? '★ ' : ''}${timeOf(e)} ${SHORT[e.category] || e.category || 'Egyéb'}`;
     return (
       <button key={String(e._id || e.id)} type="button" className={`${s.strip} ${past ? s.stripPast : ''} ${other ? s.stripOther : ''}`}
         style={{ background: color, color: inkOn(color) }}

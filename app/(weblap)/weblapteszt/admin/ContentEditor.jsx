@@ -343,9 +343,14 @@ function PhotoGrid({ f, value, onChange, s }) {
     const skipped = files.length - take.length;
     const ids = take.map((file) => ({ id: rid(), name: file.name }));
     setJobs(js => [...js.filter(j => !j.error), ...ids, ...(skipped ? [{ id: 'tobb', name: `${skipped} kép`, error: `Nem fér el: legfeljebb ${f.max} kép lehet.` }] : [])]);
+    // Közben egy másik csomag is futhat: minden kép előtt és után újra megnézzük, fér-e még
+    const full = () => latest.current.length >= f.max;
+    const noRoom = { error: `Nem fér el: legfeljebb ${f.max} kép lehet.` };
     for (const [i, file] of take.entries()) {
+      if (full()) { job(ids[i].id, noRoom); continue; }
       const res = await send(file);
-      if (res.url) { update([...latest.current, newItem(res.url)]); job(ids[i].id, null); }
+      if (res.url && full()) job(ids[i].id, noRoom);
+      else if (res.url) { update([...latest.current, newItem(res.url)]); job(ids[i].id, null); }
       else job(ids[i].id, { error: res.error });
     }
   }

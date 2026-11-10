@@ -116,6 +116,7 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
 
           <div className={s.actions}>
             {action}
+            {!isPast && <a className={s.calendar} href={`/api/export?event=${encodeURIComponent(String(evt._id || evt.id))}`}>Naptárba</a>}
             <ShareEventButton evt={evt} messageApi={app.messageApi} className={s.share} iconOnly aria-label="Megosztás" title="Megosztás" />
           </div>
         </article>

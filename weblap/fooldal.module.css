@@ -162,7 +162,7 @@
 .mosaicTile img { object-fit: cover; }
 .mosaicTile::after { content: ''; position: absolute; inset: 0; z-index: 2; background: linear-gradient(0deg, rgba(0, 0, 0, 0.6), transparent 45%); pointer-events: none; }
 .mosaicIn { position: absolute; inset: 0; z-index: 1; animation: mosaicOpen 1s var(--ease-in-out) both; }
-.mosaicIn img { animation: mosaicSettle 1.6s var(--ease-out) both; }
+.mosaicIn img { animation: mosaicSettle 1s var(--ease-out) both; } /* nem tovább a kinyílásnál, különben a végén ugrik */
 @keyframes mosaicOpen { from { clip-path: circle(0% at var(--x) var(--y)); } to { clip-path: circle(150% at var(--x) var(--y)); } }
 @keyframes mosaicSettle { from { transform: scale(1.12); } to { transform: none; } }
 .mosaicCaption { position: absolute; left: 14px; right: 14px; bottom: 12px; z-index: 3; font-size: clamp(1.1rem, 0.8rem + 1vw, 1.75rem); line-height: 1; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7); animation: mosaicCaption 700ms var(--ease-out) 350ms both; }

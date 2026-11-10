@@ -2,6 +2,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { logSystemError } from '@/lib/systemLog';
 import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 import { EVENT_LENGTH_HOURS } from '@/lib/hostConflicts';
+import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,8 +62,14 @@ export async function GET(request) {
     const url = new URL(request.url);
     const categoriesParam = url.searchParams.get('categories');
     const store = url.searchParams.get('store');
+    // ?event=<id>: egyetlen esemény (az eseményoldal és a sikeres jelentkezés „Naptárba” gombja)
+    const eventId = url.searchParams.get('event');
 
     const query = {};
+    if (eventId) {
+      const id = String(eventId).slice(0, 100);
+      query.$or = [{ id }, ...(ObjectId.isValid(id) && id.length === 24 ? [{ _id: new ObjectId(id) }] : [])];
+    }
     if (categoriesParam) query.category = { $in: categoriesParam.split(',') };
     // A bolt nélküli (régi) események Debrecenhez tartoznak
     if (store && STORE_LOCATIONS[store]) {
@@ -71,6 +78,7 @@ export async function GET(request) {
 
     const db = await getTavernDb();
     const events = await db.collection('tournaments').find(query).toArray();
+    if (eventId && events.length === 0) return new Response(JSON.stringify({ error: 'Az esemény nem található.' }), { status: 404 });
 
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tavern//Naptar//HU', 'CALSCALE:GREGORIAN', ...VTIMEZONE];
     const stamp = formatUtc(new Date());
@@ -97,7 +105,7 @@ export async function GET(request) {
       status: 200,
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="tavern_versenyek.ics"'
+        'Content-Disposition': `attachment; filename="${eventId ? 'tavern_esemeny' : 'tavern_versenyek'}.ics"`
       }
     });
   } catch (error) {

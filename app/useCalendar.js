@@ -11,7 +11,9 @@ import { getOpeningHoursWarning } from "@/lib/storeHours";
 import { budapestDateTime } from "@/lib/eventDates";
 import { seriesMembers, seriesChanges } from "@/lib/series";
 
-export const useCalendar = () => {
+// eager: a nyilvános adat a munkamenet-ellenőrzéssel párhuzamosan töltődik (a nyilvános naptár így egy kéréssel
+// hamarabb jelenik meg); ha kiderül, hogy szervező van belépve, az admin adat a háttérben váltja le
+export const useCalendar = ({ eager = false } = {}) => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
@@ -105,12 +107,12 @@ export const useCalendar = () => {
         setAllowedStores(Array.isArray(data.user.allowedStores) ? data.user.allowedStores : null);
         setFeatures(Array.isArray(data.user.features) ? data.user.features : []);
         setLastSeenChangelog(data.user.lastSeenChangelog || null);
-        fetchAdminData(false); 
-      } else {
+        fetchAdminData(eager);
+      } else if (!eager) {
         fetchPublicData(false);
       }
     })
-    .catch(() => fetchPublicData(false));
+    .catch(() => { if (!eager) fetchPublicData(false); });
 
   const handleSelectStore = (storeId) => {
     setSelectedStore(storeId);
@@ -182,6 +184,7 @@ export const useCalendar = () => {
 
   // Indításkor: munkamenet és adatok betöltése (a függvények után, hogy deklarálva legyenek)
   useEffect(() => {
+    if (eager) fetchPublicData(false);
     checkSession();
     fetch('/api/auth')
       .then((res) => res.json())

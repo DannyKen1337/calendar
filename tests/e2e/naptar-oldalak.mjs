@@ -71,6 +71,7 @@ try {
   await p.waitForFunction(() => /Hely biztosítva|Várólistára/.test(document.body.innerText), { timeout: 20000 }).catch(() => {});
   const txt = await p.evaluate(() => document.body.innerText);
   ok(/Hely biztosítva/.test(txt) && !EMOJI.test(txt) && !!(await p.$('main svg')), 'jelentkezés: siker SVG ikonnal, emoji nélkül');
+  ok(await p.evaluate((id) => [...document.querySelectorAll('a')].some(a => a.getAttribute('href') === `/api/export?event=${id}` && /naptárba/i.test(a.textContent)), opId), 'jelentkezés: „Mentés a naptárba” a siker után');
   await p.screenshot({ path: `${SHOTS}t7-siker.jpg`, quality: 60 });
   console.log('  böngészőhibák:', p.errs.join(' | ') || 'nincs');
 } finally {

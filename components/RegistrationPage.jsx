@@ -135,6 +135,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
           <p className="mt-3">A jelentkezők között így látszol: <b className="text-white">{result.username}</b></p>
           {result.isQueue && <p className="text-[#cfc6b8]">Ha felszabadul egy hely, automatikusan előlépsz.</p>}
           {result.mailSent && <p className="text-[#cfc6b8]">A visszaigazolást elküldtük e-mailben.</p>}
+          <a href={`/api/export?event=${encodeURIComponent(eventId)}`} className="inline-flex items-center min-h-[48px] mt-2 px-6 rounded-full font-bold no-underline" style={{ background: theme.accent, color: theme.accentText }}>Mentés a naptárba</a>
         </div>
         {backLinks}
       </>

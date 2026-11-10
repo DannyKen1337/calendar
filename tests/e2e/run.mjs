@@ -21,6 +21,15 @@ async function ready() {
   throw new Error('A tesztszerver nem indult el 4 perc alatt.');
 }
 
+// A következő kör előtt a régi szervernek tényleg le kell állnia (különben a teszt egy leálló szerverbe fut)
+async function gone() {
+  for (let i = 0; i < 60; i++) {
+    try { await fetch('http://localhost:3179/api/auth/session'); } catch { return; }
+    await wait(500);
+  }
+  throw new Error('A tesztszerver nem állt le 30 mp alatt.');
+}
+
 const run = (file) => new Promise(resolve => {
   const child = spawn(process.execPath, [`${HERE}${file}.mjs`], { stdio: 'inherit' });
   child.on('exit', code => resolve(code === 0));
@@ -40,7 +49,7 @@ for (const round of ROUNDS) {
     }
   } finally {
     server.kill('SIGTERM');
-    await wait(1500);
+    await gone();
   }
 }
 console.log(failed.length ? `\nHIBÁS: ${failed.join(', ')}` : '\nMinden e2e teszt rendben.');

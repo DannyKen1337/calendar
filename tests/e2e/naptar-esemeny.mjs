@@ -1,0 +1,68 @@
+// Eseményoldal és naptár: Google-jelölés (schema.org Event), naptárba mentés egy eseményre, emoji nélküli különleges
+// események, a beágyazott naptár heti nézete, és a gyors első betöltés (az adat nem vár a munkamenet-ellenőrzésre).
+import { openDb, get, browser, page, ok, summary, wait, BASE } from './lib.mjs';
+
+const { client, db } = await openDb();
+const pad = (n) => String(n).padStart(2, '0');
+const day = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const ids = (await db.collection('tournaments').insertMany([
+  { name: 'One Piece Store Tournament', date: `${day(1)}T17:30`, category: 'One Piece Card Game', store: 'jatekceh', max_players: 20, current_players: 0, is_open: true, description: 'Hozd a paklidat!', createdAt: new Date() },
+  { name: 'Szett megjelenés este', date: `${day(1)}T19:00`, category: 'Pokémon TCG', store: 'jatekceh', eventType: 'release', max_players: 30, current_players: 0, is_open: true, createdAt: new Date() },
+])).insertedIds;
+const opId = String(ids[0]);
+const EMOJI = /\p{Extended_Pictographic}/u;
+
+const b = await browser();
+try {
+  // Google-jelölés
+  const html = await (await get(`/esemeny/${opId}`)).text();
+  const m = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  let ld = null;
+  try { ld = m && JSON.parse(m[1]); } catch { /* hibás JSON */ }
+  ok(ld?.['@type'] === 'Event' && ld.name === 'One Piece Store Tournament', 'Google: schema.org Event a névvel');
+  ok(/^\d{4}-\d{2}-\d{2}T17:30:00\+0[12]:00$/.test(ld?.startDate || ''), `Google: kezdés magyar időzónával (${ld?.startDate})`);
+  ok(ld?.location?.address?.streetAddress === 'Batthyány u. 1' && ld?.location?.name === 'JátékCéh', 'Google: a bolt címe');
+  ok(ld?.eventAttendanceMode === 'https://schema.org/OfflineEventAttendanceMode' && ld?.eventStatus === 'https://schema.org/EventScheduled', 'Google: helyszíni, megtartott esemény');
+
+  // Naptárba mentés egy eseményre
+  const ics = await get(`/api/export?event=${opId}`);
+  const icsText = await ics.text();
+  ok(/text\/calendar/.test(ics.headers.get('content-type') || '') && (icsText.match(/BEGIN:VEVENT/g) || []).length === 1 && icsText.includes('One Piece Store Tournament'), 'naptárba mentés: egyetlen esemény ICS-ben');
+  ok((await get('/api/export?event=nincsilyen')).status === 404, 'naptárba mentés: ismeretlen eseményre 404');
+  let p = await page(b, null, 402, 874);
+  await p.goto(`${BASE}/esemeny/${opId}`, { waitUntil: 'networkidle2', timeout: 240000 });
+  const cal = await p.evaluate(() => { const a = [...document.querySelectorAll('a')].find(x => /Naptárba/.test(x.textContent)); return a ? { href: a.getAttribute('href'), h: a.getBoundingClientRect().height } : null; });
+  ok(cal && cal.href === `/api/export?event=${opId}` && cal.h >= 44, 'eseményoldal: „Naptárba” gomb');
+
+  // Különleges esemény: nincs emoji
+  await p.goto(`${BASE}/esemeny/${String(ids[1])}`, { waitUntil: 'networkidle2' });
+  ok(!EMOJI.test(await p.evaluate(() => document.body.innerText)) && /Szett megjelenés/.test(await p.evaluate(() => document.body.innerText)), 'különleges esemény: címke emoji nélkül');
+
+  // Gyors első betöltés: a munkamenet-ellenőrzés 3 mp-ig késik, a naptár mégis megjelenik előtte
+  p = await page(b, null, 402, 874);
+  await p.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'jatekceh'); } catch { /* */ } });
+  await p.setRequestInterception(true);
+  p.on('request', r => { if (r.url().includes('/api/auth/session')) setTimeout(() => r.continue().catch(() => {}), 3000); else r.continue().catch(() => {}); });
+  const t0 = Date.now();
+  await p.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('[aria-label="Előző hónap"]', { timeout: 15000 }).catch(() => {});
+  const shown = Date.now() - t0;
+  ok(shown < 2900, `gyors betöltés: a naptár nem vár a munkamenetre (${shown} ms)`);
+  const dsk = await page(b, null, 1440, 900);
+  await dsk.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'jatekceh'); } catch { /* */ } });
+  await dsk.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await dsk.waitForSelector('[aria-label="Előző hónap"]', { timeout: 30000 });
+  const strips = await dsk.evaluate(() => [...document.querySelectorAll('[data-day] button')].map(x => x.textContent).join(' | '));
+  ok(/Megjelenés/.test(strips) && !EMOJI.test(strips), `naptár: a különleges esemény sávja emoji nélkül (${strips.slice(0, 60)})`);
+
+  // Beágyazott naptár: a heti nézet is az új
+  p = await page(b, null, 402, 874);
+  await p.goto(`${BASE}/embed?store=jatekceh`, { waitUntil: 'networkidle2' });
+  await p.waitForSelector('[aria-label="Nézet"] button', { timeout: 30000 });
+  await p.evaluate(() => [...document.querySelectorAll('[aria-label="Nézet"] button')].find(x => x.textContent.trim() === 'Heti').click());
+  await wait(600);
+  ok(!!(await p.$('[data-het]')), 'beágyazva: az új heti nézet');
+  console.log('  böngészőhibák:', p.errs.join(' | ') || 'nincs');
+} finally {
+  await b.close(); await client.close(); summary();
+}

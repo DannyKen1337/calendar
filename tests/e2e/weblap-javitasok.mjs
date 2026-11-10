@@ -63,6 +63,18 @@ try {
   const after = await srcs(p);
   ok(after[0] !== before[1] && after[1] === before[0], '#8 a csere az átrendezett képen történik');
 
+  // #9: két gyorsan egymás után indított feltöltés sem lépi át a 40 képet
+  const full39 = Array.from({ length: 39 }, (_, i) => ({ id: `t${i}`, picture: { src: `https://i.ibb.co/x/${i}.jpg`, alt: '', position: '50% 50%' }, caption: '' }));
+  await db.collection('website_content').updateOne({ _id: 'draft' }, { $set: { slideshow: { title: 'A boltokból', pictures: full39 } } }, { upsert: true });
+  await p.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2' });
+  await (await p.$('input[type=file][multiple]')).uploadFile(files[0]);
+  await wait(200);
+  const again = await p.$('input[type=file][multiple]');
+  if (again) await again.uploadFile(files[1]);
+  await waitIdle(p);
+  await wait(300);
+  ok((await p.$$('[data-photo]')).length === 40, `#9 legfeljebb 40 kép marad (${(await p.$$('[data-photo]')).length})`);
+
   // #4: szünet, majd lejátszás egérrel: újra vált
   await db.collection('website_content').replaceOne({ _id: 'site' }, { slideshow: { title: 'A boltokból', pictures: ['bolt-asztalok.png', 'verseny.png', 'klub-asztal.png', 'pakli-bontas.png', 'csapat.png', 'miskolc-kirakat.jpg', 'jatekceh-kirakat.jpg'].map((f, i) => ({ id: `k${i}`, picture: { src: `/photos/${f}`, alt: '', position: '50% 50%' }, caption: `F${i}` })) } }, { upsert: true });
   const h = await page(b, null);
