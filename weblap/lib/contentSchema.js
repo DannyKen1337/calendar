@@ -83,11 +83,19 @@ export const CONTENT_TABS = [
   },
   {
     key: 'gallery', label: 'Galéria',
-    intro: 'Az „Egy este nálunk” rész: a nagy cím két oldalán három fotó.',
+    intro: 'Az „Egy este nálunk” rész: a nagy cím mellett három fotó. Egy képet a „Csere” gombbal cserélhetsz.',
     schema: object(null, {
       title: text('Cím', { max: 40 }),
       note: area('Képaláírás (bal alsó sarok)', { max: 200, rows: 2 }),
-      pictures: list('Képek', object(null, { picture: image('Kép') }), { itemLabel: 'kép', titleKey: 'none', max: 3 }),
+      pictures: list('Képek', object(null, { picture: image('Kép') }), { itemLabel: 'kép', titleKey: 'none', max: 3, photos: true }),
+    }),
+  },
+  {
+    key: 'slideshow', label: 'Képfal',
+    intro: 'A mozgó képfal a galéria után: pár másodpercenként egy-egy mezőben új kép nyílik ki. Tölts fel annyi képet, amennyit szeretnél (legfeljebb 40). Ha nincs kép, a képfal nem látszik.',
+    schema: object(null, {
+      title: text('Cím', { max: 40 }),
+      pictures: list('Képek', object(null, { picture: image('Kép'), caption: text('Felirat', { max: 40 }) }), { itemLabel: 'kép', titleKey: 'caption', max: 40, photos: true }),
     }),
   },
   {
@@ -126,6 +134,9 @@ export const CONTENT_TABS = [
 ];
 
 export const TAB_KEYS = CONTENT_TABS.map(t => t.key);
+// A szerkesztőfelületen ezek a fülek látszanak (és csak ezeket lehet menteni); a többi tartalma marad, ahogy van
+export const EDITABLE_TABS = ['gallery', 'slideshow'];
+export const isEditableTab = (key) => EDITABLE_TABS.includes(key);
 export const tabByKey = (key) => CONTENT_TABS.find(t => t.key === key);
 
 // Egy új (üres) érték a mező típusához (új listaelemhez)

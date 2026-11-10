@@ -52,6 +52,10 @@ export const DEFAULT_CONTENT = {
       { id: 'kep3', picture: { src: '/photos/pakli-bontas.png', alt: 'Pakli-bontás a boltban', position: '50% 50%' } },
     ],
   },
+  slideshow: {
+    title: 'A boltokból',
+    pictures: [],
+  },
   news: {
     title: 'Hírek a boltokból',
     allLink: 'Összes hír',

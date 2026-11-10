@@ -10,7 +10,7 @@ import { getTavernDb } from '@/weblap/lib/db';
 import { getEditor, logout } from '@/weblap/lib/auth';
 import { withBase } from '@/weblap/lib/basePath';
 import { saveTab, resetTab } from '@/weblap/lib/content';
-import { tabByKey } from '@/weblap/lib/contentSchema';
+import { tabByKey, isEditableTab } from '@/weblap/lib/contentSchema';
 import { getPendingChanges, publishAll, discardAll } from '@/weblap/lib/staging';
 
 // A weboldal minden oldala (a route group is a cache-címke része); csak kirakáskor kell
@@ -163,7 +163,7 @@ export async function saveContentAction(_prev, formData) {
   const editor = await requireEditor();
   const key = String(formData.get('tab') || '');
   const tab = tabByKey(key);
-  if (!tab) return { error: 'Ismeretlen fül.' };
+  if (!tab || !isEditableTab(key)) return { error: 'Ezt a részt itt nem lehet szerkeszteni.' };
   let value;
   try {
     value = JSON.parse(String(formData.get('payload') || ''));
@@ -182,7 +182,7 @@ export async function resetContentAction(formData) {
   const editor = await requireEditor();
   const key = String(formData.get('tab') || '');
   const tab = tabByKey(key);
-  if (!tab) return;
+  if (!tab || !isEditableTab(key)) return;
   await resetTab(key, editor.username);
   const db = await getTavernDb();
   await addLog(db, editor, `Oldal tartalma visszaállítva az eredetire (előnézet): ${tab.label}`);
