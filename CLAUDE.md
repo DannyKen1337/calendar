@@ -63,5 +63,5 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 
 ## Teendők / ötletek
 - Élesben ellenőrizni az új nyilvános naptárat és a tulajdonosi admint (telefonon is), a telítettség modult bekapcsolás előtt kipróbálni.
-- A heti nézet még a régi kinézetű (`CalendarView weekly`), a jelentkezési és eseményoldal is.
+- A heti nézet (`components/WeekCalendar.jsx`, az üres napok egy rövid sorban), az eseményoldal (`EventPageClient` + `EventPage.module.css`, telefonon alul ragadó Jelentkezem sáv) és a jelentkezési oldal (a játékonkénti színvilág marad; SVG ikonok emoji helyett, a hibák a mezőhöz kötve) 2026-11-10 óta az új kinézetű. A beágyazott nézet heti nézete még a régi `CalendarView weekly`.
 - Weboldal élesítése a tavern.hu-n: lásd a `tavern-web` README-t (DNS a DTank-nál, a webshop előbb aldomainre).

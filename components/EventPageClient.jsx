@@ -1,15 +1,20 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
-import { ConfigProvider, Button, Tag } from 'antd';
-import { ArrowLeftOutlined, CalendarOutlined, EnvironmentOutlined, LinkOutlined, StarFilled, TeamOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import { ConfigProvider } from 'antd';
 import { useCalendar } from '@/app/useCalendar';
 import { PublicModals, AttendeeNames, ShareEventButton, EventTypeTag, STORES, tavernTheme, getCategoryImage } from '@/app/components';
 import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 import { getGameColor } from '@/lib/gameConfig';
+import s from './EventPage.module.css';
 
 // Megosztható eseményoldal (/esemeny/[id]). A szerver által betöltött adatokkal azonnal megjelenik,
-// majd a naptár adataiból frissül (pl. jelentkezés után a létszám).
+// majd a naptár adataiból frissül (pl. jelentkezés után a létszám). A nyilvános naptár kinézete (sötét alap, arany,
+// Cinzel + Manrope); telefonon a jelentkezés gombja a képernyő alján ragad, így görgetés nélkül is elérhető.
+const Icon = ({ d }) => <svg className={s.icon} viewBox="0 0 24 24" aria-hidden="true"><path d={d} /></svg>;
+const CALENDAR = 'M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 10h16M8 3v4M16 3v4';
+const PIN = 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z';
+
 export default function EventPageClient({ eventId, initialEvent, maintenance = false }) {
   const app = useCalendar();
   const [now] = useState(() => Date.now());
@@ -18,21 +23,27 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
   const isStaff = app.userRole === 'admin' || app.userRole === 'owner';
 
   if (maintenance && !isStaff) {
-    if (app.loading) return <Shell><p className="text-[#E5B15D] font-bold text-xl text-center">Betöltés...</p></Shell>;
     return (
       <Shell>
-        <h1 className="text-3xl font-bold text-[#E5B15D] font-serif mb-4 text-center">Karbantartás alatt 🛠️</h1>
-        <p className="text-[#E0D6C8] text-center">A Tavern rendszerei jelenleg karbantartás alatt állnak. Kérjük, látogass vissza később!</p>
+        {app.loading ? <p className={s.status} role="status">Betöltés…</p> : (
+          <div className={s.card}>
+            <h1 className={s.title}>Karbantartás alatt</h1>
+            <p className={s.muted}>A Tavern rendszerei jelenleg karbantartás alatt állnak. Kérjük, látogass vissza később!</p>
+          </div>
+        )}
       </Shell>
     );
   }
   if (!evt) {
-    return <Shell><p className="text-[#E5B15D] font-bold text-xl text-center">{app.loading ? 'Betöltés...' : 'Az esemény nem található.'}</p></Shell>;
+    return <Shell><p className={s.status} role="status">{app.loading ? 'Betöltés…' : 'Az esemény nem található.'}</p></Shell>;
   }
 
+  const special = isSpecialEvent(evt) ? getEventTypeConfig(evt) : null;
   const color = getGameColor(evt);
   const store = STORES[evt.store || 'debrecen'];
+  const counted = !evt.isOpenAttendance && !evt.external_url;
   const isFull = !evt.isOpenAttendance && evt.current_players >= evt.max_players;
+  const free = Math.max(0, (evt.max_players || 0) - (evt.current_players || 0));
   const attendees = evt.attendees || [];
   const active = attendees.filter(a => !a.queue);
   const queued = attendees.filter(a => a.queue);
@@ -40,79 +51,72 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
 
   let action = null;
   if (evt.isOpenAttendance) {
-    action = <p className="text-[#baaaac] m-0">Kötetlen létszám – nincs jelentkezés, gyere el nyugodtan!</p>;
+    action = <p className={s.note}>Kötetlen létszám – nincs jelentkezés, gyere el nyugodtan!</p>;
   } else if (evt.external_url) {
-    action = <Button type="primary" size="large" icon={<LinkOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => app.initiateJoin(evt)}>Tovább a jelentkezéshez</Button>;
+    action = <button type="button" className={s.primary} onClick={() => app.initiateJoin(evt)}>Tovább a jelentkezéshez</button>;
   } else if (isPast) {
-    action = <Tag style={{ fontSize: 14, padding: '4px 12px' }}>Az esemény már lezajlott</Tag>;
+    action = <p className={s.note}>Az esemény már lezajlott.</p>;
   } else {
     action = (
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="primary" size="large" disabled={!evt.is_open} icon={isFull ? <UsergroupAddOutlined /> : <TeamOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => app.initiateJoin(evt)}>
+      <>
+        <button type="button" className={s.primary} disabled={!evt.is_open} onClick={() => app.initiateJoin(evt)}>
           {!evt.is_open ? 'Jelentkezés lezárva' : isFull ? 'Jelentkezés várólistára' : 'Jelentkezem'}
-        </Button>
-        <Button type="link" danger onClick={() => app.initiateUnsubscribe(evt)}>Leiratkozás</Button>
-      </div>
+        </button>
+        <button type="button" className={s.secondary} onClick={() => app.initiateUnsubscribe(evt)}>Leiratkozás</button>
+      </>
     );
   }
 
   return (
     <ConfigProvider theme={tavernTheme}>
       {app.contextHolder}
-      <Shell wide>
-        <Link href="/" className="inline-flex items-center gap-2 text-[#E5B15D] hover:text-[#f3cf8c] font-bold mb-6">
-          <ArrowLeftOutlined /> Vissza a naptárhoz
-        </Link>
+      <Shell>
+        <Link href="/" className={s.back}>‹ Vissza a naptárhoz</Link>
 
-        <article className="bg-[#1a1012] rounded-2xl border-2 overflow-hidden" style={{ borderColor: isSpecialEvent(evt) ? getEventTypeConfig(evt).color : evt.isFeatured ? '#FFD700' : '#4A2E33' }}>
-          <div style={{ height: 8, background: isSpecialEvent(evt) ? getEventTypeConfig(evt).gradient : color }} />
-          <div className="p-6 md:p-8 flex flex-col gap-6">
-            <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
-              <div className="w-28 h-28 shrink-0 bg-[#0a0a0a] rounded-2xl border-2 border-[#4A2E33] p-3 flex items-center justify-center">
-                <img src={evt.imageUrl || getCategoryImage(evt.category)} alt={evt.category || ''} className="w-full h-full object-contain" />
+        <article className={s.card} style={{ boxShadow: `inset 0 0 0 1.5px ${special ? special.color : evt.isFeatured ? '#e5b15d' : '#241b1d'}` }}>
+          <div className={s.stripe} style={{ background: special ? special.gradient : color }} aria-hidden="true" />
+          <header className={s.head}>
+            <span className={s.logo}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={evt.imageUrl || getCategoryImage(evt.category)} alt="" />
+            </span>
+            <div className={s.headText}>
+              <div className={s.tags}>
+                <EventTypeTag evt={evt} />
+                <span className={s.tag}><i style={{ background: color }} aria-hidden="true" />{evt.category || 'Egyéb'}</span>
+                {evt.isFeatured && <span className={`${s.tag} ${s.tagGold}`}>Kiemelt</span>}
               </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap gap-2 mb-2">
-                  <EventTypeTag evt={evt} />
-                  <Tag style={{ background: color, borderColor: color, color: '#fff', margin: 0 }}>{evt.category || 'Egyéb'}</Tag>
-                  {evt.isFeatured && <Tag icon={<StarFilled />} color="gold" style={{ margin: 0, fontWeight: 'bold' }}>Kiemelt</Tag>}
-                </div>
-                <h1 className="text-3xl md:text-4xl font-bold text-[#E5B15D] font-serif m-0 break-words">{evt.name}</h1>
-              </div>
+              <h1 className={s.title}>{evt.name}</h1>
             </div>
+          </header>
 
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="bg-[#2B1A1C] rounded-xl border border-[#4A2E33] px-4 py-3 flex items-center gap-3">
-                <CalendarOutlined className="text-[#E5B15D] text-xl" />
-                <span className="text-[#E0D6C8]">{app.formatEventDate(evt.date)}</span>
-              </div>
-              <div className="bg-[#2B1A1C] rounded-xl border border-[#4A2E33] px-4 py-3 flex items-center gap-3">
-                <EnvironmentOutlined className="text-[#E5B15D] text-xl" />
-                <span className="text-[#E0D6C8]">{store?.name || 'Tavern'}</span>
-              </div>
-            </div>
+          <ul className={s.facts}>
+            <li><Icon d={CALENDAR} />{app.formatEventDate(evt.date)}</li>
+            <li><Icon d={PIN} />{store?.name || 'Tavern'}</li>
+          </ul>
 
-            {!evt.isOpenAttendance && !evt.external_url && (
-              <div className="bg-[#2B1A1C] rounded-xl border border-[#4A2E33] px-4 py-3">
-                <strong className="text-[#E5B15D]">Létszám: </strong>
-                <span className="text-[#E0D6C8]">{evt.current_players} / {evt.max_players}</span>
-                {evt.queue_count > 0 && <span className="text-[#baaaac]"> · várólistán: {evt.queue_count}</span>}
-                {active.length > 0 && <AttendeeNames attendees={active} />}
-                {queued.length > 0 && <div className="mt-2"><span className="text-[#baaaac] text-sm">Várólistán:</span><AttendeeNames attendees={queued} /></div>}
+          {counted && (
+            <section className={s.box} aria-label="Létszám">
+              <div className={s.countRow}>
+                <b className={s.count}>{evt.current_players}<span> / {evt.max_players}</span></b>
+                <span className={isFull ? s.full : s.free}>{isFull ? `Betelt${evt.queue_count > 0 ? ` · ${evt.queue_count} várólistán` : ''}` : `${free} hely szabad`}</span>
               </div>
-            )}
+              <span className={s.meter} data-sav aria-hidden="true"><span style={{ width: `${evt.max_players ? Math.min(100, (evt.current_players / evt.max_players) * 100) : 0}%` }} /></span>
+              {active.length > 0 && <AttendeeNames attendees={active} />}
+              {queued.length > 0 && <><p className={s.label}>Várólistán</p><AttendeeNames attendees={queued} /></>}
+            </section>
+          )}
 
-            {evt.description && (
-              <div className="bg-[#2B1A1C] rounded-xl border border-[#4A2E33] px-4 py-3">
-                <strong className="text-[#E5B15D]">Leírás</strong>
-                <p className="text-[#baaaac] mt-2 mb-0" style={{ whiteSpace: 'pre-wrap' }}>{evt.description}</p>
-              </div>
-            )}
+          {evt.description && (
+            <section className={s.box} aria-label="Leírás">
+              <p className={s.label}>Leírás</p>
+              <p className={s.desc}>{evt.description}</p>
+            </section>
+          )}
 
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#4A2E33] pt-5">
-              {action}
-              <ShareEventButton evt={evt} messageApi={app.messageApi} size="large" />
-            </div>
+          <div className={s.actions}>
+            {action}
+            <ShareEventButton evt={evt} messageApi={app.messageApi} className={s.share} iconOnly aria-label="Megosztás" title="Megosztás" />
           </div>
         </article>
       </Shell>
@@ -121,10 +125,10 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
   );
 }
 
-function Shell({ children, wide = false }) {
+function Shell({ children }) {
   return (
-    <main className="min-h-screen bg-[#121212] text-white p-4 md:p-8 flex justify-center">
-      <div className={`w-full ${wide ? 'max-w-3xl' : 'max-w-lg self-center'}`}>{children}</div>
+    <main className={s.page}>
+      <div className={s.wrap}>{children}</div>
     </main>
   );
 }

@@ -39,6 +39,29 @@ const inkOn = (hex) => {
 const hasCount = (e) => !e.isOpenAttendance && (!e.external_url || e.rgn?.syncedAt);
 const countText = (e) => (e.rgn?.syncedAt && e.external_url ? `${e.current_players || 0}${e.rgn.capacity ? `/${e.rgn.capacity}` : ''}` : `${e.current_players || 0}/${e.max_players}`);
 
+// Egy nap eseményeinek sorai (a havi nézet napja és a heti nézet közös része): idő, név, játék, szabad helyek;
+// az új kinézetben (fresh) telítettségsáv is. A sorok <li> elemek, egy <ul className={s.list}>-be kerülnek.
+export function EventRows({ events, onOpen, fresh = false }) {
+  return events.map(e => (
+    <li key={String(e._id || e.id)} data-ujsor={fresh ? '' : undefined}>
+      <button type="button" className={s.row} onClick={() => onOpen(e)}>
+        <span className={s.rowDot} style={{ background: isSpecialEvent(e) ? getEventTypeConfig(e).color : getGameColor(e) }} aria-hidden="true" />
+        <span className={s.rowMain}>
+          <span className={s.rowTop}><span className={s.rowTime}>{timeOf(e)}</span><span className={s.rowName}>{e.name}</span></span>
+          <span className={s.rowSub}>
+            {e.category || 'Egyéb'}{e._otherStore ? ` · ${STORES[e._otherStore]?.name}` : ''}
+            {e.isOpenAttendance ? ' · kötetlen létszám' : hasCount(e) && !e.external_url ? ` · ${Math.max(0, e.max_players - (e.current_players || 0))} hely szabad` : ''}
+          </span>
+          {fresh && hasCount(e) && !e.external_url && e.max_players > 0 && (
+            <span className={`${s.meter} ${s.rowMeter}`} data-sav aria-hidden="true"><span style={{ width: `${Math.min(100, ((e.current_players || 0) / e.max_players) * 100)}%` }} /></span>
+          )}
+        </span>
+        {hasCount(e) && <span className={s.rowCount}>{countText(e)}</span>}
+      </button>
+    </li>
+  ));
+}
+
 export default function MonthCalendar({ app, store, storeEvents, occupancy, compact = false, fresh = false }) {
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false;
@@ -151,24 +174,7 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
           </>
         ) : (
           <ul className={s.list}>
-            {list.map(e => (
-              <li key={String(e._id || e.id)} data-ujsor={fresh ? '' : undefined}>
-                <button type="button" className={s.row} onClick={() => open(e)}>
-                  <span className={s.rowDot} style={{ background: isSpecialEvent(e) ? getEventTypeConfig(e).color : getGameColor(e) }} aria-hidden="true" />
-                  <span className={s.rowMain}>
-                    <span className={s.rowTop}><span className={s.rowTime}>{timeOf(e)}</span><span className={s.rowName}>{e.name}</span></span>
-                    <span className={s.rowSub}>
-                      {e.category || 'Egyéb'}{e._otherStore ? ` · ${STORES[e._otherStore]?.name}` : ''}
-                      {e.isOpenAttendance ? ' · kötetlen létszám' : hasCount(e) && !e.external_url ? ` · ${Math.max(0, e.max_players - (e.current_players || 0))} hely szabad` : ''}
-                    </span>
-                    {fresh && hasCount(e) && !e.external_url && e.max_players > 0 && (
-                      <span className={`${s.meter} ${s.rowMeter}`} data-sav aria-hidden="true"><span style={{ width: `${Math.min(100, ((e.current_players || 0) / e.max_players) * 100)}%` }} /></span>
-                    )}
-                  </span>
-                  {hasCount(e) && <span className={s.rowCount}>{countText(e)}</span>}
-                </button>
-              </li>
-            ))}
+            <EventRows events={list} onOpen={open} fresh={fresh} />
             {tablesOn(key).map(b => (
               <li key={`${b.from}-${b.to}`}>
                 <div className={s.row} style={{ cursor: 'default' }}>

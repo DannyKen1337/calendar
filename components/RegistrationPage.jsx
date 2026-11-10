@@ -7,6 +7,12 @@ import EmbedBridge from '@/components/EmbedBridge';
 const STORE_NAMES = { debrecen: 'Tavern Debrecen', miskolc: 'Tavern Miskolc', jatekceh: 'JátékCéh' };
 const DEFAULT_LOGO = '/jatekok/egyeb.png';
 
+const DISPLAY = { fontFamily: 'var(--font-cinzel), Georgia, serif' };
+// Ikonok (emoji helyett): pipa a sikeres jelentkezéshez, homokóra a várólistához
+const Icon = ({ d, color }) => <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true" style={{ fill: 'none', stroke: color, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', display: 'block', margin: '0 auto 12px' }}><path d={d} /></svg>;
+const CHECK = 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l2.7 2.7L16.5 9.5';
+const HOURGLASS = 'M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9';
+
 function formatDate(dateStr) {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
@@ -31,7 +37,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
   const shell = (content) => (
     <main
       className={`${embed ? 'py-8' : 'min-h-screen py-10'} px-4 flex justify-center items-start`}
-      style={{ background: theme.bg, color: '#E8E2D6', '--accent': theme.accent }}
+      style={{ background: theme.bg, color: '#E8E2D6', '--accent': theme.accent, fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
     >
       {embed && <EmbedBridge />}
       <div className="w-full max-w-xl">{content}</div>
@@ -43,7 +49,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
   if (maintenance) {
     return shell(
       <div className="rounded-3xl border-2 p-8 text-center backdrop-blur" style={panelStyle}>
-        <h1 className="text-3xl font-bold font-serif mb-3" style={{ color: theme.accent }}>Karbantartás alatt 🛠️</h1>
+        <h1 className="text-3xl font-bold mb-3" style={{ ...DISPLAY, color: theme.accent }}>Karbantartás alatt</h1>
         <p>A jelentkezés átmenetileg nem elérhető. Kérjük, nézz vissza később!</p>
       </div>
     );
@@ -105,16 +111,16 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
         <img src={logo} alt={event.category || ''} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} />
       </div>
       <p className="uppercase tracking-[0.25em] text-xs mb-2" style={{ color: theme.accent }}>{store} · {event.category || 'Esemény'}</p>
-      <h1 className="text-3xl md:text-4xl font-bold font-serif m-0 text-white break-words">{event.name}</h1>
+      <h1 className="text-3xl md:text-4xl font-bold m-0 text-white break-words" style={DISPLAY}>{event.name}</h1>
       <p className="mt-2 mb-0 text-[#cfc6b8]">{formatDate(event.date)}</p>
       <p className="mt-3 mb-0 italic" style={{ color: theme.accent }}>{theme.tagline}</p>
     </div>
   );
 
   const backLinks = (
-    <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm">
-      <button type="button" onClick={() => goBack(embed)} className="bg-transparent border-none cursor-pointer underline" style={{ color: '#cfc6b8' }}>← Vissza a naptárhoz</button>
-      {!embed && <a href={`/esemeny/${encodeURIComponent(eventId)}`} className="underline" style={{ color: '#cfc6b8' }}>Esemény részletei</a>}
+    <div className="flex flex-wrap justify-center gap-2 mt-6">
+      <button type="button" onClick={() => goBack(embed)} className="inline-flex items-center min-h-[44px] px-4 rounded-full bg-transparent border-none cursor-pointer font-bold" style={{ color: '#cfc6b8' }}>‹ Vissza a naptárhoz</button>
+      {!embed && <a href={`/esemeny/${encodeURIComponent(eventId)}`} className="inline-flex items-center min-h-[44px] px-4 rounded-full font-bold no-underline" style={{ color: '#cfc6b8' }}>Esemény részletei</a>}
     </div>
   );
 
@@ -124,8 +130,8 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
       <>
         {header}
         <div className="rounded-3xl border-2 p-8 text-center backdrop-blur" style={panelStyle}>
-          <div className="text-5xl mb-3">{result.isQueue ? '⏳' : '🎉'}</div>
-          <h2 className="text-2xl font-bold font-serif m-0" style={{ color: theme.accent }}>{result.isQueue ? 'Várólistára kerültél!' : 'Hely biztosítva!'}</h2>
+          <Icon d={result.isQueue ? HOURGLASS : CHECK} color={theme.accent} />
+          <h2 className="text-2xl font-bold m-0" style={{ ...DISPLAY, color: theme.accent }}>{result.isQueue ? 'Várólistára kerültél!' : 'Hely biztosítva!'}</h2>
           <p className="mt-3">A jelentkezők között így látszol: <b className="text-white">{result.username}</b></p>
           {result.isQueue && <p className="text-[#cfc6b8]">Ha felszabadul egy hely, automatikusan előlépsz.</p>}
           {result.mailSent && <p className="text-[#cfc6b8]">A visszaigazolást elküldtük e-mailben.</p>}
@@ -160,35 +166,44 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
 
   const inputClass = 'w-full rounded-xl border-2 bg-black/40 px-4 py-3 text-white placeholder:text-[#8d8478] outline-none transition-colors focus:border-[var(--accent)]';
   const fieldBorder = (field) => ({ borderColor: errors[field] ? '#ff6b6b' : 'rgba(255,255,255,0.15)' });
+  // A mező magyarázata és hibája a felolvasóknak is a mezőhöz tartozik
+  const describe = (field) => ({ 'aria-invalid': errors[field] ? true : undefined, 'aria-describedby': [`tipp-${field}`, errors[field] && `hiba-${field}`].filter(Boolean).join(' ') });
 
   return shell(
     <>
       {header}
       <form onSubmit={submit} noValidate className="rounded-3xl border-2 p-6 md:p-8 backdrop-blur flex flex-col gap-5" style={panelStyle}>
-        <div className="flex justify-between items-center text-sm text-[#cfc6b8]">
-          <span>Létszám: <b className="text-white">{event.current_players} / {event.max_players}</b></span>
-          {isFull && <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: '#faad1433', color: '#faad14' }}>Betelt – várólistára kerülsz</span>}
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-center text-sm text-[#cfc6b8]">
+            <span>Létszám: <b className="text-white">{event.current_players} / {event.max_players}</b></span>
+            {isFull
+              ? <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: '#faad1433', color: '#faad14' }}>Betelt – várólistára kerülsz</span>
+              : <span className="font-bold text-white">{Math.max(0, event.max_players - event.current_players)} hely szabad</span>}
+          </div>
+          <span data-sav aria-hidden="true" className="block h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
+            <span className="block h-full" style={{ width: `${event.max_players ? Math.min(100, (event.current_players / event.max_players) * 100) : 0}%`, background: theme.accent }} />
+          </span>
         </div>
 
         <label className="flex flex-col gap-2">
           <span className="font-bold text-white">1. Felhasználónév</span>
-          <span className="text-xs text-[#cfc6b8]">Ez jelenik meg nyilvánosan a jelentkezők között.</span>
-          <input className={inputClass} style={fieldBorder('username')} value={values.username} onChange={set('username')} placeholder="A játékbeli vagy közösségi neved" maxLength={24} autoComplete="nickname" autoFocus />
-          {errors.username && <span className="text-sm text-[#ff6b6b]">{errors.username}</span>}
+          <span id="tipp-username" className="text-xs text-[#cfc6b8]">Ez jelenik meg nyilvánosan a jelentkezők között.</span>
+          <input className={inputClass} style={fieldBorder('username')} {...describe('username')} value={values.username} onChange={set('username')} placeholder="A játékbeli vagy közösségi neved" maxLength={24} autoComplete="nickname" autoFocus />
+          {errors.username && <span id="hiba-username" className="text-sm text-[#ff6b6b]">{errors.username}</span>}
         </label>
 
         <label className="flex flex-col gap-2">
           <span className="font-bold text-white">2. Teljes név</span>
-          <span className="text-xs text-[#cfc6b8]">Csak a szervezők látják.</span>
-          <input className={inputClass} style={fieldBorder('name')} value={values.name} onChange={set('name')} placeholder="Vezetéknév Keresztnév" maxLength={120} autoComplete="name" />
-          {errors.name && <span className="text-sm text-[#ff6b6b]">{errors.name}</span>}
+          <span id="tipp-name" className="text-xs text-[#cfc6b8]">Csak a szervezők látják.</span>
+          <input className={inputClass} style={fieldBorder('name')} {...describe('name')} value={values.name} onChange={set('name')} placeholder="Vezetéknév Keresztnév" maxLength={120} autoComplete="name" />
+          {errors.name && <span id="hiba-name" className="text-sm text-[#ff6b6b]">{errors.name}</span>}
         </label>
 
         <label className="flex flex-col gap-2">
           <span className="font-bold text-white">3. E-mail cím</span>
-          <span className="text-xs text-[#cfc6b8]">Csak a szervezők látják. Ezzel tudsz később leiratkozni.</span>
-          <input className={inputClass} style={fieldBorder('email')} type="email" inputMode="email" value={values.email} onChange={set('email')} placeholder="nev@pelda.hu" autoComplete="email" />
-          {errors.email && <span className="text-sm text-[#ff6b6b]">{errors.email}</span>}
+          <span id="tipp-email" className="text-xs text-[#cfc6b8]">Csak a szervezők látják. Ezzel tudsz később leiratkozni.</span>
+          <input className={inputClass} style={fieldBorder('email')} {...describe('email')} type="email" inputMode="email" value={values.email} onChange={set('email')} placeholder="nev@pelda.hu" autoComplete="email" />
+          {errors.email && <span id="hiba-email" className="text-sm text-[#ff6b6b]">{errors.email}</span>}
         </label>
 
         {formError && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: '#ff6b6b22', color: '#ffb3b3', border: '1px solid #ff6b6b55' }}>{formError}</div>}

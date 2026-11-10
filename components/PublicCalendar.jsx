@@ -6,6 +6,7 @@ import { SearchOutlined, CloseCircleFilled, CloseOutlined, DownOutlined } from '
 import { useCalendar } from '@/app/useCalendar';
 import { CalendarView, SearchResults, EventList, PublicModals, STORES, tavernTheme } from '@/app/components';
 import MonthCalendar from '@/components/MonthCalendar';
+import WeekCalendar from '@/components/WeekCalendar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
 import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
@@ -145,7 +146,8 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   const upcoming = searchResults.filter(e => eventDay(e) >= todayKey()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
   // Telefonon a havi nézet alatt már ott a kiválasztott nap (alapból ma), ezért ott nem kell külön mai program
-  const showToday = !isSearching && !(isMobile && view === 'month');
+  // (a heti nézetben, az új kinézetben, a mai nap a héten belül látszik)
+  const showToday = !isSearching && !(isMobile && view === 'month') && !(fresh && view === 'week');
 
   // Az ablakok (esemény részletei, jelentkezés) és a listák a sötét Tavern témát kapják
   return (
@@ -262,7 +264,12 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
         {isSearching ? (
           <SearchResults app={appWithFilteredEvents} query={trimmedQuery} />
         ) : view === 'week' ? (
-          <CalendarView app={appWithFilteredEvents} compact={embed} weekly />
+          fresh ? (
+            <>
+              <WeekCalendar app={appWithFilteredEvents} store={selectedStore} />
+              <PublicModals app={appWithFilteredEvents} />
+            </>
+          ) : <CalendarView app={appWithFilteredEvents} compact={embed} weekly />
         ) : view === 'list' ? (
           <>
             {upcoming.length ? <EventList tournamentsData={upcoming} app={appWithFilteredEvents} /> : <p className={s.empty}>Nincs közelgő esemény.</p>}
