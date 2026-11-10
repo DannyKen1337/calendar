@@ -87,7 +87,7 @@
 .catHead h3 img { height: 52px; width: auto; }
 .catHead span { color: var(--muted); }
 .items { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 4rem; }
-.item { display: grid; grid-template-columns: 96px 1fr auto; gap: 0 18px; align-items: center; padding: 10px 12px; margin: 0 -12px; text-decoration: none; transition: background-color 180ms ease, transform 180ms var(--ease-out); }
+.item { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 0 18px; align-items: center; padding: 10px 12px; margin: 0 -12px; text-decoration: none; transition: background-color 180ms ease, transform 180ms var(--ease-out); }
 .item:hover { background: var(--raised); }
 .item:active { transform: scale(0.985); }
 /* A játékok logói sötét kártyán: a világos logók (One Piece, Magic) a fehér háttéren eltűnnének */
@@ -149,6 +149,45 @@
 .print:nth-of-type(2) { right: 3vw; top: 30%; transform: rotate(6deg); }
 .print:nth-of-type(3) { width: 13vw; right: 24vw; bottom: -5vw; transform: rotate(3deg); }
 .print:hover { transform: rotate(0) scale(1.02); z-index: 5; }
+/* A képfal (Élő mozaik): 6 oszlopos rács, a mezők száma szerint (data-count) más elrendezés */
+.mosaic { background: var(--bg); padding: calc(var(--section) * 0.6) var(--margin); }
+.mosaicHead { display: flex; align-items: end; justify-content: space-between; gap: var(--gutter); margin-bottom: clamp(1.25rem, 3vw, 2.5rem); }
+.mosaicHead h2 { font-size: var(--step-head); line-height: 0.95; }
+.mosaicPause { flex: none; width: 2.75rem; height: 2.75rem; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.6); background: transparent; color: var(--ink); cursor: pointer; transition: background 200ms var(--ease-out), color 200ms var(--ease-out); }
+.mosaicPause:hover { background: var(--gold); color: var(--on-gold); border-color: var(--gold); }
+.mosaicPause:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.mosaicPause svg { width: 14px; height: 14px; fill: currentColor; }
+.mosaicGrid { display: grid; gap: clamp(8px, 1vw, 14px); grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(2, clamp(170px, 19vw, 290px)); }
+.mosaicTile { position: relative; margin: 0; overflow: hidden; border-radius: 6px; background: var(--surface); }
+.mosaicTile img { object-fit: cover; }
+.mosaicTile::after { content: ''; position: absolute; inset: 0; z-index: 2; background: linear-gradient(0deg, rgba(0, 0, 0, 0.6), transparent 45%); pointer-events: none; }
+.mosaicIn { position: absolute; inset: 0; z-index: 1; animation: mosaicOpen 1s var(--ease-in-out) both; }
+.mosaicIn img { animation: mosaicSettle 1.6s var(--ease-out) both; }
+@keyframes mosaicOpen { from { clip-path: circle(0% at var(--x) var(--y)); } to { clip-path: circle(150% at var(--x) var(--y)); } }
+@keyframes mosaicSettle { from { transform: scale(1.12); } to { transform: none; } }
+.mosaicCaption { position: absolute; left: 14px; right: 14px; bottom: 12px; z-index: 3; font-size: clamp(1.1rem, 0.8rem + 1vw, 1.75rem); line-height: 1; text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7); animation: mosaicCaption 700ms var(--ease-out) 350ms both; }
+@keyframes mosaicCaption { from { opacity: 0; transform: translateY(0.6em); } to { opacity: 1; transform: none; } }
+.mosaicGrid[data-count="5"] > :nth-child(1), .mosaicGrid[data-count="4"] > :nth-child(1) { grid-column: 1 / 4; grid-row: 1 / 3; }
+.mosaicGrid[data-count="5"] > :nth-child(2) { grid-column: 4 / 6; }
+.mosaicGrid[data-count="5"] > :nth-child(3) { grid-column: 6 / 7; }
+.mosaicGrid[data-count="5"] > :nth-child(4) { grid-column: 4 / 5; }
+.mosaicGrid[data-count="5"] > :nth-child(5) { grid-column: 5 / 7; }
+.mosaicGrid[data-count="4"] > :nth-child(2) { grid-column: 4 / 7; }
+.mosaicGrid[data-count="4"] > :nth-child(3) { grid-column: 4 / 6; }
+.mosaicGrid[data-count="4"] > :nth-child(4) { grid-column: 6 / 7; }
+.mosaicGrid[data-count="3"] > :nth-child(1) { grid-column: 1 / 5; grid-row: 1 / 3; }
+.mosaicGrid[data-count="3"] > :nth-child(n+2) { grid-column: 5 / 7; }
+.mosaicGrid[data-count="2"] > * { grid-column: span 3; grid-row: 1 / 3; }
+.mosaicGrid[data-count="1"] > * { grid-column: 1 / 7; grid-row: 1 / 3; }
+@media (max-width: 640px) {
+  .mosaicGrid { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; grid-auto-rows: 150px; }
+  .mosaicGrid > * { grid-column: auto !important; grid-row: auto !important; }
+  .mosaicGrid > :nth-child(1) { grid-column: 1 / 3 !important; grid-row: span 2 !important; }
+  .mosaicGrid > :nth-child(4) { grid-column: 1 / 3 !important; }
+  .mosaicGrid > :nth-child(5) { display: none; }
+  .mosaicGrid[data-count="2"] > :nth-child(2), .mosaicGrid[data-count="3"] > :nth-child(3) { grid-column: 1 / 3 !important; }
+}
+@media (prefers-reduced-motion: reduce) { .mosaicIn, .mosaicIn img, .mosaicCaption { animation: none; } }
 .printsNote { position: absolute; left: 24px; bottom: 24px; font-size: var(--step-lead); line-height: 1.3; max-width: 34ch; z-index: 3; }
 
 /* --- Boltok: kijelzőméretű sorok, kerek fotóval; kattintásra térképablak --- */
@@ -300,7 +339,7 @@
   .heroActions { flex-direction: column; align-items: stretch; gap: 0.75rem; }
   .program { padding-top: 5.5rem; }
   .items { grid-template-columns: 1fr; }
-  .item { grid-template-columns: 76px 1fr auto; gap: 0 14px; }
+  .item { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 0 14px; }
   .item img { width: 76px; height: 46px; padding: 6px 8px; }
   .field { min-height: 0; grid-template-columns: 1fr; padding: 4.5rem var(--margin) 2rem; row-gap: 3rem; }
   .say, .mirror .say { grid-column: 1; width: 90%; }

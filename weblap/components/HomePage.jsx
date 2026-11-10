@@ -5,6 +5,7 @@ import Motion from '@/weblap/components/Motion';
 import SiteNav from '@/weblap/components/SiteNav';
 import WeekProgram from '@/weblap/components/WeekProgram';
 import NewsList from '@/weblap/components/NewsList';
+import Mosaic from '@/weblap/components/Mosaic';
 import Overlays from '@/weblap/components/Overlays';
 import { getHomeData } from '@/weblap/lib/home';
 import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
@@ -26,12 +27,12 @@ const streetOf = (address) => address.replace(/^(Debrecen|Miskolc), /, '').repla
 const opensInCalendar = (href) => !!href && (href.startsWith(CALENDAR_URL) || (href.startsWith('/') && !href.startsWith(BASE_PATH)));
 
 // Az oldal: a cégér az egész első képernyőn (beúszik, görgetésre kiúszik), a heti program a naptárból,
-// a hírek a boltokból, nagy mondatok színes mezőkön, galéria, a boltok sorai (kattintásra térképablak),
+// a hírek a boltokból, nagy mondatok színes mezőkön, galéria, a képfal (Mosaic), a boltok sorai (kattintásra térképablak),
 // Kapcsolat a boltok Facebook-oldalaival, lábléc. A naptár és a térkép ugyanezen az oldalon nyílik meg (Overlays).
 // content: az oldal tartalma (éles vagy előnézet); feed: a hírek; previewBar: az előnézet sávja (élesben nincs);
 // base: a hírek oldalainak eleje ('' élesben, '/elonezet' az előnézetben)
 export default async function HomePage({ content, feed, previewBar = null, base = '' }) {
-  const { general, hero, program, features, gallery, news, contact } = content;
+  const { general, hero, program, features, gallery, slideshow, news, contact } = content;
   const { stores, events, now } = await getHomeData(content);
 
   // A következő hét nap eseményei a programhoz
@@ -150,6 +151,8 @@ export default async function HomePage({ content, feed, previewBar = null, base 
             {gallery.note && <p className={s.printsNote}>{gallery.note}</p>}
           </section>
         )}
+
+        {slideshow.pictures.length > 0 && <Mosaic title={slideshow.title} pictures={slideshow.pictures} />}
 
         <section className={s.stores} id="boltok" aria-labelledby="boltok-cim">
           <h2 id="boltok-cim" className={s.disp} data-reveal>{content.stores.title}</h2>
