@@ -383,3 +383,26 @@
   .mapHead .close { grid-column: 2; width: 48px; height: 48px; }
   .postList { grid-template-columns: 1fr; }
 }
+
+/* A Ligák mező ranglistái (LeagueCards): 2–4 liga; a nagy cím alatt, a mező teljes szélességében */
+.leagues { grid-column: 1 / -1; grid-row: 3; margin-top: clamp(2rem, 5vh, 3.5rem); display: grid; gap: var(--gutter); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.leagues[data-count="1"] { grid-template-columns: minmax(0, 560px); }
+.leagues[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 1280px) { .leagues[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.league { display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 14px; background: rgba(15, 15, 15, 0.55); color: var(--ink); }
+.leagueHead { display: flex; align-items: center; gap: 12px; }
+.leagueHead h3 { margin: 0; font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem); line-height: 1; }
+.leagueLogo { flex: none; width: 48px; height: 48px; border-radius: 10px; background: var(--bg); display: grid; place-items: center; padding: 6px; box-sizing: border-box; }
+.leagueLogo img { width: 100%; height: 100%; object-fit: contain; }
+.leagueRows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.leagueRows li { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.leagueRows li:last-child { border-bottom: 0; }
+.leagueRank { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.08); font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.leagueName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.leaguePts { font-variant-numeric: tabular-nums; font-size: 1.125rem; }
+.leagueLink { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; color: var(--gold); font-weight: 700; text-decoration: none; }
+.leagueLink:hover { color: var(--gold-hover); }
+@media (max-width: 760px) {
+  .leagues, .leagues[data-count] { grid-template-columns: minmax(0, 1fr); grid-row: auto; }
+  .leagueRows li:nth-child(n + 4) { display: none; }
+}
