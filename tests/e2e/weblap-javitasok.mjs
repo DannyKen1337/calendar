@@ -11,6 +11,8 @@ const ids = (await db.collection('users').insertMany([
 ])).insertedIds;
 const owner = await token(ids[0], 'Tulaj', 'owner');
 const editor = await token(ids[1], 'Uj', 'admin');
+// üres képfalról indul (alapból a bolt fotóival indulna)
+await db.collection('website_content').insertOne({ _id: 'site', slideshow: { title: 'A boltokból', pictures: [] } });
 const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex');
 const files = [1, 2, 3].map(n => { const f = join(tmpdir(), `tavern-e2e-kep${n}.png`); writeFileSync(f, PNG); return f; });
 const busy = (p) => p.evaluate(() => document.body.innerText.includes('feltöltés…'));
@@ -33,6 +35,7 @@ const b = await browser();
 try {
   const p = await page(b, editor);
   await p.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.waitForSelector('input[type=file][multiple]', { timeout: 120000 }); // friss szervernél az oldal még fordulhat
 
   // #10: a fájlválasztó billentyűzettel elérhető
   ok(await p.$eval('input[type=file][multiple]', el => { el.focus(); return document.activeElement === el; }), '#10 a képfeltöltés fókuszálható');

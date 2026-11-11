@@ -10,10 +10,14 @@ const srcs = (p) => p.$$eval(`${SEL} [data-tile] img:last-of-type`, els => els.m
 
 const b = await browser();
 try {
-  // üres képfal: nincs blokk
-  await setPics([]);
+  // még semmi nincs mentve: a képfal a bolt saját fotóival indul
   let p = await page(b, null);
   await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
+  ok((await p.$$(`${SEL} [data-tile]`)).length === 5, 'alapból (mentett tartalom nélkül) a képfal a bolt fotóival látszik');
+
+  // üres képfal (a szerkesztő mindet törölte): nincs blokk
+  await setPics([]);
+  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
   ok(!(await p.$(SEL)), '0 kép: nincs képfal');
 
   await setPics(pictures);

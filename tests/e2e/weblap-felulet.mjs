@@ -9,6 +9,8 @@ const ids = (await db.collection('users').insertMany([
   { username: 'Uj', email: 'u@x.hu', password: 'x', role: 'admin', features: ['website'], allowedCategories: [], allowedStores: [] },
 ])).insertedIds;
 const editor = await token(ids[0], 'Uj', 'admin');
+// a szerkesztő a nulláról kezdi: üres képfal (alapból a bolt fotóival indulna)
+await db.collection('website_content').insertOne({ _id: 'site', slideshow: { title: 'A boltokból', pictures: [] } });
 const tabs = (p) => p.$$eval('nav[aria-label="A szerkesztőfelület részei"] a', as => as.map(a => a.textContent.trim()));
 const IMG = (n) => `https://i.ibb.co/teszt/kep${n}.jpg`;
 
