@@ -40,7 +40,7 @@ export const DEFAULT_CONTENT = {
       { id: 'verseny', title: 'Minden héten verseny', text: 'Pokémon, One Piece, Riftbound, Magic, Warhammer és még sok más. Pénteken Nexus Night, kezdőknek is.', button: '', href: '' },
       { id: 'klub', title: 'Három bolt, egy klub', text: 'Kettő Debrecen belvárosában, egy Miskolcon. Mindhárom klub is: asztal mindig akad, akkor is, ha csak játszani jössz.', button: '', href: '' },
       { id: 'liga', title: 'Ligák szezononként', text: 'Pontok alkalomról alkalomra, nyilvános ranglistával. A szezon végén kiderül, ki a legjobb.', button: '', href: '' },
-      { id: 'elorendeles', title: 'Félretesszük neked', text: 'Foglald le az új kiadást a megjelenés előtt, és vedd át a boltban.', button: 'Előrendelés', href: PREORDER_URL },
+      { id: 'elorendeles', title: 'Ne maradj le róla', text: 'Foglald le az új kiadást a megjelenés előtt, és vedd át a boltban.', button: 'Előrendelés', href: PREORDER_URL },
     ],
   },
   gallery: {

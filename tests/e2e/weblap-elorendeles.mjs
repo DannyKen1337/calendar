@@ -34,6 +34,7 @@ try {
   await wait(1600);
   const src = await p.evaluate(() => document.querySelector('[role="dialog"]:not([hidden]) iframe')?.getAttribute('src') || '');
   ok(/\/elorendeles\?termek=/.test(src), `utána a naptárablakban az előrendelés (${src})`);
+  ok(/[?&]embed=1/.test(src), 'a naptárablak a beépített (kompakt) előrendelést nyitja');
 
   // csökkentett mozgás: nincs animáció, rögtön nyílik
   const r = await page(b, null);

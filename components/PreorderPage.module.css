@@ -83,3 +83,26 @@
 }
 .allLink { align-self: center; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 999px; color: var(--accent); font-weight: 700; text-decoration: none; }
 .allLink:hover { background: rgba(229, 177, 93, 0.1); }
+
+/* Beépítve (a weboldal ablakában, ?embed=1): kompakt, nagy fejléc nélkül, kevesebb görgetéssel */
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.embed { min-height: 0; padding: 12px 12px 0; background: #0f0b0c; }
+.embed .wrap { gap: 12px; padding-bottom: 12px; }
+.embedTop { display: flex; justify-content: flex-end; margin: -4px -4px -6px 0; }
+.embed .panel { padding: 16px; border-radius: 18px; animation-duration: 400ms; }
+.embed .fields { gap: 12px; }
+.embed .h2 { font-size: 18px; margin-bottom: 12px; }
+.embed .fields .h2 { margin-bottom: 0; }
+.embed .step { width: 28px; height: 28px; font-size: 14px; }
+.embed .groups { gap: 14px; }
+.embed .item { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding: 12px; gap: 10px 12px; }
+.embed .stepper { grid-column: 3; grid-row: 1; }
+.embed .itemName { font-size: 16px; }
+.embed .meta, .embed .desc { display: none; }
+.embed [data-mezo] > div:first-child { min-height: 52px; }
+.embed [data-mezo] input { height: 52px; padding-top: 18px; }
+.privacyBox summary { display: flex; align-items: center; min-height: 44px; color: #b9b0a4; font-size: 14px; font-weight: 600; cursor: pointer; list-style: none; }
+.privacyBox summary::-webkit-details-marker { display: none; }
+.privacyBox summary::after { content: '›'; margin-left: 8px; transition: transform 180ms ease; }
+.privacyBox[open] summary::after { transform: rotate(90deg); }
+.embed .bottom { margin: 0 -12px; padding: 10px 12px max(12px, env(safe-area-inset-bottom)); }

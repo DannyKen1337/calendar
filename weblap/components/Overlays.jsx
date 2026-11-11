@@ -52,7 +52,10 @@ export default function Overlays({ stores, sign, routeLabel }) {
       const x = ev.clientX || r.left + r.width / 2;
       const y = ev.clientY || r.top + r.height / 2;
       if (a.dataset.cal !== undefined) {
-        open('cal', { url: a.href, title: a.dataset.title || a.textContent.trim(), x, y });
+        // Az előrendelés az ablakban a beépített, kompakt változatban nyílik (nagy fejléc nélkül, kevesebb görgetéssel)
+        let url = a.href;
+        try { const u = new URL(url); if (u.pathname === '/elorendeles') { u.searchParams.set('embed', '1'); url = u.href; } } catch { /* marad */ }
+        open('cal', { url, title: a.dataset.title || a.textContent.trim(), x, y });
         return;
       }
       const store = stores.find(st => st.id === a.dataset.map);

@@ -26,17 +26,19 @@ export async function generateMetadata({ searchParams }) {
 // előrendelései (meghirdetéshez megosztható linkek); paraméter nélkül az összes játék (összesítő).
 // A searchParams használata miatt minden kérésnél frissen töltődik (dinamikus oldal).
 export default async function Page({ searchParams }) {
-  const { termek, jatek } = await searchParams;
-  if (await isMaintenanceOn().catch(() => false)) return <PreorderPage maintenance />;
+  const { termek, jatek, embed: embedParam } = await searchParams;
+  // ?embed=1: a weboldal ablakában, beépítve (kompakt, nagy fejléc nélkül)
+  const embed = embedParam === '1';
+  if (await isMaintenanceOn().catch(() => false)) return <PreorderPage maintenance embed={embed} />;
   const products = await getOpenPreorderProducts().catch((err) => { console.error('preorder page error:', err); return null; });
-  if (!products) return <PreorderPage loadError />;
+  if (!products) return <PreorderPage loadError embed={embed} />;
   const focusId = typeof termek === 'string' ? termek : null;
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   // Termék-linknél csak az az egy termék kerül le a böngészőbe
-  if (focused) return <PreorderPage products={[focused]} focusId={focusId} />;
+  if (focused) return <PreorderPage products={[focused]} focusId={focusId} embed={embed} />;
   // Játék-linknél csak annak a játéknak a termékei (ha ismeretlen a játék, vagy most nincs nyitott terméke: az összes)
   const game = !focusId && typeof jatek === 'string' ? categoryFromSlug(jatek) : null;
   const ofGame = game ? products.filter(p => p.category === game) : [];
-  if (ofGame.length) return <PreorderPage products={ofGame} game={game} />;
-  return <PreorderPage products={products} focusId={focusId} />;
+  if (ofGame.length) return <PreorderPage products={ofGame} game={game} embed={embed} />;
+  return <PreorderPage products={products} focusId={focusId} embed={embed} />;
 }

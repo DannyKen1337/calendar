@@ -99,6 +99,17 @@ try {
   await g.goto(`${BASE}/elorendeles?jatek=nincs-ilyen`, { waitUntil: 'networkidle2' });
   ok((await names(g)).length === 2, 'ismeretlen játék linkje: minden előrendelés látszik');
 
+  // beépített (a weboldal ablakában): kompakt, nagyjából egy képernyő, nagy fejléc nélkül
+  const em = await page(b, null, 402, 780);
+  await em.goto(`${BASE}/elorendeles?termek=${prodIds[0]}&embed=1`, { waitUntil: 'networkidle2' });
+  const emInfo = await em.evaluate(() => ({ h: document.documentElement.scrollHeight, h1: !!document.querySelector('h1')?.offsetParent, details: !!document.querySelector('details'), btn: (() => { const r = [...document.querySelectorAll('button')].find(x => x.type === 'submit').getBoundingClientRect(); return r.bottom <= innerHeight; })() }));
+  ok(!emInfo.h1, 'beépítve: nincs nagy fejléc');
+  ok(emInfo.h <= 1000, `beépítve: kevés görgetés (${emInfo.h} px magas oldal 780 px-es ablakban)`);
+  ok(emInfo.btn, 'beépítve: a beküldés gomb görgetés nélkül látszik');
+  ok(emInfo.details, 'beépítve: az adatkezelési szöveg lenyitható');
+  ok(await em.evaluate(() => [...document.querySelectorAll('a')].some(a => /Összes előrendelés/.test(a.textContent) && /embed=1/.test(a.getAttribute('href') || ''))), 'beépítve: az „Összes előrendelés” is beépítve marad');
+  await em.screenshot({ path: `${SHOTS}urlap-elorendeles-beepitve.jpg`, quality: 60, fullPage: true });
+
   // csökkentett mozgás: nincs konfetti
   const r = await page(b, null, 402, 874);
   await r.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);

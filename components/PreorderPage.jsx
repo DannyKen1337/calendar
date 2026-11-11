@@ -33,18 +33,28 @@ function QuantityStepper({ value, onChange, label, max }) {
   );
 }
 
-const Shell = ({ children }) => <main className={s.page}><div className={s.wrap}>{children}</div></main>;
-const Header = ({ subtitle, game, showAll }) => (
+// embed: a weboldal ablakában, beépítve (?embed=1): kompakt, nagy fejléc nélkül (az ablak tetején ott a termék neve)
+const privacyText = (
+  <>
+    A nevedet, az e-mail címedet és a telefonszámodat csak a bolt munkatársai látják. Kizárólag az előrendelés intézéséhez (értesítés, átvétel) használjuk, harmadik félnek nem adjuk át, és az előrendelés lezárása után legfeljebb 6 hónappal automatikusan töröljük.
+    {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer">Adatkezelési tájékoztató</a></>}
+  </>
+);
+
+const Shell = ({ children, embed }) => <main className={`${s.page} ${embed ? s.embed : ''}`}><div className={s.wrap}>{children}</div></main>;
+const Header = ({ subtitle, game, showAll, embed }) => (embed ? (
+  showAll ? <nav className={s.embedTop}><a className={s.allLink} href="/elorendeles?embed=1">Összes előrendelés ›</a></nav> : null
+) : (
   <header className={s.head}>
     <p className={s.kicker}>Tavern{game ? ` · ${game}` : ''}</p>
     <h1 className={s.title}>Előrendelés</h1>
     {subtitle && <p className={s.sub}>{subtitle}</p>}
     {showAll && <a className={s.allLink} href="/elorendeles">Összes előrendelés ›</a>}
   </header>
-);
+));
 
 // game: játék-link (?jatek=) esetén a játék neve; ilyenkor és termék-linknél „Összes előrendelés” link az összesítőre
-export default function PreorderPage({ products = [], focusId = null, game = null, maintenance = false, loadError = false }) {
+export default function PreorderPage({ products = [], focusId = null, game = null, maintenance = false, loadError = false, embed = false }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   const shown = focused ? [focused] : products;
   const [selected, setSelected] = useState(() => (focused && maxSelectable(focused, focused.remaining) > 0 ? { [focused.id]: 1 } : {}));
@@ -56,15 +66,15 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
 
-  if (maintenance) return <Shell><Header /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az előrendelés átmenetileg nem elérhető. Kérjük, nézz vissza később!</p></div></Shell>;
-  if (loadError) return <Shell><Header /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az oldal most nem tölthető be. Kérjük, próbáld újra pár perc múlva.</p></div></Shell>;
+  if (maintenance) return <Shell embed={embed}><Header embed={embed} /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az előrendelés átmenetileg nem elérhető. Kérjük, nézz vissza később!</p></div></Shell>;
+  if (loadError) return <Shell embed={embed}><Header embed={embed} /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az oldal most nem tölthető be. Kérjük, próbáld újra pár perc múlva.</p></div></Shell>;
 
   const notFoundNotice = focusId && !focused && (
     <div className={s.notice}>Ennek a terméknek az előrendelése már lezárult, vagy a link hibás.{products.length > 0 ? ' Alább a jelenleg nyitott előrendeléseket látod.' : ''}</div>
   );
 
   if (products.length === 0) {
-    return <Shell><Header />{notFoundNotice}<div className={`${s.panel} ${s.center}`}><p className={s.p}>Jelenleg nincs nyitott előrendelés.</p></div></Shell>;
+    return <Shell embed={embed}><Header embed={embed} />{notFoundNotice}<div className={`${s.panel} ${s.center}`}><p className={s.p}>Jelenleg nincs nyitott előrendelés.</p></div></Shell>;
   }
 
   const chosen = shown.filter(p => selected[p.id]);
@@ -124,8 +134,8 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
 
   if (result) {
     return (
-      <Shell>
-        <Header />
+      <Shell embed={embed}>
+        <Header embed={embed} />
         <div className={s.panel}>
           <Success title="Köszönjük, megkaptuk az előrendelésed!">
             <ul className={s.summaryList}>
@@ -136,7 +146,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
             <p className={s.muted}>Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? ' A visszaigazolást elküldtük e-mailben.' : ''}</p>
           </Success>
         </div>
-        <nav className={s.back}><Link href="/">Eseménynaptár</Link></nav>
+        {!embed && <nav className={s.back}><Link href="/">Eseménynaptár</Link></nav>}
       </Shell>
     );
   }
@@ -147,19 +157,19 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
   ] : [];
 
   return (
-    <Shell>
-      <Header game={game} showAll={!!(focused || game)} subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : game ? `A(z) ${game} előrendelései. Válaszd ki, mire szeretnél feliratkozni.` : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
+    <Shell embed={embed}>
+      <Header embed={embed} game={game} showAll={!!(focused || game)} subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : game ? `A(z) ${game} előrendelései. Válaszd ki, mire szeretnél feliratkozni.` : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
       {notFoundNotice}
       <form onSubmit={submit} noValidate className={s.form}>
-        <Progress done={done} total={1 + FIELDS.length} />
+        {!embed && <Progress done={done} total={1 + FIELDS.length} />}
         <ErrorSummary items={summary} version={tries} />
 
         <section className={s.panel} aria-labelledby="elo-1">
-          <h2 id="elo-1" className={s.h2}><span className={s.step}>1</span>Mit szeretnél előrendelni?</h2>
+          <h2 id="elo-1" className={`${s.h2} ${embed && focused ? s.srOnly : ''}`}><span className={s.step}>1</span>Mit szeretnél előrendelni?</h2>
           <div className={s.groups}>
             {groupByGame(shown).map(({ game, items }) => (
               <section key={game} aria-label={game}>
-                <div className={s.game}>
+                <div className={`${s.game} ${embed && focused ? s.srOnly : ''}`}>
                   <img src={getGameConfig(game).logo || DEFAULT_LOGO} alt="" onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} />
                   <h3 style={{ color: getGameColor({ category: game }) === '#6b7280' ? '#E0D6C8' : getGameColor({ category: game }) }}>{game}</h3>
                 </div>
@@ -194,7 +204,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
         </section>
 
         <section className={`${s.panel} ${s.fields}`} aria-labelledby="elo-2">
-          <h2 id="elo-2" className={s.h2}><span className={s.step}>2</span>Elérhetőségeid</h2>
+          <h2 id="elo-2" className={s.h2}>{!(embed && focused) && <span className={s.step}>2</span>}Elérhetőségeid</h2>
           <Field id="elo-name" label="Teljes név" icon={ICONS.user} value={values.name} onChange={set('name')} onBlur={leave('name')}
             error={errorOf('name')} ok={okOf('name')} maxLength={120} autoComplete="name" enterKeyHint="next" />
           <Field id="elo-email" label="E-mail cím" icon={ICONS.mail} type="email" inputMode="email" value={values.email} onChange={set('email')} onBlur={leave('email')}
@@ -204,10 +214,12 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
           {/* Robotcsapda: a látogatók nem látják */}
           <input type="text" name="website" value={values.website} onChange={set('website')} tabIndex={-1} autoComplete="off" aria-hidden="true" className={s.trap} />
           {formError && <div className={s.formError} role="alert">{formError}</div>}
-          <p className={s.privacy}>
-            A nevedet, az e-mail címedet és a telefonszámodat csak a bolt munkatársai látják. Kizárólag az előrendelés intézéséhez (értesítés, átvétel) használjuk, harmadik félnek nem adjuk át, és az előrendelés lezárása után legfeljebb 6 hónappal automatikusan töröljük.
-            {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer">Adatkezelési tájékoztató</a></>}
-          </p>
+          {embed ? (
+            <details className={s.privacyBox}>
+              <summary>Adatkezelés</summary>
+              <p className={s.privacy}>{privacyText}</p>
+            </details>
+          ) : <p className={s.privacy}>{privacyText}</p>}
         </section>
 
         {/* Telefonon alul ragad: végösszeg és beküldés */}
