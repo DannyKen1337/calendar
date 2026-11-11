@@ -3,112 +3,96 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { getGameConfig, getGameColor } from '@/lib/gameConfig';
 import { groupByGame, maxSelectable, formatPrice } from '@/lib/preorders';
+import { Field, Progress, ErrorSummary, SubmitButton, Success, ICONS } from '@/components/FormKit';
+import s from './PreorderPage.module.css';
 
-const ACCENT = '#E5B15D';
+// Nyilvános előrendelő (feliratkozási) oldal. focusId: a megosztott linkben megadott termék (?termek=...),
+// ilyenkor csak az a termék látszik, előre kiválasztva. A felépítés a régi (1. mit kérsz, 2. elérhetőségek); az űrlap
+// elemei a FormKitből jönnek. A termékek egész kártyára kattintva választhatók, telefonon az összeg és a gomb alul ragad.
 const DEFAULT_LOGO = '/jatekok/egyeb.png';
-const inputClass = 'w-full rounded-xl border-2 bg-black/40 px-4 py-3 text-white placeholder:text-[#8d8478] outline-none transition-colors focus:border-[#E5B15D]';
+const FIELDS = ['name', 'email', 'phone'];
+const LABELS = { items: 'Termék', name: 'Teljes név', email: 'E-mail cím', phone: 'Telefonszám' };
 
-const Shell = ({ children }) => (
-  <main className="min-h-screen py-10 px-4 flex justify-center items-start bg-[#121212] text-[#E8E2D6]">
-    <div className="w-full max-w-2xl">{children}</div>
-  </main>
-);
-
-const Panel = ({ children, className = '' }) => (
-  <div className={`rounded-3xl border-2 p-6 md:p-8 bg-[#1a1012] ${className}`} style={{ borderColor: `${ACCENT}55`, boxShadow: `0 0 60px ${ACCENT}1a` }}>{children}</div>
-);
-
-const Header = ({ subtitle }) => (
-  <div className="text-center mb-6">
-    <p className="uppercase tracking-[0.25em] text-xs mb-2" style={{ color: ACCENT }}>Tavern</p>
-    <h1 className="text-3xl md:text-4xl font-bold font-serif m-0 text-white">Előrendelés</h1>
-    {subtitle && <p className="mt-2 mb-0 text-[#cfc6b8]">{subtitle}</p>}
-  </div>
-);
+function check(field, value) {
+  const v = value.trim();
+  if (field === 'name') return v ? '' : 'Add meg a teljes neved.';
+  if (field === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Érvényes e-mail címet adj meg (pl. nev@pelda.hu).';
+  const digits = v.replace(/\D/g, '').length;
+  return /^\+?[\d ()/-]{6,25}$/.test(v) && digits >= 6 && digits <= 15 ? '' : 'Érvényes telefonszámot adj meg (pl. +36 30 123 4567).';
+}
 
 // Darabszám: gombokkal vagy beírással, 1 és a termékre érvényes felső határ között
 function QuantityStepper({ value, onChange, label, max }) {
-  const btn = 'w-9 h-9 rounded-lg border border-[#4A2E33] bg-[#2B1A1C] text-[#E0D6C8] text-lg font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
   return (
-    <div className="flex items-center gap-2 shrink-0" role="group" aria-label={`${label}: darabszám`}>
-      <button type="button" className={btn} onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Kevesebb">−</button>
-      <input
-        type="number" inputMode="numeric" min={1} max={max} value={value}
-        onChange={(e) => { const n = parseInt(e.target.value, 10); if (Number.isFinite(n)) onChange(n); }}
-        aria-label={`${label}: darabszám`}
-        className="w-14 h-9 rounded-lg border border-[#4A2E33] bg-black/40 text-center text-white font-bold outline-none focus:border-[#E5B15D] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-      />
-      <button type="button" className={btn} onClick={() => onChange(value + 1)} disabled={value >= max} aria-label="Több">+</button>
-      <span className="text-sm text-[#cfc6b8]">db</span>
+    <div className={s.stepper} role="group" aria-label={`${label}: darabszám`} onClick={(e) => e.preventDefault()}>
+      <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Kevesebb">−</button>
+      <input type="number" inputMode="numeric" min={1} max={max} value={value} aria-label={`${label}: darabszám`}
+        onChange={(e) => { const n = parseInt(e.target.value, 10); if (Number.isFinite(n)) onChange(n); }} />
+      <button type="button" onClick={() => onChange(value + 1)} disabled={value >= max} aria-label="Több">+</button>
     </div>
   );
 }
 
-// Nyilvános előrendelő (feliratkozási) oldal. focusId: a megosztott linkben megadott termék (?termek=...),
-// ilyenkor csak az a termék látszik, előre kiválasztva.
-export default function PreorderPage({ products = [], focusId = null, maintenance = false, loadError = false }) {
+const Shell = ({ children }) => <main className={s.page}><div className={s.wrap}>{children}</div></main>;
+const Header = ({ subtitle, game, showAll }) => (
+  <header className={s.head}>
+    <p className={s.kicker}>Tavern{game ? ` · ${game}` : ''}</p>
+    <h1 className={s.title}>Előrendelés</h1>
+    {subtitle && <p className={s.sub}>{subtitle}</p>}
+    {showAll && <a className={s.allLink} href="/elorendeles">Összes előrendelés ›</a>}
+  </header>
+);
+
+// game: játék-link (?jatek=) esetén a játék neve; ilyenkor és termék-linknél „Összes előrendelés” link az összesítőre
+export default function PreorderPage({ products = [], focusId = null, game = null, maintenance = false, loadError = false }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   const shown = focused ? [focused] : products;
   const [selected, setSelected] = useState(() => (focused && maxSelectable(focused, focused.remaining) > 0 ? { [focused.id]: 1 } : {}));
   const [values, setValues] = useState({ name: '', email: '', phone: '', website: '' });
-  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [serverErrors, setServerErrors] = useState({});
+  const [tries, setTries] = useState(0);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
 
-  if (maintenance) {
-    return <Shell><Header /><Panel className="text-center"><p className="m-0 text-lg">Az előrendelés átmenetileg nem elérhető. Kérjük, nézz vissza később!</p></Panel></Shell>;
-  }
-  if (loadError) {
-    return <Shell><Header /><Panel className="text-center"><p className="m-0 text-lg">Az oldal most nem tölthető be. Kérjük, próbáld újra pár perc múlva.</p></Panel></Shell>;
-  }
+  if (maintenance) return <Shell><Header /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az előrendelés átmenetileg nem elérhető. Kérjük, nézz vissza később!</p></div></Shell>;
+  if (loadError) return <Shell><Header /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az oldal most nem tölthető be. Kérjük, próbáld újra pár perc múlva.</p></div></Shell>;
 
   const notFoundNotice = focusId && !focused && (
-    <div className="rounded-xl px-4 py-3 mb-4 text-sm" style={{ background: '#faad1422', color: '#ffd591', border: '1px solid #faad1455' }}>
-      Ennek a terméknek az előrendelése már lezárult, vagy a link hibás.{products.length > 0 ? ' Alább a jelenleg nyitott előrendeléseket látod.' : ''}
-    </div>
+    <div className={s.notice}>Ennek a terméknek az előrendelése már lezárult, vagy a link hibás.{products.length > 0 ? ' Alább a jelenleg nyitott előrendeléseket látod.' : ''}</div>
   );
 
   if (products.length === 0) {
-    return (
-      <Shell>
-        <Header />
-        {notFoundNotice}
-        <Panel className="text-center"><p className="m-0 text-lg">Jelenleg nincs nyitott előrendelés.</p></Panel>
-      </Shell>
-    );
+    return <Shell><Header />{notFoundNotice}<div className={`${s.panel} ${s.center}`}><p className={s.p}>Jelenleg nincs nyitott előrendelés.</p></div></Shell>;
   }
 
   const chosen = shown.filter(p => selected[p.id]);
   // Végösszeg a kiválasztott, árral rendelkező termékekből (null, ha egyiknek sincs ára)
   const priced = chosen.filter(p => p.price !== null && p.price !== undefined);
-  const totalPrice = priced.length ? priced.reduce((s, p) => s + p.price * selected[p.id], 0) : null;
+  const totalPrice = priced.length ? priced.reduce((sum, p) => sum + p.price * selected[p.id], 0) : null;
   const hasUnpriced = priced.length > 0 && priced.length < chosen.length;
   const toggle = (id) => {
-    setSelected(s => { const next = { ...s }; if (next[id]) delete next[id]; else next[id] = 1; return next; });
-    if (errors.items) setErrors(err => ({ ...err, items: '' }));
+    setSelected(sel => { const next = { ...sel }; if (next[id]) delete next[id]; else next[id] = 1; return next; });
+    if (serverErrors.items) setServerErrors(err => ({ ...err, items: '' }));
   };
   const maxOf = (id) => { const p = shown.find(x => x.id === id); return p ? maxSelectable(p, p.remaining) : 1; };
-  const setQty = (id, qty) => setSelected(s => ({ ...s, [id]: Math.min(maxOf(id), Math.max(1, qty)) }));
-  const set = (field) => (e) => {
-    setValues(v => ({ ...v, [field]: e.target.value }));
-    if (errors[field]) setErrors(err => ({ ...err, [field]: '' }));
+  const setQty = (id, qty) => setSelected(sel => ({ ...sel, [id]: Math.min(maxOf(id), Math.max(1, qty)) }));
+  const set = (f) => (e) => {
+    setValues(v => ({ ...v, [f]: e.target.value }));
+    if (serverErrors[f]) setServerErrors(err => ({ ...err, [f]: '' }));
   };
-
-  const validate = () => {
-    const err = {};
-    if (chosen.length === 0) err.items = 'Válassz legalább egy terméket.';
-    if (!values.name.trim()) err.name = 'Add meg a teljes neved.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) err.email = 'Érvényes e-mail címet adj meg.';
-    const digits = values.phone.replace(/\D/g, '').length;
-    if (!/^\+?[\d ()/-]{6,25}$/.test(values.phone.trim()) || digits < 6 || digits > 15) err.phone = 'Érvényes telefonszámot adj meg (pl. +36 30 123 4567).';
-    setErrors(err);
-    return Object.keys(err).length === 0;
-  };
+  const leave = (f) => () => { if (values[f]) setTouched(t => ({ ...t, [f]: true })); };
+  const itemsError = serverErrors.items || (tries > 0 && chosen.length === 0 ? 'Válassz legalább egy terméket.' : '');
+  const errorOf = (f) => serverErrors[f] || ((touched[f] || tries > 0) ? check(f, values[f]) : '');
+  const okOf = (f) => !!values[f].trim() && !check(f, values[f]) && !serverErrors[f];
+  const done = (chosen.length > 0 ? 1 : 0) + FIELDS.filter(okOf).length;
 
   const submit = async (e) => {
     e.preventDefault();
-    if (submitting || !validate()) return;
+    if (submitting) return;
+    setTries(n => n + 1);
+    if (chosen.length === 0 || FIELDS.some(f => check(f, values[f]))) return;
     setSubmitting(true);
     setFormError('');
     try {
@@ -126,7 +110,7 @@ export default function PreorderPage({ products = [], focusId = null, maintenanc
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.error) {
         const msg = (data && data.error) || 'Az előrendelés most nem sikerült. Próbáld újra később.';
-        if (data?.field) setErrors(err => ({ ...err, [data.field]: msg }));
+        if (data?.field) setServerErrors(err => ({ ...err, [data.field]: msg }));
         else setFormError(msg);
         return;
       }
@@ -142,115 +126,100 @@ export default function PreorderPage({ products = [], focusId = null, maintenanc
     return (
       <Shell>
         <Header />
-        <Panel className="text-center">
-          <div className="text-5xl mb-3">🎉</div>
-          <h2 className="text-2xl font-bold font-serif m-0" style={{ color: ACCENT }}>Köszönjük, megkaptuk az előrendelésed!</h2>
-          <ul className="list-none p-0 mt-4 mb-0 flex flex-col gap-1">
-            {result.items.map(i => <li key={i.name}><b className="text-white">{i.name}</b> – {i.quantity} db{i.price !== null && i.price !== undefined ? ` × ${formatPrice(i.price)}` : ''}</li>)}
-          </ul>
-          {result.total !== null && <p className="text-lg mt-3 mb-0">Végösszeg: <b className="text-white">{formatPrice(result.total)}</b></p>}
-          {result.updated > 0 && <p className="text-[#cfc6b8] mt-4 mb-0">Erre a termékre ezzel az e-mail címmel már volt előrendelésed, azt frissítettük.</p>}
-          <p className="text-[#cfc6b8] mt-4 mb-0">Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? ' A visszaigazolást elküldtük e-mailben.' : ''}</p>
-        </Panel>
-        <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm">
-          <Link href="/" className="underline text-[#cfc6b8]">Eseménynaptár</Link>
+        <div className={s.panel}>
+          <Success title="Köszönjük, megkaptuk az előrendelésed!">
+            <ul className={s.summaryList}>
+              {result.items.map(i => <li key={i.name}><b>{i.name}</b> – {i.quantity} db{i.price !== null && i.price !== undefined ? ` × ${formatPrice(i.price)}` : ''}</li>)}
+            </ul>
+            {result.total !== null && <p className={s.p}>Végösszeg: <b>{formatPrice(result.total)}</b></p>}
+            {result.updated > 0 && <p className={s.muted}>Erre a termékre ezzel az e-mail címmel már volt előrendelésed, azt frissítettük.</p>}
+            <p className={s.muted}>Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? ' A visszaigazolást elküldtük e-mailben.' : ''}</p>
+          </Success>
         </div>
+        <nav className={s.back}><Link href="/">Eseménynaptár</Link></nav>
       </Shell>
     );
   }
 
-  const fieldBorder = (field) => ({ borderColor: errors[field] ? '#ff6b6b' : 'rgba(255,255,255,0.15)' });
+  const summary = tries > 0 ? [
+    ...(itemsError ? [{ id: `termek-${shown[0].id}`, label: LABELS.items, message: itemsError }] : []),
+    ...FIELDS.filter(f => errorOf(f)).map(f => ({ id: `elo-${f}`, label: LABELS[f], message: errorOf(f) })),
+  ] : [];
 
   return (
     <Shell>
-      <Header subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
+      <Header game={game} showAll={!!(focused || game)} subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : game ? `A(z) ${game} előrendelései. Válaszd ki, mire szeretnél feliratkozni.` : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
       {notFoundNotice}
-      <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-        <Panel>
-          <h2 className="text-xl font-bold font-serif mt-0 mb-4" style={{ color: ACCENT }}>1. Mit szeretnél előrendelni?</h2>
-          <div className="flex flex-col gap-6">
+      <form onSubmit={submit} noValidate className={s.form}>
+        <Progress done={done} total={1 + FIELDS.length} />
+        <ErrorSummary items={summary} version={tries} />
+
+        <section className={s.panel} aria-labelledby="elo-1">
+          <h2 id="elo-1" className={s.h2}><span className={s.step}>1</span>Mit szeretnél előrendelni?</h2>
+          <div className={s.groups}>
             {groupByGame(shown).map(({ game, items }) => (
               <section key={game} aria-label={game}>
-                <div className="flex items-center gap-3 mb-3">
-                  <img src={getGameConfig(game).logo || DEFAULT_LOGO} alt="" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} />
-                  <h3 className="m-0 text-lg font-bold" style={{ color: getGameColor({ category: game }) === '#6b7280' ? '#E0D6C8' : getGameColor({ category: game }) }}>{game}</h3>
+                <div className={s.game}>
+                  <img src={getGameConfig(game).logo || DEFAULT_LOGO} alt="" onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} />
+                  <h3 style={{ color: getGameColor({ category: game }) === '#6b7280' ? '#E0D6C8' : getGameColor({ category: game }) }}>{game}</h3>
                 </div>
-                <div className="flex flex-col gap-3">
+                <div className={s.items}>
                   {items.map(p => {
                     const isOn = !!selected[p.id];
                     const max = maxSelectable(p, p.remaining);
                     const soldOut = max === 0;
                     return (
-                      <div key={p.id} className="rounded-2xl border-2 p-4 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors" style={{ borderColor: isOn ? ACCENT : '#4A2E33', background: isOn ? '#2B1A1C' : '#160d0f', opacity: soldOut ? 0.6 : 1 }}>
-                        <label className={`flex items-start gap-3 flex-1 min-w-0 ${soldOut ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                          <input type="checkbox" checked={isOn} disabled={soldOut} onChange={() => toggle(p.id)} className="mt-1 w-5 h-5 shrink-0 accent-[#E5B15D] cursor-pointer disabled:cursor-not-allowed" />
-                          <span className="min-w-0">
-                            <span className="block text-white font-bold text-lg" style={{ overflowWrap: 'anywhere' }}>{p.name}</span>
-                            {p.price !== null && p.price !== undefined && <span className="block font-bold" style={{ color: ACCENT }}>{formatPrice(p.price)}{isOn && selected[p.id] > 1 ? <span className="font-normal text-[#cfc6b8]"> · {selected[p.id]} db: {formatPrice(p.price * selected[p.id])}</span> : null}</span>}
-                            {soldOut && <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: '#ff6b6b33', color: '#ffb3b3' }}>Elfogyott</span>}
-                            {p.releaseDate && <span className="block text-sm" style={{ color: ACCENT }}>Megjelenés: {p.releaseDate}</span>}
-                            {!soldOut && (p.perPersonLimit > 0 || p.remaining !== null) && (
-                              <span className="block text-sm text-[#cfc6b8]">
-                                {[p.perPersonLimit > 0 && `Személyenként legfeljebb ${p.perPersonLimit} db`, p.remaining !== null && `Még ${p.remaining} db foglalható`].filter(Boolean).join(' · ')}
-                              </span>
-                            )}
-                            {p.description && <span className="block text-sm text-[#cfc6b8] mt-1 whitespace-pre-wrap">{p.description}</span>}
-                          </span>
-                        </label>
+                      <label key={p.id} className={`${s.item} ${isOn ? s.itemOn : ''} ${soldOut ? s.itemOut : ''}`} data-termek={p.id}>
+                        <input id={`termek-${p.id}`} type="checkbox" className={s.checkInput} checked={isOn} disabled={soldOut} onChange={() => toggle(p.id)} />
+                        <span className={s.check} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" /></svg></span>
+                        <span className={s.itemText}>
+                          <b className={s.itemName}>{p.name}</b>
+                          {p.price !== null && p.price !== undefined && <span className={s.price}>{formatPrice(p.price)}{isOn && selected[p.id] > 1 ? <span className={s.muted}> · {selected[p.id]} db: {formatPrice(p.price * selected[p.id])}</span> : null}</span>}
+                          {soldOut && <span className={s.soldOut}>Elfogyott</span>}
+                          {p.releaseDate && <span className={s.release}>Megjelenés: {p.releaseDate}</span>}
+                          {!soldOut && (p.perPersonLimit > 0 || p.remaining !== null) && (
+                            <span className={s.meta}>{[p.perPersonLimit > 0 && `Személyenként legfeljebb ${p.perPersonLimit} db`, p.remaining !== null && `Még ${p.remaining} db foglalható`].filter(Boolean).join(' · ')}</span>
+                          )}
+                          {p.description && <span className={s.desc}>{p.description}</span>}
+                        </span>
                         {isOn && <QuantityStepper value={selected[p.id]} onChange={(q) => setQty(p.id, q)} label={p.name} max={max} />}
-                      </div>
+                      </label>
                     );
                   })}
                 </div>
               </section>
             ))}
           </div>
-          {errors.items && <p className="text-sm text-[#ff6b6b] mt-3 mb-0">{errors.items}</p>}
-        </Panel>
+          {itemsError && <p className={s.itemsError}>{itemsError}</p>}
+        </section>
 
-        <Panel className="flex flex-col gap-5">
-          <h2 className="text-xl font-bold font-serif m-0" style={{ color: ACCENT }}>2. Elérhetőségeid</h2>
-          <label className="flex flex-col gap-2">
-            <span className="font-bold text-white">Teljes név</span>
-            <input className={inputClass} style={fieldBorder('name')} value={values.name} onChange={set('name')} placeholder="Vezetéknév Keresztnév" maxLength={120} autoComplete="name" />
-            {errors.name && <span className="text-sm text-[#ff6b6b]">{errors.name}</span>}
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="font-bold text-white">E-mail cím</span>
-            <input className={inputClass} style={fieldBorder('email')} type="email" inputMode="email" value={values.email} onChange={set('email')} placeholder="nev@pelda.hu" autoComplete="email" />
-            {errors.email && <span className="text-sm text-[#ff6b6b]">{errors.email}</span>}
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="font-bold text-white">Telefonszám</span>
-            <input className={inputClass} style={fieldBorder('phone')} type="tel" inputMode="tel" value={values.phone} onChange={set('phone')} placeholder="+36 30 123 4567" maxLength={25} autoComplete="tel" />
-            {errors.phone && <span className="text-sm text-[#ff6b6b]">{errors.phone}</span>}
-          </label>
+        <section className={`${s.panel} ${s.fields}`} aria-labelledby="elo-2">
+          <h2 id="elo-2" className={s.h2}><span className={s.step}>2</span>Elérhetőségeid</h2>
+          <Field id="elo-name" label="Teljes név" icon={ICONS.user} value={values.name} onChange={set('name')} onBlur={leave('name')}
+            error={errorOf('name')} ok={okOf('name')} maxLength={120} autoComplete="name" enterKeyHint="next" />
+          <Field id="elo-email" label="E-mail cím" icon={ICONS.mail} type="email" inputMode="email" value={values.email} onChange={set('email')} onBlur={leave('email')}
+            error={errorOf('email')} ok={okOf('email')} autoComplete="email" autoCapitalize="none" enterKeyHint="next" />
+          <Field id="elo-phone" label="Telefonszám" icon={ICONS.phone} hint="Pl. +36 30 123 4567 – ezen hívunk, ha megérkezett." type="tel" inputMode="tel"
+            value={values.phone} onChange={set('phone')} onBlur={leave('phone')} error={errorOf('phone')} ok={okOf('phone')} maxLength={25} autoComplete="tel" enterKeyHint="done" />
           {/* Robotcsapda: a látogatók nem látják */}
-          <input type="text" name="website" value={values.website} onChange={set('website')} tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
+          <input type="text" name="website" value={values.website} onChange={set('website')} tabIndex={-1} autoComplete="off" aria-hidden="true" className={s.trap} />
+          {formError && <div className={s.formError} role="alert">{formError}</div>}
+          <p className={s.privacy}>
+            A nevedet, az e-mail címedet és a telefonszámodat csak a bolt munkatársai látják. Kizárólag az előrendelés intézéséhez (értesítés, átvétel) használjuk, harmadik félnek nem adjuk át, és az előrendelés lezárása után legfeljebb 6 hónappal automatikusan töröljük.
+            {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer">Adatkezelési tájékoztató</a></>}
+          </p>
+        </section>
 
-          {formError && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: '#ff6b6b22', color: '#ffb3b3', border: '1px solid #ff6b6b55' }}>{formError}</div>}
-
+        {/* Telefonon alul ragad: végösszeg és beküldés */}
+        <div className={s.bottom} data-sav-alul>
           {totalPrice !== null && (
-            <div className="flex items-baseline justify-between gap-3 rounded-xl px-4 py-3" style={{ background: '#2B1A1C', border: '1px solid #4A2E33' }}>
-              <span className="text-[#cfc6b8]">Végösszeg{hasUnpriced ? ' (az ár nélküli termékek nélkül)' : ''}</span>
-              <b className="text-xl" style={{ color: ACCENT }}>{formatPrice(totalPrice)}</b>
+            <div className={s.total}>
+              <span>Végösszeg{hasUnpriced ? ' (ár nélküliek nélkül)' : ''}</span>
+              <b key={totalPrice} data-osszeg>{formatPrice(totalPrice)}</b>
             </div>
           )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-full py-4 text-lg font-bold cursor-pointer border-none transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-wait"
-            style={{ background: ACCENT, color: '#1a1012', boxShadow: `0 8px 30px ${ACCENT}55` }}
-          >
-            {submitting ? 'Küldés...' : chosen.length > 1 ? `Előrendelés leadása (${chosen.length} termék)` : 'Előrendelés leadása'}
-          </button>
-
-          <p className="text-xs text-[#9a9186] m-0 leading-relaxed">
-            A nevedet, az e-mail címedet és a telefonszámodat csak a bolt munkatársai látják. Kizárólag az előrendelés intézéséhez (értesítés, átvétel) használjuk, harmadik félnek nem adjuk át, és az előrendelés lezárása után legfeljebb 6 hónappal automatikusan töröljük.
-            {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT }}>Adatkezelési tájékoztató</a></>}
-          </p>
-        </Panel>
+          <SubmitButton busy={submitting} busyText="Küldés…">{chosen.length > 1 ? `Előrendelés leadása (${chosen.length} termék)` : 'Előrendelés leadása'}</SubmitButton>
+        </div>
       </form>
     </Shell>
   );

@@ -5,7 +5,7 @@ import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined
 import { adminTheme } from '@/components/AdminPage';
 import { getGameColor } from '@/lib/gameConfig';
 import useLiveRefresh from '@/lib/useLiveRefresh';
-import { preorderLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX } from '@/lib/preorders';
+import { preorderLink, preorderGameLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX } from '@/lib/preorders';
 
 const { Title, Text } = Typography;
 
@@ -225,6 +225,7 @@ export default function PreorderAdmin() {
         <div className="flex flex-wrap gap-2 mt-3">
           <Button size="small" icon={<TeamOutlined />} style={isExpanded ? { ...sideBtn, color: '#E5B15D', borderColor: '#E5B15D' } : sideBtn} onClick={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))}>Jelentkezők ({orders.length})</Button>
           <Button size="small" icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderLink(origin, p.id))} title="Csak ezt a terméket mutató link, meghirdetéshez">Link másolása</Button>
+          <Button size="small" icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderGameLink(origin, p.category))} title={`A(z) ${p.category} összes nyitott előrendelését mutató link`}>Játék linkje</Button>
           <Button size="small" icon={<FileExcelOutlined />} style={sideBtn} href={`/api/admin-preorders/export?productId=${encodeURIComponent(p.id)}`}>Excel</Button>
           <Button size="small" icon={<EditOutlined />} style={sideBtn} onClick={() => openEditor(p)}>Szerkesztés</Button>
           {p.isOpen
@@ -255,7 +256,7 @@ export default function PreorderAdmin() {
             <Button icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/elorendeles', '_blank', 'noopener')}>Megnyitás</Button>
           </div>
           <Text style={{ color: '#9a8a8c', fontSize: 13 }}>
-            Nyilvános oldal: <span style={{ color: '#E0D6C8' }}>{preorderLink(origin)}</span> · {openCount} nyitott előrendelés. A termékeknél a „Link másolása” olyan linket ad, amely csak azt az egy terméket mutatja.
+            Nyilvános oldal: <span style={{ color: '#E0D6C8' }}>{preorderLink(origin)}</span> · {openCount} nyitott előrendelés. Ez az összesítő: minden játék előrendelése látszik rajta. A termékeknél a „Link másolása” csak azt az egy terméket, a „Játék linkje” annak a játéknak az összes előrendelését mutatja.
           </Text>
           <div className="flex flex-wrap items-center gap-3">
             <Segmented options={STATUS_OPTIONS} value={status} onChange={setStatus} />

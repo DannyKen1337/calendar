@@ -3,15 +3,16 @@ import { useState } from 'react';
 import { getGameTheme } from '@/lib/gameThemes';
 import { getGameConfig } from '@/lib/gameConfig';
 import EmbedBridge from '@/components/EmbedBridge';
+import { Field, ErrorSummary, SubmitButton, Success, ICONS } from '@/components/FormKit';
+import s from './RegistrationPage.module.css';
 
+// Külön, játékhoz tematikus jelentkezési oldal (/jelentkezes/[id]). A színeket a játék témája adja (lib/gameThemes.js),
+// az űrlap elemei a FormKitből jönnek: úszó címke, ellenőrzés a mező elhagyásakor, pipa a jó mezőn,
+// hibaösszesítő, animált siker. A felépítés (3 mező, adatkezelési szöveg) a régi.
 const STORE_NAMES = { debrecen: 'Tavern Debrecen', miskolc: 'Tavern Miskolc', jatekceh: 'JátékCéh' };
 const DEFAULT_LOGO = '/jatekok/egyeb.png';
-
-const DISPLAY = { fontFamily: 'var(--font-cinzel), Georgia, serif' };
-// Ikonok (emoji helyett): pipa a sikeres jelentkezéshez, homokóra a várólistához
-const Icon = ({ d, color }) => <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true" style={{ fill: 'none', stroke: color, strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', display: 'block', margin: '0 auto 12px' }}><path d={d} /></svg>;
-const CHECK = 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l2.7 2.7L16.5 9.5';
-const HOURGLASS = 'M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9';
+const FIELDS = ['username', 'name', 'email'];
+const LABELS = { username: 'Felhasználónév', name: 'Teljes név', email: 'E-mail cím' };
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
@@ -25,31 +26,37 @@ function goBack(embed) {
   else window.location.href = embed ? '/embed' : '/';
 }
 
+// Egy mező hibája (üres szöveg: jó)
+function check(field, value) {
+  const v = value.trim();
+  if (field === 'username') return v.length < 2 || v.length > 24 || !/^[\p{L}\p{N} ._-]+$/u.test(v) ? '2–24 karakter: betű, szám, szóköz, pont, aláhúzás vagy kötőjel.' : '';
+  if (field === 'name') return v ? '' : 'Add meg a teljes neved.';
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Érvényes e-mail címet adj meg (pl. nev@pelda.hu).';
+}
+
 export default function RegistrationPage({ event, embed = false, maintenance = false }) {
   const theme = getGameTheme(event?.category);
   const [values, setValues] = useState({ username: '', name: '', email: '' });
-  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({}); // a már elhagyott mezők (azok hibája látszik)
+  const [serverErrors, setServerErrors] = useState({});
+  const [tries, setTries] = useState(0); // beküldési kísérletek (a hibaösszesítőhöz)
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // { isQueue, username, mailSent }
   const [now] = useState(() => Date.now());
 
+  const vars = { '--accent': theme.accent, '--accent-text': theme.accentText, '--panel': theme.panel, '--glow': theme.glow, background: theme.bg };
   const shell = (content) => (
-    <main
-      className={`${embed ? 'py-8' : 'min-h-screen py-10'} px-4 flex justify-center items-start`}
-      style={{ background: theme.bg, color: '#E8E2D6', '--accent': theme.accent, fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
-    >
+    <main className={`${s.page} ${embed ? s.embed : ''}`} style={vars}>
       {embed && <EmbedBridge />}
-      <div className="w-full max-w-xl">{content}</div>
+      <div className={s.wrap}>{content}</div>
     </main>
   );
 
-  const panelStyle = { background: theme.panel, borderColor: `${theme.accent}55`, boxShadow: `0 0 60px ${theme.glow}33` };
-
   if (maintenance) {
     return shell(
-      <div className="rounded-3xl border-2 p-8 text-center backdrop-blur" style={panelStyle}>
-        <h1 className="text-3xl font-bold mb-3" style={{ ...DISPLAY, color: theme.accent }}>Karbantartás alatt</h1>
+      <div className={`${s.panel} ${s.center}`}>
+        <h1 className={s.title}>Karbantartás alatt</h1>
         <p>A jelentkezés átmenetileg nem elérhető. Kérjük, nézz vissza később!</p>
       </div>
     );
@@ -61,24 +68,19 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
   const isFull = !event.isOpenAttendance && event.current_players >= event.max_players;
   const eventId = String(event._id || event.id);
 
-  const set = (field) => (e) => {
-    setValues(v => ({ ...v, [field]: e.target.value }));
-    if (errors[field]) setErrors(err => ({ ...err, [field]: '' }));
+  const errorOf = (f) => serverErrors[f] || ((touched[f] || tries > 0) ? check(f, values[f]) : '');
+  const okOf = (f) => !!values[f].trim() && !check(f, values[f]) && !serverErrors[f];
+  const set = (f) => (e) => {
+    setValues(v => ({ ...v, [f]: e.target.value }));
+    if (serverErrors[f]) setServerErrors(err => ({ ...err, [f]: '' }));
   };
-
-  const validate = () => {
-    const err = {};
-    const u = values.username.trim();
-    if (u.length < 2 || u.length > 24 || !/^[\p{L}\p{N} ._-]+$/u.test(u)) err.username = '2-24 karakter: betű, szám, szóköz, pont, aláhúzás vagy kötőjel.';
-    if (!values.name.trim()) err.name = 'Add meg a teljes neved.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) err.email = 'Érvényes e-mail címet adj meg.';
-    setErrors(err);
-    return Object.keys(err).length === 0;
-  };
+  const leave = (f) => () => { if (values[f]) setTouched(t => ({ ...t, [f]: true })); };
 
   const submit = async (e) => {
     e.preventDefault();
-    if (submitting || !validate()) return;
+    if (submitting) return;
+    setTries(n => n + 1);
+    if (FIELDS.some(f => check(f, values[f]))) return;
     setSubmitting(true);
     setFormError('');
     try {
@@ -93,7 +95,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.error) {
         const msg = (data && data.error) || 'A jelentkezés most nem sikerült. Próbáld újra, vagy szólj a szervezőnek.';
-        if (data?.field) setErrors(err => ({ ...err, [data.field]: msg }));
+        if (data?.field) setServerErrors(err => ({ ...err, [data.field]: msg }));
         else setFormError(msg);
         return;
       }
@@ -106,22 +108,20 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
   };
 
   const header = (
-    <div className="flex flex-col items-center text-center mb-6">
-      <div className="w-28 h-28 rounded-3xl p-3 flex items-center justify-center mb-4 border-2" style={{ background: '#0a0a0acc', borderColor: `${theme.accent}88`, boxShadow: `0 0 40px ${theme.glow}66` }}>
-        <img src={logo} alt={event.category || ''} className="w-full h-full object-contain" onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} />
-      </div>
-      <p className="uppercase tracking-[0.25em] text-xs mb-2" style={{ color: theme.accent }}>{store} · {event.category || 'Esemény'}</p>
-      <h1 className="text-3xl md:text-4xl font-bold m-0 text-white break-words" style={DISPLAY}>{event.name}</h1>
-      <p className="mt-2 mb-0 text-[#cfc6b8]">{formatDate(event.date)}</p>
-      <p className="mt-3 mb-0 italic" style={{ color: theme.accent }}>{theme.tagline}</p>
-    </div>
+    <header className={s.head}>
+      <span className={s.logo}><img src={logo} alt={event.category || ''} onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} /></span>
+      <p className={s.kicker}>{store} · {event.category || 'Esemény'}</p>
+      <h1 className={s.title}>{event.name}</h1>
+      <p className={s.when}>{formatDate(event.date)}</p>
+      {theme.tagline && <p className={s.tagline}>{theme.tagline}</p>}
+    </header>
   );
 
   const backLinks = (
-    <div className="flex flex-wrap justify-center gap-2 mt-6">
-      <button type="button" onClick={() => goBack(embed)} className="inline-flex items-center min-h-[44px] px-4 rounded-full bg-transparent border-none cursor-pointer font-bold" style={{ color: '#cfc6b8' }}>‹ Vissza a naptárhoz</button>
-      {!embed && <a href={`/esemeny/${encodeURIComponent(eventId)}`} className="inline-flex items-center min-h-[44px] px-4 rounded-full font-bold no-underline" style={{ color: '#cfc6b8' }}>Esemény részletei</a>}
-    </div>
+    <nav className={s.back} aria-label="Tovább">
+      <button type="button" onClick={() => goBack(embed)}>‹ Vissza a naptárhoz</button>
+      {!embed && <a href={`/esemeny/${encodeURIComponent(eventId)}`}>Esemény részletei</a>}
+    </nav>
   );
 
   // Sikeres jelentkezés
@@ -129,13 +129,13 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
     return shell(
       <>
         {header}
-        <div className="rounded-3xl border-2 p-8 text-center backdrop-blur" style={panelStyle}>
-          <Icon d={result.isQueue ? HOURGLASS : CHECK} color={theme.accent} />
-          <h2 className="text-2xl font-bold m-0" style={{ ...DISPLAY, color: theme.accent }}>{result.isQueue ? 'Várólistára kerültél!' : 'Hely biztosítva!'}</h2>
-          <p className="mt-3">A jelentkezők között így látszol: <b className="text-white">{result.username}</b></p>
-          {result.isQueue && <p className="text-[#cfc6b8]">Ha felszabadul egy hely, automatikusan előlépsz.</p>}
-          {result.mailSent && <p className="text-[#cfc6b8]">A visszaigazolást elküldtük e-mailben.</p>}
-          <a href={`/api/export?event=${encodeURIComponent(eventId)}`} className="inline-flex items-center min-h-[48px] mt-2 px-6 rounded-full font-bold no-underline" style={{ background: theme.accent, color: theme.accentText }}>Mentés a naptárba</a>
+        <div className={s.panel}>
+          <Success title={result.isQueue ? 'Várólistára kerültél!' : 'Hely biztosítva!'} waiting={result.isQueue}>
+            <p className={s.p}>A jelentkezők között így látszol: <b>{result.username}</b></p>
+            {result.isQueue && <p className={s.muted}>Ha felszabadul egy hely, automatikusan előlépsz.</p>}
+            {result.mailSent && <p className={s.muted}>A visszaigazolást elküldtük e-mailben.</p>}
+            <a className={s.cta} href={`/api/export?event=${encodeURIComponent(eventId)}`}>Mentés a naptárba</a>
+          </Success>
         </div>
         {backLinks}
       </>
@@ -144,7 +144,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
 
   // Jelentkezés nem lehetséges: kötetlen létszám, külső jelentkezés, lezárt vagy elmúlt esemény
   let blocked = null;
-  if (event.isOpenAttendance) blocked = 'Ehhez az eseményhez nincs jelentkezés – kötetlen létszám, gyere el nyugodtan!';
+  if (event.isOpenAttendance) blocked = 'Ehhez az eseményhez nincs jelentkezés – gyere el nyugodtan!';
   else if (isPast) blocked = 'Ez az esemény már lezajlott.';
   else if (!event.external_url && !event.is_open) blocked = 'A jelentkezés erre az eseményre lezárult.';
 
@@ -152,11 +152,11 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
     return shell(
       <>
         {header}
-        <div className="rounded-3xl border-2 p-8 text-center backdrop-blur" style={panelStyle}>
-          {blocked ? <p className="m-0 text-lg">{blocked}</p> : (
+        <div className={`${s.panel} ${s.center}`}>
+          {blocked ? <p className={s.p}>{blocked}</p> : (
             <>
-              <p className="mt-0">Erre az eseményre a szervező oldalán lehet jelentkezni.</p>
-              <a href={event.external_url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 px-7 py-3 rounded-full font-bold no-underline" style={{ background: theme.accent, color: theme.accentText }}>Tovább a jelentkezéshez</a>
+              <p className={s.p}>Erre az eseményre a szervező oldalán lehet jelentkezni.</p>
+              <a className={s.cta} href={event.external_url} target="_blank" rel="noopener noreferrer">Tovább a jelentkezéshez ↗</a>
             </>
           )}
         </div>
@@ -165,62 +165,40 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
     );
   }
 
-  const inputClass = 'w-full rounded-xl border-2 bg-black/40 px-4 py-3 text-white placeholder:text-[#8d8478] outline-none transition-colors focus:border-[var(--accent)]';
-  const fieldBorder = (field) => ({ borderColor: errors[field] ? '#ff6b6b' : 'rgba(255,255,255,0.15)' });
-  // A mező magyarázata és hibája a felolvasóknak is a mezőhöz tartozik
-  const describe = (field) => ({ 'aria-invalid': errors[field] ? true : undefined, 'aria-describedby': [`tipp-${field}`, errors[field] && `hiba-${field}`].filter(Boolean).join(' ') });
+  const summary = tries > 0 ? FIELDS.filter(f => errorOf(f)).map(f => ({ id: `reg-${f}`, label: LABELS[f], message: errorOf(f) })) : [];
+  const free = Math.max(0, event.max_players - event.current_players);
 
   return shell(
     <>
       {header}
-      <form onSubmit={submit} noValidate className="rounded-3xl border-2 p-6 md:p-8 backdrop-blur flex flex-col gap-5" style={panelStyle}>
-        <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center text-sm text-[#cfc6b8]">
-            <span>Létszám: <b className="text-white">{event.current_players} / {event.max_players}</b></span>
-            {isFull
-              ? <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: '#faad1433', color: '#faad14' }}>Betelt – várólistára kerülsz</span>
-              : <span className="font-bold text-white">{Math.max(0, event.max_players - event.current_players)} hely szabad</span>}
+      <form onSubmit={submit} noValidate className={`${s.panel} ${s.form}`}>
+        <div className={s.capacity}>
+          <div className={s.capRow}>
+            <span>Létszám: <b>{event.current_players} / {event.max_players}</b></span>
+            {isFull ? <span className={s.full}>Betelt – várólistára kerülsz</span> : <b>{free} hely szabad</b>}
           </div>
-          <span data-sav aria-hidden="true" className="block h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
-            <span className="block h-full" style={{ width: `${event.max_players ? Math.min(100, (event.current_players / event.max_players) * 100) : 0}%`, background: theme.accent }} />
-          </span>
+          <span className={s.capBar} data-sav aria-hidden="true"><span style={{ width: `${event.max_players ? Math.min(100, (event.current_players / event.max_players) * 100) : 0}%` }} /></span>
         </div>
 
-        <label className="flex flex-col gap-2">
-          <span className="font-bold text-white">1. Felhasználónév</span>
-          <span id="tipp-username" className="text-xs text-[#cfc6b8]">Ez jelenik meg nyilvánosan a jelentkezők között.</span>
-          <input className={inputClass} style={fieldBorder('username')} {...describe('username')} value={values.username} onChange={set('username')} placeholder="A játékbeli vagy közösségi neved" maxLength={24} autoComplete="nickname" autoFocus />
-          {errors.username && <span id="hiba-username" className="text-sm text-[#ff6b6b]">{errors.username}</span>}
-        </label>
+        <ErrorSummary items={summary} version={tries} />
 
-        <label className="flex flex-col gap-2">
-          <span className="font-bold text-white">2. Teljes név</span>
-          <span id="tipp-name" className="text-xs text-[#cfc6b8]">Csak a szervezők látják.</span>
-          <input className={inputClass} style={fieldBorder('name')} {...describe('name')} value={values.name} onChange={set('name')} placeholder="Vezetéknév Keresztnév" maxLength={120} autoComplete="name" />
-          {errors.name && <span id="hiba-name" className="text-sm text-[#ff6b6b]">{errors.name}</span>}
-        </label>
+        <Field id="reg-username" label="Felhasználónév" icon={ICONS.badge} hint="Ez jelenik meg nyilvánosan a jelentkezők között."
+          value={values.username} onChange={set('username')} onBlur={leave('username')} error={errorOf('username')} ok={okOf('username')}
+          maxLength={24} autoComplete="nickname" autoCapitalize="none" enterKeyHint="next" />
+        <Field id="reg-name" label="Teljes név" icon={ICONS.user} hint="Csak a szervezők látják."
+          value={values.name} onChange={set('name')} onBlur={leave('name')} error={errorOf('name')} ok={okOf('name')}
+          maxLength={120} autoComplete="name" enterKeyHint="next" />
+        <Field id="reg-email" label="E-mail cím" icon={ICONS.mail} hint="Csak a szervezők látják. Ezzel tudsz később leiratkozni."
+          type="email" inputMode="email" value={values.email} onChange={set('email')} onBlur={leave('email')} error={errorOf('email')} ok={okOf('email')}
+          autoComplete="email" autoCapitalize="none" enterKeyHint="send" />
 
-        <label className="flex flex-col gap-2">
-          <span className="font-bold text-white">3. E-mail cím</span>
-          <span id="tipp-email" className="text-xs text-[#cfc6b8]">Csak a szervezők látják. Ezzel tudsz később leiratkozni.</span>
-          <input className={inputClass} style={fieldBorder('email')} {...describe('email')} type="email" inputMode="email" value={values.email} onChange={set('email')} placeholder="nev@pelda.hu" autoComplete="email" />
-          {errors.email && <span id="hiba-email" className="text-sm text-[#ff6b6b]">{errors.email}</span>}
-        </label>
+        {formError && <div className={s.formError} role="alert">{formError}</div>}
 
-        {formError && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: '#ff6b6b22', color: '#ffb3b3', border: '1px solid #ff6b6b55' }}>{formError}</div>}
+        <SubmitButton busy={submitting} busyText="Jelentkezés…">{isFull ? 'Jelentkezés várólistára' : 'Jelentkezem'}</SubmitButton>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-full py-4 text-lg font-bold cursor-pointer border-none transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-wait"
-          style={{ background: theme.accent, color: theme.accentText, boxShadow: `0 8px 30px ${theme.accent}55` }}
-        >
-          {submitting ? 'Jelentkezés...' : isFull ? 'Jelentkezés várólistára' : 'Jelentkezem'}
-        </button>
-
-        <p className="text-xs text-[#9a9186] m-0 leading-relaxed">
+        <p className={s.privacy}>
           A felhasználóneved nyilvánosan megjelenik a jelentkezők között. A teljes nevedet és az e-mail címedet csak a szervezők látják, kizárólag az esemény szervezéséhez (jelentkezés, visszaigazolás, leiratkozás) használjuk, harmadik félnek nem adjuk át, és az esemény után legfeljebb 2 hónappal automatikusan töröljük. A helyszíni megjelenést (megjelent / nem jelent meg) a szervezők rögzíthetik; ezt az e-mail címedhez kötve legfeljebb 1 évig őrizzük, kizárólag a meg nem jelenések kezeléséhez.
-          {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent }}>Adatkezelési tájékoztató</a></>}
+          {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer">Adatkezelési tájékoztató</a></>}
         </p>
       </form>
       {backLinks}

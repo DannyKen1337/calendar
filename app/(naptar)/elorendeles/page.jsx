@@ -2,6 +2,7 @@ import { isMaintenanceOn } from '@/lib/events';
 import { getOpenPreorderProducts } from '@/lib/preorderData';
 import PreorderPage from '@/components/PreorderPage';
 import { formatPrice } from '@/lib/preorders';
+import { categoryFromSlug } from '@/lib/leagues';
 
 const DEFAULT_META = {
   title: 'Előrendelés – Tavern',
@@ -21,10 +22,11 @@ export async function generateMetadata({ searchParams }) {
   return { title, description, openGraph: { title, description }, twitter: { card: 'summary', title, description } };
 }
 
-// Nyilvános előrendelő oldal. ?termek=<azonosító>: csak az a termék látszik (meghirdetéshez megosztható link).
+// Nyilvános előrendelő oldal. ?termek=<azonosító>: csak az a termék látszik; ?jatek=<játék>: csak annak a játéknak az
+// előrendelései (meghirdetéshez megosztható linkek); paraméter nélkül az összes játék (összesítő).
 // A searchParams használata miatt minden kérésnél frissen töltődik (dinamikus oldal).
 export default async function Page({ searchParams }) {
-  const { termek } = await searchParams;
+  const { termek, jatek } = await searchParams;
   if (await isMaintenanceOn().catch(() => false)) return <PreorderPage maintenance />;
   const products = await getOpenPreorderProducts().catch((err) => { console.error('preorder page error:', err); return null; });
   if (!products) return <PreorderPage loadError />;
@@ -32,5 +34,9 @@ export default async function Page({ searchParams }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   // Termék-linknél csak az az egy termék kerül le a böngészőbe
   if (focused) return <PreorderPage products={[focused]} focusId={focusId} />;
+  // Játék-linknél csak annak a játéknak a termékei (ha ismeretlen a játék, vagy most nincs nyitott terméke: az összes)
+  const game = !focusId && typeof jatek === 'string' ? categoryFromSlug(jatek) : null;
+  const ofGame = game ? products.filter(p => p.category === game) : [];
+  if (ofGame.length) return <PreorderPage products={ofGame} game={game} />;
   return <PreorderPage products={products} focusId={focusId} />;
 }

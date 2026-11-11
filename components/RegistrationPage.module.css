@@ -1,0 +1,43 @@
+/* A jelentkezési oldal (components/RegistrationPage.jsx). A színek a játék témájából jönnek (--accent, --panel, --glow). */
+.page { min-height: 100vh; padding: 32px 16px 48px; display: flex; justify-content: center; align-items: flex-start; color: #e8e2d6; font-family: var(--font-manrope), system-ui, sans-serif; font-size: 16px; line-height: 1.5; }
+.embed { min-height: 0; padding-top: 20px; }
+.wrap { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 18px; }
+
+.head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; animation: fadeUp 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.logo { width: 104px; height: 104px; margin-bottom: 8px; padding: 12px; box-sizing: border-box; border-radius: 26px; background: rgba(10, 10, 10, 0.8); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 44px color-mix(in srgb, var(--glow) 40%, transparent); display: grid; place-items: center; animation: float 5s ease-in-out infinite; }
+.logo img { width: 100%; height: 100%; object-fit: contain; }
+@keyframes float { 50% { transform: translateY(-5px); } }
+.kicker { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); }
+.title { margin: 0; font-family: var(--font-cinzel), Georgia, serif; font-size: clamp(28px, 22px + 2vw, 38px); font-weight: 700; line-height: 1.15; color: #ffffff; overflow-wrap: anywhere; }
+.when { margin: 0; color: #cfc6b8; }
+.tagline { margin: 4px 0 0; font-style: italic; color: var(--accent); }
+
+.panel { position: relative; padding: clamp(20px, 4vw, 30px); border-radius: 26px; background: var(--panel); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 30%, transparent), 0 20px 60px color-mix(in srgb, var(--glow) 18%, transparent); backdrop-filter: blur(8px); animation: fadeUp 600ms 80ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.center { text-align: center; }
+.form { display: flex; flex-direction: column; gap: 18px; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+.capacity { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #cfc6b8; }
+.capRow { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.capRow b { color: #ffffff; font-variant-numeric: tabular-nums; }
+.full { padding: 3px 10px; border-radius: 999px; background: rgba(250, 173, 20, 0.18); color: #faad14; font-size: 12px; font-weight: 800; }
+.capBar { display: block; height: 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.capBar > span { display: block; height: 100%; border-radius: 99px; background: var(--accent); animation: grow 900ms 300ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: left; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.formError { padding: 12px 16px; border-radius: 14px; background: rgba(255, 107, 107, 0.12); color: #ffc2c2; box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.4); font-size: 14px; }
+.privacy { margin: 0; color: #9a9186; font-size: 12px; line-height: 1.6; }
+.privacy a { color: var(--accent); }
+.p { margin: 4px 0 0; }
+.p b { color: #ffffff; }
+.muted { margin: 0; color: #cfc6b8; }
+.cta { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; margin-top: 10px; padding: 0 26px; border-radius: 999px; background: var(--accent); color: var(--accent-text); font-weight: 800; text-decoration: none; transition: transform 160ms ease; }
+.cta:hover { transform: translateY(-1px); }
+
+.back { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.back button, .back a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; color: #cfc6b8; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; transition: background 160ms ease, color 160ms ease; }
+.back button:hover, .back a:hover { background: rgba(255, 255, 255, 0.06); color: #ffffff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .head, .panel, .logo, .capBar > span { animation: none; }
+}
