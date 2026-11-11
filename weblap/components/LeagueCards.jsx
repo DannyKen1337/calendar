@@ -17,7 +17,7 @@ export default function LeagueCards({ leagues }) {
         return (
           <article key={l.id} className={s.league} data-liga>
             <header className={s.leagueHead}>
-              <span className={s.leagueLogo}>{/* a játéklogók a naptár képei (public/jatekok), nem a weboldaléi */}{/* eslint-disable-next-line @next/next/no-img-element */}<img src={logo} alt="" width={44} height={44} loading="lazy" /></span>
+              <span className={s.leagueLogo}>{/* a játéklogók a naptár képei (public/jatekok), nem a weboldaléi */}<img src={logo} alt="" width={44} height={44} loading="lazy" /></span>
               <h3>{l.name || l.category}</h3>
             </header>
             <ol className={s.leagueRows}>

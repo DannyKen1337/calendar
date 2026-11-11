@@ -53,6 +53,8 @@ const dayTitle = (key, todayKey) => {
 
 // Létszám egy eseménynél: { text, full, counted }
 function capacity(e) {
+  // Közösségi esemény: nincs jelentkezés, a megadott helyeket foglalja le (csak az adminban látszik)
+  if (e.eventType === 'community') return { text: `${e.reservedSeats || 0} hely`, counted: false, reserved: e.reservedSeats || 0 };
   if (e.isOpenAttendance) return { text: 'kötetlen', counted: false };
   if (e.external_url && !(rgnEventId(e.external_url) && e.rgn?.syncedAt)) return { text: 'külső', counted: false };
   const cur = e.current_players || 0;
@@ -161,6 +163,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
 
   const stateOf = (e) => {
     const c = capacity(e);
+    if (e.eventType === 'community') return { label: 'Közösségi', tone: 'plain' };
     if (e.isOpenAttendance) return { label: 'Nincs jelentkezés', tone: 'quiet' };
     if (e.external_url) return { label: 'Külső jelentkezés', tone: 'quiet' };
     if (!e.is_open) return { label: 'Lezárva', tone: 'red' };
@@ -178,7 +181,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     const hasRegs = !e.external_url && !e.isOpenAttendance;
     const manage = app.canManage(e);
     // Az állapotot a címke mondja (Lezárva, Betelt, Külső jelentkezés); a sor csak a szabad helyeket teszi hozzá
-    const note = !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám'
+    const note = e.eventType === 'community' ? `${c.reserved} hely lefoglalva` : !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám'
       : c.counted && !c.full && c.max && e.is_open ? `${Math.max(0, c.max - c.cur)} hely szabad` : '';
     return (
       <div key={eid(e)} className={s.card} data-kartya>

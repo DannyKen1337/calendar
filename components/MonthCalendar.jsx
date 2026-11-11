@@ -4,7 +4,7 @@ import { Grid, Modal, ConfigProvider } from 'antd';
 import { LeftOutlined, RightOutlined, CloseOutlined } from '@ant-design/icons';
 import { tavernTheme, STORES } from '@/app/components';
 import { getGameColor } from '@/lib/gameConfig';
-import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
+import { isSpecialEvent, getEventTypeConfig, isCommunityEvent } from '@/lib/eventTypes';
 import { STORE_HOURS } from '@/lib/storeHours';
 import { dayOccupancy, eventDay } from '@/lib/occupancy';
 import s from './PublicCalendar.module.css';
@@ -51,7 +51,7 @@ export function EventRows({ events, onOpen, fresh = false }) {
           <span className={s.rowTop}><span className={s.rowTime}>{timeOf(e)}</span><span className={s.rowName}>{e.name}</span></span>
           <span className={s.rowSub}>
             {e.category || 'Egyéb'}{e._otherStore ? ` · ${STORES[e._otherStore]?.name}` : ''}
-            {e.isOpenAttendance ? ' · kötetlen létszám' : hasCount(e) && !e.external_url ? ` · ${Math.max(0, e.max_players - (e.current_players || 0))} hely szabad` : ''}
+            {isCommunityEvent(e) ? '' : e.isOpenAttendance ? ' · kötetlen létszám' : hasCount(e) && !e.external_url ? ` · ${Math.max(0, e.max_players - (e.current_players || 0))} hely szabad` : ''}
           </span>
           {fresh && hasCount(e) && !e.external_url && e.max_players > 0 && (
             <span className={`${s.meter} ${s.rowMeter}`} data-sav aria-hidden="true"><span style={{ width: `${Math.min(100, ((e.current_players || 0) / e.max_players) * 100)}%` }} /></span>
@@ -84,7 +84,7 @@ export default function MonthCalendar({ app, store, storeEvents, occupancy, comp
 
   const occFor = (key) => {
     if (!occupancy?.capacity?.[store]) return null;
-    return dayOccupancy({ store, day: key, tournaments: storeEvents, bookedSeats: occupancy.booked?.[`${store}|${key}`] || 0, capacity: occupancy.capacity });
+    return dayOccupancy({ store, day: key, tournaments: storeEvents, bookedSeats: occupancy.booked?.[`${store}|${key}`] || 0, reservedSeats: occupancy.reserved?.[`${store}|${key}`] || 0, capacity: occupancy.capacity });
   };
   const isClosed = (date) => STORE_HOURS[store]?.[date.getDay()] === null;
   const open = (evt) => { setDayModal(null); app.setSelectedEventDetails(evt); app.setIsEventDetailsModalOpen(true); };

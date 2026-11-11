@@ -13,7 +13,7 @@ import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton 
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
 import { normalizeUsername } from '@/lib/attendance';
 import { isValidChangelogId } from '@/lib/changelog';
-import { sanitizeEventType } from '@/lib/eventTypes';
+import { sanitizeEventType, sanitizeReservedSeats, RESERVED_SEATS_MAX } from '@/lib/eventTypes';
 import { normalizeEventDate, budapestDateTime } from '@/lib/eventDates';
 import { SERIES_ID_RE, SERIES_FIELDS, seriesMembers } from '@/lib/series';
 import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
@@ -24,7 +24,7 @@ const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7
 
 const TOURNAMENT_EDIT_FIELDS = [
   'name', 'store', 'category', 'date', 'max_players', 'external_url',
-  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured', 'isOpenAttendance', 'eventType', 'decklistEnabled',
+  'description', 'imageUrl', 'isExternalEvent', 'color', 'isFeatured', 'isOpenAttendance', 'eventType', 'decklistEnabled', 'reservedSeats',
 ];
 
 // Kötetlen létszámú esemény: nincs max. létszám, nincs jelentkezés, nincs külső jelentkezési link
@@ -59,7 +59,22 @@ function pickTournamentFields(source) {
   if (doc.imageUrl !== undefined) doc.imageUrl = safeUrl(doc.imageUrl);
   if (doc.eventType !== undefined) doc.eventType = sanitizeEventType(doc.eventType);
   if (doc.decklistEnabled !== undefined) doc.decklistEnabled = doc.decklistEnabled === true;
+  if (doc.reservedSeats !== undefined) doc.reservedSeats = sanitizeReservedSeats(doc.reservedSeats);
   return doc;
+}
+
+// Közösségi esemény (pl. Pokeween): kötelező a lefoglalt helyek száma, jelentkezés nincs rá (kötetlen létszám).
+// Más típusnál a lefoglalt hely törlődik. merged: az esemény mentés utáni állapota; doc: amit mentünk. Hiba: szöveg, különben null.
+const RESERVED_ERROR = `Közösségi eseménynél add meg, hány helyet foglal le (1–${RESERVED_SEATS_MAX}).`;
+function applyCommunity(doc, merged) {
+  if (merged.eventType === 'community') {
+    if (!sanitizeReservedSeats(merged.reservedSeats)) return RESERVED_ERROR;
+    doc.isOpenAttendance = true;
+    applyOpenAttendance(doc);
+  } else if (merged.reservedSeats != null) {
+    doc.reservedSeats = null;
+  }
+  return null;
 }
 
 // Az eseményt tartó szervezők (felhasználó-azonosítók). Csak létező admin / tulajdonos maradhat benne,
@@ -202,6 +217,8 @@ export async function POST(request) {
       if (!doc.name || !doc.category || !doc.date) {
         return NextResponse.json({ error: 'Hiányzó kötelező mezők (név, kategória, dátum).' }, { status: 400 });
       }
+      const communityError = applyCommunity(doc, doc);
+      if (communityError) return NextResponse.json({ error: communityError }, { status: 400 });
       // Az időpont mindig magyar helyi idő; a böngésző időzónája nem számít
       doc.date = normalizeEventDate(doc.date);
       if (!doc.date) return NextResponse.json({ error: 'Érvénytelen dátum vagy időpont.' }, { status: 400 });
@@ -235,6 +252,8 @@ export async function POST(request) {
       if (!canManageEvent(session, existingEvent) || !canManageEvent(session, updatedEvent)) {
         return noPermission();
       }
+      const communityError = applyCommunity(updates, updatedEvent);
+      if (communityError) return NextResponse.json({ error: communityError }, { status: 400 });
       if (rest.hosts !== undefined) updates.hosts = await sanitizeHosts(db, rest.hosts, updatedEvent);
       // Ha a Riftbound link másik eseményre mutat (vagy megszűnt), a korábbi jelentkezőlista már nem érvényes
       const linkChanged = updates.external_url !== undefined && rgnEventId(updates.external_url) !== rgnEventId(existingEvent.external_url);

@@ -8,7 +8,7 @@ import { SearchResults, EventList, PublicModals, STORES, tavernTheme } from '@/a
 import MonthCalendar from '@/components/MonthCalendar';
 import WeekCalendar from '@/components/WeekCalendar';
 import { eventMatchesQuery } from '@/lib/eventSearch';
-import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
+import { isSpecialEvent, getEventTypeConfig, isCommunityEvent } from '@/lib/eventTypes';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
 import { STORE_HOURS } from '@/lib/storeHours';
 import { dayOccupancy, eventDay } from '@/lib/occupancy';
@@ -84,7 +84,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
   // Napi telítettség (csak ha a tulajdonos a nyilvános naptárban is bekapcsolta)
   const occ = app.publicOccupancy;
   const occToday = (id) => (occ?.capacity?.[id]
-    ? dayOccupancy({ store: id, day: todayKey(), tournaments: app.tournaments, bookedSeats: occ.booked?.[`${id}|${todayKey()}`] || 0, capacity: occ.capacity })
+    ? dayOccupancy({ store: id, day: todayKey(), tournaments: app.tournaments, bookedSeats: occ.booked?.[`${id}|${todayKey()}`] || 0, reservedSeats: occ.reserved?.[`${id}|${todayKey()}`] || 0, capacity: occ.capacity })
     : null);
   const now = new Date();
   const hoursLabel = (id) => { const h = STORE_HOURS[id]?.[now.getDay()]; return h === undefined ? '' : h ? `ma ${h[0]}–${h[1]}` : 'ma zárva'; };
@@ -304,7 +304,7 @@ export default function PublicCalendar({ embed = false, fixedStore = null }) {
                         <span className={s.rowDot} style={{ background: special ? special.color : getGameColor(e) }} aria-hidden="true" />
                         <span className={s.rowMain}>
                           <span className={s.rowTop}><span className={s.rowTime}>{String(e.date).slice(11, 16)}</span><span className={s.rowName}>{special ? '' : e.isFeatured ? '★ ' : ''}{e.name}</span></span>
-                          <span className={s.rowSub}>{e.category || 'Egyéb'}{e.isOpenAttendance ? ' · kötetlen létszám' : ''}</span>
+                          <span className={s.rowSub}>{e.category || 'Egyéb'}{e.isOpenAttendance && !isCommunityEvent(e) ? ' · kötetlen létszám' : ''}</span>
                         </span>
                         {counted && <span className={s.rowCount}>{e.current_players} / {e.max_players}</span>}
                       </button>

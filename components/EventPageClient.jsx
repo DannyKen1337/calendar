@@ -51,7 +51,7 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
 
   let action = null;
   if (evt.isOpenAttendance) {
-    action = <p className={s.note}>Kötetlen létszám – nincs jelentkezés, gyere el nyugodtan!</p>;
+    action = <p className={s.note}>{evt.eventType === 'community' ? 'Nincs jelentkezés – gyere el nyugodtan!' : 'Kötetlen létszám – nincs jelentkezés, gyere el nyugodtan!'}</p>;
   } else if (evt.external_url) {
     action = <button type="button" className={s.primary} onClick={() => app.initiateJoin(evt)}>Tovább a jelentkezéshez</button>;
   } else if (isPast) {

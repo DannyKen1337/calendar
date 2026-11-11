@@ -468,6 +468,7 @@ export const useCalendar = ({ eager = false } = {}) => {
     name: evt.name, store: evt.store || 'debrecen', category: evt.category, date: evt.date,
     max_players: evt.isOpenAttendance ? undefined : (evt.max_players || 8), external_url: evt.external_url || '', description: evt.description || '',
     isFeatured: !!evt.isFeatured, isOpenAttendance: !!evt.isOpenAttendance, eventType: getEventType(evt), decklistEnabled: !!evt.decklistEnabled,
+    reservedSeats: evt.reservedSeats || undefined,
     hosts: (evt.hosts || []).map(String).filter(id => eligibleHosts(evt.category, evt.store).some(u => u.id === id)),
   });
 

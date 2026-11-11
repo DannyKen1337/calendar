@@ -3,7 +3,7 @@ import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { attachPublicAttendees } from '@/lib/attendance';
 import { syncDueRgnEvents } from '@/lib/rgnSync';
-import { normalizeOccupancy, publicBookedSeats } from '@/lib/occupancy';
+import { normalizeOccupancy, publicBookedSeats, publicReservedSeats } from '@/lib/occupancy';
 import { budapestDateTime } from '@/lib/eventDates';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,8 @@ export async function GET() {
     if (occ.enabled && occ.public) {
       const from = budapestDateTime(Date.now() - 62 * 24 * 60 * 60 * 1000).slice(0, 10);
       const bookings = await db.collection('store_bookings').find({ date: { $gte: from } }, { projection: { _id: 0, store: 1, date: 1, seats: 1 } }).toArray();
-      occupancy = { capacity: occ.capacity, booked: publicBookedSeats(bookings) };
+      // a közösségi események lefoglalt helyei: csak a napi összeg, az eseményhez nem köthetően
+      occupancy = { capacity: occ.capacity, booked: publicBookedSeats(bookings), reserved: publicReservedSeats(tournaments) };
     }
 
     // Elfogadott asztalfoglalások a naptárba: csak a bolt és az időpont, név és elérhetőség nélkül
@@ -39,7 +40,8 @@ export async function GET() {
       .sort({ date: 1, from: 1 }).toArray();
 
     return NextResponse.json({
-        tournaments: attachPublicAttendees(tournaments, registrations),
+        // A közösségi események helyszáma nem kerül ki a nyilvános oldalra
+        tournaments: attachPublicAttendees(tournaments.map(({ reservedSeats, ...t }) => t), registrations),
         tableBookings,
         isMaintenance: settings?.isMaintenance || false,
         occupancy,

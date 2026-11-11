@@ -631,7 +631,7 @@ export const AdminModals = ({ app: v }) => {
             </div>
           )}
           <Form.Item name="name" label="Esemény neve" rules={[{ required: true, message: 'Kötelező!' }]}><Input placeholder="Pl.: Nexus Night BO1" /></Form.Item>
-          <Form.Item name="eventType" label="Esemény típusa" initialValue="tournament" extra="A szett megjelenés, az expo és a különleges esemény feltűnőbb, saját megjelenést kap a naptárban. Ha nincs rá jelentkezés, pipáld be a „Kötetlen létszám” opciót.">
+          <Form.Item name="eventType" label="Esemény típusa" initialValue="tournament" extra="A szett megjelenés, az expo, a különleges és a közösségi esemény feltűnőbb, saját megjelenést kap a naptárban. A közösségi esemény (pl. Pokeween) jelentkezés nélkül lefoglal megadott számú helyet. Ha nincs rá jelentkezés, pipáld be a „Kötetlen létszám” opciót.">
             <Select options={Object.entries(EVENT_TYPES).map(([value, t]) => ({ value, label: `${t.icon ? `${t.icon} ` : ''}${t.label}` }))} />
           </Form.Item>
           
@@ -682,9 +682,20 @@ export const AdminModals = ({ app: v }) => {
               );
             }}
           </Form.Item>
+          {/* Közösségi esemény: jelentkezés helyett lefoglalt helyek (a telítettségbe azonnal beleszámít, a nyilvános naptárban nem látszik) */}
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.eventType !== cur.eventType}>
+            {({ getFieldValue }) => getFieldValue('eventType') === 'community' ? (
+              <Form.Item name="reservedSeats" label="Lefoglalt helyek" rules={[{ required: true, message: 'Add meg, hány helyet foglal le!' }]}
+                extra="Ennyi hely azonnal foglalt lesz a bolt napi telítettségében. Jelentkezés nincs rá; a nyilvános naptárban csak a neve és a leírása látszik, a helyszám nem.">
+                <Input type="number" min={1} max={500} inputMode="numeric" placeholder="Pl. 30" />
+              </Form.Item>
+            ) : (
           <Form.Item name="isOpenAttendance" valuePropName="checked" extra="Nincs maximum létszám és nem lehet jelentkezni: az esemény csak tájékoztatásul jelenik meg a naptárban."><Checkbox>Kötetlen létszám (nincs jelentkezés)</Checkbox></Form.Item>
-          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance || prev.max_players !== cur.max_players}>
+            )}
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.isOpenAttendance !== cur.isOpenAttendance || prev.max_players !== cur.max_players || prev.eventType !== cur.eventType}>
             {({ getFieldValue }) => {
+              if (getFieldValue('eventType') === 'community') return null;
               const isOpenChecked = !!getFieldValue('isOpenAttendance');
               const isOpenAttendance = resolveAttendance(getFieldValue('max_players'), isOpenChecked).isOpenAttendance;
               return (
