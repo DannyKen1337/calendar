@@ -7,11 +7,13 @@ import WeekProgram from '@/weblap/components/WeekProgram';
 import NewsList from '@/weblap/components/NewsList';
 import Mosaic from '@/weblap/components/Mosaic';
 import LeagueCards from '@/weblap/components/LeagueCards';
+import PreorderCards from '@/weblap/components/PreorderCards';
+import { getOpenPreorderProducts } from '@/lib/preorderData';
 import { getPublishedLeagues } from '@/lib/leagueData';
 import Overlays from '@/weblap/components/Overlays';
 import { getHomeData } from '@/weblap/lib/home';
 import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
-import { CALENDAR_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl, DAY_NAMES } from '@/weblap/lib/calendar';
+import { CALENDAR_URL, PREORDER_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl, DAY_NAMES } from '@/weblap/lib/calendar';
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
 import { withBase, BASE_PATH } from '@/weblap/lib/basePath';
@@ -38,6 +40,10 @@ export default async function HomePage({ content, feed, previewBar = null, base 
   const { stores, events, now } = await getHomeData(content);
   // A Ligák mezőben a publikált ranglisták (legfeljebb 4 liga); ha nincs, a mező a régi
   const leagues = (await getPublishedLeagues().catch(() => [])).filter(l => l.isPublished && l.rows.length > 0).slice(0, 4);
+  // Az Előrendelés mezőben az élő (nyitott) előrendelések, a legújabb elöl (legfeljebb 4)
+  const preorders = (await getOpenPreorderProducts().catch(() => [])).slice(0, 4).map(p => ({
+    ...p, logo: getGameConfig(p.category)?.logo || DEFAULT_GAME_LOGO, href: `${PREORDER_URL}?termek=${encodeURIComponent(p.id)}`,
+  }));
 
   // A következő hét nap eseményei a programhoz
   const until = addDays(now.day, 7);
@@ -141,6 +147,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
               </div>
               <h2 id={`mezo-${i}`} className={s.disp} data-reveal>{f.title}</h2>
               {f.id === 'liga' && leagues.length > 0 && <LeagueCards leagues={leagues} />}
+              {f.id === 'elorendeles' && preorders.length > 0 && <PreorderCards products={preorders} />}
             </section>
           );
         })}

@@ -10,7 +10,7 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const URL_ = 'http://localhost:3179/api/auth/session';
 const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fut
 const ROUNDS = [
-  { fake: false, tests: ['weblap-jog', 'weblap-mozaik', 'weblap-ligak', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'admin', 'admin-kozossegi'] },
+  { fake: false, tests: ['weblap-jog', 'weblap-mozaik', 'weblap-ligak', 'weblap-elorendeles', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'admin', 'admin-kozossegi'] },
   { fake: true, tests: ['weblap-javitasok'] },
 ];
 const only = process.argv.slice(2);

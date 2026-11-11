@@ -406,3 +406,45 @@
   .leagues, .leagues[data-count] { grid-template-columns: minmax(0, 1fr); grid-row: auto; }
   .leagueRows li:nth-child(n + 4) { display: none; }
 }
+
+/* Az Előrendelés mező kártyái (PreorderCards): élő előrendelések, kattintásra szikra, körhullám és holografikus fény */
+.preorders { grid-column: 1 / -1; grid-row: 3; margin-top: clamp(2rem, 5vh, 3.5rem); display: grid; gap: var(--gutter); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.preorders[data-count="1"] { grid-template-columns: minmax(0, 560px); }
+.mirror .preorders[data-count="1"] { justify-content: end; }
+.preorders[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 1280px) { .preorders[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.preorder { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 16px; padding: 18px; border-radius: 16px; background: var(--surface); color: var(--ink); text-decoration: none; text-align: left; box-shadow: inset 0 0 0 1px rgba(229, 177, 93, 0.25); transition: transform 300ms var(--ease-out), box-shadow 300ms var(--ease-out); }
+.preorder:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1.5px var(--gold), 0 16px 40px rgba(0, 0, 0, 0.45); }
+.preorder:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+/* holografikus fény: hoverre halványan, induláskor erősen végigsöpör */
+.preorder::after { content: ''; position: absolute; inset: -40%; z-index: -1; background: linear-gradient(115deg, transparent 38%, rgba(229, 177, 93, 0.0) 42%, rgba(255, 236, 190, 0.35) 48%, rgba(167, 139, 250, 0.25) 52%, rgba(52, 211, 153, 0.2) 56%, transparent 62%); transform: translateX(-60%); opacity: 0; pointer-events: none; }
+.preorder:hover::after { opacity: 0.6; transform: translateX(-10%); transition: transform 900ms var(--ease-out), opacity 300ms; }
+.preorder[data-indul] { animation: preorderPop 560ms var(--ease-expo) both; }
+.preorder[data-indul]::after { opacity: 1; animation: holoSweep 560ms var(--ease-in-out) both; }
+@keyframes preorderPop { 0% { transform: scale(1); } 18% { transform: scale(0.95) rotate(-0.6deg); } 55% { transform: scale(1.045) rotate(0.8deg); box-shadow: inset 0 0 0 2px var(--gold), 0 0 50px rgba(229, 177, 93, 0.55); } 100% { transform: scale(1.02); box-shadow: inset 0 0 0 2px var(--gold), 0 0 30px rgba(229, 177, 93, 0.35); } }
+@keyframes holoSweep { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
+.preorderTop, .preorderBottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.live { display: inline-flex; align-items: center; gap: 8px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+.live i { position: relative; width: 9px; height: 9px; border-radius: 50%; background: #ff5d4d; animation: livePulse 1.6s ease-out infinite; }
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(255, 93, 77, 0.65); } 70% { box-shadow: 0 0 0 9px rgba(255, 93, 77, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 93, 77, 0); } }
+.preorderHot { padding: 3px 10px; border-radius: 999px; background: rgba(255, 93, 77, 0.15); color: #ff9d92; font-size: 0.8125rem; font-weight: 800; }
+.preorderLeft { color: var(--muted); font-size: 0.875rem; }
+.preorderMain { display: flex; align-items: center; gap: 14px; }
+.preorderLogo { flex: none; width: 56px; height: 56px; padding: 7px; box-sizing: border-box; border-radius: 12px; background: var(--bg); object-fit: contain; }
+.preorderText { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.preorderText b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.25rem, 1rem + 0.9vw, 1.875rem); line-height: 1; }
+.preorderText span { color: var(--muted); font-size: 0.9375rem; }
+.preorderPrice { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.preorderGo { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--gold); color: var(--on-gold); font-weight: 800; }
+/* szikrák és körhullám a kattintás helyéről */
+.burst { position: absolute; z-index: 2; width: 0; height: 0; pointer-events: none; }
+.ring { position: absolute; left: 0; top: 0; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 2px solid var(--gold); animation: ringOut 560ms var(--ease-out) forwards; }
+@keyframes ringOut { to { transform: scale(14); opacity: 0; border-width: 1px; } }
+.spark { position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: radial-gradient(circle, #fff6dc 0%, var(--gold) 55%, transparent 70%); box-shadow: 0 0 10px var(--gold); animation: sparkOut 560ms var(--ease-out) forwards; }
+@keyframes sparkOut { 0% { transform: rotate(var(--a)) translateX(0) scale(1.4); opacity: 1; } 100% { transform: rotate(var(--a)) translateX(var(--d)) scale(0.2); opacity: 0; } }
+@media (max-width: 760px) {
+  .preorders, .preorders[data-count] { grid-template-columns: minmax(0, 1fr); grid-row: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preorder, .preorder::after, .live i { transition: none; animation: none !important; }
+}
