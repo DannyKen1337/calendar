@@ -5,7 +5,7 @@ export const revalidate = 300;
 
 export async function generateMetadata({ params }) {
   const [{ id }, content] = await Promise.all([params, getContent()]);
-  const a = getAlbum(content, id);
+  const a = getAlbum(content, id)?.album;
   if (!a) return { title: `${content.albums.title} – Tavern` };
   const cover = a.pictures.find(p => p.picture?.src)?.picture;
   return { title: `${a.title} – ${content.albums.title} – Tavern`, openGraph: { title: a.title, ...(cover?.src?.startsWith('http') ? { images: [cover.src] } : {}) } };

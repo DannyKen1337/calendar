@@ -89,3 +89,28 @@ export function albumDate(v) {
   const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[1]}. ${MONTHS[+m[2] - 1]} ${+m[3]}.` : '';
 }
+
+// --- Az albumok linkje: az esemény nevéből („Pokeween 2026” → „pokeween-2026”) ---
+
+// Ékezet nélküli, kisbetűs, kötőjeles név
+export function slugify(text) {
+  return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
+}
+
+// Az albumok linkjei: Map(album id → link). Azonos névnél a régebbi esemény kapja a sima nevet, a többihez a dátum
+// (vagy sorszám) kerül, így egy új album nem veszi el a régi linkjét.
+export function albumSlugs(albums) {
+  const byAge = (albums || []).map((a, i) => ({ a, i })).sort((x, y) => (x.a.date || '9999').localeCompare(y.a.date || '9999') || x.i - y.i);
+  const used = new Set();
+  const out = new Map();
+  for (const { a } of byAge) {
+    const base = slugify(a.title) || 'album';
+    let slug = base;
+    if (used.has(slug) && a.date) slug = `${base}-${a.date}`;
+    for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`;
+    used.add(slug);
+    out.set(a.id, slug);
+  }
+  return out;
+}

@@ -76,7 +76,13 @@ try {
   await p.screenshot({ path: `${SHOTS}galeria.jpg`, quality: 60 });
   await p.click('[data-album]');
   await p.waitForSelector('[data-kep]', { timeout: 30000 });
-  ok(/\/weblapteszt\/galeria\/[\w-]+$/.test(p.url()) && (await p.$$('[data-kep]')).length === 2, 'az album oldalán a képek');
+  ok(p.url().endsWith('/weblapteszt/galeria/pokeween') && (await p.$$('[data-kep]')).length === 2, `az album oldalán a képek, a link az esemény nevéből (${p.url().replace(BASE, '')})`);
+  // a régi, azonosítós link átirányít az újra
+  const oldId = draft.albums.albums.find(x => x.title === 'Pokeween').id;
+  const p2 = await page(b, null);
+  await p2.goto(`${BASE}/weblapteszt/galeria/${oldId}`, { waitUntil: 'networkidle2' });
+  ok(p2.url().endsWith('/weblapteszt/galeria/pokeween'), `a régi link (${oldId}) átirányít: ${p2.url().replace(BASE, '')}`);
+  await p2.close();
   await p.click('[data-kep]');
   await wait(300);
   ok(await p.$eval('[data-nagyito]', d => /1 \/ 2/.test(d.textContent) && d.contains(document.activeElement)), 'kattintásra nagyban, 1 / 2, a fókusz a nagyítóban');

@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import SubPage from '@/weblap/components/SubPage';
 import AlbumList from '@/weblap/components/AlbumList';
 import AlbumPhotos from '@/weblap/components/Lightbox';
-import { visibleAlbums, albumDate } from '@/weblap/lib/albums';
+import { visibleAlbums, albumDate, albumSlugs } from '@/weblap/lib/albums';
 import { ALBUM_GAMES, STORE_LABELS } from '@/weblap/lib/contentSchema';
 import { withBase } from '@/weblap/lib/basePath';
 import s from '@/weblap/fooldal.module.css';
@@ -13,16 +13,26 @@ import s from '@/weblap/fooldal.module.css';
 const gameLabel = (g) => ALBUM_GAMES.find(x => x.value === g)?.label || '';
 const meta = (a) => [albumDate(a.date), STORE_LABELS[a.store]].filter(Boolean).join(' · ');
 
-export function getAlbum(content, id) {
-  return visibleAlbums(content.albums?.albums).find(a => a.id === id) || null;
+// Egy album a linkje szerint (az esemény nevéből: /galeria/pokeween-2026). A régi, azonosítós linkeket (uj-…) is megtalálja:
+// ilyenkor oldBy: true, és az oldal átirányít az új linkre. Visszaad: { album, slug, oldBy } vagy null
+export function getAlbum(content, key) {
+  const list = visibleAlbums(content.albums?.albums);
+  const slugs = albumSlugs(list);
+  const k = decodeURIComponent(String(key || ''));
+  const bySlug = list.find(a => slugs.get(a.id) === k);
+  if (bySlug) return { album: bySlug, slug: k, oldBy: false };
+  const byId = list.find(a => a.id === k);
+  return byId ? { album: byId, slug: slugs.get(byId.id), oldBy: true } : null;
 }
 
 export function GalleryIndex({ content, preview = null }) {
   const { albums: page } = content;
   const base = preview?.base || '';
-  const list = visibleAlbums(page.albums).map(a => ({
+  const shown = visibleAlbums(page.albums);
+  const slugs = albumSlugs(shown);
+  const list = shown.map(a => ({
     id: a.id,
-    href: withBase(`${base}/galeria/${encodeURIComponent(a.id)}`),
+    href: withBase(`${base}/galeria/${slugs.get(a.id)}`),
     title: a.title || 'Album',
     date: albumDate(a.date),
     store: STORE_LABELS[a.store] || '',
@@ -45,9 +55,11 @@ export function GalleryIndex({ content, preview = null }) {
 }
 
 export function GalleryAlbum({ id, content, preview = null }) {
-  const a = getAlbum(content, id);
-  if (!a) notFound();
+  const found = getAlbum(content, id);
+  if (!found) notFound();
   const base = preview?.base || '';
+  if (found.oldBy) redirect(withBase(`${base}/galeria/${found.slug}`));
+  const a = found.album;
   // a helyi képek (/photos/...) a /weblapteszt előtaggal, a külsők (ImgBB) változatlanul
   const pictures = a.pictures.filter(p => p.picture?.src).map(p => ({ id: p.id, src: withBase(p.picture.src), thumb: p.picture.thumb ? withBase(p.picture.thumb) : null, alt: p.picture.alt, caption: p.caption }));
   return (

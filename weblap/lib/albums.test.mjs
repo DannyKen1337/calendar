@@ -53,3 +53,21 @@ test('újra feltöltött mappa a meglévő albumba kerül; az oldal sorrendje', 
   assert.deepEqual(shown.map(a => a.title), ['Új', 'Régi', 'Dátum nélkül']);
   assert.equal(albumDate('2026-10-31'), '2026. október 31.');
 });
+
+test('az album linkje az esemény nevéből', async () => {
+  const { slugify, albumSlugs } = await import('./albums.js');
+  assert.equal(slugify('Pokeween 2026'), 'pokeween-2026');
+  assert.equal(slugify('Pokémon Prerelease – Mega Evolúció!'), 'pokemon-prerelease-mega-evolucio');
+  assert.equal(slugify('Őszi ünnepi bajnokság'), 'oszi-unnepi-bajnoksag');
+  assert.equal(slugify('  '), '');
+  const slugs = albumSlugs([
+    { id: 'u3', title: 'Pokeween', date: '2026-10-31' },
+    { id: 'u1', title: 'Pokeween', date: '2025-10-31' },
+    { id: 'u2', title: 'Riftbound Skirmish', date: '' },
+    { id: 'u4', title: '', date: '' },
+  ]);
+  assert.equal(slugs.get('u1'), 'pokeween', 'a régebbi kapja a sima nevet');
+  assert.equal(slugs.get('u3'), 'pokeween-2026-10-31');
+  assert.equal(slugs.get('u2'), 'riftbound-skirmish');
+  assert.equal(slugs.get('u4'), 'album');
+});
