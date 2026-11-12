@@ -12,8 +12,6 @@ import { withBase } from '@/weblap/lib/basePath';
 import { saveTab, resetTab } from '@/weblap/lib/content';
 import { tabByKey, isEditableTab } from '@/weblap/lib/contentSchema';
 import { getPendingChanges, publishAll, discardAll } from '@/weblap/lib/staging';
-import { listDriveFolder, downloadDriveImage, DriveError } from '@/weblap/lib/drive';
-import { driveFolderId } from '@/weblap/lib/albums';
 
 // A weboldal minden oldala (a route group is a cache-címke része); csak kirakáskor kell
 const refreshSite = () => revalidatePath('/(weblap)/weblapteszt', 'layout');
@@ -59,16 +57,10 @@ function budapestToDate(local) {
 const MAX_IMAGE = 4 * 1024 * 1024;
 
 async function uploadImage(file) {
-  if (!process.env.IMGBB_API_KEY) return { error: 'A képfeltöltés nincs beállítva (IMGBB_API_KEY). Adj meg inkább egy kép-URL-t.' };
+  const key = process.env.IMGBB_API_KEY;
+  if (!key) return { error: 'A képfeltöltés nincs beállítva (IMGBB_API_KEY). Adj meg inkább egy kép-URL-t.' };
   if (!file.type?.startsWith('image/')) return { error: 'Csak képet lehet feltölteni.' };
   if (file.size > MAX_IMAGE) return { error: 'A kép legfeljebb 4 MB lehet.' };
-  return sendToImgbb(file);
-}
-
-// A kép (File / Blob) elküldése az ImgBB-nek. Visszaad: { url, thumb? } vagy { error }
-async function sendToImgbb(file) {
-  const key = process.env.IMGBB_API_KEY;
-  if (!key) return { error: 'A képfeltöltés nincs beállítva (IMGBB_API_KEY).' };
   const body = new FormData();
   body.append('image', file);
   try {
@@ -228,46 +220,4 @@ export async function uploadImageAction(formData) {
   const file = formData.get('file');
   if (!file || typeof file !== 'object' || !file.size) return { error: 'Nincs kiválasztva kép.' };
   return uploadImage(file);
-}
-
-// --- Google Drive (Albumok): egy megosztott mappa képei, majd képenként átmásolva az ImgBB-re ---
-
-// A mappa (és almappái) képei. Visszaad: { files: [{ id, name, type, path, lastModified }] } vagy { error }
-export async function driveListAction(link) {
-  await requireEditor();
-  const id = driveFolderId(link);
-  if (!id) return { error: 'Ez nem egy Google Drive-mappa linkje. A Drive-ban: a mappán jobb gomb › Megosztás › Link másolása.' };
-  try {
-    const files = await listDriveFolder(id);
-    if (!files.length) return { error: 'Ebben a mappában (és az almappáiban) nincs kép.' };
-    return { files };
-  } catch (err) {
-    if (!(err instanceof DriveError)) console.error('Google Drive lista:', err);
-    return { error: err instanceof DriveError ? err.message : 'Nem sikerült megnyitni a mappát. Próbáld újra.' };
-  }
-}
-
-// Egy Drive-kép átmásolása az ImgBB-re, kicsinyítve (a hosszabbik oldala legfeljebb 2000 px, JPEG, a fotó elforgatása
-// szerint). Visszaad: { url, thumb? } vagy { error }
-export async function driveImportAction(fileId) {
-  await requireEditor();
-  if (typeof fileId !== 'string' || !/^[\w-]{10,}$/.test(fileId)) return { error: 'Ismeretlen kép.' };
-  try {
-    const img = await downloadDriveImage(fileId);
-    let data = img.data;
-    let type = img.type;
-    try {
-      const sharp = (await import('sharp')).default;
-      data = await sharp(img.data).rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
-      type = 'image/jpeg';
-    } catch {
-      // ha nem sikerül átalakítani (pl. ismeretlen formátum), az eredeti megy fel
-    }
-    if (/hei[cf]/i.test(type)) return { error: 'HEIC-képet a böngészők nem tudnak megjeleníteni. Mentsd el JPG-ként.' };
-    if (data.length > 30 * 1024 * 1024) return { error: 'A kép túl nagy.' };
-    return await sendToImgbb(new File([data], img.name.replace(/\.[^.]+$/, '') + (type === 'image/jpeg' ? '.jpg' : ''), { type }));
-  } catch (err) {
-    if (!(err instanceof DriveError)) console.error('Google Drive kép:', err);
-    return { error: err instanceof DriveError ? err.message : 'Nem sikerült átmásolni a képet.' };
-  }
 }

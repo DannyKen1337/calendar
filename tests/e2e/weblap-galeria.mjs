@@ -56,20 +56,6 @@ try {
   const h2 = await heads(a);
   ok(h2.length === 2 && h2.some(h => /Pokeween · 2026-10-31 · 4 kép/.test(h)), `újra feltöltve a meglévő albumba kerül (${h2.join(' | ')})`);
 
-  // Google Drive: nem megosztott mappa → érthető hiba; megosztott mappa → almappánként album
-  await a.type('#drive-link', 'https://drive.google.com/drive/folders/privatmappa000?usp=sharing');
-  await a.evaluate(() => [...document.querySelectorAll('[data-drive] button')].find(x => /Behúzás/.test(x.textContent)).click());
-  await a.waitForSelector('#drive-hiba', { timeout: 30000 }).catch(() => {});
-  ok(/Bárki, aki rendelkezik a linkkel/.test(await a.$eval('#drive-hiba', e => e.textContent).catch(() => '')), 'Drive: nem megosztott mappánál elmondja, mit kell beállítani');
-  await a.$eval('#drive-link', i => { i.select(); });
-  await a.type('#drive-link', 'https://drive.google.com/drive/folders/driveGyoker123?usp=sharing');
-  await a.keyboard.press('Enter');
-  await wait(800);
-  await finished(a);
-  const h3 = await heads(a);
-  ok(h3.length === 3 && h3.some(h => /^Pokémon Prerelease · 2026-11-15 · 2 kép/.test(h)), `Drive: az almappából album, a névből dátum, a PDF kimaradt (${h3.join(' | ')})`);
-  await a.screenshot({ path: `${SHOTS}galeria-admin-drive.jpg`, quality: 60, fullPage: true });
-
   // előnézet: látszik; élesben még nem
   await a.goto(`${BASE}/weblapteszt/elonezet/galeria`, { waitUntil: 'networkidle2' });
   ok((await a.$$('[data-album]')).length === 2, 'az előnézetben a 2 album');

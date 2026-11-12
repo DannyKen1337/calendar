@@ -31,7 +31,7 @@ Mentés után a teljes weboldal a `revalidatePath('/(weblap)/weblapteszt', 'layo
 
 ## Szerkeszthető tartalom
 
-A szerkesztőfelület szándékosan egyszerű, négy füle van: **Hírek** (saját hírek, a Facebook- és Instagram-posztok elrejtése, kiemelése), **Galéria** (a főoldal 3 fotója és aláírása), **Képfal** (legfeljebb 40 kép felirattal; egyszerre több kép feltölthető vagy behúzható, sorrend, csere, törlés) és **Albumok** (a Galéria oldal: eseményenként egy album; egy egész mappa feltölthető gépről vagy egy megosztott Google Drive-mappa linkjéről, mappánként egy album, a névből dátummal és játékkal). Telefonon a fülek alul vannak.
+A szerkesztőfelület szándékosan egyszerű, négy füle van: **Hírek** (saját hírek, a Facebook- és Instagram-posztok elrejtése, kiemelése), **Galéria** (a főoldal 3 fotója és aláírása), **Képfal** (legfeljebb 40 kép felirattal; egyszerre több kép feltölthető vagy behúzható, sorrend, csere, törlés) és **Albumok** (a Galéria oldal: eseményenként egy album; egy egész mappa is feltölthető, mappánként egy album, a névből dátummal és játékkal). Telefonon a fülek alul vannak.
 
 Az oldal többi tartalma (szövegek, boltok adatai, nyitvatartás, lábléc) a sémában megvan, de a felületen nem szerkeszthető, és a szerver sem menti (`EDITABLE_TABS` a `contentSchema.js`-ben). Ha valamelyiket újra elérhetővé kellene tenni, elég oda felvenni a kulcsát.
 
@@ -61,5 +61,4 @@ A `MONGODB_URI`, a `JWT_SECRET` és az `IMGBB_API_KEY` közös a naptárral. Eze
 - `WEBSHOP_URL`: a Freewebstore-webshop címe;
 - `META_PAGES`: a három bolt Facebook-oldala, mindegyik a saját oldal-tokenjével (`pages_read_engagement` jog), JSON-ben: `[{"store":"debrecen","id":"…","token":"…"},{"store":"jatekceh",…},{"store":"miskolc",…}]`. A posztok a bolt nevével jelennek meg, boltonként szűrhetők;
 - `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`: a régi, egyoldalas beállítás (ilyenkor az oldal a debreceni bolté), az Instagramhoz továbbra is ez kell;
-- `GOOGLE_API_KEY`: a Galéria Albumok fülén a „Google Drive-ból” behúzáshoz (ingyenes Google Cloud API-kulcs: console.cloud.google.com › új projekt › API-k › „Google Drive API” bekapcsolása › Hitelesítő adatok › API-kulcs, érdemes a Google Drive API-ra korlátozni). Fizetős számlázás nem kell. A Drive-mappát „Bárki, aki rendelkezik a linkkel” módon kell megosztani; a képek átmásolódnak az ImgBB-re (2000 px-re kicsinyítve);
 - `CALENDAR_URL`: alapból `https://taverncalendar.vercel.app`, innen jön a program.

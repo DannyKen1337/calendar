@@ -30,8 +30,6 @@ const ICONS = {
 const TABS = [{ key: 'hirek', label: 'Hírek' }, ...EDITABLE_TABS.map(tabByKey)];
 const PREVIEW = { gallery: '/elonezet#galeria', slideshow: '/elonezet#kepfal', albums: '/elonezet/galeria' };
 export const dynamic = 'force-dynamic';
-// a Google Drive-képek átmásolása (letöltés, kicsinyítés, ImgBB) egy-egy kép esetén is eltarthat pár másodpercig
-export const maxDuration = 60;
 
 // "2026-10-29T18:00" magyar helyi idő a dátummezőhöz
 function toLocalInput(date) {

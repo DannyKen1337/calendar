@@ -89,20 +89,3 @@ export function albumDate(v) {
   const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[1]}. ${MONTHS[+m[2] - 1]} ${+m[3]}.` : '';
 }
-
-// --- Google Drive ---
-
-// A megosztott Drive-mappa azonosítója a linkből (".../drive/folders/<id>?usp=sharing", "...?id=<id>", vagy maga az azonosító)
-export function driveFolderId(link) {
-  const v = String(link || '').trim();
-  const m = v.match(/\/folders\/([\w-]{10,})/) || v.match(/[?&]id=([\w-]{10,})/) || v.match(/^([\w-]{10,})$/);
-  return m ? m[1] : null;
-}
-
-// A kép készítésének ideje a Drive adataiból (a fénykép EXIF-ideje: "2026:10:31 18:22:01", különben a feltöltésé), ms
-export function driveTime(file) {
-  const exif = String(file?.imageMediaMetadata?.time || '').match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2})/);
-  if (exif) return Date.UTC(+exif[1], +exif[2] - 1, +exif[3], +exif[4], +exif[5]);
-  const t = Date.parse(file?.createdTime || file?.modifiedTime || '');
-  return Number.isNaN(t) ? 0 : t;
-}
