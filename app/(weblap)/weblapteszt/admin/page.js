@@ -17,7 +17,8 @@ import s from './admin.module.css';
 
 export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { index: false, follow: false } };
 
-// A fülek: a Hírek (a hírek kirakása, a behúzott posztok), a Galéria, a Képfal és az Albumok (a Galéria oldal). Az oldal többi része
+// A fülek: a Hírek (a hírek kirakása, a behúzott posztok), a Galéria (a külön Galéria oldal albumai), a Főoldali fotók
+// (a főoldal 3 fotója) és a Képfal. Az oldal többi része
 // (szövegek, boltok) itt nem szerkeszthető, a tartalma marad, ahogy van.
 // PREVIEW: hova visz a „Megnézem az előnézetben” link. Minden mentés előbb csak az előnézetben látszik;
 // az éles oldalra az előnézet alján lévő „Kirakás az éles oldalra” gomb viszi ki.
@@ -135,7 +136,7 @@ export default async function Admin({ searchParams }) {
     </>
   );
 
-  // A Galéria vagy a Képfal
+  // A Galéria, a Főoldali fotók vagy a Képfal
   if (tab) {
     const { content, updated } = await getContentForEditor();
     return (

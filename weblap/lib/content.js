@@ -65,7 +65,7 @@ export const DEFAULT_CONTENT = {
       { id: 'kf7', picture: { src: '/photos/jatekceh-kirakat.jpg', alt: 'A JátékCéh kirakata', position: '50% 50%' }, caption: 'JátékCéh' },
     ],
   },
-  // A Galéria oldal: eseményenként egy album (a szerkesztők töltik fel az Albumok fülön)
+  // A Galéria oldal: eseményenként egy album (a szerkesztők töltik fel a szerkesztőfelület Galéria fülén)
   albums: {
     title: 'Galéria',
     lead: 'Képek a versenyeinkről és az estéinkről, eseményenként.',

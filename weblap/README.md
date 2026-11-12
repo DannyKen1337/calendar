@@ -31,7 +31,7 @@ Mentés után a teljes weboldal a `revalidatePath('/(weblap)/weblapteszt', 'layo
 
 ## Szerkeszthető tartalom
 
-A szerkesztőfelület szándékosan egyszerű, négy füle van: **Hírek** (saját hírek, a Facebook- és Instagram-posztok elrejtése, kiemelése), **Galéria** (a főoldal 3 fotója és aláírása), **Képfal** (legfeljebb 40 kép felirattal; egyszerre több kép feltölthető vagy behúzható, sorrend, csere, törlés) és **Albumok** (a Galéria oldal: eseményenként egy album; egy egész mappa is feltölthető, mappánként egy album, a névből dátummal és játékkal). Telefonon a fülek alul vannak.
+A szerkesztőfelület szándékosan egyszerű, négy füle van: **Hírek** (saját hírek, a Facebook- és Instagram-posztok elrejtése, kiemelése), **Galéria** (a külön Galéria oldal: eseményenként egy album; egy egész mappa is feltölthető, mappánként egy album, a névből dátummal és játékkal), **Főoldali fotók** (a főoldal „Egy este nálunk” részének 3 fotója és aláírása) és **Képfal** (a főoldal mozgó képfala, legfeljebb 40 kép felirattal; egyszerre több kép feltölthető vagy behúzható, sorrend, csere, törlés). A belső kulcsok: `albums`, `gallery`, `slideshow`. Telefonon a fülek alul vannak.
 
 Az oldal többi tartalma (szövegek, boltok adatai, nyitvatartás, lábléc) a sémában megvan, de a felületen nem szerkeszthető, és a szerver sem menti (`EDITABLE_TABS` a `contentSchema.js`-ben). Ha valamelyiket újra elérhetővé kellene tenni, elég oda felvenni a kulcsát.
 

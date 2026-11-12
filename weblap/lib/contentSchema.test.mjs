@@ -5,8 +5,8 @@ import { tabByKey, sanitizeField, emptyValue, isEditableTab, EDITABLE_TABS } fro
 
 const pic = (i, caption = '') => ({ picture: { src: `https://i.ibb.co/x/${i}.jpg`, alt: '', position: '50% 50%' }, caption });
 
-test('a szerkesztőfelületen csak a Galéria, a Képfal és az Albumok szerkeszthető', () => {
-  assert.deepEqual(EDITABLE_TABS, ['gallery', 'slideshow', 'albums']);
+test('a szerkesztőfelületen csak a Galéria (albumok), a főoldali fotók és a Képfal szerkeszthető', () => {
+  assert.deepEqual(EDITABLE_TABS, ['albums', 'gallery', 'slideshow']);
   assert.equal(isEditableTab('slideshow'), true);
   assert.equal(isEditableTab('gallery'), true);
   assert.equal(isEditableTab('hero'), false);

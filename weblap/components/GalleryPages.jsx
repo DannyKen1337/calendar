@@ -9,7 +9,7 @@ import { withBase } from '@/weblap/lib/basePath';
 import s from '@/weblap/fooldal.module.css';
 
 // A Galéria oldal (eseményenként egy album) és egy album oldala, élesben és az előnézetben is (preview: { bar, base }).
-// Az albumokat a szerkesztőfelület Albumok fülén töltik fel (content.albums).
+// Az albumokat a szerkesztőfelület Galéria fülén töltik fel (content.albums).
 const gameLabel = (g) => ALBUM_GAMES.find(x => x.value === g)?.label || '';
 const meta = (a) => [albumDate(a.date), STORE_LABELS[a.store]].filter(Boolean).join(' · ');
 
