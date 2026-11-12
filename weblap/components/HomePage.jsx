@@ -11,9 +11,10 @@ import PreorderCards from '@/weblap/components/PreorderCards';
 import { getOpenPreorderProducts } from '@/lib/preorderData';
 import { getPublishedLeagues } from '@/lib/leagueData';
 import Overlays from '@/weblap/components/Overlays';
+import TableTent from '@/weblap/components/TableTent';
 import { getHomeData } from '@/weblap/lib/home';
 import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
-import { CALENDAR_URL, PREORDER_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl, DAY_NAMES } from '@/weblap/lib/calendar';
+import { CALENDAR_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl, DAY_NAMES } from '@/weblap/lib/calendar';
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
 import { withBase, BASE_PATH } from '@/weblap/lib/basePath';
@@ -29,10 +30,15 @@ const ARROW = <span className={s.round} aria-hidden="true"><svg viewBox="0 0 10 
 const streetOf = (address) => address.replace(/^(Debrecen|Miskolc), /, '').replace(/ - .*| ?, \d{4}$/, '');
 // A naptár oldalai (esemény, teljes naptár, előrendelés) az oldalon belül, a naptárablakban nyílnak meg
 const opensInCalendar = (href) => !!href && (href.startsWith(CALENDAR_URL) || (href.startsWith('/') && !href.startsWith(BASE_PATH)));
+// Melyik ablakban nyílik a link: az asztalfoglalás a saját („Foglalt” tábla) ablakában, a többi naptároldal a naptárablakban
+const overlayAttrs = (href, title) => {
+  if (!opensInCalendar(href)) return {};
+  return /\/asztalfoglalas(\?|$)/.test(href.replace(CALENDAR_URL, '')) ? { 'data-table': '', 'data-title': title } : { 'data-cal': '', 'data-title': title };
+};
 
 // Az oldal: a cégér az egész első képernyőn (beúszik, görgetésre kiúszik), a heti program a naptárból,
-// a hírek a boltokból, nagy mondatok színes mezőkön, galéria, a képfal (Mosaic), a boltok sorai (kattintásra térképablak),
-// Kapcsolat a boltok Facebook-oldalaival, lábléc. A naptár és a térkép ugyanezen az oldalon nyílik meg (Overlays).
+// a hírek a boltokból, a boltok sorai (kattintásra térképablak) az asztalfoglalással, nagy mondatok színes mezőkön,
+// galéria, a képfal (Mosaic), Kapcsolat a boltok Facebook-oldalaival, lábléc. A naptár és a térkép ugyanezen az oldalon nyílik meg (Overlays).
 // content: az oldal tartalma (éles vagy előnézet); feed: a hírek; previewBar: az előnézet sávja (élesben nincs);
 // base: a hírek oldalainak eleje ('' élesben, '/elonezet' az előnézetben)
 export default async function HomePage({ content, feed, previewBar = null, base = '' }) {
@@ -137,13 +143,44 @@ export default async function HomePage({ content, feed, previewBar = null, base 
           )}
         </section>
 
+        <section className={s.stores} id="boltok" aria-labelledby="boltok-cim">
+          <h2 id="boltok-cim" className={s.disp} data-reveal>{content.stores.title}</h2>
+          {stores.map(st => (
+            <a key={st.id} className={s.row} href={st.maps || '#boltok'} data-map={st.id}>
+              <h3>{st.name}</h3>
+              <small>{streetOf(st.address)}{st.where ? `, ${st.where[0].toLowerCase()}${st.where.slice(1)}` : ''}</small>
+              {st.photo?.src && <Image src={st.photo.src} alt={st.photo.alt} width={140} height={140} style={{ objectFit: 'cover', objectPosition: st.photo.position }} />}
+            </a>
+          ))}
+          <div className={s.today}>
+            <b>{content.stores.todayLabel}, {DAY_NAMES[now.weekday].toLowerCase()}:</b>
+            {stores.map(st => <span key={st.id}>{st.name.replace(/^Tavern /, '')} {st.hours?.[now.weekday] ? st.hours[now.weekday].join('–') : 'zárva'}</span>)}
+          </div>
+          <div className={s.booking} id="asztalfoglalas" data-asztalfoglalas>
+            <div className={s.bookingSay}>
+              <h3 className={s.disp} data-reveal>{content.stores.bookingTitle}</h3>
+              {content.stores.bookingText && <p>{content.stores.bookingText}</p>}
+              <a className={s.btn} href={TABLE_BOOKING_URL} data-table data-title={content.stores.bookingTitle}>{content.stores.bookingButton}</a>
+              <p className={s.bookingOr}>vagy rögtön a bolttal:</p>
+              <ul className={s.bookingStores}>
+                {stores.map(st => (
+                  <li key={st.id}>
+                    <a href={`${TABLE_BOOKING_URL}?bolt=${st.id}`} data-table data-title={`${content.stores.bookingTitle} · ${st.name}`}>{st.name}{ARROW}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className={s.bookingScene}><TableTent /></div>
+          </div>
+        </section>
+
         {features.items.map((f, i) => {
           const withButton = f.button && f.href;
           return (
             <section key={f.id || i} id={i === 0 ? 'kinalat' : undefined} className={`${s.field} ${FIELD_STYLES[i % FIELD_STYLES.length]} ${i % 2 ? s.mirror : ''} ${withButton ? s.withButton : ''}`} aria-labelledby={`mezo-${i}`}>
               <div className={s.say} data-reveal>
                 {f.text && <p>{f.text}</p>}
-                {withButton && <a className={s.btn} href={f.href} {...(opensInCalendar(f.href) ? { 'data-cal': '', 'data-title': f.button } : {})}>{f.button}</a>}
+                {withButton && <a className={s.btn} href={f.href} {...overlayAttrs(f.href, f.button)}>{f.button}</a>}
               </div>
               <h2 id={`mezo-${i}`} className={s.disp} data-reveal>{f.title}</h2>
               {f.id === 'liga' && leagues.length > 0 && <LeagueCards leagues={leagues} />}
@@ -166,29 +203,15 @@ export default async function HomePage({ content, feed, previewBar = null, base 
 
         {slideshow.pictures.length > 0 && <Mosaic title={slideshow.title} pictures={slideshow.pictures} />}
 
-        <section className={s.stores} id="boltok" aria-labelledby="boltok-cim">
-          <h2 id="boltok-cim" className={s.disp} data-reveal>{content.stores.title}</h2>
-          {stores.map(st => (
-            <a key={st.id} className={s.row} href={st.maps || '#boltok'} data-map={st.id}>
-              <h3>{st.name}</h3>
-              <small>{streetOf(st.address)}{st.where ? `, ${st.where[0].toLowerCase()}${st.where.slice(1)}` : ''}</small>
-              {st.photo?.src && <Image src={st.photo.src} alt={st.photo.alt} width={140} height={140} style={{ objectFit: 'cover', objectPosition: st.photo.position }} />}
-            </a>
-          ))}
-          <div className={s.today}>
-            <b>{content.stores.todayLabel}, {DAY_NAMES[now.weekday].toLowerCase()}:</b>
-            {stores.map(st => <span key={st.id}>{st.name.replace(/^Tavern /, '')} {st.hours?.[now.weekday] ? st.hours[now.weekday].join('–') : 'zárva'}</span>)}
-          </div>
-          <div className={s.contact} id="kapcsolat">
-            <h2>{contact.title}</h2>
-            {contact.text && <p>{contact.text}</p>}
-            <div className={s.fb}>
-              {facebookPages.map(st => (
-                <a key={st.id} href={st.facebook} target="_blank" rel="noopener noreferrer">
-                  <b>{st.name}</b><span>{st.facebook.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>{ARROW}
-                </a>
-              ))}
-            </div>
+        <section className={s.contact} id="kapcsolat" aria-labelledby="kapcsolat-cim">
+          <h2 id="kapcsolat-cim">{contact.title}</h2>
+          {contact.text && <p>{contact.text}</p>}
+          <div className={s.fb}>
+            {facebookPages.map(st => (
+              <a key={st.id} href={st.facebook} target="_blank" rel="noopener noreferrer">
+                <b>{st.name}</b><span>{st.facebook.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>{ARROW}
+              </a>
+            ))}
           </div>
         </section>
       </main>
@@ -198,7 +221,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
         <div className={s.foot}>
           <div className={s.footLinks}>
             {contact.links.filter(l => l.label && l.href).map(l => (
-              <a key={l.id} href={l.href} {...(opensInCalendar(l.href) ? { 'data-cal': '', 'data-title': l.label } : {})}>{l.label}</a>
+              <a key={l.id} href={l.href} {...overlayAttrs(l.href, l.label)}>{l.label}</a>
             ))}
             {facebookPages.map(st => <a key={st.id} href={st.facebook} target="_blank" rel="noopener noreferrer">Facebook · {st.name}</a>)}
           </div>

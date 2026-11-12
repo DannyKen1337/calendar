@@ -58,6 +58,7 @@ export function spotsText(e) {
 
 export const LEAGUES_URL = `${CALENDAR_URL}/liga`;
 export const PREORDER_URL = `${CALENDAR_URL}/elorendeles`;
+export const TABLE_BOOKING_URL = `${CALENDAR_URL}/asztalfoglalas`;
 
 // A weboldal a naptár alkalmazásán belül fut: az esemény oldala ugyanazon a címen van (szerveren és böngészőben is ugyanaz a link)
 export const eventUrl = (e) => `/esemeny/${encodeURIComponent(e._id || e.id)}`;

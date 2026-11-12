@@ -202,6 +202,36 @@
 .today { display: flex; flex-wrap: wrap; gap: 0.4rem 2.5rem; padding: 2rem 20px; font-size: var(--step-lead); }
 .today b { color: var(--gold); font-weight: 600; }
 
+/* --- Asztalfoglalás a Boltok részen: szöveg, gomb, boltonkénti linkek; mellette a „Foglalt” tábla az asztalon --- */
+.booking { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 2.5rem var(--gutter); align-items: center; padding: clamp(3.5rem, 7vw, 6.5rem) 20px; background: radial-gradient(ellipse 55% 75% at 76% 0%, rgba(229, 177, 93, 0.18), transparent 70%), var(--cellar); }
+.bookingSay h3 { font-size: var(--step-head); }
+.bookingSay > p:not(.bookingOr) { font-size: var(--step-lead); line-height: 1.35; max-width: 36ch; margin: 1.1rem 0 2rem; }
+.bookingOr { margin-top: 1.75rem !important; color: var(--muted); font-size: var(--step-small); text-transform: uppercase; letter-spacing: 0.14em; }
+.bookingStores { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.75rem !important; }
+.bookingStores a { display: inline-flex; align-items: center; gap: 0.75rem; min-height: 48px; padding: 0 6px 0 1rem; border: 1px solid rgba(229, 177, 93, 0.45); font-weight: 600; text-decoration: none; transition: background-color 180ms ease, border-color 180ms ease; }
+.bookingStores a:hover { background: rgba(229, 177, 93, 0.12); border-color: var(--gold); }
+.bookingStores .round { width: 36px; height: 36px; background: var(--gold); color: var(--on-gold); }
+.bookingStores a:hover .round { transform: translateX(4px); }
+.bookingScene { position: relative; display: grid; justify-items: center; align-items: end; min-height: 300px; }
+.bookingScene::before { content: ""; position: absolute; left: 50%; top: -25%; width: 80%; height: 110%; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(255, 217, 138, 0.24), transparent); pointer-events: none; }
+.bookingScene::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 52px; background: linear-gradient(180deg, #4b3727, #2c2018); border-top: 2px solid rgba(229, 177, 93, 0.55); box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4) inset; }
+.bookingScene .tent { z-index: 1; margin-bottom: 44px; }
+
+/* A „Foglalt” tábla (TableTent): arany kártya, felül hajtásvonal, alatta árnyék */
+.tent { position: relative; width: 260px; aspect-ratio: 13 / 8; transform-origin: 50% 100%; }
+.tent::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: -10px; height: 16px; background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.55), transparent 70%); z-index: -1; }
+.tentFace { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; background: linear-gradient(180deg, #f3cd8c 0%, #e5b15d 48%, #d29a43 100%); color: var(--on-gold); box-shadow: inset 0 0 0 7px rgba(15, 15, 15, 0.06), inset 0 0 0 8px rgba(15, 15, 15, 0.3); overflow: hidden; }
+.tentFace::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: linear-gradient(180deg, rgba(15, 15, 15, 0.22), transparent); }
+.tentFace::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%); transform: translateX(-120%); }
+.tentFace b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: 3.6rem; line-height: 0.9; letter-spacing: 0.02em; }
+.tentFace span { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; }
+.tentFace i { width: 56%; height: 1px; background: currentColor; opacity: 0.45; }
+@media (prefers-reduced-motion: no-preference) {
+  .bookingScene .tent { animation: tentSway 6s ease-in-out infinite; }
+  .booking:hover .tentFace::after { transform: translateX(120%); transition: transform 900ms var(--ease-soft); }
+}
+@keyframes tentSway { 0%, 100% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg) translateY(-2px); } }
+
 /* --- Kapcsolat: a három bolt Facebook-oldala --- */
 .contact { padding: 3.5rem 20px 2.5rem; background: var(--gold); color: var(--on-gold); }
 .contact h2 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-head); line-height: 1; }
@@ -250,6 +280,29 @@
 .loading img { width: min(60%, 520px); height: auto; animation: breathe 1.6s ease-in-out infinite; }
 @keyframes breathe { 50% { opacity: 0.45; transform: scale(0.98); } }
 
+/* --- Asztalfoglaló ablak: lámpafény, a kattintás helyéről felbillenő „Foglalt” tábla, belőle nyílik ki a foglalás --- */
+.tableov { position: fixed; inset: 0; z-index: 105; visibility: hidden; font-size: var(--step-body); perspective: 1100px; }
+.tableov.starting, .tableov.open, .tableov.closing { visibility: visible; }
+.lamp { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 55% at 50% 0%, rgba(255, 217, 138, 0.3), transparent 70%), rgba(20, 14, 11, 0.95); opacity: 0; transition: opacity 420ms ease; }
+.tableov.open .lamp { opacity: 1; }
+.tableov.closing .lamp { transition: opacity 380ms ease 540ms; }
+.tentFly { position: absolute; left: 50%; top: 50%; width: 260px; margin: -80px 0 0 -130px; opacity: 0; transform-style: preserve-3d; }
+.tentFly .tent { transform-origin: 50% 100%; }
+.tableov.open .tentFly { animation: tentIn 780ms cubic-bezier(0.2, 1.3, 0.4, 1) forwards, tentAway 260ms ease 1080ms forwards; }
+.tableov.open .tentFly .tentFace::after { transform: translateX(120%); transition: transform 700ms var(--ease-soft) 520ms; }
+.tableov.closing .tentFly { animation: tentOut 520ms var(--ease-in-out) 400ms both; }
+@keyframes tentIn {
+  0% { opacity: 0; transform: translate(calc(var(--x) - 50vw), calc(var(--y) - 50vh)) scale(0.3) rotateX(82deg) rotateZ(-14deg); }
+  35% { opacity: 1; }
+  62% { transform: translate(0, -18px) scale(1.06) rotateX(-14deg) rotateZ(2deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes tentAway { to { opacity: 0; transform: scale(1.08); } }
+@keyframes tentOut { 0%, 25% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(40px) scale(0.8) rotateX(84deg); } }
+.tableSheet { position: absolute; left: 50%; top: 50%; width: min(680px, calc(100% - 36px)); height: min(900px, calc(100% - 36px)); transform: translate(-50%, -50%); background: var(--bg); display: flex; flex-direction: column; overflow: hidden; border-top: 3px solid var(--gold); opacity: 0; clip-path: inset(calc(50% - 80px) calc(50% - 130px) round 2px); }
+.tableov.open .tableSheet { opacity: 1; clip-path: inset(0 round 0); transition: opacity 120ms linear 960ms, clip-path 760ms var(--ease-expo) 1000ms; }
+.tableov.closing .tableSheet { transition: clip-path 420ms var(--ease-in-out), opacity 160ms ease 380ms; }
+
 /* --- Térképablak: arany útvonal a kattintás helyétől, leeső gombostű, kihajtódó térkép --- */
 .mapov { position: fixed; inset: 0; z-index: 110; visibility: hidden; font-size: var(--step-body); }
 .mapov.open, .mapov.closing { visibility: visible; }
@@ -284,7 +337,9 @@
 .mapBox iframe.ready { opacity: 1; }
 .lock { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
-  .wipe, .calSheet, .mapSheet { transition: none !important; }
+  .wipe, .calSheet, .mapSheet, .tableSheet, .lamp { transition: none !important; }
+  .tentFly { display: none; }
+  .tableov .tableSheet { clip-path: none; }
   .route, .pin { display: none; }
   .mapov.open .mapSheet { clip-path: none; }
   .loading img { animation: none; }
@@ -365,6 +420,15 @@
   .row small { text-align: left; margin-left: 0; grid-column: 1; font-size: var(--step-lead); }
   .row img { width: 64px; height: 64px; grid-column: 2; grid-row: 1 / span 2; }
   .today { flex-direction: column; gap: 0.25rem; padding-bottom: 2.5rem; }
+  .booking { grid-template-columns: 1fr; padding: 4.5rem 16px 3rem; gap: 2rem; }
+  .bookingSay h3 { font-size: 13vw; }
+  .bookingSay .btn { width: 100%; }
+  .bookingStores { flex-direction: column; }
+  .bookingStores a { display: flex; justify-content: space-between; min-height: 52px; }
+  .bookingScene { min-height: 210px; grid-row: 1; }
+  .bookingScene .tent { width: 200px; margin-bottom: 40px; }
+  .bookingScene .tentFace b { font-size: 2.8rem; }
+  .tableSheet { width: 100%; height: 100%; border-top: 0; }
   .contact { padding-top: 4.5rem; }
   .contact h2 { font-size: 11vw; }
   .fb a { grid-template-columns: 1fr 44px; gap: 0.35rem 1rem; }

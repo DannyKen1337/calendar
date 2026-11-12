@@ -7,7 +7,8 @@ import s from './TableBookingPage.module.css';
 const EMPTY = { name: '', email: '', phone: '', date: '', from: '', to: '', maxPeople: '', note: '', website: '' };
 
 // Nyilvános asztalfoglaló oldal: a kérés addig nem él, amíg egy szervező el nem fogadja
-export default function TableBookingPage({ maintenance = false, initialStore = '' }) {
+// embed: a weboldal ablakában (a nagy fejléc csak a felolvasóknak, szorosabb térközök)
+export default function TableBookingPage({ maintenance = false, initialStore = '', embed = false }) {
   const [form, setForm] = useState({ ...EMPTY, store: initialStore });
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState(null); // { error, field }
@@ -34,19 +35,19 @@ export default function TableBookingPage({ maintenance = false, initialStore = '
   };
 
   const header = (
-    <header className={s.header}>
+    <header className={embed ? s.srOnly : s.header}>
       <p className={s.kicker}>Tavern</p>
       <h1 className={s.title}>Asztalfoglalás</h1>
     </header>
   );
 
   if (maintenance) {
-    return <main className={s.page}><div className={s.box}>{header}<p className={s.panel}>A foglalás átmenetileg nem elérhető. Kérjük, nézz vissza később!</p></div></main>;
+    return <main className={`${s.page} ${embed ? s.embed : ''}`}><div className={s.box}>{header}<p className={s.panel}>A foglalás átmenetileg nem elérhető. Kérjük, nézz vissza később!</p></div></main>;
   }
 
   if (done) {
     return (
-      <main className={s.page}>
+      <main className={`${s.page} ${embed ? s.embed : ''}`}>
         <div className={s.box}>
           {header}
           <div className={s.panel} role="status">
@@ -61,7 +62,7 @@ export default function TableBookingPage({ maintenance = false, initialStore = '
   }
 
   return (
-    <main className={s.page}>
+    <main className={`${s.page} ${embed ? s.embed : ''}`}>
       <div className={s.box}>
         {header}
         <form className={s.panel} onSubmit={submit} noValidate>

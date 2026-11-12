@@ -3,10 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import s from '@/weblap/fooldal.module.css';
 import { withBase } from '@/weblap/lib/basePath';
 import { storeStatus } from '@/weblap/lib/stores';
+import TableTent from '@/weblap/components/TableTent';
 
 // A főoldal két ablaka, ugyanazon az oldalon (nem új lapon):
 //  - Naptárablak: bármely [data-cal] linkre kattintva a kattintás helyéről kinyíló aranykör, belőle felúszik a naptár
 //    (a link címe: egy esemény jelentkezési oldala, a teljes naptár vagy az előrendelés). data-title: a felirat fent.
+//  - Asztalfoglaló ablak: a [data-table] linkekre a kattintás helyéről egy arany „FOGLALT” asztali tábla billen fel
+//    középre (közben felgyullad a lámpa), és a táblából nyílik ki a foglalás (/asztalfoglalas, beépítve).
 //  - Térképablak: a [data-map="<bolt>"] linkekre arany útvonal rajzolódik a kattintás helyétől, a végén leesik egy
 //    gombostű, és abból hajtódik ki a bolt Google-térképe, a mai nyitvatartással és az útvonaltervezés gombbal.
 // Bezárás: a gomb, az Esc és a böngésző vissza gombja. Ctrl / Cmd / Shift + kattintás: a link a megszokott módon nyílik.
@@ -17,9 +20,11 @@ const LEAVE_MS = 950;
 export default function Overlays({ stores, sign, routeLabel }) {
   const [cal, setCal] = useState(null);   // { url, title, x, y, phase: 'open' | 'closing' }
   const [map, setMap] = useState(null);   // { store, x, y, route, pin, clip, phase }
-  const [ready, setReady] = useState({ cal: false, map: false });
+  const [table, setTable] = useState(null); // { url, title, x, y, phase }
+  const [ready, setReady] = useState({ cal: false, map: false, table: false });
   const lastFocus = useRef(null);
-  const closeBtn = useRef({ cal: null, map: null });
+  const closeBtn = useRef({ cal: null, map: null, table: null });
+  const setters = useRef({ cal: setCal, map: setMap, table: setTable }).current;
 
   const lock = (on) => document.documentElement.classList.toggle(s.lock, on);
 
@@ -28,29 +33,36 @@ export default function Overlays({ stores, sign, routeLabel }) {
     setReady(r => ({ ...r, [kind]: false }));
     lock(true);
     // Két képkocka múlva kapja meg a nyitott állapotot, hogy az átmenet a zárt állapotból induljon
-    (kind === 'cal' ? setCal : setMap)({ ...value, phase: 'start' });
-    requestAnimationFrame(() => requestAnimationFrame(() => (kind === 'cal' ? setCal : setMap)(v => v && { ...v, phase: 'open' })));
+    setters[kind]({ ...value, phase: 'start' });
+    requestAnimationFrame(() => requestAnimationFrame(() => setters[kind](v => v && { ...v, phase: 'open' })));
     history.pushState({ tavernOverlay: kind }, '');
     setTimeout(() => closeBtn.current[kind]?.focus(), kind === 'cal' ? 400 : 1200);
-  }, []);
+  }, [setters]);
 
   const close = useCallback((kind, fromHistory = false) => {
-    const set = kind === 'cal' ? setCal : setMap;
+    const set = setters[kind];
     set(v => (v && v.phase !== 'closing' ? { ...v, phase: 'closing' } : v));
     setTimeout(() => { set(null); lock(false); lastFocus.current?.focus?.(); }, LEAVE_MS);
     if (!fromHistory) history.back();
-  }, []);
+  }, [setters]);
 
   // A kattintások figyelése az egész oldalon (a linkek szerveroldalon készülnek)
   useEffect(() => {
     const onClick = (ev) => {
       if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
-      const a = ev.target.closest('a[data-cal], a[data-map]');
+      const a = ev.target.closest('a[data-cal], a[data-map], a[data-table]');
       if (!a) return;
       ev.preventDefault();
       const r = a.getBoundingClientRect();
       const x = ev.clientX || r.left + r.width / 2;
       const y = ev.clientY || r.top + r.height / 2;
+      if (a.dataset.table !== undefined) {
+        // Az asztalfoglalás az ablakban beépítve nyílik (nagy fejléc nélkül)
+        let url = a.href;
+        try { const u = new URL(url); u.searchParams.set('embed', '1'); url = u.href; } catch { /* marad */ }
+        open('table', { url, title: a.dataset.title || a.textContent.trim(), x, y });
+        return;
+      }
       if (a.dataset.cal !== undefined) {
         // Az előrendelés az ablakban a beépített, kompakt változatban nyílik (nagy fejléc nélkül, kevesebb görgetéssel)
         let url = a.href;
@@ -74,15 +86,21 @@ export default function Overlays({ stores, sign, routeLabel }) {
 
   // Esc és a böngésző vissza gombja
   useEffect(() => {
-    const onKey = (ev) => { if (ev.key !== 'Escape') return; if (map) close('map'); else if (cal) close('cal'); };
-    const onPop = () => { if (map && map.phase !== 'closing') close('map', true); else if (cal && cal.phase !== 'closing') close('cal', true); };
+    const onKey = (ev) => { if (ev.key !== 'Escape') return; if (map) close('map'); else if (table) close('table'); else if (cal) close('cal'); };
+    const onPop = () => {
+      if (map && map.phase !== 'closing') close('map', true);
+      else if (table && table.phase !== 'closing') close('table', true);
+      else if (cal && cal.phase !== 'closing') close('cal', true);
+    };
     addEventListener('keydown', onKey);
     addEventListener('popstate', onPop);
     return () => { removeEventListener('keydown', onKey); removeEventListener('popstate', onPop); };
-  }, [cal, map, close]);
+  }, [cal, map, table, close]);
 
   const calState = cal ? (cal.phase === 'open' ? s.open : cal.phase === 'closing' ? s.closing : s.closing) : '';
   const mapState = map ? (map.phase === 'open' ? s.open : map.phase === 'closing' ? s.closing : s.closing) : '';
+  // Az asztalfoglaló ablaknak külön induló állapota van, hogy a bezáró animáció ne villanjon fel nyitáskor
+  const tableState = table ? (table.phase === 'open' ? s.open : table.phase === 'closing' ? s.closing : s.starting) : '';
   const status = map ? storeStatus(map.store) : null;
   const query = map ? encodeURIComponent(map.store.mapQuery || `${map.store.name}, ${map.store.address}`) : '';
 
@@ -99,6 +117,22 @@ export default function Overlays({ stores, sign, routeLabel }) {
           <div className={s.calFrame}>
             <div className={s.loading}><img src={withBase(sign)} alt="" /></div>
             {cal && <iframe title={cal.title || 'Naptár'} src={cal.url} style={ready.cal ? { opacity: 1 } : undefined} onLoad={() => setReady(r => ({ ...r, cal: true }))} />}
+          </div>
+        </div>
+      </div>
+
+      <div className={`${s.tableov} ${tableState}`} role="dialog" aria-modal="true" aria-label={table?.title || 'Asztalfoglalás'} hidden={!table} style={table ? { '--x': `${table.x}px`, '--y': `${table.y}px` } : undefined} data-asztal-ablak>
+        <div className={s.lamp} />
+        <div className={s.tentFly}><TableTent /></div>
+        <div className={s.tableSheet}>
+          <div className={s.calBar}>
+            <img src={withBase(sign)} alt="Tavern" width={149} height={40} />
+            <span>{table?.title}</span>
+            <button ref={el => { closeBtn.current.table = el; }} type="button" className={s.close} aria-label="Az asztalfoglalás bezárása" onClick={() => close('table')}>{CLOSE}</button>
+          </div>
+          <div className={s.calFrame}>
+            <div className={s.loading}><img src={withBase(sign)} alt="" /></div>
+            {table && <iframe title={table.title || 'Asztalfoglalás'} src={table.url} style={ready.table ? { opacity: 1 } : undefined} onLoad={() => setReady(r => ({ ...r, table: true }))} />}
           </div>
         </div>
       </div>

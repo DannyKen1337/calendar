@@ -113,11 +113,14 @@ export const CONTENT_TABS = [
   },
   {
     key: 'stores', label: 'Boltok',
-    intro: 'A három bolt adatai: a boltok sorai, a térképablak, a mai nyitvatartás, a Kapcsolat rész és a lábléc.',
+    intro: 'A három bolt adatai: a boltok sorai, a térképablak, a mai nyitvatartás, az asztalfoglalás, a Kapcsolat rész és a lábléc.',
     schema: object(null, {
       title: text('A boltok részének címe', { max: 60 }),
       todayLabel: text('„Ma” felirat a mai nyitvatartás előtt', { max: 30 }),
       routeButton: text('Útvonaltervezés gomb felirata', { max: 40 }),
+      bookingTitle: text('Asztalfoglalás: cím', { max: 60 }),
+      bookingText: area('Asztalfoglalás: szöveg', { max: 300, rows: 2 }),
+      bookingButton: text('Asztalfoglalás: gomb felirata', { max: 40 }),
       ...Object.fromEntries(STORE_IDS.map(id => [id, storeFields(id)])),
     }),
   },

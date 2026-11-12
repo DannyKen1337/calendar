@@ -5,7 +5,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { getTavernDb, hasDatabase } from '@/weblap/lib/db';
-import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL } from '@/weblap/lib/calendar';
+import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL } from '@/weblap/lib/calendar';
 import { CONTENT_TABS, tabByKey, sanitizeField } from '@/weblap/lib/contentSchema';
 
 const FB = 'https://www.facebook.com/taverndebrecen';
@@ -75,9 +75,12 @@ export const DEFAULT_CONTENT = {
     pageEmpty: 'Hamarosan itt is olvashatod a híreinket. Addig keress minket a boltok Facebook-oldalain.',
   },
   stores: {
-    title: 'Hol ülhetsz le',
+    title: 'Ülj be hozzánk',
     todayLabel: 'Ma',
     routeButton: 'Útvonaltervezés',
+    bookingTitle: 'Foglalj asztalt',
+    bookingText: 'Jöttök többen? Válassz boltot, napot és időpontot, és félretesszük nektek az asztalt. A foglalás a visszaigazolással él.',
+    bookingButton: 'Asztalt foglalok',
     debrecen: {
       name: 'Tavern Debrecen',
       address: 'Debrecen, Gambrinus köz',
@@ -116,6 +119,7 @@ export const DEFAULT_CONTENT = {
       { id: 'naptar', label: 'Naptár', href: CALENDAR_URL },
       { id: 'ligak', label: 'Ligák', href: LEAGUES_URL },
       { id: 'elorendeles', label: 'Előrendelés', href: PREORDER_URL },
+      { id: 'asztalfoglalas', label: 'Asztalfoglalás', href: TABLE_BOOKING_URL },
       ...(WEBSHOP ? [{ id: 'webshop', label: 'Webshop', href: WEBSHOP }] : []),
       { id: 'instagram', label: 'Instagram', href: IG },
     ],
