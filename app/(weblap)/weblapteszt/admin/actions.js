@@ -199,15 +199,17 @@ export async function resetContentAction(formData) {
 
 // --- Kirakás és elvetés ---
 
-// Minden előnézetben mentett módosítás kirakása az éles oldalra
-export async function publishAction() {
+// Minden előnézetben mentett módosítás kirakása az éles oldalra. Az előnézet sávjából, a felület tetejéről és a mentés
+// gomb mellől is hívható; lap: melyik fülre térjen vissza (a szerkesztőfelületről indítva)
+export async function publishAction(formData) {
   const editor = await requireEditor();
   const pending = await getPendingChanges();
   await publishAll();
   const db = await getTavernDb();
   await addLog(db, editor, `Kirakva az éles oldalra: ${pending.items.join('; ') || 'nem volt változás'}`);
   refreshSite();
-  redirect(withBase('/admin?kirakva=1'));
+  const lap = formData?.get?.('lap');
+  redirect(withBase(typeof lap === 'string' && isEditableTab(lap) ? `/admin?lap=${lap}&kirakva=1` : '/admin?kirakva=1'));
 }
 
 // A még ki nem rakott módosítások elvetése: az előnézet újra az éles oldalt mutatja

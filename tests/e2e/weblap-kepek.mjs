@@ -68,6 +68,11 @@ try {
   ok(!(await p.$('[data-kepszerkeszto]')) && (await p.$eval('[data-photo] img', i => i.getAttribute('src'))) === edited, 'szerkesztés: Esc-re bezárul, nem változik semmi');
   await p.evaluate(() => [...document.querySelectorAll('button')].find(x => /Mentés az előnézetbe/.test(x.textContent)).click());
   await p.waitForFunction(() => /Elmentve/.test(document.body.innerText), { timeout: 30000 }).catch(() => {});
+  // mentés után rögtön kirakható, a mentés gomb mellől; utána ugyanarra a fülre tér vissza
+  ok(!!(await p.$('[data-kirak-most]')), 'mentés után a mentés gomb mellett ott a „Kirakás az éles oldalra”');
+  await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}), p.click('[data-kirak-most]')]);
+  const live = await db.collection('website_content').findOne({ _id: 'site' });
+  ok(/lap=slideshow/.test(p.url()) && /Kirakva/.test(await p.evaluate(() => document.body.innerText)) && live?.slideshow?.pictures?.length >= 1 && /-200x300-/.test(live.slideshow.pictures[0].picture.src), `kirakva az éles oldalra, a Képfal fülön marad (${p.url().replace(BASE, '')})`);
   const ph = await page(b, editor, 402, 874);
   await ph.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2' });
   await ph.evaluate(() => document.querySelector('[data-photo] [data-szerkeszt]')?.click());
@@ -116,6 +121,9 @@ try {
   await p.waitForFunction(() => /Elmentve/.test(document.body.innerText), { timeout: 30000 }).catch(() => {});
   const post = await db.collection('website_posts').findOne({ title: 'Képes hír' });
   ok(!!post?.image && sentSize(post.image) <= 3.5 * 1024 * 1024, `Hírek: mentve, a kép tömörítve ment fel (${post?.image || 'nincs'})`);
+  await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}), p.click('[data-kirak-most]')]);
+  const news = await (await page(b, null)).goto(`${BASE}/weblapteszt/hirek`, { waitUntil: 'networkidle2' }).then(r => r.text());
+  ok(/Kirakva/.test(await p.evaluate(() => document.body.innerText)) && /Képes hír/.test(news), 'Hírek: az „Elmentve” mellől rögtön kirakható, élesben látszik');
   console.log('  böngészőhibák:', p.errs.join(' | ') || 'nincs');
 } finally {
   await b.close(); await client.close(); summary();

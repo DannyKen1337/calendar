@@ -12,7 +12,7 @@ import { ObjectId } from 'mongodb';
 import PostForm from './PostForm';
 import ContentEditor from './ContentEditor';
 import ConfirmButton from './ConfirmButton';
-import { logoutAction, deletePostAction, toggleAction, resetContentAction } from './actions';
+import { logoutAction, deletePostAction, toggleAction, resetContentAction, publishAction } from './actions';
 import s from './admin.module.css';
 
 export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { index: false, follow: false } };
@@ -86,7 +86,7 @@ export default async function Admin({ searchParams }) {
   const tab = isEditableTab(lap) ? tabByKey(lap) : null;
   const pending = await getPendingChanges();
 
-  // A felület teteje: mi van még csak az előnézetben; a kirakás az előnézet alján van
+  // A felület teteje: mi van még csak az előnézetben, és egy gombbal kirakható (az előnézet alján is)
   const stage = pending.count ? (
     <section className={`${s.stage} ${s.stagePending}`} aria-label="Kirakásra vár">
       <div className={s.stageText}>
@@ -94,8 +94,11 @@ export default async function Admin({ searchParams }) {
         <ul className={s.stageList}>{pending.items.slice(0, 8).map((it, i) => <li key={i}>{it}</li>)}{pending.items.length > 8 && <li>…és még {pending.items.length - 8}</li>}</ul>
       </div>
       <div className={s.stageActions}>
-        <a className={s.primary} href={withBase('/elonezet')}>Megnézem és kirakom</a>
-        <span className={s.muted}>A kirakás gomb az előnézet alján van.</span>
+        <form action={publishAction}>
+          {tab && <input type="hidden" name="lap" value={tab.key} />}
+          <ConfirmButton className={s.primary} message={`Kirakod ezeket az éles oldalra?\n\n${pending.items.join('\n')}`} data-kirak>Kirakás az éles oldalra</ConfirmButton>
+        </form>
+        <a className={s.small} href={withBase('/elonezet')}>Előbb megnézem</a>
       </div>
     </section>
   ) : (
@@ -103,7 +106,7 @@ export default async function Admin({ searchParams }) {
       <ol className={s.stageSteps}>
         <li><b>Módosíts</b> és ments.</li>
         <li><b>Nézd meg</b> az előnézetben.</li>
-        <li><b>Rakd ki</b> az előnézet alján.</li>
+        <li><b>Rakd ki</b> a mentés gomb mellett.</li>
       </ol>
     </section>
   );
@@ -180,7 +183,16 @@ export default async function Admin({ searchParams }) {
       <main className={s.main}>
         <section className={s.panel} aria-labelledby="form-title" id="urlap">
           <h1 id="form-title" className={s.h2}>{editing ? 'Hír szerkesztése' : 'Új hír'}</h1>
-          {mentve && !editing && <p className={s.ok} role="status">Elmentve. Egyelőre csak az előnézetben látszik.</p>}
+          {mentve && !editing && (
+            <div className={s.savedRow}>
+              <p className={s.ok} role="status">Elmentve az előnézetbe. Ha jó, rakd ki.</p>
+              {pending.count > 0 && (
+                <form action={publishAction}>
+                  <ConfirmButton className={s.publishNow} message={`Kirakod ezeket az éles oldalra?\n\n${pending.items.join('\n')}`} data-kirak-most>Kirakás az éles oldalra</ConfirmButton>
+                </form>
+              )}
+            </div>
+          )}
           <PostForm s={s} post={editing} nowLocal={toLocalInput(new Date())} />
         </section>
 

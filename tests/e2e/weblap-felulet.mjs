@@ -62,7 +62,7 @@ try {
   let live = await (await get('/weblapteszt')).text();
   ok(!live.includes('kepfal-cim'), 'élesben még nincs képfal');
   await p.goto(`${BASE}/weblapteszt/admin`, { waitUntil: 'networkidle2' });
-  await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2' }), clickText(p, 'a', 'Megnézem és kirakom')]);
+  await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2' }), clickText(p, 'a', 'Előbb megnézem')]);
   ok(!!(await p.$('section[aria-labelledby="kepfal-cim"]')), 'az előnézetben látszik a képfal');
   await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2' }), clickText(p, '[aria-label="Előnézet"] button', 'Kirakás az éles oldalra')]);
   live = await (await get('/weblapteszt')).text();

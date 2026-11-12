@@ -232,3 +232,12 @@
   .editorTool span { font-size: 0.75rem; }
 }
 @media (prefers-reduced-motion: reduce) { .editorStage img, .editorTool { transition: none; } }
+
+/* Kirakás rögtön a mentés után (a mentés gomb mellett): zöldes, hogy elváljon a mentéstől */
+.publishNow { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 24px; border: 2px solid var(--green); border-radius: 999px; background: transparent; color: var(--green); font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 160ms var(--ease), transform 120ms var(--ease); animation: publishIn 260ms var(--ease); }
+.publishNow:hover:not(:disabled) { background: rgba(143, 211, 165, 0.12); }
+.publishNow:active:not(:disabled) { transform: scale(0.97); }
+.publishNow:disabled { opacity: 0.6; cursor: progress; }
+@keyframes publishIn { from { opacity: 0; transform: translateX(-6px); } }
+@media (prefers-reduced-motion: reduce) { .publishNow { animation: none; } }
+.savedRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
