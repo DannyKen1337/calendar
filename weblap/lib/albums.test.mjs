@@ -53,3 +53,14 @@ test('újra feltöltött mappa a meglévő albumba kerül; az oldal sorrendje', 
   assert.deepEqual(shown.map(a => a.title), ['Új', 'Régi', 'Dátum nélkül']);
   assert.equal(albumDate('2026-10-31'), '2026. október 31.');
 });
+
+test('Google Drive: a mappa linkje és a kép ideje', async () => {
+  const { driveFolderId, driveTime } = await import('./albums.js');
+  assert.equal(driveFolderId('https://drive.google.com/drive/folders/1AbC_def-GHIjkl?usp=sharing'), '1AbC_def-GHIjkl');
+  assert.equal(driveFolderId('https://drive.google.com/drive/u/0/folders/1AbC_def-GHIjkl'), '1AbC_def-GHIjkl');
+  assert.equal(driveFolderId('https://drive.google.com/open?id=1AbC_def-GHIjkl'), '1AbC_def-GHIjkl');
+  assert.equal(driveFolderId('1AbC_def-GHIjkl'), '1AbC_def-GHIjkl');
+  assert.equal(driveFolderId('https://example.com/kep.jpg'), null);
+  assert.equal(new Date(driveTime({ imageMediaMetadata: { time: '2026:10:31 18:22:01' } })).toISOString().slice(0, 10), '2026-10-31');
+  assert.equal(new Date(driveTime({ createdTime: '2026-11-08T10:00:00Z' })).toISOString().slice(0, 10), '2026-11-08');
+});

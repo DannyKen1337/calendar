@@ -3,7 +3,7 @@ import { createContext, useActionState, useContext, useEffect, useRef, useState 
 import { tabByKey, emptyValue, ALBUM_MAX_PICTURES } from '@/weblap/lib/contentSchema';
 import { albumsFromFiles, findAlbum, isImageFile } from '@/weblap/lib/albums';
 import { withBase } from '@/weblap/lib/basePath';
-import { saveContentAction, uploadImageAction } from './actions';
+import { saveContentAction, uploadImageAction, driveListAction, driveImportAction } from './actions';
 
 // Az oldal tartalmának egy füle (a szerkesztőfelületen a Galéria és a Képfal). Az űrlapot a fül sémája rajzolja ki
 // (weblap/lib/contentSchema.js); mentéskor a teljes fül JSON-ban megy a szervernek, ami a séma szerint ellenőrzi.
@@ -375,11 +375,26 @@ function FolderUpload({ f, list, onChange, s }) {
   const counting = useContext(UploadCount);
   const [run, setRun] = useState(null); // { done, total, title, errors, finished }
   const [drag, setDrag] = useState(false);
+  const [drive, setDrive] = useState('');
+  const [driveState, setDriveState] = useState(null); // { loading } | { error }
   const update = (next) => { latest.current = next; change.current(next); };
   const busy = run && !run.finished;
 
+  async function fromDrive() {
+    if (busy || driveState?.loading || !drive.trim()) return;
+    setDriveState({ loading: true });
+    const res = await driveListAction(drive).catch(() => ({ error: 'Nem sikerült megnyitni a mappát. Próbáld újra.' }));
+    if (res?.error) { setDriveState({ error: res.error }); return; }
+    setDriveState(null);
+    setDrive('');
+    start(res.files.map(d => ({ drive: d })));
+  }
+
+  // entries: gépről [{ file, path }], Google Drive-ról [{ drive: { id, name, type, path, lastModified } }]
   async function start(entries) {
-    const files = entries.map(({ file, path }) => ({ name: file.name, type: file.type, path: path || file.webkitRelativePath || file.name, lastModified: file.lastModified, file }));
+    const files = entries.map(({ file, path, drive }) => (drive
+      ? { ...drive, driveId: drive.id }
+      : { name: file.name, type: file.type, path: path || file.webkitRelativePath || file.name, lastModified: file.lastModified, file }));
     const groups = albumsFromFiles(files);
     if (!groups.length) { setRun({ done: 0, total: 0, errors: ['Nincs kép a kiválasztott mappában.'], finished: true }); return; }
     const total = groups.reduce((n, g) => n + g.files.length, 0);
@@ -419,7 +434,8 @@ function FolderUpload({ f, list, onChange, s }) {
         while (next < g.files.length) {
           const i = next++;
           counting(1);
-          const res = await uploadOne(g.files[i].file).finally(() => counting(-1));
+          const item = g.files[i];
+          const res = await (item.driveId ? driveImportAction(item.driveId).catch(() => ({ error: 'Nem sikerült átmásolni.' })) : uploadOne(item.file)).finally(() => counting(-1));
           if (res.error) errors.push(`${g.files[i].name}: ${res.error}`);
           results[i] = res;
           done++;
@@ -442,6 +458,15 @@ function FolderUpload({ f, list, onChange, s }) {
           onChange={(e) => { const files = [...(e.target.files || [])].map(file => ({ file, path: file.webkitRelativePath })); e.target.value = ''; start(files); }} />
       </label>
       <small className={s.muted}>Válassz ki (vagy húzz ide) egy mappát. Minden mappából egy album lesz, pl. „Pokeween 2026-10-31”. Telefonon az albumot a „+ Új album” gombbal hozd létre, és abba töltsd fel a képeket.</small>
+      {/* (a szerkesztő maga is űrlap, ezért itt nincs külön form: gomb és Enter) */}
+      <div className={s.drive} data-drive>
+        <label htmlFor="drive-link"><b>…vagy Google Drive-ból:</b> másold be a mappa linkjét (Megosztás › „Bárki, aki rendelkezik a linkkel”)</label>
+        <span className={s.driveRow}>
+          <input id="drive-link" value={drive} onChange={(e) => { setDrive(e.target.value); setDriveState(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fromDrive(); } }} placeholder="https://drive.google.com/drive/folders/…" inputMode="url" disabled={busy} aria-describedby={driveState?.error ? 'drive-hiba' : undefined} aria-invalid={driveState?.error ? true : undefined} />
+          <button type="button" className={s.small} onClick={fromDrive} disabled={busy || driveState?.loading || !drive.trim()}>{driveState?.loading ? 'Megnyitás…' : 'Behúzás'}</button>
+        </span>
+        {driveState?.error && <small id="drive-hiba" className={s.error}>{driveState.error}</small>}
+      </div>
       {run && (
         <div className={s.folderRun} role="status">
           {run.total > 0 && (

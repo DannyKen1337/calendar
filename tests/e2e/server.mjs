@@ -11,7 +11,7 @@ const mongod = await MongoMemoryServer.create();
 writeFileSync(new URL('./.uri', import.meta.url), mongod.getUri());
 const next = spawn('npx', ['next', 'dev', '-p', '3179'], {
   cwd: ROOT,
-  env: { ...process.env, MONGODB_URI: mongod.getUri(), JWT_SECRET: SECRET, NODE_ENV: 'development', IMGBB_API_KEY: fake ? 'fake' : '', RESEND_API_KEY: '', NODE_OPTIONS: fake ? `--import ${fileURLToPath(new URL('./fake-imgbb.mjs', import.meta.url))}` : '' },
+  env: { ...process.env, MONGODB_URI: mongod.getUri(), JWT_SECRET: SECRET, NODE_ENV: 'development', IMGBB_API_KEY: fake ? 'fake' : '', GOOGLE_API_KEY: fake ? 'fake' : '', RESEND_API_KEY: '', NODE_OPTIONS: fake ? `--import ${fileURLToPath(new URL('./fake-imgbb.mjs', import.meta.url))}` : '' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 next.stdout.on('data', d => process.stdout.write(d));

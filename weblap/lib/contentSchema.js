@@ -113,7 +113,7 @@ export const CONTENT_TABS = [
   },
   {
     key: 'albums', label: 'Albumok',
-    intro: 'A Galéria oldal (a menüben fent) albumai: egy album egy esemény képei, pl. Pokémon Prerelease, Pokeween, Riftbound Skirmish. A „Mappa feltöltése” gombbal egy egész mappát feltölthetsz: minden mappából egy album lesz a mappa nevével, a dátumot és a játékot a névből próbálja kitalálni.',
+    intro: 'A Galéria oldal (a menüben fent) albumai: egy album egy esemény képei, pl. Pokémon Prerelease, Pokeween, Riftbound Skirmish. A „Mappa feltöltése” gombbal egy egész mappát feltölthetsz, vagy bemásolhatod egy Google Drive-mappa linkjét: minden mappából egy album lesz a mappa nevével, a dátumot és a játékot a névből próbálja kitalálni.',
     schema: object(null, {
       title: text('A Galéria oldal címe', { max: 60 }),
       lead: area('Bevezető a cím alatt', { max: 300, rows: 2 }),
