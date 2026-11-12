@@ -21,7 +21,7 @@ export const DEFAULT_CONTENT = {
     logo: { src: '/brand/tavern-ceger.png', alt: 'Tavern', position: '50% 50%' },
     instagram: IG,
     webshop: WEBSHOP,
-    nav: { program: 'Program', hirek: 'Hírek', boltok: 'Boltok', kapcsolat: 'Kapcsolat' },
+    nav: { program: 'Program', hirek: 'Hírek', boltok: 'Boltok', kapcsolat: 'Kapcsolat', galeria: 'Galéria' },
     cta: { label: 'Naptár', href: CALENDAR_URL },
   },
   hero: {
@@ -64,6 +64,12 @@ export const DEFAULT_CONTENT = {
       { id: 'kf6', picture: { src: '/photos/miskolc-kirakat.jpg', alt: 'A Tavern Miskolc kirakata', position: '50% 50%' }, caption: 'Tavern Miskolc' },
       { id: 'kf7', picture: { src: '/photos/jatekceh-kirakat.jpg', alt: 'A JátékCéh kirakata', position: '50% 50%' }, caption: 'JátékCéh' },
     ],
+  },
+  // A Galéria oldal: eseményenként egy album (a szerkesztők töltik fel az Albumok fülön)
+  albums: {
+    title: 'Galéria',
+    lead: 'Képek a versenyeinkről és az estéinkről, eseményenként.',
+    albums: [],
   },
   news: {
     title: 'Hírek a boltokból',

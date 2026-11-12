@@ -17,7 +17,7 @@ import s from './admin.module.css';
 
 export const metadata = { title: 'Weblap szerkesztése – Tavern', robots: { index: false, follow: false } };
 
-// A fülek: a Hírek (a hírek kirakása, a behúzott posztok), a Galéria és a Képfal. Az oldal többi része
+// A fülek: a Hírek (a hírek kirakása, a behúzott posztok), a Galéria, a Képfal és az Albumok (a Galéria oldal). Az oldal többi része
 // (szövegek, boltok) itt nem szerkeszthető, a tartalma marad, ahogy van.
 // PREVIEW: hova visz a „Megnézem az előnézetben” link. Minden mentés előbb csak az előnézetben látszik;
 // az éles oldalra az előnézet alján lévő „Kirakás az éles oldalra” gomb viszi ki.
@@ -25,9 +25,10 @@ const ICONS = {
   hirek: <path d="M4 5h12v14H6a2 2 0 0 1-2-2zM16 9h4v8a2 2 0 0 1-2 2h-2M7 9h6M7 12h6M7 15h4" />,
   gallery: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="m21 16-5-5-8 8" /></>,
   slideshow: <><rect x="3" y="4" width="10" height="10" rx="1.5" /><rect x="15" y="4" width="6" height="6" rx="1.5" /><rect x="15" y="12" width="6" height="8" rx="1.5" /><rect x="3" y="16" width="10" height="4" rx="1.5" /></>,
+  albums: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM7 15l3-3 2 2 3-3 2 2" />,
 };
 const TABS = [{ key: 'hirek', label: 'Hírek' }, ...EDITABLE_TABS.map(tabByKey)];
-const PREVIEW = { gallery: '/elonezet#galeria', slideshow: '/elonezet#kepfal' };
+const PREVIEW = { gallery: '/elonezet#galeria', slideshow: '/elonezet#kepfal', albums: '/elonezet/galeria' };
 export const dynamic = 'force-dynamic';
 
 // "2026-10-29T18:00" magyar helyi idő a dátummezőhöz

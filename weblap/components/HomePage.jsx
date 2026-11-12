@@ -14,6 +14,7 @@ import Overlays from '@/weblap/components/Overlays';
 import TableTent from '@/weblap/components/TableTent';
 import StoreStatus from '@/weblap/components/StoreStatus';
 import { weekHours } from '@/weblap/lib/stores';
+import { visibleAlbums } from '@/weblap/lib/albums';
 import { getHomeData } from '@/weblap/lib/home';
 import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
 import { CALENDAR_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl } from '@/weblap/lib/calendar';
@@ -97,7 +98,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
     <div className={`${bigShoulders.variable} ${publicSans.variable} ${s.page} ${previewBar ? s.withPreview : ''}`}>
       {previewBar}
       <Motion />
-      <SiteNav {...navProps(content)} />
+      <SiteNav {...navProps(content, { base })} />
 
       <main>
         <section className={s.hero} aria-labelledby="fooldal-cim">
@@ -209,6 +210,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
               </figure>
             ))}
             {gallery.note && <p className={s.printsNote}>{gallery.note}</p>}
+            {visibleAlbums(content.albums?.albums).length > 0 && <a className={`${s.textlink} ${s.printsMore}`} href={withBase(`${base}/galeria`)}>Még több kép a Galériában →</a>}
           </section>
         )}
 

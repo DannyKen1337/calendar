@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useActionState, useContext, useEffect, useRef, useState } from 'react';
-import { tabByKey, emptyValue } from '@/weblap/lib/contentSchema';
+import { tabByKey, emptyValue, ALBUM_MAX_PICTURES } from '@/weblap/lib/contentSchema';
+import { albumsFromFiles, findAlbum, isImageFile } from '@/weblap/lib/albums';
 import { withBase } from '@/weblap/lib/basePath';
 import { saveContentAction, uploadImageAction } from './actions';
 
@@ -79,6 +80,24 @@ function Field({ f, value, onChange, s, top }) {
           {f.help && <small>{f.help}</small>}
         </label>
       );
+    case 'date':
+      return (
+        <label className={s.field}>
+          <span>{f.label}</span>
+          <input type="date" value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+          {f.help && <small>{f.help}</small>}
+        </label>
+      );
+    case 'select':
+      return (
+        <label className={s.field}>
+          <span>{f.label}</span>
+          <select value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
+            {f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          {f.help && <small>{f.help}</small>}
+        </label>
+      );
     case 'bool':
       return <label className={s.check}><input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} /> {f.label}</label>;
     case 'image':
@@ -127,14 +146,11 @@ function ImageField({ f, value, onChange, s }) {
 
   async function upload(file) {
     if (!file) return;
-    if (file.size > 4 * 1024 * 1024) { setError('A kép legfeljebb 4 MB lehet.'); return; }
     setBusy(true);
     setError(null);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await uploadImageAction(fd);
-      if (res?.url) set({ src: res.url });
+      const res = await uploadOne(file);
+      if (res?.url) set({ src: res.url, ...(res.thumb ? { thumb: res.thumb } : {}) });
       else setError(res?.error || 'Nem sikerült feltölteni a képet.');
     } catch {
       setError('Nem sikerült feltölteni a képet. Próbáld újra.');
@@ -163,7 +179,7 @@ function ImageField({ f, value, onChange, s }) {
           {canPick && <i className={s.imageDot} style={{ left: px, top: py }} aria-hidden="true" />}
         </div>
         <div className={s.imageInputs}>
-          <input value={v.src} onChange={(e) => set({ src: e.target.value })} placeholder="https://…" aria-label={`${f.label}: a kép címe`} />
+          <input value={v.src} onChange={(e) => set({ src: e.target.value, thumb: undefined })} placeholder="https://…" aria-label={`${f.label}: a kép címe`} />
           <label className={s.small}>
             {busy ? 'Feltöltés…' : 'Kép feltöltése'}
             <input type="file" accept="image/*" hidden disabled={busy} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
@@ -263,6 +279,7 @@ function ListField({ f, value, onChange, s }) {
   return (
     <fieldset className={s.group}>
       <legend className={s.legend}>{f.label}</legend>
+      {f.folders && <FolderUpload f={f} list={list} onChange={onChange} s={s} />}
       <ol className={s.listEdit}>
         {list.map((item, i) => (
           f.inline ? (
@@ -270,7 +287,7 @@ function ListField({ f, value, onChange, s }) {
           ) : f.collapsible ? (
             <li key={item.id || i}>
               <details className={s.listItem} open={item.id === fresh}>
-                <summary className={s.listHead}><b>{item[f.titleKey] || `Új ${f.itemLabel}`}</b>{tools(i)}</summary>
+                <summary className={s.listHead}><b>{item[f.titleKey] || `Új ${f.itemLabel}`}{f.folders && <small className={s.muted}> · {[item.date, `${item.pictures?.length || 0} kép`].filter(Boolean).join(' · ')}</small>}</b>{tools(i)}</summary>
                 {body(item, i)}
               </details>
             </li>
@@ -289,6 +306,157 @@ function ListField({ f, value, onChange, s }) {
 
 const MAX_IMAGE = 4 * 1024 * 1024;
 const rid = () => Math.random().toString(36).slice(2, 10);
+
+// Feltöltés előtt a nagy fotót kicsinyíti (a hosszabbik oldala legfeljebb 2000 px, JPEG): a telefonok 5–10 MB-os képei
+// is gyorsan felmennek, és a Galéria is gyorsabban töltődik. A PNG / WebP (pl. átlátszó cégér) 4 MB-ig marad, ahogy van.
+async function shrink(file) {
+  const keep = ['image/gif', 'image/svg+xml'].includes(file.type) || (['image/png', 'image/webp'].includes(file.type) && file.size <= MAX_IMAGE);
+  if (keep || typeof createImageBitmap !== 'function') return file;
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size <= 1.5 * 1024 * 1024 && file.type === 'image/jpeg') { bmp.close?.(); return file; }
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * scale);
+    c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close?.();
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+    return blob ? new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, { type: 'image/jpeg' }) : file;
+  } catch {
+    return file;
+  }
+}
+
+// Egy kép feltöltése (kicsinyítve). Visszaad: { url, thumb? } vagy { error }
+async function uploadOne(file) {
+  if (!isImageFile(file)) return { error: 'Ez nem kép.' };
+  const ready = await shrink(file);
+  if (/hei[cf]/i.test(ready.type) || /\.hei[cf]$/i.test(ready.name)) return { error: 'HEIC-képet a böngészők nem tudnak megjeleníteni. Mentsd el JPG-ként (iPhone: Beállítások › Kamera › Formátumok › Legkompatibilisebb).' };
+  if (ready.size > MAX_IMAGE) return { error: 'A kép legfeljebb 4 MB lehet.' };
+  try {
+    const fd = new FormData();
+    fd.append('file', ready);
+    return (await uploadImageAction(fd)) || { error: 'Nem sikerült feltölteni.' };
+  } catch {
+    return { error: 'Nem sikerült feltölteni. Próbáld újra.' };
+  }
+}
+
+// A behúzott mappák fájljai (a mappán belüli úttal), a böngésző fájlrendszer-bejegyzéseiből
+async function droppedFiles(items) {
+  const out = [];
+  const walk = async (entry, path) => {
+    if (entry.isFile) {
+      const file = await new Promise((res, rej) => entry.file(res, rej)).catch(() => null);
+      if (file) out.push({ file, path: `${path}${file.name}` });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      // a readEntries egyszerre csak egy adagot ad: addig kérünk, amíg üreset nem kapunk
+      for (;;) {
+        const batch = await new Promise((res, rej) => reader.readEntries(res, rej)).catch(() => []);
+        if (!batch.length) break;
+        for (const e of batch) await walk(e, `${path}${entry.name}/`);
+      }
+    }
+  };
+  const entries = [...items].map(it => it.webkitGetAsEntry?.()).filter(Boolean);
+  for (const e of entries) await walk(e, '');
+  return out;
+}
+
+// Mappa feltöltése az Albumokhoz: minden képet tartalmazó mappából egy album (a mappa nevével, a névből kitalált
+// dátummal és játékkal; a már meglévő, azonos nevű és dátumú albumba kerül). A képek háromszálon mennek fel, de
+// eredeti (fájlnév szerinti) sorrendben kerülnek az albumba.
+function FolderUpload({ f, list, onChange, s }) {
+  const latest = useRef(list);
+  const change = useRef(onChange);
+  useEffect(() => { latest.current = list; change.current = onChange; }, [list, onChange]);
+  const counting = useContext(UploadCount);
+  const [run, setRun] = useState(null); // { done, total, title, errors, finished }
+  const [drag, setDrag] = useState(false);
+  const update = (next) => { latest.current = next; change.current(next); };
+  const busy = run && !run.finished;
+
+  async function start(entries) {
+    const files = entries.map(({ file, path }) => ({ name: file.name, type: file.type, path: path || file.webkitRelativePath || file.name, lastModified: file.lastModified, file }));
+    const groups = albumsFromFiles(files);
+    if (!groups.length) { setRun({ done: 0, total: 0, errors: ['Nincs kép a kiválasztott mappában.'], finished: true }); return; }
+    const total = groups.reduce((n, g) => n + g.files.length, 0);
+    const errors = [];
+    let done = 0;
+    setRun({ done, total, title: groups[0].title, errors, finished: false });
+    for (const g of groups) {
+      let id;
+      const at = findAlbum(latest.current, g);
+      if (at >= 0) id = latest.current[at].id;
+      else if (latest.current.length >= f.max) {
+        errors.push(`${g.title}: nem fér el több album (legfeljebb ${f.max}).`);
+        done += g.files.length;
+        setRun(r => ({ ...r, done, errors: [...errors] }));
+        continue;
+      } else {
+        id = `uj-${rid()}`;
+        update([{ ...emptyValue(f.item), id, title: g.title, date: g.date, game: g.game }, ...latest.current]);
+      }
+      setRun(r => ({ ...r, title: g.title }));
+      const results = new Array(g.files.length);
+      let flushed = 0;
+      let next = 0;
+      const flush = () => {
+        const ready = [];
+        while (flushed < results.length && results[flushed]) { const r = results[flushed++]; if (r.url) ready.push(r); }
+        if (!ready.length) return;
+        update(latest.current.map(a => {
+          if (a.id !== id) return a;
+          const room = ALBUM_MAX_PICTURES - (a.pictures?.length || 0);
+          if (room < ready.length) errors.push(`${g.title}: ${ready.length - Math.max(0, room)} kép nem fér el (egy albumban legfeljebb ${ALBUM_MAX_PICTURES}).`);
+          const add = ready.slice(0, Math.max(0, room)).map(r => ({ id: `uj-${rid()}`, caption: '', picture: { src: r.url, ...(r.thumb ? { thumb: r.thumb } : {}), alt: '', position: '50% 50%' } }));
+          return { ...a, pictures: [...(a.pictures || []), ...add] };
+        }));
+      };
+      const worker = async () => {
+        while (next < g.files.length) {
+          const i = next++;
+          counting(1);
+          const res = await uploadOne(g.files[i].file).finally(() => counting(-1));
+          if (res.error) errors.push(`${g.files[i].name}: ${res.error}`);
+          results[i] = res;
+          done++;
+          flush();
+          setRun(r => ({ ...r, done, errors: [...errors] }));
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+    }
+    setRun(r => ({ ...r, done, errors: [...errors], finished: true }));
+  }
+
+  return (
+    <div className={`${s.folder} ${drag ? s.photoAddOn : ''}`} data-mappa
+      onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+      onDrop={async (e) => { e.preventDefault(); setDrag(false); if (!busy) start(await droppedFiles(e.dataTransfer.items)); }}>
+      <label className={s.small} aria-disabled={busy || undefined}>
+        {busy ? 'Feltöltés folyamatban…' : 'Mappa feltöltése'}
+        <input type="file" multiple webkitdirectory="" directory="" className={s.sr} disabled={busy}
+          onChange={(e) => { const files = [...(e.target.files || [])].map(file => ({ file, path: file.webkitRelativePath })); e.target.value = ''; start(files); }} />
+      </label>
+      <small className={s.muted}>Válassz ki (vagy húzz ide) egy mappát. Minden mappából egy album lesz, pl. „Pokeween 2026-10-31”. Telefonon az albumot a „+ Új album” gombbal hozd létre, és abba töltsd fel a képeket.</small>
+      {run && (
+        <div className={s.folderRun} role="status">
+          {run.total > 0 && (
+            <>
+              <b>{run.finished ? `Kész: ${run.done} / ${run.total} kép` : `Feltöltés: ${run.done} / ${run.total} kép (${run.title})`}</b>
+              <span className={s.folderBar} aria-hidden="true"><span style={{ width: `${(run.done / run.total) * 100}%` }} /></span>
+            </>
+          )}
+          {run.errors.length > 0 && <ul className={s.jobs}>{run.errors.slice(0, 8).map((e, i) => <li key={i} className={s.jobError}>{e}</li>)}{run.errors.length > 8 && <li className={s.jobError}>…és még {run.errors.length - 8} hiba</li>}</ul>}
+          {run.finished && <small className={s.muted}>Ne felejtsd el: a „Mentés az előnézetbe” gombbal mentsd el.</small>}
+        </div>
+      )}
+    </div>
+  );
+}
 const isHttp = (v) => { try { return ['http:', 'https:'].includes(new URL(v).protocol); } catch { return false; } };
 const Icon = ({ d }) => <svg viewBox="0 0 24 24" aria-hidden="true"><path d={d} /></svg>;
 const ICON = {
@@ -315,7 +483,7 @@ function PhotoGrid({ f, value, onChange, s }) {
   const room = f.max - list.length;
 
   const update = (next) => { latest.current = next; change.current(next); };
-  const newItem = (src) => ({ ...emptyValue(f.item), id: `uj-${rid()}`, picture: { src, alt: '', position: '50% 50%' } });
+  const newItem = (src, thumb) => ({ ...emptyValue(f.item), id: `uj-${rid()}`, picture: { src, ...(thumb ? { thumb } : {}), alt: '', position: '50% 50%' } });
   const setItem = (i, patch) => update(latest.current.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const setPicture = (i, patch) => setItem(i, { picture: { ...latest.current[i].picture, ...patch } });
   const move = (i, d) => { const a = [...latest.current]; [a[i], a[i + d]] = [a[i + d], a[i]]; update(a); };
@@ -323,15 +491,9 @@ function PhotoGrid({ f, value, onChange, s }) {
   const job = (id, patch) => setJobs(js => (patch ? js.map(j => (j.id === id ? { ...j, ...patch } : j)) : js.filter(j => j.id !== id)));
 
   async function send(file) {
-    if (!file.type?.startsWith('image/')) return { error: 'Ez nem kép.' };
-    if (file.size > MAX_IMAGE) return { error: 'A kép legfeljebb 4 MB lehet.' };
     counting(1);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      return (await uploadImageAction(fd)) || { error: 'Nem sikerült feltölteni.' };
-    } catch {
-      return { error: 'Nem sikerült feltölteni. Próbáld újra.' };
+      return await uploadOne(file);
     } finally {
       counting(-1);
     }
@@ -350,7 +512,7 @@ function PhotoGrid({ f, value, onChange, s }) {
       if (full()) { job(ids[i].id, noRoom); continue; }
       const res = await send(file);
       if (res.url && full()) job(ids[i].id, noRoom);
-      else if (res.url) { update([...latest.current, newItem(res.url)]); job(ids[i].id, null); }
+      else if (res.url) { update([...latest.current, newItem(res.url, res.thumb)]); job(ids[i].id, null); }
       else job(ids[i].id, { error: res.error });
     }
   }
@@ -362,7 +524,7 @@ function PhotoGrid({ f, value, onChange, s }) {
     setJobs(js => [...js, { id, name: file.name }]);
     const res = await send(file);
     const at = latest.current.findIndex(x => x.id === itemId);
-    if (res.url && at >= 0) { setPicture(at, { src: res.url }); job(id, null); }
+    if (res.url && at >= 0) { setPicture(at, { src: res.url, thumb: res.thumb }); job(id, null); }
     else job(id, { error: res.error || 'A képet közben törölték.' });
   }
 
@@ -393,7 +555,7 @@ function PhotoGrid({ f, value, onChange, s }) {
             <li key={item.id || i} className={s.photo} data-photo>
               <div className={s.photoImg} onClick={(e) => pick(e, i)} title="Kattints oda, ahol a kép lényege van">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={withBase(item.picture.src)} alt="" style={{ objectPosition: item.picture.position }} referrerPolicy="no-referrer" />
+                <img src={withBase(item.picture.thumb || item.picture.src)} alt="" loading="lazy" style={{ objectPosition: item.picture.position }} referrerPolicy="no-referrer" />
                 <i className={s.imageDot} style={{ left: px, top: py }} aria-hidden="true" />
                 <span className={s.photoNo}>{i + 1}.</span>
               </div>
@@ -421,7 +583,7 @@ function PhotoGrid({ f, value, onChange, s }) {
             <label>
               <Icon d={ICON.plus} />
               <b>{list.length ? 'Képek hozzáadása' : 'Képek feltöltése'}</b>
-              <small>Egyszerre többet is kijelölhetsz. Legfeljebb 4 MB / kép.</small>
+              <small>Egyszerre többet is kijelölhetsz. A nagy fotókat feltöltés előtt kicsinyíti.</small>
               <input type="file" accept="image/*" multiple className={s.sr} onChange={(e) => { const files = e.target.files; uploadMany(files); e.target.value = ''; }} />
             </label>
           </li>

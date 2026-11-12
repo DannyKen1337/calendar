@@ -3,7 +3,8 @@
 // (weblap/lib/content.js); ami nincs elmentve, az onnan jön.
 //
 // Mezőtípusok: text (egysoros), textarea, url, bool, image ({ src, alt, position }), src (csak kép-cím),
-// hours (heti nyitvatartás), strings (rövid szövegek listája), object (mezők csoportja), list (ismétlődő elemek).
+// hours (heti nyitvatartás), strings (rövid szövegek listája), object (mezők csoportja), list (ismétlődő elemek),
+// date (nap: "2026-11-08" vagy üres), select (választás a megadott lehetőségek közül).
 
 const text = (label, o = {}) => ({ type: 'text', label, max: 200, ...o });
 const area = (label, o = {}) => ({ type: 'textarea', label, max: 2000, rows: 4, ...o });
@@ -12,12 +13,22 @@ const image = (label, o = {}) => ({ type: 'image', label, ...o });
 const hours = (label, o = {}) => ({ type: 'hours', label, ...o });
 const object = (label, fields, o = {}) => ({ type: 'object', label, fields, ...o });
 const list = (label, item, o = {}) => ({ type: 'list', label, item, max: 12, ...o });
+const date = (label, o = {}) => ({ type: 'date', label, ...o });
+const select = (label, options, o = {}) => ({ type: 'select', label, options, ...o });
 
 // A boltok azonosítója a naptárban (az események "store" mezője); a weboldalon ebben a sorrendben jelennek meg
 export const STORE_IDS = ['debrecen', 'jatekceh', 'miskolc'];
 // A boltok neve mindenhol így szerepel a weboldalon (a mentett tartalom sem írhatja felül)
 export const STORE_LABELS = { debrecen: 'Tavern Debrecen', jatekceh: 'JátékCéh', miskolc: 'Tavern Miskolc' };
 
+// A Galéria albumainak játékai (szűrő a Galéria oldalon); az érték a naptár játékneve
+export const ALBUM_GAMES = [
+  ['Pokémon TCG', 'Pokémon'], ['One Piece Card Game', 'One Piece'], ['Riftbound', 'Riftbound'], ['Magic: The Gathering', 'Magic'],
+  ['Warhammer', 'Warhammer'], ['Disney Lorcana', 'Lorcana'], ['Yu-Gi-Oh!', 'Yu-Gi-Oh!'], ['Flesh and Blood', 'Flesh and Blood'],
+  ['CyberPunk TCG', 'CyberPunk'], ['Társasjáték', 'Társasjáték'], ['Egyéb', 'Egyéb'],
+].map(([value, label]) => ({ value, label }));
+// Egy album legfeljebb ennyi képet tartalmazhat
+export const ALBUM_MAX_PICTURES = 200;
 const storeFields = (id) => object(STORE_LABELS[id], {
   name: text('Név', { max: 60 }),
   address: text('Cím'),
@@ -44,6 +55,7 @@ export const CONTENT_TABS = [
         hirek: text('Hírek', { max: 30 }),
         boltok: text('Boltok', { max: 30 }),
         kapcsolat: text('Kapcsolat', { max: 30 }),
+        galeria: text('Galéria (külön oldal)', { max: 30 }),
       }),
       cta: object('A fejléc kiemelt gombja (jobbra fent, a naptárat nyitja meg)', {
         label: text('Felirat', { max: 30 }),
@@ -100,6 +112,21 @@ export const CONTENT_TABS = [
     }),
   },
   {
+    key: 'albums', label: 'Albumok',
+    intro: 'A Galéria oldal (a menüben fent) albumai: egy album egy esemény képei, pl. Pokémon Prerelease, Pokeween, Riftbound Skirmish. A „Mappa feltöltése” gombbal egy egész mappát feltölthetsz: minden mappából egy album lesz a mappa nevével, a dátumot és a játékot a névből próbálja kitalálni.',
+    schema: object(null, {
+      title: text('A Galéria oldal címe', { max: 60 }),
+      lead: area('Bevezető a cím alatt', { max: 300, rows: 2 }),
+      albums: list('Albumok', object(null, {
+        title: text('Az esemény neve', { max: 80 }),
+        date: date('Dátum'),
+        game: select('Játék', [{ value: '', label: 'Nincs megadva' }, ...ALBUM_GAMES]),
+        store: select('Bolt', [{ value: '', label: 'Nincs megadva' }, ...STORE_IDS.map(id => ({ value: id, label: STORE_LABELS[id] }))]),
+        pictures: list('Képek', object(null, { picture: image('Kép'), caption: text('Felirat', { max: 60 }) }), { itemLabel: 'kép', titleKey: 'caption', max: ALBUM_MAX_PICTURES, photos: true }),
+      }), { itemLabel: 'album', titleKey: 'title', max: 60, collapsible: true, folders: true }),
+    }),
+  },
+  {
     key: 'news', label: 'Hírek rész',
     intro: 'A hírek szakasz szövegei a főoldalon és a Hírek oldalon. Magukat a híreket a Hírek fülön írod; a boltok Facebook-posztjai maguktól jönnek, ha be van állítva.',
     schema: object(null, {
@@ -139,7 +166,7 @@ export const CONTENT_TABS = [
 
 export const TAB_KEYS = CONTENT_TABS.map(t => t.key);
 // A szerkesztőfelületen ezek a fülek látszanak (és csak ezeket lehet menteni); a többi tartalma marad, ahogy van
-export const EDITABLE_TABS = ['gallery', 'slideshow'];
+export const EDITABLE_TABS = ['gallery', 'slideshow', 'albums'];
 export const isEditableTab = (key) => EDITABLE_TABS.includes(key);
 export const tabByKey = (key) => CONTENT_TABS.find(t => t.key === key);
 
@@ -195,7 +222,9 @@ export function sanitizeField(f, value, fallback, errors, path = f.label || '') 
       if (srcValue.length > 500 || !IMAGE_RE.test(srcValue) || srcValue.includes('..')) return fail('hibás kép-cím');
       const m = String(value.position ?? '').match(POSITION_RE);
       const position = m && +m[1] <= 100 && +m[2] <= 100 ? `${+m[1]}% ${+m[2]}%` : (fallback?.position || '50% 50%');
-      return { src: srcValue, alt: oneLine(value.alt, 300), position };
+      // thumb: a kép kisebb változata (az ImgBB adja feltöltéskor), a rácsban ez töltődik be
+      const thumb = String(value.thumb ?? '').trim();
+      return { src: srcValue, alt: oneLine(value.alt, 300), position, ...(thumb && thumb.length <= 500 && IMAGE_RE.test(thumb) && !thumb.includes('..') ? { thumb } : {}) };
     }
     case 'hours': {
       if (!value || typeof value !== 'object') return fallback;
@@ -208,6 +237,17 @@ export function sanitizeField(f, value, fallback, errors, path = f.label || '') 
         out[d] = [o, c];
       }
       return out;
+    }
+    case 'date': {
+      if (value == null) return fallback;
+      const v = String(value).trim();
+      if (!v) return '';
+      return /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T12:00:00Z`)) ? v : fail('hibás dátum');
+    }
+    case 'select': {
+      if (value == null) return fallback;
+      const v = String(value);
+      return f.options.some(o => o.value === v) ? v : fail('ismeretlen érték');
     }
     case 'strings': {
       if (!Array.isArray(value)) return fallback;

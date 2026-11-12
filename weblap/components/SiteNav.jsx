@@ -7,8 +7,9 @@ import s from '@/weblap/fooldal.module.css';
 // A fejléc: jobbra fent egy gyorsgomb az oldal fő részeihez és a Naptár (a naptárablakot nyitja meg: data-cal).
 // A főoldalon nincs cégér a fejlécben (ott a nyitókép maga a cégér), és kiemeli, melyik résznél jársz;
 // az aloldalakon balra a cégér, és a gyorsgombok a főoldal részeire visznek. Keskeny képernyőn csak a Naptár marad.
-// links: [{ id, label }]; extra: külső linkek [{ href, label }]; cta: a kiemelt gomb { label, href }; logo: a cégér { src, alt }
-export default function SiteNav({ home = true, homeHref = withBase('/'), links, extra = [], cta, logo }) {
+// links: [{ id, label }]; pages: külön oldalak [{ id, href, label, current }] (telefonon is látszanak);
+// extra: külső linkek [{ href, label }]; cta: a kiemelt gomb { label, href }; logo: a cégér { src, alt }
+export default function SiteNav({ home = true, homeHref = withBase('/'), links, pages = [], extra = [], cta, logo }) {
   const [active, setActive] = useState(null);
 
   useEffect(() => {
@@ -36,6 +37,11 @@ export default function SiteNav({ home = true, homeHref = withBase('/'), links, 
         ))}
         {extra.map(l => <a key={l.href} href={l.href}>{l.label}</a>)}
       </nav>
+      {pages.length > 0 && (
+        <nav className={s.navPages} aria-label="Oldalak">
+          {pages.map(l => <a key={l.id} href={l.href} aria-current={l.current ? 'page' : undefined} data-menu={l.id}>{l.label}</a>)}
+        </nav>
+      )}
       {cta.label && cta.href && <a href={cta.href} className={s.navCta} {...(home ? { 'data-cal': '', 'data-title': cta.label } : {})}>{cta.label}</a>}
     </header>
   );

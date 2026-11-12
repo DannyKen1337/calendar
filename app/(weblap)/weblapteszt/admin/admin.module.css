@@ -196,3 +196,13 @@
 @media (prefers-reduced-motion: reduce) {
   .page *, .page *::before, .page *::after { transition: none !important; }
 }
+
+/* Albumok: választómező, mappa feltöltése (gomb vagy behúzás) és a haladás */
+.field select { width: 100%; min-height: 48px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); color: var(--ink); font: inherit; font-size: 16px; color-scheme: dark; }
+.field select:focus { border-color: var(--gold); outline: none; }
+.folder { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border: 2px dashed var(--line); border-radius: var(--radius); transition: border-color 160ms var(--ease), background 160ms var(--ease); }
+.folder > label.small { display: inline-flex; align-items: center; border-radius: 12px; cursor: pointer; background: var(--gold); color: var(--on-gold) !important; }
+.folder > label.small[aria-disabled] { opacity: 0.6; cursor: default; }
+.folderRun { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.folderBar { display: block; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.folderBar span { display: block; height: 100%; background: var(--gold); transition: width 300ms var(--ease); }

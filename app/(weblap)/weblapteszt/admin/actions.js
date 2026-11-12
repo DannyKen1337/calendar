@@ -66,7 +66,9 @@ async function uploadImage(file) {
   try {
     const res = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(key)}`, { method: 'POST', body });
     const data = await res.json();
-    if (data?.success && data.data?.url) return { url: data.data.url };
+    // thumb: a kisebb (közepes) változat, ha az ImgBB készített ilyet (a Galéria rácsában ez töltődik be)
+    const thumb = data?.data?.medium?.url;
+    if (data?.success && data.data?.url) return { url: data.data.url, ...(thumb && thumb !== data.data.url ? { thumb } : {}) };
   } catch (err) {
     console.error('képfeltöltés:', err);
   }

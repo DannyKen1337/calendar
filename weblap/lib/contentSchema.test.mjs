@@ -5,8 +5,8 @@ import { tabByKey, sanitizeField, emptyValue, isEditableTab, EDITABLE_TABS } fro
 
 const pic = (i, caption = '') => ({ picture: { src: `https://i.ibb.co/x/${i}.jpg`, alt: '', position: '50% 50%' }, caption });
 
-test('a szerkesztőfelületen csak a Galéria és a Képfal szerkeszthető', () => {
-  assert.deepEqual(EDITABLE_TABS, ['gallery', 'slideshow']);
+test('a szerkesztőfelületen csak a Galéria, a Képfal és az Albumok szerkeszthető', () => {
+  assert.deepEqual(EDITABLE_TABS, ['gallery', 'slideshow', 'albums']);
   assert.equal(isEditableTab('slideshow'), true);
   assert.equal(isEditableTab('gallery'), true);
   assert.equal(isEditableTab('hero'), false);
@@ -34,4 +34,20 @@ test('kép nélküli képfal-elem hibát ad', () => {
   const errors = [];
   sanitizeField(tab.schema, { title: 'x', pictures: [{ picture: { src: '' }, caption: 'üres' }] }, emptyValue(tab.schema), errors);
   assert.ok(errors.some(e => e.includes('nincs kép')), errors.join('\n'));
+});
+
+test('Albumok: dátum, játék, bolt és a kép kisebb változata', () => {
+  const tab = tabByKey('albums');
+  const errors = [];
+  const album = { title: 'Pokeween', date: '2026-10-31', game: 'Pokémon TCG', store: 'debrecen', pictures: [{ picture: { src: 'https://i.ibb.co/a/1.jpg', thumb: 'https://i.ibb.co/b/1.jpg', alt: '', position: '50% 50%' }, caption: '' }] };
+  const out = sanitizeField(tab.schema, { title: 'Galéria', lead: '', albums: [album] }, emptyValue(tab.schema), errors);
+  assert.deepEqual(errors, []);
+  assert.equal(out.albums[0].date, '2026-10-31');
+  assert.equal(out.albums[0].game, 'Pokémon TCG');
+  assert.equal(out.albums[0].pictures[0].picture.thumb, 'https://i.ibb.co/b/1.jpg');
+  const bad = [];
+  sanitizeField(tab.schema, { albums: [{ ...album, date: '2026-13-45', game: 'Sakk', store: 'budapest' }] }, emptyValue(tab.schema), bad);
+  assert.equal(bad.length, 3, bad.join('\n'));
+  const noThumb = sanitizeField(tab.schema, { albums: [{ ...album, pictures: [{ picture: { src: '/photos/a.png', thumb: 'javascript:alert(1)' } }] }] }, emptyValue(tab.schema), []);
+  assert.equal(noThumb.albums[0].pictures[0].picture.thumb, undefined);
 });

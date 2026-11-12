@@ -11,7 +11,7 @@ const URL_ = 'http://localhost:3179/api/auth/session';
 const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fut
 const ROUNDS = [
   { fake: false, tests: ['weblap-jog', 'weblap-mozaik', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi'] },
-  { fake: true, tests: ['weblap-javitasok'] },
+  { fake: true, tests: ['weblap-javitasok', 'weblap-galeria'] },
 ];
 const only = process.argv.slice(2);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));

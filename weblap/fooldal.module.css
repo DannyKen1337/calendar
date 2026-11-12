@@ -58,6 +58,11 @@
 .navLinks a:hover, .navLinks a[aria-current] { color: var(--gold); }
 .navMenu { display: none; }
 .navCta { composes: btn; }
+/* Külön oldalak (Galéria): minden méretben látszik, a Naptár gomb előtt */
+.navPages { display: flex; gap: 1.25rem; align-items: center; font-size: var(--step-small); }
+.navPages a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; font-weight: 600; }
+.navPages a:hover, .navPages a[aria-current] { color: var(--gold); }
+.navPages a[aria-current] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.35em; }
 
 /* --- Nyitókép: a cégér borítja be az első képernyőt; beúszik, görgetésre kiúszik (Motion: --p) --- */
 .hero { height: 100svh; min-height: 560px; display: grid; grid-template-rows: 1fr auto; padding: 5.5rem var(--margin) 1.75rem; overflow: hidden; }
@@ -382,6 +387,39 @@
 .articleText { display: flex; flex-direction: column; gap: 1em; font-size: var(--step-lead); line-height: 1.5; }
 .article .btn { align-self: flex-start; }
 
+/* --- Galéria oldal: albumkártyák (borító, dátum · bolt, cím, játék), egy album képrácsa és a nagyító --- */
+.albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 2.5rem var(--gutter); margin-top: 2rem !important; }
+.albumCard { display: flex; flex-direction: column; gap: 0.5rem; text-decoration: none; }
+.albumCover { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--surface); }
+.albumCover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 900ms var(--ease-soft); }
+.albumCard:hover .albumCover img { transform: scale(1.05); }
+.albumCount { position: absolute; right: 10px; bottom: 10px; padding: 0.2rem 0.6rem; background: rgba(15, 15, 15, 0.82); color: var(--ink); font-size: var(--step-small); font-weight: 600; }
+.albumMeta { color: var(--muted); font-size: var(--step-small); }
+.albumTitle { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.3rem); line-height: 1; }
+.albumCard:hover .albumTitle { color: var(--gold); }
+.albumGame { align-self: flex-start; padding: 0.15rem 0.55rem; border: 1px solid rgba(229, 177, 93, 0.5); color: var(--gold); font-size: var(--step-small); font-weight: 600; }
+.albumInfo { color: var(--muted); font-size: var(--step-lead); }
+.albumPhotos { columns: 3 280px; column-gap: 12px; }
+.albumPhotos li { break-inside: avoid; margin-bottom: 12px; }
+.albumPhotos button { display: block; width: 100%; padding: 0; overflow: hidden; background: var(--surface); cursor: zoom-in; }
+.albumPhotos img { display: block; width: 100%; height: auto; min-height: 120px; object-fit: cover; transition: transform 600ms var(--ease-soft), opacity 300ms ease; }
+.albumPhotos button:hover img { transform: scale(1.03); }
+.albumCaption { display: block; padding-top: 0.35rem; color: var(--muted); font-size: var(--step-small); }
+.lightbox { position: fixed; inset: 0; z-index: 120; display: grid; grid-template-rows: auto 1fr; background: rgba(10, 10, 10, 0.97); animation: lbIn 220ms ease; }
+@keyframes lbIn { from { opacity: 0; } }
+.lightboxBar { display: flex; justify-content: space-between; align-items: center; padding: 12px var(--margin); color: var(--muted); font-size: var(--step-small); font-variant-numeric: tabular-nums; }
+.lightboxFig { margin: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 0 72px 24px; }
+.lightboxFig img { max-width: 100%; max-height: calc(100svh - 130px); object-fit: contain; animation: lbImg 260ms var(--ease-out); }
+@keyframes lbImg { from { opacity: 0; transform: scale(0.98); } }
+.lightboxFig figcaption { color: var(--muted); }
+.lightboxNav { position: absolute; top: 50%; width: 52px; height: 52px; margin-top: -26px; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, 0.08) !important; transition: background-color 160ms ease; }
+.lightboxNav:hover { background: rgba(229, 177, 93, 0.25) !important; }
+.lightboxNav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+.lightboxPrev { left: 12px; }
+.lightboxNext { right: 12px; }
+.printsMore { position: absolute; right: 24px; bottom: 24px; z-index: 3; font-size: var(--step-lead); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .lightbox, .lightboxFig img { animation: none; } }
+
 /* --- Az előnézet sávja: arany, a képernyő alján, mindig látszik --- */
 .withPreview { padding-bottom: 88px; }
 .withPreview .hero { height: calc(100svh - 76px); }
@@ -420,6 +458,15 @@
   .print:nth-of-type(2) { right: auto; top: auto; margin-left: auto; transform: rotate(4deg); }
   .print:nth-of-type(3) { display: none; }
   .printsNote { position: static; margin-top: 2rem; }
+  .printsMore { position: static; display: inline-block; margin-top: 1.25rem; }
+  .navPages { gap: 0.9rem; }
+  .albumPhotos { columns: 2; column-gap: 8px; }
+  .albumPhotos li { margin-bottom: 8px; }
+  .lightboxFig { padding: 0 0 72px; }
+  .lightboxFig img { max-height: calc(100svh - 150px); }
+  .lightboxNav { top: auto; bottom: 14px; margin-top: 0; }
+  .lightboxPrev { left: calc(50% - 64px); }
+  .lightboxNext { right: calc(50% - 64px); }
   .newsHead { flex-direction: column; align-items: flex-start; }
   .newsBig { grid-template-columns: 1fr; }
   .newsRow { grid-column: 1 / -1; grid-template-columns: 112px 1fr; }

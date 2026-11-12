@@ -18,7 +18,7 @@ const b = await browser();
 try {
   const p = await page(b, editor);
   await p.goto(`${BASE}/weblapteszt/admin`, { waitUntil: 'networkidle2', timeout: 240000 });
-  ok((await tabs(p)).join(',') === 'Hírek,Galéria,Képfal', 'a fülek: Hírek, Galéria, Képfal');
+  ok((await tabs(p)).join(',') === 'Hírek,Galéria,Képfal,Albumok', 'a fülek: Hírek, Galéria, Képfal, Albumok');
   await p.goto(`${BASE}/weblapteszt/admin?lap=hero`, { waitUntil: 'networkidle2' });
   ok((await p.$eval('[aria-current="page"]', a => a.textContent.trim())) === 'Hírek' && !!(await p.$('input[name=title]')), 'régi cím (?lap=hero): a Hírek fül nyílik');
 
