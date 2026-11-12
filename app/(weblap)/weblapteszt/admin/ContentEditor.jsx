@@ -4,7 +4,7 @@ import { tabByKey, emptyValue, ALBUM_MAX_PICTURES } from '@/weblap/lib/contentSc
 import { albumsFromFiles, findAlbum, isImageFile } from '@/weblap/lib/albums';
 import { compressImage } from '@/weblap/lib/compressImage';
 import { withBase } from '@/weblap/lib/basePath';
-import { saveContentAction, uploadImageAction } from './actions';
+import { saveContentAction, uploadImageAction, editImageAction } from './actions';
 
 // Az oldal tartalmának egy füle (a szerkesztőfelületen a Galéria és a Képfal). Az űrlapot a fül sémája rajzolja ki
 // (weblap/lib/contentSchema.js); mentéskor a teljes fül JSON-ban megy a szervernek, ami a séma szerint ellenőrzi.
@@ -467,7 +467,70 @@ const ICON = {
   left: 'M15 5l-7 7 7 7', right: 'M9 5l7 7-7 7',
   swap: 'M4 8h13l-3-3M20 16H7l3 3', trash: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12',
   plus: 'M12 5v14M5 12h14',
+  edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
+  rotL: 'M9 4 5 8l4 4M5 8h9a5 5 0 0 1 0 10h-3', rotR: 'M15 4l4 4-4 4M19 8h-9a5 5 0 0 0 0 10h3',
+  flip: 'M12 3v18M8 7 3 12l5 5zM16 7l5 5-5 5z', sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5',
+  moon: 'M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z',
 };
+const isEditableImage = (src) => /^https:\/\/i\.ibb\.co\//.test(src || '');
+
+// Egy feltöltött kép szerkesztése: forgatás, tükrözés, világosítás / sötétítés, élő előnézettel. Mentéskor a szerver
+// elkészíti az új képet (editImageAction), és az kerül a régi helyére. onSave({ url, thumb }); onClose()
+function PhotoEditor({ src, s, onSave, onClose }) {
+  const ref = useRef(null);
+  const counting = useContext(UploadCount);
+  const [rotate, setRotate] = useState(0);
+  const [flip, setFlip] = useState(false);
+  const [light, setLight] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
+  const changed = rotate !== 0 || flip || light !== 0;
+  const turn = (d) => setRotate(r => (r + d + 360) % 360);
+  async function save() {
+    setBusy(true);
+    setError(null);
+    counting(1);
+    try {
+      const res = await editImageAction({ src, rotate, flip, light });
+      if (res?.url) { onSave(res); onClose(); }
+      else setError(res?.error || 'Nem sikerült menteni.');
+    } catch {
+      setError('Nem sikerült menteni. Próbáld újra.');
+    } finally {
+      counting(-1);
+      setBusy(false);
+    }
+  }
+  const tool = (label, d, fn, disabled = false) => (
+    <button type="button" className={s.editorTool} onClick={fn} disabled={busy || disabled}><Icon d={d} /><span>{label}</span></button>
+  );
+  return (
+    <dialog ref={ref} className={s.editor} aria-labelledby="kepszerk-cim" onClose={onClose} onCancel={(e) => { if (busy) e.preventDefault(); }} data-kepszerkeszto>
+      <h2 id="kepszerk-cim" className={s.editorTitle}>Kép szerkesztése</h2>
+      <div className={s.editorStage}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" referrerPolicy="no-referrer" style={{ transform: `rotate(${rotate}deg) scaleX(${flip ? -1 : 1})`, filter: light ? `brightness(${1 + light * 0.12})` : undefined }} />
+      </div>
+      <div className={s.editorTools} role="group" aria-label="Szerkesztés">
+        {tool('Balra', ICON.rotL, () => turn(-90))}
+        {tool('Jobbra', ICON.rotR, () => turn(90))}
+        {tool('Tükrözés', ICON.flip, () => setFlip(v => !v))}
+        {tool('Sötétebb', ICON.moon, () => setLight(v => v - 1), light <= -3)}
+        {tool('Világosabb', ICON.sun, () => setLight(v => v + 1), light >= 3)}
+      </div>
+      {error && <p className={s.error} role="alert">{error}</p>}
+      <div className={s.editorActions}>
+        <button type="button" className={s.small} onClick={() => { setRotate(0); setFlip(false); setLight(0); }} disabled={busy || !changed}>Visszaállítás</button>
+        <span className={s.editorRight}>
+          <button type="button" className={s.small} onClick={() => ref.current?.close()} disabled={busy}>Mégse</button>
+          <button type="button" className={s.primary} onClick={save} disabled={busy || !changed} aria-busy={busy || undefined}>{busy ? 'Mentés…' : 'Kész'}</button>
+        </span>
+      </div>
+      <small className={s.muted}>A „Kész” után a kép lecserélődik; az oldalra a „Mentés az előnézetbe” gombbal kerül.</small>
+    </dialog>
+  );
+}
 
 // Képek rácsban (Galéria, Képfal): bélyegképek, egyszerre több kép feltöltése (vagy behúzása), kép linkje,
 // sorrend, csere, törlés és felirat. A képre kattintva választható ki, hova essen a kép közepe.
@@ -477,6 +540,8 @@ function PhotoGrid({ f, value, onChange, s }) {
   const [jobs, setJobs] = useState([]); // feltöltések: { id, name, error }
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState(null);
+  const [editing, setEditing] = useState(null); // a szerkesztett kép azonosítója
+  const editItem = editing ? list.find(x => x.id === editing) : null;
   const [drag, setDrag] = useState(false);
   // a feltöltések egymás után futnak: mindig a legfrissebb listához és a legfrissebb onChange-hez írjanak
   // (különben a közben átírt cím vagy felirat visszaugrana)
@@ -532,6 +597,12 @@ function PhotoGrid({ f, value, onChange, s }) {
     else job(id, { error: res.error || 'A képet közben törölték.' });
   }
 
+  // a szerkesztett kép az azonosítója szerint cserélődik (közben átrendezhették)
+  function saveEdit(res) {
+    const at = latest.current.findIndex(x => x.id === editing);
+    if (at >= 0) setPicture(at, { src: res.url, thumb: res.thumb });
+  }
+
   function addLink() {
     const v = link.trim();
     if (!isHttp(v)) { setLinkError('A link http:// vagy https:// kezdetű legyen.'); return; }
@@ -574,6 +645,7 @@ function PhotoGrid({ f, value, onChange, s }) {
                     <Icon d={ICON.swap} /><span className={s.sr}>Csere</span>
                     <input type="file" accept="image/*,.heic,.heif,.dng" className={s.sr} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) replace(i, file); }} />
                   </label>
+                  {isEditableImage(item.picture.src) && <button type="button" className={s.iconBtn} onClick={() => setEditing(item.id)} data-szerkeszt><Icon d={ICON.edit} /><span className={s.sr}>Szerkesztés (forgatás, tükrözés, fényerő)</span></button>}
                   <button type="button" className={`${s.iconBtn} ${s.danger}`} onClick={() => remove(i)}><Icon d={ICON.trash} /><span className={s.sr}>Törlés</span></button>
                 </div>
               </div>
@@ -611,6 +683,7 @@ function PhotoGrid({ f, value, onChange, s }) {
           {linkError && <small className={s.error}>{linkError}</small>}
         </div>
       )}
+      {editItem && <PhotoEditor src={editItem.picture.src} s={s} onClose={() => setEditing(null)} onSave={saveEdit} />}
     </fieldset>
   );
 }

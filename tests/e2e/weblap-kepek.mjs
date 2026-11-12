@@ -1,7 +1,7 @@
 // Weboldal szerkesztő: a nagy (iPhone-méretű, 4 MB fölötti) fotók feltöltés előtt a böngészőben tömörítődnek – a Képfalon,
 // a Galéria albumaiban és a Hírek űrlapján is –, és szépek maradnak (a hosszabbik oldal 2560 px, jó minőségű JPEG).
 // FAKE_IMGBB=1 szerverrel: az ál-ImgBB a cím végére írja a kapott kép méretét bájtban.
-import { openDb, token, browser, page, ok, summary, wait, BASE } from './lib.mjs';
+import { openDb, token, browser, page, ok, summary, wait, BASE, SHOTS } from './lib.mjs';
 import { mkdtempSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -50,6 +50,32 @@ try {
   ok(!!src && !/legfeljebb 4 MB/i.test(text), `Képfal: a 4 MB fölötti fotó is felment, hiba nélkül (${src})`);
   ok(sentSize(src) > 0 && sentSize(src) <= 3.5 * 1024 * 1024 && /\.jpg$/.test(src), `Képfal: tömörítve ment fel (${(sentSize(src) / 1048576).toFixed(2)} MB JPEG)`);
   ok(sentSize(src) > 300 * 1024, 'Képfal: nem túltömörítve (szép marad)');
+
+  // szerkesztés feltöltés után: jobbra forgatás → álló kép kerül a helyére (az ál-kép 300 × 200-as)
+  await p.click('[data-photo] [data-szerkeszt]');
+  await p.waitForSelector('[data-kepszerkeszto][open]', { timeout: 10000 });
+  await p.evaluate(() => [...document.querySelectorAll('[data-kepszerkeszto] button')].find(x => /Jobbra/.test(x.textContent)).click());
+  await wait(100);
+  ok(/rotate\(90deg\)/.test(await p.$eval('[data-kepszerkeszto] img', i => i.style.transform)), 'szerkesztés: az előnézet rögtön elfordul');
+  await p.evaluate(() => [...document.querySelectorAll('[data-kepszerkeszto] button')].find(x => /^Kész$/.test(x.textContent)).click());
+  await p.waitForFunction((old) => document.querySelector('[data-photo] img')?.getAttribute('src') !== old && !document.querySelector('[data-kepszerkeszto][open]'), { timeout: 30000 }, src).catch(() => {});
+  const edited = await p.$eval('[data-photo] img', i => i.getAttribute('src'));
+  ok(/-200x300-\d+\.jpg$/.test(edited), `szerkesztés: jobbra forgatva, álló kép került a helyére (${edited})`);
+  await p.click('[data-photo] [data-szerkeszt]');
+  await p.waitForSelector('[data-kepszerkeszto][open]');
+  await p.keyboard.press('Escape');
+  await wait(200);
+  ok(!(await p.$('[data-kepszerkeszto]')) && (await p.$eval('[data-photo] img', i => i.getAttribute('src'))) === edited, 'szerkesztés: Esc-re bezárul, nem változik semmi');
+  await p.evaluate(() => [...document.querySelectorAll('button')].find(x => /Mentés az előnézetbe/.test(x.textContent)).click());
+  await p.waitForFunction(() => /Elmentve/.test(document.body.innerText), { timeout: 30000 }).catch(() => {});
+  const ph = await page(b, editor, 402, 874);
+  await ph.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2' });
+  await ph.evaluate(() => document.querySelector('[data-photo] [data-szerkeszt]')?.click());
+  await ph.waitForSelector('[data-kepszerkeszto][open]', { timeout: 10000 }).catch(() => {});
+  const tools = await ph.$$eval('[data-kepszerkeszto] button', bs => bs.map(x => Math.round(x.getBoundingClientRect().height)));
+  ok(tools.length >= 8 && tools.every(h => h >= 44) && (await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, `telefonon: a szerkesztő gombjai legalább 44 px (${tools.join(', ')})`);
+  await ph.screenshot({ path: `${SHOTS}kepszerkeszto-telefon.jpg`, quality: 60 });
+  await ph.close();
 
   // Galéria album: a mappa-feltöltés is tömörít
   await p.goto(`${BASE}/weblapteszt/admin?lap=albums`, { waitUntil: 'networkidle2' });

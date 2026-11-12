@@ -31,6 +31,8 @@ const ICONS = {
 const TABS = [{ key: 'hirek', label: 'Hírek' }, ...EDITABLE_TABS.map(tabByKey)];
 const PREVIEW = { gallery: '/elonezet#galeria', slideshow: '/elonezet#kepfal', albums: '/elonezet/galeria' };
 export const dynamic = 'force-dynamic';
+// a képszerkesztés (letöltés, átalakítás, feltöltés) pár másodpercig is eltarthat
+export const maxDuration = 60;
 
 // "2026-10-29T18:00" magyar helyi idő a dátummezőhöz
 function toLocalInput(date) {

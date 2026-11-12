@@ -57,10 +57,16 @@ function budapestToDate(local) {
 const MAX_IMAGE = 4 * 1024 * 1024;
 
 async function uploadImage(file) {
-  const key = process.env.IMGBB_API_KEY;
-  if (!key) return { error: 'A képfeltöltés nincs beállítva (IMGBB_API_KEY). Adj meg inkább egy kép-URL-t.' };
+  if (!process.env.IMGBB_API_KEY) return { error: 'A képfeltöltés nincs beállítva (IMGBB_API_KEY). Adj meg inkább egy kép-URL-t.' };
   if (!file.type?.startsWith('image/')) return { error: 'Csak képet lehet feltölteni.' };
   if (file.size > MAX_IMAGE) return { error: 'A kép legfeljebb 4 MB lehet.' };
+  return sendToImgbb(file);
+}
+
+// A kép (File) elküldése az ImgBB-nek. Visszaad: { url, thumb? } vagy { error }
+async function sendToImgbb(file) {
+  const key = process.env.IMGBB_API_KEY;
+  if (!key) return { error: 'A képfeltöltés nincs beállítva (IMGBB_API_KEY).' };
   const body = new FormData();
   body.append('image', file);
   try {
@@ -220,4 +226,36 @@ export async function uploadImageAction(formData) {
   const file = formData.get('file');
   if (!file || typeof file !== 'object' || !file.size) return { error: 'Nincs kiválasztva kép.' };
   return uploadImage(file);
+}
+
+// --- Képszerkesztés feltöltés után (forgatás, tükrözés, világosítás) ---
+
+// Csak a feltöltött (ImgBB-n lévő) képek szerkeszthetők; a szerver betölti, átalakítja (sharp), és új képként feltölti.
+// rotate: 0 / 90 / 180 / 270 (az óramutató járása szerint), flip: vízszintes tükrözés (a forgatás előtt, mint az előnézetben),
+// light: −3 … +3 (lépésenként 12% fényerő). Visszaad: { url, thumb? } vagy { error }
+const EDITABLE_IMAGE = /^https:\/\/i\.ibb\.co\/[\w./%-]+$/;
+const EDIT_MAX_BYTES = 15 * 1024 * 1024;
+
+export async function editImageAction({ src, rotate = 0, flip = false, light = 0 } = {}) {
+  await requireEditor();
+  if (typeof src !== 'string' || !EDITABLE_IMAGE.test(src)) return { error: 'Csak a feltöltött képek szerkeszthetők.' };
+  const deg = [0, 90, 180, 270].includes(+rotate) ? +rotate : 0;
+  const step = Math.max(-3, Math.min(3, Math.round(+light || 0)));
+  if (!deg && !flip && !step) return { error: 'Nincs mit menteni.' };
+  try {
+    const res = await fetch(src, { cache: 'no-store' });
+    if (!res.ok) return { error: 'A képet nem sikerült betölteni. Próbáld újra.' };
+    const input = Buffer.from(await res.arrayBuffer());
+    if (input.length > EDIT_MAX_BYTES) return { error: 'Ez a kép túl nagy a szerkesztéshez.' };
+    const sharp = (await import('sharp')).default;
+    let img = sharp(input).autoOrient();
+    if (flip) img = img.flop();
+    if (deg) img = img.rotate(deg);
+    if (step) img = img.modulate({ brightness: 1 + step * 0.12 });
+    const out = await img.jpeg({ quality: 86 }).toBuffer();
+    return await sendToImgbb(new File([out], 'kep.jpg', { type: 'image/jpeg' }));
+  } catch (err) {
+    console.error('képszerkesztés:', err);
+    return { error: 'Nem sikerült elmenteni a szerkesztett képet.' };
+  }
 }

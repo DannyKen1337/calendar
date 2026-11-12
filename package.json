@@ -23,7 +23,8 @@
     "mongodb": "^7.5.0",
     "next": "^16.3.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -34,7 +35,6 @@
     "eslint-config-next": "16.3.0",
     "mongodb-memory-server-core": "^10.4.3",
     "puppeteer-core": "^24.43.1",
-    "sharp": "^0.35.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
