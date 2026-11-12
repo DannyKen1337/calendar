@@ -15,7 +15,8 @@ const list = (label, item, o = {}) => ({ type: 'list', label, item, max: 12, ...
 
 // A boltok azonosítója a naptárban (az események "store" mezője); a weboldalon ebben a sorrendben jelennek meg
 export const STORE_IDS = ['debrecen', 'jatekceh', 'miskolc'];
-const STORE_LABELS = { debrecen: 'Tavern Debrecen', jatekceh: 'JátékCéh', miskolc: 'Tavern Miskolc' };
+// A boltok neve mindenhol így szerepel a weboldalon (a mentett tartalom sem írhatja felül)
+export const STORE_LABELS = { debrecen: 'Tavern Debrecen', jatekceh: 'JátékCéh', miskolc: 'Tavern Miskolc' };
 
 const storeFields = (id) => object(STORE_LABELS[id], {
   name: text('Név', { max: 60 }),

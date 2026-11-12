@@ -6,7 +6,7 @@ import 'server-only';
 import { cache } from 'react';
 import { getTavernDb, hasDatabase } from '@/weblap/lib/db';
 import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL } from '@/weblap/lib/calendar';
-import { CONTENT_TABS, tabByKey, sanitizeField } from '@/weblap/lib/contentSchema';
+import { CONTENT_TABS, tabByKey, sanitizeField, STORE_IDS, STORE_LABELS } from '@/weblap/lib/contentSchema';
 
 const FB = 'https://www.facebook.com/taverndebrecen';
 const IG = 'https://www.instagram.com/taverndebrecen/';
@@ -61,7 +61,7 @@ export const DEFAULT_CONTENT = {
       { id: 'kf3', picture: { src: '/photos/klub-asztal.png', alt: 'Két játékos egy kártyameccs közben', position: '50% 45%' }, caption: 'Klubasztal' },
       { id: 'kf4', picture: { src: '/photos/pakli-bontas.png', alt: 'Pakli-bontás a boltban', position: '50% 50%' }, caption: 'Pakli-bontás' },
       { id: 'kf5', picture: { src: '/photos/csapat.png', alt: 'A Tavern csapata', position: '50% 35%' }, caption: 'A csapat' },
-      { id: 'kf6', picture: { src: '/photos/miskolc-kirakat.jpg', alt: 'A Tavern Miskolc kirakata', position: '50% 50%' }, caption: 'Miskolc' },
+      { id: 'kf6', picture: { src: '/photos/miskolc-kirakat.jpg', alt: 'A Tavern Miskolc kirakata', position: '50% 50%' }, caption: 'Tavern Miskolc' },
       { id: 'kf7', picture: { src: '/photos/jatekceh-kirakat.jpg', alt: 'A JátékCéh kirakata', position: '50% 50%' }, caption: 'JátékCéh' },
     ],
   },
@@ -135,8 +135,11 @@ const LIVE_ID = 'site';
 const DRAFT_ID = 'draft';
 
 // A mentett fülek összefésülése az alapértékekkel (a hibás vagy hiányzó mezők helyén az alapérték marad)
+// A boltok neve mindig a hivatalos forma: Tavern Debrecen, JátékCéh, Tavern Miskolc
 function merge(doc) {
-  return Object.fromEntries(CONTENT_TABS.map(t => [t.key, doc?.[t.key] ? sanitizeField(t.schema, doc[t.key], DEFAULT_CONTENT[t.key]) : DEFAULT_CONTENT[t.key]]));
+  const content = Object.fromEntries(CONTENT_TABS.map(t => [t.key, doc?.[t.key] ? sanitizeField(t.schema, doc[t.key], DEFAULT_CONTENT[t.key]) : DEFAULT_CONTENT[t.key]]));
+  content.stores = { ...content.stores, ...Object.fromEntries(STORE_IDS.map(id => [id, { ...content.stores[id], name: STORE_LABELS[id] }])) };
+  return content;
 }
 
 async function loadDoc(id) {

@@ -51,3 +51,21 @@ export function nextOpening(store, wd) {
   }
   return null;
 }
+
+// A teljes heti nyitvatartás hétfőtől vasárnapig, az egymást követő azonos napok összevonva, a zárt napokkal együtt:
+// [{ days: 'Hétfő–Kedd', text: 'zárva', today: false }, { days: 'Szerda–Péntek', text: '15:00–21:00', today: true }, ...]
+export function weekHours(hours, todayWd) {
+  if (!hours) return null;
+  const runs = [];
+  for (const wd of HOURS_ORDER) {
+    const text = hours[wd] ? hours[wd].join('–') : 'zárva';
+    const last = runs[runs.length - 1];
+    if (last && last.text === text) last.days.push(wd);
+    else runs.push({ text, days: [wd] });
+  }
+  return runs.map(r => ({
+    days: r.days.length > 1 ? `${DAY_NAMES[r.days[0]]}–${DAY_NAMES[r.days[r.days.length - 1]]}` : DAY_NAMES[r.days[0]],
+    text: r.text,
+    today: r.days.includes(todayWd),
+  }));
+}

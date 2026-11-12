@@ -12,9 +12,11 @@ import { getOpenPreorderProducts } from '@/lib/preorderData';
 import { getPublishedLeagues } from '@/lib/leagueData';
 import Overlays from '@/weblap/components/Overlays';
 import TableTent from '@/weblap/components/TableTent';
+import StoreStatus from '@/weblap/components/StoreStatus';
+import { weekHours } from '@/weblap/lib/stores';
 import { getHomeData } from '@/weblap/lib/home';
 import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
-import { CALENDAR_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl, DAY_NAMES } from '@/weblap/lib/calendar';
+import { CALENDAR_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl } from '@/weblap/lib/calendar';
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
 import { withBase, BASE_PATH } from '@/weblap/lib/basePath';
@@ -145,17 +147,26 @@ export default async function HomePage({ content, feed, previewBar = null, base 
 
         <section className={s.stores} id="boltok" aria-labelledby="boltok-cim">
           <h2 id="boltok-cim" className={s.disp} data-reveal>{content.stores.title}</h2>
-          {stores.map(st => (
-            <a key={st.id} className={s.row} href={st.maps || '#boltok'} data-map={st.id}>
-              <h3>{st.name}</h3>
-              <small>{streetOf(st.address)}{st.where ? `, ${st.where[0].toLowerCase()}${st.where.slice(1)}` : ''}</small>
-              {st.photo?.src && <Image src={st.photo.src} alt={st.photo.alt} width={140} height={140} style={{ objectFit: 'cover', objectPosition: st.photo.position }} />}
-            </a>
-          ))}
-          <div className={s.today}>
-            <b>{content.stores.todayLabel}, {DAY_NAMES[now.weekday].toLowerCase()}:</b>
-            {stores.map(st => <span key={st.id}>{st.name.replace(/^Tavern /, '')} {st.hours?.[now.weekday] ? st.hours[now.weekday].join('–') : 'zárva'}</span>)}
-          </div>
+          {stores.map(st => {
+            const week = weekHours(st.hours, now.weekday);
+            return (
+              <a key={st.id} className={s.row} href={st.maps || '#boltok'} data-map={st.id}>
+                <div className={s.rowMain}>
+                  <h3>{st.name}</h3>
+                  <small>{streetOf(st.address)}{st.where ? `, ${st.where[0].toLowerCase()}${st.where.slice(1)}` : ''}</small>
+                </div>
+                {week && (
+                  <div className={s.hours} data-nyitvatartas>
+                    <StoreStatus hours={st.hours} initial={st.status} className={s.hoursNow} />
+                    <dl>
+                      {week.map(w => <div key={w.days} data-ma={w.today || undefined}><dt>{w.days}{w.today && <em>{content.stores.todayLabel}</em>}</dt><dd>{w.text}</dd></div>)}
+                    </dl>
+                  </div>
+                )}
+                {st.photo?.src && <Image src={st.photo.src} alt={st.photo.alt} width={140} height={140} style={{ objectFit: 'cover', objectPosition: st.photo.position }} />}
+              </a>
+            );
+          })}
           <div className={s.booking} id="asztalfoglalas" data-asztalfoglalas>
             <div className={s.bookingSay}>
               <h3 className={s.disp} data-reveal>{content.stores.bookingTitle}</h3>

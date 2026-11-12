@@ -193,14 +193,22 @@
 /* --- Boltok: kijelzőméretű sorok, kerek fotóval; kattintásra térképablak --- */
 .stores { background: var(--surface); }
 .stores > h2 { padding: var(--section) var(--margin) 2rem; font-size: var(--step-head); }
-.row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; min-height: 150px; padding: 1rem 20px; text-decoration: none; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 22rem) 140px; align-items: center; gap: 1.5rem 2.5rem; min-height: 150px; padding: 1.75rem 20px; text-decoration: none; }
 .row:nth-of-type(odd) { background: var(--band); }
+.rowMain { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
 .row h3 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-head); line-height: 1; }
-.row small { font-size: var(--step-body); text-align: right; max-width: 28ch; margin-left: auto; color: var(--muted); }
+.row small { font-size: var(--step-body); max-width: 40ch; color: var(--muted); }
 .row:hover small { color: var(--ink); text-decoration: underline; }
 .row img { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; flex: none; }
-.today { display: flex; flex-wrap: wrap; gap: 0.4rem 2.5rem; padding: 2rem 20px; font-size: var(--step-lead); }
-.today b { color: var(--gold); font-weight: 600; }
+/* A bolt teljes heti nyitvatartása: most nyitva / zárva, alatta napok szerint (a mai nap aranyban, „Ma” jellel) */
+.hours { display: flex; flex-direction: column; gap: 0.6rem; font-size: var(--step-body); }
+.hoursNow { font-weight: 600; }
+.hours dl { margin: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.hours dl div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.15rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.hours dt { color: var(--muted); display: inline-flex; align-items: center; gap: 0.5rem; }
+.hours dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hours [data-ma] dt, .hours [data-ma] dd { color: var(--gold); font-weight: 600; }
+.hours em { font-style: normal; font-size: 0.7em; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.1em 0.45em; background: var(--gold); color: var(--on-gold); }
 
 /* --- Asztalfoglalás a Boltok részen: szöveg, gomb, boltonkénti linkek; mellette a „Foglalt” tábla az asztalon --- */
 .booking { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 2.5rem var(--gutter); align-items: center; padding: clamp(3.5rem, 7vw, 6.5rem) 20px; background: radial-gradient(ellipse 55% 75% at 76% 0%, rgba(229, 177, 93, 0.18), transparent 70%), var(--cellar); }
@@ -415,11 +423,11 @@
   .newsHead { flex-direction: column; align-items: flex-start; }
   .newsBig { grid-template-columns: 1fr; }
   .newsRow { grid-column: 1 / -1; grid-template-columns: 112px 1fr; }
-  .row { min-height: 0; padding: 4.75rem 16px 1.6rem; display: grid; grid-template-columns: 1fr 64px; gap: 0.5rem 1rem; }
+  .row { min-height: 0; padding: 3.5rem 16px 2rem; grid-template-columns: 1fr 64px; gap: 1.25rem 1rem; align-items: start; }
   .row h3 { font-size: 11vw; }
-  .row small { text-align: left; margin-left: 0; grid-column: 1; font-size: var(--step-lead); }
-  .row img { width: 64px; height: 64px; grid-column: 2; grid-row: 1 / span 2; }
-  .today { flex-direction: column; gap: 0.25rem; padding-bottom: 2.5rem; }
+  .row small { font-size: var(--step-lead); }
+  .row img { width: 64px; height: 64px; grid-column: 2; grid-row: 1; }
+  .hours { grid-column: 1 / -1; }
   .booking { grid-template-columns: 1fr; padding: 4.5rem 16px 3rem; gap: 2rem; }
   .bookingSay h3 { font-size: 13vw; }
   .bookingSay .btn { width: 100%; }

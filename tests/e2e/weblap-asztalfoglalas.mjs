@@ -2,7 +2,7 @@
 // a saját ablakában (felbillenő „Foglalt” tábla) nyílik a beépített asztalfoglalás. Telefonon is.
 import { openDb, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
 
-const { client } = await openDb();
+const { client, db } = await openDb();
 const DLG = '[data-asztal-ablak]';
 const b = await browser();
 try {
@@ -14,6 +14,15 @@ try {
   const links = await p.$$eval('[data-asztalfoglalas] a[data-table]', as => as.map(a => a.getAttribute('href')));
   ok(links.length === 4 && /\/asztalfoglalas$/.test(links[0]) && ['debrecen', 'jatekceh', 'miskolc'].every(id => links.some(h => h.endsWith(`/asztalfoglalas?bolt=${id}`))), `asztalfoglalás gomb és boltonkénti linkek (${links.length})`);
   ok(await p.$eval('#boltok', sec => !!sec.querySelector('[data-map]') && !!sec.querySelector('[data-asztalfoglalas]')), 'a blokk a térképes boltok mellett van');
+  // a boltok neve egységesen, a teljes heti nyitvatartás a bolt sorában
+  const rows = await p.$$eval('#boltok a[data-map]', as => as.map(a => ({ name: a.querySelector('h3').textContent, days: [...a.querySelectorAll('[data-nyitvatartas] dt')].map(d => d.childNodes[0].textContent), text: a.querySelector('[data-nyitvatartas]')?.textContent || '', ma: a.querySelectorAll('[data-ma]').length })));
+  ok(rows.map(r => r.name).join('|') === 'Tavern Debrecen|JátékCéh|Tavern Miskolc', `a boltok neve: ${rows.map(r => r.name).join(', ')}`);
+  ok(rows.every(r => r.days[0].startsWith('Hétfő') && r.days[r.days.length - 1].endsWith('Vasárnap') && r.ma === 1), 'minden boltnál hétfőtől vasárnapig a teljes hét, a mai nap kiemelve');
+  ok(/Hétfő–Kedd(Ma)?zárva/.test(rows[0].text) && /Szerda–Péntek(Ma)?15:00–21:00/.test(rows[0].text) && /Vasárnap(Ma)?11:00–20:00/.test(rows[0].text), 'Tavern Debrecen: zárt és nyitott napok összevonva');
+  ok(rows.every(r => /Nyitva|nyit|Zárva/.test(r.text)), 'a sorban a mostani állapot is (nyitva / mikor nyit)');
+  ok(!(await p.$('#boltok [class*="today"]')), 'nincs külön „csak a mai nap” sor');
+  const short = await p.evaluate(() => { const txt = document.querySelector('main').textContent; return (txt.match(/(?<!Tavern )\b(Debrecen|Miskolc) \d{1,2}:\d{2}/g) || []); });
+  ok(short.length === 0, `sehol nincs rövidített boltnév nyitvatartással (${short.join(', ')})`);
   ok(await p.evaluate(() => [...document.querySelectorAll('footer a[data-table]')].some(a => a.textContent === 'Asztalfoglalás')), 'a láblécben is ott az Asztalfoglalás link');
 
   // kattintás: lámpa, felbillenő tábla, utána a beépített foglalás
@@ -63,6 +72,19 @@ try {
   await wait(2400);
   const box = await ph.$eval(`${DLG} [class*="tableSheet"]`, e => { const r = e.getBoundingClientRect(); return [r.width, r.height]; });
   ok(box[0] === 402 && box[1] === 874, `telefonon teljes képernyős ablak (${box.join('×')})`);
+
+  // a mentett tartalom sem írhatja át a bolt nevét
+  await db.collection('website_content').replaceOne({ _id: 'site' }, { stores: { debrecen: { name: 'Debreceni bolt' } } }, { upsert: true });
+  const nm = await page(b, null);
+  await nm.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  ok((await nm.$eval('#boltok a[data-map] h3', h => h.textContent)) === 'Tavern Debrecen', 'mentett más név helyett is Tavern Debrecen');
+  await db.collection('website_content').deleteOne({ _id: 'site' });
+  await nm.screenshot({ path: `${SHOTS}boltok-nyitvatartas.jpg`, quality: 60, clip: await nm.$eval('#boltok', el => { const r = el.getBoundingClientRect(); return { x: 0, y: r.top + scrollY, width: r.width, height: Math.min(r.height, 1100) }; }) });
+  await ph.keyboard.press('Escape');
+  await wait(1200);
+  await ph.$eval('#boltok a[data-map]', el => el.scrollIntoView({ block: 'start' }));
+  await wait(900);
+  await ph.screenshot({ path: `${SHOTS}boltok-nyitvatartas-telefon.jpg`, quality: 60 });
 
   // a beépített oldal maga (helyben): nagy fejléc nélkül, a bolt előre kiválasztva
   const em = await page(b, null, 402, 780);
