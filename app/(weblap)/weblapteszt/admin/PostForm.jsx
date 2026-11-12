@@ -48,7 +48,7 @@ export default function PostForm({ s, post, nowLocal }) {
           <span>Kép feltöltése</span>
           <label className={s.small}>
             {prep?.busy ? 'Kép előkészítése…' : fileName || 'Kép kiválasztása'}
-            <input name="imageFile" type="file" accept="image/*" className={s.sr} onChange={(e) => pickImage(e.target)} />
+            <input name="imageFile" type="file" accept="image/*,.heic,.heif,.dng" className={s.sr} onChange={(e) => pickImage(e.target)} />
           </label>
           {prep?.error ? <small className={s.error} role="alert">{prep.error}</small> : <small>A fotót (iPhone-ról is) magától tömöríti.</small>}
         </div>

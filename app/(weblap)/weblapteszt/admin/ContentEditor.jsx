@@ -183,7 +183,7 @@ function ImageField({ f, value, onChange, s }) {
           <input value={v.src} onChange={(e) => set({ src: e.target.value, thumb: undefined })} placeholder="https://…" aria-label={`${f.label}: a kép címe`} />
           <label className={s.small}>
             {busy ? 'Feltöltés…' : 'Kép feltöltése'}
-            <input type="file" accept="image/*" hidden disabled={busy} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
+            <input type="file" accept="image/*,.heic,.heif,.dng" hidden disabled={busy} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
           </label>
           {!onlySrc && <input value={v.alt} maxLength={300} onChange={(e) => set({ alt: e.target.value })} placeholder="Mi látható a képen? (képleírás)" aria-label={`${f.label}: képleírás`} />}
         </div>
@@ -348,6 +348,26 @@ async function droppedFiles(items) {
   return out;
 }
 
+// A feltöltés hibái összevonva: az azonos hibájú képek egy sorban („54 kép: …”), a fájlnevek lenyithatók
+function ErrorGroups({ errors, s }) {
+  const groups = [...errors.reduce((m, e) => m.set(e.message, [...(m.get(e.message) || []), e.name].filter(Boolean)), new Map())];
+  return (
+    <ul className={s.jobs}>
+      {groups.map(([message, names]) => (
+        <li key={message} className={s.jobError}>
+          <span><b>{names.length > 1 ? `${names.length} kép` : names[0] || 'Hiba'}</b>: {message}</span>
+          {names.length > 1 && (
+            <details className={s.errorNames}>
+              <summary>Melyik képek?</summary>
+              <span>{names.slice(0, 60).join(', ')}{names.length > 60 ? ` és még ${names.length - 60}` : ''}</span>
+            </details>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // Mappa feltöltése az Albumokhoz: minden képet tartalmazó mappából egy album (a mappa nevével, a névből kitalált
 // dátummal és játékkal; a már meglévő, azonos nevű és dátumú albumba kerül). A képek háromszálon mennek fel, de
 // eredeti (fájlnév szerinti) sorrendben kerülnek az albumba.
@@ -364,7 +384,7 @@ function FolderUpload({ f, list, onChange, s }) {
   async function start(entries) {
     const files = entries.map(({ file, path }) => ({ name: file.name, type: file.type, path: path || file.webkitRelativePath || file.name, lastModified: file.lastModified, file }));
     const groups = albumsFromFiles(files);
-    if (!groups.length) { setRun({ done: 0, total: 0, errors: ['Nincs kép a kiválasztott mappában.'], finished: true }); return; }
+    if (!groups.length) { setRun({ done: 0, total: 0, errors: [{ name: '', message: 'Nincs kép a kiválasztott mappában.' }], finished: true }); return; }
     const total = groups.reduce((n, g) => n + g.files.length, 0);
     const errors = [];
     let done = 0;
@@ -374,7 +394,7 @@ function FolderUpload({ f, list, onChange, s }) {
       const at = findAlbum(latest.current, g);
       if (at >= 0) id = latest.current[at].id;
       else if (latest.current.length >= f.max) {
-        errors.push(`${g.title}: nem fér el több album (legfeljebb ${f.max}).`);
+        errors.push({ name: g.title, message: `nem fér el több album (legfeljebb ${f.max}).` });
         done += g.files.length;
         setRun(r => ({ ...r, done, errors: [...errors] }));
         continue;
@@ -393,7 +413,7 @@ function FolderUpload({ f, list, onChange, s }) {
         update(latest.current.map(a => {
           if (a.id !== id) return a;
           const room = ALBUM_MAX_PICTURES - (a.pictures?.length || 0);
-          if (room < ready.length) errors.push(`${g.title}: ${ready.length - Math.max(0, room)} kép nem fér el (egy albumban legfeljebb ${ALBUM_MAX_PICTURES}).`);
+          if (room < ready.length) errors.push({ name: g.title, message: `${ready.length - Math.max(0, room)} kép nem fér el (egy albumban legfeljebb ${ALBUM_MAX_PICTURES}).` });
           const add = ready.slice(0, Math.max(0, room)).map(r => ({ id: `uj-${rid()}`, caption: '', picture: { src: r.url, ...(r.thumb ? { thumb: r.thumb } : {}), alt: '', position: '50% 50%' } }));
           return { ...a, pictures: [...(a.pictures || []), ...add] };
         }));
@@ -403,7 +423,7 @@ function FolderUpload({ f, list, onChange, s }) {
           const i = next++;
           counting(1);
           const res = await uploadOne(g.files[i].file).finally(() => counting(-1));
-          if (res.error) errors.push(`${g.files[i].name}: ${res.error}`);
+          if (res.error) errors.push({ name: g.files[i].name, message: res.error });
           results[i] = res;
           done++;
           flush();
@@ -433,7 +453,8 @@ function FolderUpload({ f, list, onChange, s }) {
               <span className={s.folderBar} aria-hidden="true"><span style={{ width: `${(run.done / run.total) * 100}%` }} /></span>
             </>
           )}
-          {run.errors.length > 0 && <ul className={s.jobs}>{run.errors.slice(0, 8).map((e, i) => <li key={i} className={s.jobError}>{e}</li>)}{run.errors.length > 8 && <li className={s.jobError}>…és még {run.errors.length - 8} hiba</li>}</ul>}
+          {run.errors.length > 0 && <ErrorGroups errors={run.errors} s={s} />}
+          {run.finished && <button type="button" className={s.small} onClick={() => setRun(null)} data-bezar>{run.errors.length ? 'Hibák eltüntetése' : 'Bezárás'}</button>}
           {run.finished && <small className={s.muted}>Ne felejtsd el: a „Mentés az előnézetbe” gombbal mentsd el.</small>}
         </div>
       )}
@@ -551,7 +572,7 @@ function PhotoGrid({ f, value, onChange, s }) {
                   <button type="button" className={s.iconBtn} disabled={i === list.length - 1} onClick={() => move(i, 1)}><Icon d={ICON.right} /><span className={s.sr}>Hátra</span></button>
                   <label className={s.iconBtn}>
                     <Icon d={ICON.swap} /><span className={s.sr}>Csere</span>
-                    <input type="file" accept="image/*" className={s.sr} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) replace(i, file); }} />
+                    <input type="file" accept="image/*,.heic,.heif,.dng" className={s.sr} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) replace(i, file); }} />
                   </label>
                   <button type="button" className={`${s.iconBtn} ${s.danger}`} onClick={() => remove(i)}><Icon d={ICON.trash} /><span className={s.sr}>Törlés</span></button>
                 </div>
@@ -567,11 +588,12 @@ function PhotoGrid({ f, value, onChange, s }) {
               <Icon d={ICON.plus} />
               <b>{list.length ? 'Képek hozzáadása' : 'Képek feltöltése'}</b>
               <small>Egyszerre többet is kijelölhetsz. A fotókat (iPhone-ról is) magától tömöríti.</small>
-              <input type="file" accept="image/*" multiple className={s.sr} onChange={(e) => { const files = e.target.files; uploadMany(files); e.target.value = ''; }} />
+              <input type="file" accept="image/*,.heic,.heif,.dng" multiple className={s.sr} onChange={(e) => { const files = e.target.files; uploadMany(files); e.target.value = ''; }} />
             </label>
           </li>
         )}
       </ol>
+      {jobs.filter(j => j.error).length > 1 && <button type="button" className={s.small} onClick={() => setJobs(js => js.filter(j => !j.error))}>Hibák eltüntetése</button>}
       {jobs.length > 0 && (
         <ul className={s.jobs} role="status">
           {jobs.map(j => (

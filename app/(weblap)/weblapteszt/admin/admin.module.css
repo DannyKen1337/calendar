@@ -206,3 +206,6 @@
 .folderRun { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .folderBar { display: block; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
 .folderBar span { display: block; height: 100%; background: var(--gold); transition: width 300ms var(--ease); }
+.folderRun > .small { align-self: flex-start; border-radius: 12px; }
+.errorNames { width: 100%; font-size: 0.875rem; color: var(--muted); }
+.errorNames summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--ink); }

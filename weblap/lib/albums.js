@@ -1,7 +1,7 @@
 // A Galéria albumai: mappák feltöltése (mappánként egy album, a névből dátum és játék), és a Galéria oldal sorrendje.
 // Nincs benne szerver- vagy böngészőfüggő kód, így a szerkesztőfelület és a teszt (albums.test.mjs) is használja.
 
-const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif|heic|heif)$/i;
+const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif|heic|heif|dng)$/i;
 export const isImageFile = (file) => (file.type ? file.type.startsWith('image/') : false) || IMAGE_EXT.test(file.name || '');
 
 // A mappanévben lévő dátum: 2026-11-08, 2026.11.08., 2026_11_08, 20261108 (az év 2000 utáni); visszaad: "2026-11-08" vagy ''

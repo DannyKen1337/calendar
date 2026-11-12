@@ -2,7 +2,7 @@
 // a Galéria albumaiban és a Hírek űrlapján is –, és szépek maradnak (a hosszabbik oldal 2560 px, jó minőségű JPEG).
 // FAKE_IMGBB=1 szerverrel: az ál-ImgBB a cím végére írja a kapott kép méretét bájtban.
 import { openDb, token, browser, page, ok, summary, wait, BASE } from './lib.mjs';
-import { mkdtempSync, statSync } from 'node:fs';
+import { mkdtempSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -20,6 +20,21 @@ const BIG = join(DIR, 'IMG_0001.jpg');
 await sharp({ create: { width: 4032, height: 3024, channels: 3, noise: { type: 'gaussian', mean: 128, sigma: 70 } } }).jpeg({ quality: 100 }).toFile(BIG);
 const bigSize = statSync(BIG).size;
 ok(bigSize > 4 * 1024 * 1024, `a tesztfotó nagyobb 4 MB-nál (${(bigSize / 1048576).toFixed(1)} MB)`);
+// egy „ProRAW” DNG: TIFF fejléc (Orientation = 6), benne egy veszteségmentes nyers rész és egy nagy JPEG-előnézet
+const RAW = mkdtempSync(join(tmpdir(), 'tavern-e2e-raw-'));
+const DNG = join(RAW, 'IMG_8673.DNG');
+{
+  const head = Buffer.alloc(26);
+  head.write('II', 0, 'latin1'); head.writeUInt16LE(42, 2); head.writeUInt32LE(8, 4); head.writeUInt16LE(1, 8);
+  head.writeUInt16LE(0x0112, 10); head.writeUInt16LE(3, 12); head.writeUInt32LE(1, 14); head.writeUInt16LE(6, 18);
+  const preview = await sharp({ create: { width: 4032, height: 3024, channels: 3, noise: { type: 'gaussian', mean: 128, sigma: 60 } } }).jpeg({ quality: 95 }).toBuffer();
+  const lossless = Buffer.from([0xff, 0xd8, 0xff, 0xc3, 0x00, 0x0b, 0x10, 0x03, 0x20, 0x03, 0xe8, 0x01, 0x01, 0x11, 0x00, 0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x01, 0x00, 0x00, 0x12, 0x34, 0xff, 0xd9]);
+  writeFileSync(DNG, Buffer.concat([head, Buffer.alloc(200), lossless, preview, Buffer.alloc(100)]));
+}
+// két hibás „kép” egy mappában (a hibák összevonásához)
+const BAD = mkdtempSync(join(tmpdir(), 'tavern-e2e-rossz-'));
+mkdirSync(join(BAD, 'Hibas'));
+for (const n of ['a.jpg', 'b.jpg']) writeFileSync(join(BAD, 'Hibas', n), 'nem kép');
 const sentSize = (src) => +(String(src).match(/-(\d+)\.(jpg|png)$/)?.[1] || 0);
 
 const b = await browser();
@@ -42,6 +57,26 @@ try {
   await (await p.$('[data-mappa] input[type=file]')).uploadFile(DIR);
   await p.waitForFunction(() => /Kész: \d+ \/ \d+ kép/.test(document.querySelector('[data-mappa]')?.textContent || ''), { timeout: 60000 }).catch(() => {});
   ok(/Kész: 1 \/ 1 kép/.test(await p.$eval('[data-mappa]', el => el.textContent)) && !(await p.$('[data-mappa] li')), 'Galéria: a mappa nagy fotója is hiba nélkül felment');
+
+  // RAW (DNG): a beágyazott előnézet megy fel, tömörítve
+  await p.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2' });
+  await p.waitForSelector('input[type=file][multiple]', { timeout: 120000 });
+  const before = (await p.$$('[data-photo]')).length;
+  await (await p.$('input[type=file][multiple]')).uploadFile(DNG);
+  await p.waitForFunction((n) => document.querySelectorAll('[data-photo]').length > n || /nem tudtuk|RAW/i.test(document.body.innerText), { timeout: 60000 }, before).catch(() => {});
+  const rawSrc = await p.$$eval('[data-photo] img', els => els.map(i => i.getAttribute('src')).pop() || '');
+  ok((await p.$$('[data-photo]')).length === before + 1 && sentSize(rawSrc) > 0 && sentSize(rawSrc) <= 3.5 * 1024 * 1024 && /\.jpg$/.test(rawSrc), `DNG (iPhone ProRAW): az előnézete tömörítve felment (${(sentSize(rawSrc) / 1048576).toFixed(2)} MB)`);
+
+  // hibák összevonva, egy gombbal eltüntethetők
+  await p.goto(`${BASE}/weblapteszt/admin?lap=albums`, { waitUntil: 'networkidle2' });
+  await p.waitForSelector('[data-mappa] input[type=file]', { timeout: 120000 });
+  await (await p.$('[data-mappa] input[type=file]')).uploadFile(BAD);
+  await p.waitForSelector('[data-bezar]', { timeout: 60000 }).catch(() => {});
+  const errs = await p.$$eval('[data-mappa] li', els => els.map(e => e.textContent));
+  ok(errs.length === 1 && /^2 kép: /.test(errs[0]), `az azonos hibák egy sorban (${errs.join(' | ')})`);
+  await p.click('[data-bezar]');
+  await wait(150);
+  ok(!(await p.$('[data-mappa] li')) && !(await p.$('[data-bezar]')), 'a „Hibák eltüntetése” gombbal eltűnnek');
 
   // Hírek űrlapja: a kiválasztott kép az űrlapban már tömörítve van
   await p.goto(`${BASE}/weblapteszt/admin`, { waitUntil: 'networkidle2' });
