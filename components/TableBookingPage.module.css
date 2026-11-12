@@ -23,9 +23,20 @@ textarea.input { resize: vertical; }
 .hint { color: #b8aca7; font-size: 13px; }
 .warn { color: #ef7b74; font-size: 13px; font-weight: 700; }
 .error { padding: 10px 12px; border-radius: 10px; background: rgba(239, 123, 116, 0.12); color: #ef7b74; font-weight: 700; }
-.primary { min-height: 52px; border: 0; border-radius: 10px; background: #e5b15d; color: #120d0e; font: inherit; font-weight: 800; cursor: pointer; }
-.primary:disabled { opacity: 0.6; cursor: default; }
-.secondary { align-self: flex-start; min-height: 44px; padding: 0 16px; border: 1px solid #3a2d30; border-radius: 10px; background: transparent; color: #f3ece3; font: inherit; font-weight: 700; cursor: pointer; }
+/* Gombok: egérrel, érintéssel (enyhe összenyomódás) és billentyűzettel (fókuszgyűrű) is visszajeleznek; küldés közben
+   pörgő jel és aria-busy */
+.primary { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; border: 0; border-radius: 10px; background: #e5b15d; color: #120d0e; font: inherit; font-weight: 800; cursor: pointer; transition: background-color 160ms ease, transform 120ms ease; }
+.primary:hover:not(:disabled) { background: #f0c57d; }
+.primary:active:not(:disabled) { transform: scale(0.98); }
+.primary:focus-visible, .secondary:focus-visible { outline: 2px solid #e5b15d; outline-offset: 3px; }
+.primary:disabled { opacity: 0.75; cursor: progress; }
+.spinner { width: 18px; height: 18px; border: 2px solid rgba(18, 13, 14, 0.3); border-top-color: #120d0e; border-radius: 50%; animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } .primary { transition: none; } }
+.store:has(input:focus-visible) { outline: 2px solid #e5b15d; outline-offset: 2px; }
+.store:hover { border-color: #5a4548; }
+.secondary { align-self: flex-start; min-height: 44px; padding: 0 16px; border: 1px solid #3a2d30; border-radius: 10px; background: transparent; color: #f3ece3; font: inherit; font-weight: 700; cursor: pointer; transition: background-color 160ms ease; }
+.secondary:hover { background: #2a2022; }
 .privacy { color: #9a8d89; font-size: 12px; }
 .privacy a { color: #e5b15d; }
 .trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }

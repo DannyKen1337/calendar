@@ -13,6 +13,10 @@ try {
   ok((await p.$eval('#boltok-cim', h => h.textContent)) === 'Ülj be hozzánk', 'a rész címe: Ülj be hozzánk');
   const links = await p.$$eval('[data-asztalfoglalas] a[data-table]', as => as.map(a => a.getAttribute('href')));
   ok(links.length === 4 && /\/asztalfoglalas$/.test(links[0]) && ['debrecen', 'jatekceh', 'miskolc'].every(id => links.some(h => h.endsWith(`/asztalfoglalas?bolt=${id}`))), `asztalfoglalás gomb és boltonkénti linkek (${links.length})`);
+  const named = await p.$$eval('[data-asztalfoglalas] a[data-table]', as => as.map(a => ({ name: a.getAttribute('aria-label') || a.textContent, popup: a.getAttribute('aria-haspopup') })));
+  ok(named.every(x => x.popup === 'dialog') && named.slice(1).every(x => /^Asztalfoglalás: /.test(x.name)), 'a foglalós gombok jelzik, hogy ablak nyílik; a boltgombok neve a felolvasónak egyértelmű');
+  const border = await p.$eval('[data-asztalfoglalas] ul a', a => getComputedStyle(a).borderTopColor);
+  ok(/0\.62\)/.test(border), `a boltgombok kerete erősebb (legalább 3:1) (${border})`);
   ok(await p.$eval('#boltok', sec => !!sec.querySelector('[data-map]') && !!sec.querySelector('[data-asztalfoglalas]')), 'a blokk a térképes boltok mellett van');
   // a boltok neve egységesen, a teljes heti nyitvatartás a bolt sorában
   const rows = await p.$$eval('#boltok a[data-map]', as => as.map(a => ({ name: a.querySelector('h3').textContent, days: [...a.querySelectorAll('[data-nyitvatartas] dt')].map(d => d.childNodes[0].textContent), text: a.querySelector('[data-nyitvatartas]')?.textContent || '', ma: a.querySelectorAll('[data-ma]').length })));
@@ -93,6 +97,7 @@ try {
   const e1 = await em.evaluate(() => ({ h1: document.querySelector('header')?.getBoundingClientRect().height, checked: document.querySelector('input[value="debrecen"]')?.checked, h: document.documentElement.scrollHeight }));
   await em.goto(`${BASE}/asztalfoglalas?bolt=debrecen`, { waitUntil: 'networkidle2' });
   const full = await em.evaluate(() => document.documentElement.scrollHeight);
+  ok(await em.$eval('[data-kuldes]', bt => { const r = bt.getBoundingClientRect(); return r.height >= 48 && getComputedStyle(bt).cursor === 'pointer'; }), 'a küldés gomb legalább 48 px');
   ok(e1.h1 <= 1 && e1.checked, 'beépítve: nincs nagy fejléc, a bolt előre kiválasztva');
   await em.goto(`${BASE}/asztalfoglalas?bolt=debrecen&embed=1`, { waitUntil: 'networkidle2' });
   await em.screenshot({ path: `${SHOTS}asztalfoglalas-beepitve.jpg`, quality: 60, fullPage: true });

@@ -172,12 +172,12 @@ export default async function HomePage({ content, feed, previewBar = null, base 
             <div className={s.bookingSay}>
               <h3 className={s.disp} data-reveal>{content.stores.bookingTitle}</h3>
               {content.stores.bookingText && <p>{content.stores.bookingText}</p>}
-              <a className={s.btn} href={TABLE_BOOKING_URL} data-table data-title={content.stores.bookingTitle}>{content.stores.bookingButton}</a>
+              <a className={s.btn} href={TABLE_BOOKING_URL} data-table data-title={content.stores.bookingTitle} aria-haspopup="dialog">{content.stores.bookingButton}</a>
               <p className={s.bookingOr}>vagy rögtön a bolttal:</p>
               <ul className={s.bookingStores}>
                 {stores.map(st => (
                   <li key={st.id}>
-                    <a href={`${TABLE_BOOKING_URL}?bolt=${st.id}`} data-table data-title={`${content.stores.bookingTitle} · ${st.name}`}>{st.name}{ARROW}</a>
+                    <a href={`${TABLE_BOOKING_URL}?bolt=${st.id}`} data-table data-title={`${content.stores.bookingTitle} · ${st.name}`} aria-haspopup="dialog" aria-label={`Asztalfoglalás: ${st.name}`}>{st.name}{ARROW}</a>
                   </li>
                 ))}
               </ul>

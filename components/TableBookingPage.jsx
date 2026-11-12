@@ -122,7 +122,10 @@ export default function TableBookingPage({ maintenance = false, initialStore = '
           <input className={s.trap} type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.website} onChange={set('website')} />
 
           {problem && <p id="hiba" className={s.error} role="alert">{problem.error}</p>}
-          <button type="submit" className={s.primary} disabled={submitting}>{submitting ? 'Küldés…' : 'Foglalás elküldése'}</button>
+          <button type="submit" className={s.primary} disabled={submitting} aria-busy={submitting || undefined} data-kuldes>
+            {submitting && <span className={s.spinner} aria-hidden="true" />}
+            <span>{submitting ? 'Küldés…' : 'Foglalás elküldése'}</span>
+          </button>
           <p className={s.privacy}>
             Az adataidat csak a bolt munkatársai látják, és kizárólag a foglalás intézéséhez használjuk. Az időpont után legfeljebb két hónappal töröljük őket.
             {process.env.NEXT_PUBLIC_PRIVACY_URL && <> <a href={process.env.NEXT_PUBLIC_PRIVACY_URL} target="_blank" rel="noopener noreferrer">Adatkezelési tájékoztató</a></>}

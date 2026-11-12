@@ -221,8 +221,11 @@
 .bookingSay > p:not(.bookingOr) { font-size: var(--step-lead); line-height: 1.35; max-width: 36ch; margin: 1.1rem 0 2rem; }
 .bookingOr { margin-top: 1.75rem !important; color: var(--muted); font-size: var(--step-small); text-transform: uppercase; letter-spacing: 0.14em; }
 .bookingStores { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.75rem !important; }
-.bookingStores a { display: inline-flex; align-items: center; gap: 0.75rem; min-height: 48px; padding: 0 6px 0 1rem; border: 1px solid rgba(229, 177, 93, 0.45); font-weight: 600; text-decoration: none; transition: background-color 180ms ease, border-color 180ms ease; }
+/* a keret legalább 3:1 kontrasztú a pince-háttéren; megnyomáskor kicsit összenyomódik (érintésnél is van visszajelzés) */
+.bookingStores a { display: inline-flex; align-items: center; gap: 0.75rem; min-height: 48px; padding: 0 6px 0 1rem; border: 1px solid rgba(229, 177, 93, 0.62); font-weight: 600; text-decoration: none; transition: background-color 180ms ease, border-color 180ms ease, transform 140ms var(--ease-out); }
 .bookingStores a:hover { background: rgba(229, 177, 93, 0.12); border-color: var(--gold); }
+.bookingStores a:active { transform: scale(0.97); background: rgba(229, 177, 93, 0.2); }
+.bookingStores a:focus-visible { outline-offset: 2px; border-color: var(--gold); }
 .bookingStores .round { width: 36px; height: 36px; background: var(--gold); color: var(--on-gold); }
 .bookingStores a:hover .round { transform: translateX(4px); }
 .bookingScene { position: relative; display: grid; justify-items: center; align-items: end; min-height: 300px; }
