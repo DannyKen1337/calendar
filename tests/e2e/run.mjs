@@ -16,6 +16,9 @@ const ROUNDS = [
 const only = process.argv.slice(2);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 const listening = async () => { try { await fetch(URL_); return true; } catch { return false; } };
+// Node 26: ha a port-ellenőrzés kapcsolata épp leálló szerverhez megy, a beépített fetch elkapatlan setTypeOfService
+// EINVAL hibát dob; ez csak annyit jelent, hogy a szerver még nem / már nem figyel, a futást nem szakíthatja meg
+process.on('uncaughtException', (err) => { if (err?.syscall === 'setTypeOfService') return; throw err; });
 
 // A tesztszerver indítása: a kimenetének utolsó sorai hiba esetén látszanak; ha a szerver kilép, nem várunk tovább
 function startServer(fake) {
