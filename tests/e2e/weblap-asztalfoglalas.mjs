@@ -17,8 +17,9 @@ try {
   // a boltok neve egységesen, a teljes heti nyitvatartás a bolt sorában
   const rows = await p.$$eval('#boltok a[data-map]', as => as.map(a => ({ name: a.querySelector('h3').textContent, days: [...a.querySelectorAll('[data-nyitvatartas] dt')].map(d => d.childNodes[0].textContent), text: a.querySelector('[data-nyitvatartas]')?.textContent || '', ma: a.querySelectorAll('[data-ma]').length })));
   ok(rows.map(r => r.name).join('|') === 'Tavern Debrecen|JátékCéh|Tavern Miskolc', `a boltok neve: ${rows.map(r => r.name).join(', ')}`);
-  ok(rows.every(r => r.days[0].startsWith('Hétfő') && r.days[r.days.length - 1].endsWith('Vasárnap') && r.ma === 1), 'minden boltnál hétfőtől vasárnapig a teljes hét, a mai nap kiemelve');
-  ok(/Hétfő–Kedd(Ma)?zárva/.test(rows[0].text) && /Szerda–Péntek(Ma)?15:00–21:00/.test(rows[0].text) && /Vasárnap(Ma)?11:00–20:00/.test(rows[0].text), 'Tavern Debrecen: zárt és nyitott napok összevonva');
+  const WEEK = 'Hétfő|Kedd|Szerda|Csütörtök|Péntek|Szombat|Vasárnap';
+  ok(rows.every(r => r.days.join('|') === WEEK && r.ma === 1), 'minden boltnál a hét minden napja külön sorban, a mai nap kiemelve');
+  ok(/Hétfő(Ma)?zárvaKedd(Ma)?zárvaSzerda(Ma)?15:00–21:00/.test(rows[0].text) && /Vasárnap(Ma)?11:00–20:00/.test(rows[0].text), 'Tavern Debrecen: napról napra, a zárt napokkal');
   ok(rows.every(r => /Nyitva|nyit|Zárva/.test(r.text)), 'a sorban a mostani állapot is (nyitva / mikor nyit)');
   ok(!(await p.$('#boltok [class*="today"]')), 'nincs külön „csak a mai nap” sor');
   const short = await p.evaluate(() => { const txt = document.querySelector('main').textContent; return (txt.match(/(?<!Tavern )\b(Debrecen|Miskolc) \d{1,2}:\d{2}/g) || []); });

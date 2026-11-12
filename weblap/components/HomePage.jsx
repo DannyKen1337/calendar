@@ -159,7 +159,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
                   <div className={s.hours} data-nyitvatartas>
                     <StoreStatus hours={st.hours} initial={st.status} className={s.hoursNow} />
                     <dl>
-                      {week.map(w => <div key={w.days} data-ma={w.today || undefined}><dt>{w.days}{w.today && <em>{content.stores.todayLabel}</em>}</dt><dd>{w.text}</dd></div>)}
+                      {week.map(w => <div key={w.day} data-ma={w.today || undefined}><dt>{w.day}{w.today && <em>{content.stores.todayLabel}</em>}</dt><dd>{w.text}</dd></div>)}
                     </dl>
                   </div>
                 )}
