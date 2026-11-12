@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useState } from 'react';
 import { savePostAction } from './actions';
+import { compressImage } from '@/weblap/lib/compressImage';
 import { withBase } from '@/weblap/lib/basePath';
 
 // Új hír, vagy egy meglévő szerkesztése (post: { id, title, text, link, image, date, published, pinned })
@@ -10,6 +11,25 @@ export default function PostForm({ s, post, nowLocal }) {
   const pick = (k, fallback) => (k in v ? v[k] : fallback);
   const [preview, setPreview] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [prep, setPrep] = useState(null); // { busy } | { error } – a kiválasztott kép tömörítése
+  // A kiválasztott képet a böngésző tömöríti (iPhone-fotó, HEIC is), és a tömörített kerül az űrlapba
+  async function pickImage(input) {
+    const f = input.files?.[0];
+    setPreview(null);
+    setFileName(f?.name || '');
+    if (!f) { setPrep(null); return; }
+    setPrep({ busy: true });
+    try {
+      const small = await compressImage(f);
+      if (small !== f) { const dt = new DataTransfer(); dt.items.add(small); input.files = dt.files; }
+      setPreview(URL.createObjectURL(small));
+      setPrep(null);
+    } catch (err) {
+      input.value = '';
+      setFileName('');
+      setPrep({ error: err.message || 'Ezt a képet nem tudtuk megnyitni.' });
+    }
+  }
   const editing = !!post?.id;
   return (
     <form action={action} className={s.form} key={post?.id || 'new'}>
@@ -27,14 +47,10 @@ export default function PostForm({ s, post, nowLocal }) {
         <div className={s.field}>
           <span>Kép feltöltése</span>
           <label className={s.small}>
-            {fileName || 'Kép kiválasztása'}
-            <input name="imageFile" type="file" accept="image/*" className={s.sr} onChange={(e) => {
-              const f = e.target.files?.[0];
-              setPreview(f ? URL.createObjectURL(f) : null);
-              setFileName(f?.name || '');
-            }} />
+            {prep?.busy ? 'Kép előkészítése…' : fileName || 'Kép kiválasztása'}
+            <input name="imageFile" type="file" accept="image/*" className={s.sr} onChange={(e) => pickImage(e.target)} />
           </label>
-          <small>Legfeljebb 4 MB.</small>
+          {prep?.error ? <small className={s.error} role="alert">{prep.error}</small> : <small>A fotót (iPhone-ról is) magától tömöríti.</small>}
         </div>
         <label className={s.field}>
           <span>…vagy kép URL-je</span>
@@ -66,7 +82,7 @@ export default function PostForm({ s, post, nowLocal }) {
       </div>
       {state?.error && <p className={s.error} role="alert">{state.error}</p>}
       <div className={s.actions}>
-        <button className={s.primary} disabled={pending}>{pending ? 'Mentés…' : editing ? 'Mentés az előnézetbe' : 'Hír mentése az előnézetbe'}</button>
+        <button className={s.primary} disabled={pending || prep?.busy}>{pending ? 'Mentés…' : prep?.busy ? 'Kép előkészítése…' : editing ? 'Mentés az előnézetbe' : 'Hír mentése az előnézetbe'}</button>
         {editing && <a className={s.secondary} href={withBase('/admin')}>Mégse</a>}
       </div>
     </form>

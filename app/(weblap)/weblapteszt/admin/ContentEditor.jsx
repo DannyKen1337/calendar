@@ -2,6 +2,7 @@
 import { createContext, useActionState, useContext, useEffect, useRef, useState } from 'react';
 import { tabByKey, emptyValue, ALBUM_MAX_PICTURES } from '@/weblap/lib/contentSchema';
 import { albumsFromFiles, findAlbum, isImageFile } from '@/weblap/lib/albums';
+import { compressImage } from '@/weblap/lib/compressImage';
 import { withBase } from '@/weblap/lib/basePath';
 import { saveContentAction, uploadImageAction } from './actions';
 
@@ -304,36 +305,18 @@ function ListField({ f, value, onChange, s }) {
   );
 }
 
-const MAX_IMAGE = 4 * 1024 * 1024;
 const rid = () => Math.random().toString(36).slice(2, 10);
 
-// Feltöltés előtt a nagy fotót kicsinyíti (a hosszabbik oldala legfeljebb 2000 px, JPEG): a telefonok 5–10 MB-os képei
-// is gyorsan felmennek, és a Galéria is gyorsabban töltődik. A PNG / WebP (pl. átlátszó cégér) 4 MB-ig marad, ahogy van.
-async function shrink(file) {
-  const keep = ['image/gif', 'image/svg+xml'].includes(file.type) || (['image/png', 'image/webp'].includes(file.type) && file.size <= MAX_IMAGE);
-  if (keep || typeof createImageBitmap !== 'function') return file;
-  try {
-    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
-    if (scale === 1 && file.size <= 1.5 * 1024 * 1024 && file.type === 'image/jpeg') { bmp.close?.(); return file; }
-    const c = document.createElement('canvas');
-    c.width = Math.round(bmp.width * scale);
-    c.height = Math.round(bmp.height * scale);
-    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-    bmp.close?.();
-    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
-    return blob ? new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, { type: 'image/jpeg' }) : file;
-  } catch {
-    return file;
-  }
-}
-
-// Egy kép feltöltése (kicsinyítve). Visszaad: { url, thumb? } vagy { error }
+// Egy kép feltöltése: előbb a böngészőben tömörítve (weblap/lib/compressImage.js: az iPhone-fotók is, HEIC is),
+// utána az ImgBB-re. Visszaad: { url, thumb? } vagy { error }
 async function uploadOne(file) {
   if (!isImageFile(file)) return { error: 'Ez nem kép.' };
-  const ready = await shrink(file);
-  if (/hei[cf]/i.test(ready.type) || /\.hei[cf]$/i.test(ready.name)) return { error: 'HEIC-képet a böngészők nem tudnak megjeleníteni. Mentsd el JPG-ként (iPhone: Beállítások › Kamera › Formátumok › Legkompatibilisebb).' };
-  if (ready.size > MAX_IMAGE) return { error: 'A kép legfeljebb 4 MB lehet.' };
+  let ready;
+  try {
+    ready = await compressImage(file);
+  } catch (err) {
+    return { error: err.message || 'Ezt a képet nem tudtuk megnyitni.' };
+  }
   try {
     const fd = new FormData();
     fd.append('file', ready);
@@ -583,7 +566,7 @@ function PhotoGrid({ f, value, onChange, s }) {
             <label>
               <Icon d={ICON.plus} />
               <b>{list.length ? 'Képek hozzáadása' : 'Képek feltöltése'}</b>
-              <small>Egyszerre többet is kijelölhetsz. A nagy fotókat feltöltés előtt kicsinyíti.</small>
+              <small>Egyszerre többet is kijelölhetsz. A fotókat (iPhone-ról is) magától tömöríti.</small>
               <input type="file" accept="image/*" multiple className={s.sr} onChange={(e) => { const files = e.target.files; uploadMany(files); e.target.value = ''; }} />
             </label>
           </li>
