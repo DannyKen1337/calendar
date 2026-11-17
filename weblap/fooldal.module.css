@@ -225,6 +225,49 @@ a.socialGo:hover { color: var(--ink) !important; }
 .print:nth-of-type(2) { right: 3vw; top: 30%; transform: rotate(6deg); }
 .print:nth-of-type(3) { width: 13vw; right: 24vw; bottom: -5vw; transform: rotate(3deg); }
 .print:hover { transform: rotate(0) scale(1.02); z-index: 5; }
+/* --- „Az összes album” gomb (AlbumsLink): a Galéria rész bal alsó sarkában, mögötte kis fotópakli (hoverre szétnyílik) --- */
+.albumsBtn { position: absolute; left: 24px; bottom: 24px; z-index: 6; display: inline-flex; align-items: center; gap: 1rem; min-height: 4.75rem; padding: 0.7rem 0.75rem 0.7rem 1.1rem; background: var(--gold); color: var(--on-gold) !important; text-decoration: none; box-shadow: 0 18px 48px -16px rgba(229, 177, 93, 0.6); transition: transform 200ms var(--ease-out), background-color 180ms ease, box-shadow 220ms ease; }
+.albumsBtn:hover { background: var(--gold-hover); transform: translateY(-3px); box-shadow: 0 24px 60px -14px rgba(229, 177, 93, 0.75); }
+.albumsBtn:active { transform: scale(0.98); }
+.page .albumsBtn:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+.albumsStack { position: relative; flex: none; width: 40px; height: 50px; }
+.albumsStack i { position: absolute; inset: 0; border: 3px solid #fff8ea; border-radius: 3px; background: linear-gradient(160deg, #4b3727, #0f0f0f); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); transition: transform 320ms var(--ease-out); }
+.albumsStack i:nth-child(1) { transform: rotate(-10deg); }
+.albumsStack i:nth-child(2) { transform: rotate(5deg); }
+.albumsStack i:nth-child(3) { transform: rotate(-2deg); }
+.albumsBtn:hover .albumsStack i:nth-child(1), .prints[data-albumba] .albumsStack i:nth-child(1) { transform: rotate(-22deg) translate(-6px, 2px); }
+.albumsBtn:hover .albumsStack i:nth-child(2), .prints[data-albumba] .albumsStack i:nth-child(2) { transform: rotate(15deg) translate(6px, -2px); }
+.albumsText { display: flex; flex-direction: column; gap: 0.15rem; }
+.albumsText b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.5rem, 1rem + 1.4vw, 2.4rem); line-height: 0.95; }
+.albumsText small { font-size: var(--step-small); font-weight: 600; opacity: 0.75; }
+.albumsGo { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--on-gold); color: var(--gold); transition: transform 220ms var(--ease-out); }
+.albumsGo svg { width: 20px; height: 20px; }
+.albumsBtn:hover .albumsGo { transform: translateX(5px); }
+
+/* Kattintásra: a három fotó a gombba repül (a pakliba), a nagy cím elhalványul… */
+.prints[data-albumba] .print { z-index: 7; opacity: 0 !important; transform: translate(var(--dx), var(--dy)) rotate(calc((var(--i) - 1) * 9deg)) scale(0.16) !important; transition: transform 700ms var(--ease-in-out) calc(var(--i) * 70ms), opacity 220ms ease calc(560ms + var(--i) * 70ms) !important; }
+.prints[data-albumba] h2 { opacity: 0 !important; transform: scale(1.06) !important; transition: opacity 400ms ease, transform 600ms var(--ease-out) !important; }
+/* …majd a gombból arany album-borító nyílik ki az egész képernyőre, fényvillanással */
+.albumCover2, .albumCurtain { position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, var(--gold-hover), var(--gold) 55%, var(--gold-deep)); color: var(--on-gold); }
+.albumCover2 { animation: albumGrow 640ms var(--ease-expo) 520ms both; }
+.albumCover2 b, .albumCurtain b { position: relative; font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(4rem, 2rem + 8vw, 10rem); line-height: 1; }
+.albumCover2 b { animation: albumWord 520ms var(--ease-out) 820ms both; }
+.albumCover2Flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 60%); animation: albumFlash 560ms ease-out 760ms both; }
+@keyframes albumGrow { 0% { opacity: 0; clip-path: inset(var(--t) var(--r) var(--b) var(--l) round 6px); } 6% { opacity: 1; } 100% { opacity: 1; clip-path: inset(0 round 0); } }
+@keyframes albumWord { from { opacity: 0; transform: translateY(24px) scale(0.96); letter-spacing: 0.18em; } }
+@keyframes albumFlash { 0% { opacity: 0; transform: scale(0.6); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
+/* A Galéria oldalon: a borító felhúzódik, az albumok a pakliból szétterülnek */
+.albumCurtain { animation: albumLift 820ms var(--ease-in-out) 140ms both; }
+.albumCurtain b { animation: albumWordUp 640ms var(--ease-in-out) 140ms both; }
+@keyframes albumLift { from { clip-path: inset(0 0 0 0); } to { clip-path: inset(0 0 100% 0); } }
+@keyframes albumWordUp { to { opacity: 0; transform: translateY(-30vh); } }
+.albums[data-belep] > li { animation: albumDeal 700ms var(--ease-out) calc(420ms + var(--i) * 70ms) both; }
+@keyframes albumDeal { from { opacity: 0; transform: translateY(56px) rotate(calc(-4deg + var(--i) * 2deg)) scale(0.94); } }
+@media (prefers-reduced-motion: reduce) {
+  .albumCurtain { display: none; }
+  .albums[data-belep] > li { animation: none; }
+  .albumsBtn, .albumsStack i, .albumsGo { transition: none; }
+}
 
 /* --- Boltok: kijelzőméretű sorok, kerek fotóval; kattintásra térképablak --- */
 .stores { background: var(--surface); padding-bottom: calc(var(--section) * 0.5); }
@@ -454,7 +497,6 @@ a.socialGo:hover { color: var(--ink) !important; }
 .lightboxNav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
 .lightboxPrev { left: 12px; }
 .lightboxNext { right: 12px; }
-.printsMore { position: absolute; right: 24px; bottom: 24px; z-index: 3; font-size: var(--step-lead); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .lightbox, .lightboxFig img { animation: none; } }
 
 /* --- Az előnézet sávja: arany, a képernyő alján, mindig látszik --- */
@@ -494,7 +536,8 @@ a.socialGo:hover { color: var(--ink) !important; }
   .print:nth-of-type(1) { left: auto; top: auto; transform: rotate(-4deg); }
   .print:nth-of-type(2) { right: auto; top: auto; margin-left: auto; transform: rotate(4deg); }
   .print:nth-of-type(3) { display: none; }
-  .printsMore { position: static; display: inline-block; margin-top: 1.25rem; }
+  .albumsBtn { position: relative; left: auto; bottom: auto; display: flex; width: 100%; margin-top: 2rem; }
+  .albumsText { flex: 1; }
   .navPages { gap: 0.9rem; }
   .albumPhotos { columns: 2; column-gap: 8px; }
   .albumPhotos li { margin-bottom: 8px; }

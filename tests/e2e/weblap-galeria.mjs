@@ -95,6 +95,39 @@ try {
   const res = await p.goto(`${BASE}/weblapteszt/galeria/nincs-ilyen`, { waitUntil: 'networkidle2' });
   ok(res.status() === 404, 'ismeretlen album: 404');
 
+  // főoldal: „Az összes album” nagy gomb a Galéria bal alsó sarkában; kattintásra a fotók a gombba repülnek, arany borító
+  // nyílik ki, utána a Galéria oldal, ahol a borító felhúzódik és az albumok beúsznak
+  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await p.$eval('#galeria', el => el.scrollIntoView({ block: 'center' }));
+  await wait(900);
+  const btn = await p.$eval('[data-osszes-album]', a => { const r = a.getBoundingClientRect(), sec = a.closest('section').getBoundingClientRect(); return { h: r.height, w: r.width, left: r.left - sec.left, bottom: sec.bottom - r.bottom, text: a.textContent, href: a.getAttribute('href') }; });
+  ok(btn.h >= 64 && btn.w >= 280 && btn.left < 60 && btn.bottom < 60 && /Az összes album/.test(btn.text) && /2 album/.test(btn.text) && btn.href === '/weblapteszt/galeria', `nagy gomb a bal alsó sarokban (${Math.round(btn.w)}×${Math.round(btn.h)}, ${btn.text})`);
+  await p.screenshot({ path: `${SHOTS}galeria-gomb.jpg`, quality: 60 });
+  const bb = await (await p.$('[data-osszes-album]')).boundingBox();
+  await p.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await wait(450);
+  const fly = await p.evaluate(() => ({ albumba: document.querySelector('#galeria').hasAttribute('data-albumba'), cover: !!document.querySelector('[data-album-borito]'), still: location.pathname }));
+  ok(fly.albumba && fly.cover && fly.still === '/weblapteszt', 'kattintásra animáció: a fotók a gombba repülnek, nyílik a borító (még a főoldalon)');
+  await p.screenshot({ path: `${SHOTS}galeria-gomb-repul.jpg`, quality: 60 });
+  await wait(500);
+  await p.screenshot({ path: `${SHOTS}galeria-gomb-borito.jpg`, quality: 60 });
+  await p.waitForFunction(() => location.pathname === '/weblapteszt/galeria', { timeout: 15000 }).catch(() => {});
+  await p.waitForSelector('[data-album-fuggony]', { timeout: 5000 }).catch(() => {});
+  ok(p.url().endsWith('/weblapteszt/galeria') && !!(await p.$('[data-album-fuggony]')) && !!(await p.$('ul[data-belep]')), 'utána a Galéria oldal: a borító felhúzódik, az albumok beúsznak');
+  await wait(300);
+  await p.screenshot({ path: `${SHOTS}galeria-belepo.jpg`, quality: 60 });
+  await wait(1800);
+  ok(!(await p.$('[data-album-fuggony]')) && (await p.$$eval('[data-album]', els => els.every(e => +getComputedStyle(e.closest('li')).opacity === 1))), 'a végén a borító eltűnik, minden album látszik');
+  // új lapon nyitva (Cmd/Ctrl) és csökkentett mozgásnál nincs animáció
+  const r = await page(b, null);
+  await r.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await r.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await r.$eval('[data-osszes-album]', el => el.scrollIntoView({ block: 'center' }));
+  await r.click('[data-osszes-album]');
+  await r.waitForFunction(() => location.pathname === '/weblapteszt/galeria', { timeout: 15000 }).catch(() => {});
+  ok(r.url().endsWith('/weblapteszt/galeria') && !(await r.$('[data-album-fuggony]')), 'csökkentett mozgásnál rögtön nyílik, borító nélkül');
+  await r.close();
+
   // telefon
   const ph = await page(b, null, 402, 874);
   await ph.goto(`${BASE}/weblapteszt/galeria`, { waitUntil: 'networkidle2' });

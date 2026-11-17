@@ -19,6 +19,7 @@ import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/post
 import { moodAt } from '@/weblap/lib/moods';
 import { samplePosts } from '@/weblap/lib/samplePosts';
 import SocialPost from '@/weblap/components/SocialPost';
+import AlbumsLink from '@/weblap/components/AlbumsLink';
 import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl } from '@/weblap/lib/calendar';
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
@@ -200,11 +201,11 @@ export default async function HomePage({ content, feed, previewBar = null, base 
           <section className={s.prints} id="galeria" aria-labelledby="galeria-cim">
             <h2 id="galeria-cim" className={s.disp} data-reveal>Galéria</h2>
             {gallery.pictures.slice(0, 3).map((g, i) => (
-              <figure key={g.id || i} className={s.print} data-reveal>
+              <figure key={g.id || i} className={s.print} data-reveal data-nyomat>
                 <Image src={g.picture.src} alt={g.picture.alt} width={600} height={800} sizes="20vw" style={{ objectPosition: g.picture.position }} />
               </figure>
             ))}
-            {visibleAlbums(content.albums?.albums).length > 0 && <a className={`${s.textlink} ${s.printsMore}`} href={withBase(`${base}/galeria`)}>Az összes album →</a>}
+            {visibleAlbums(content.albums?.albums).length > 0 && <AlbumsLink href={withBase(`${base}/galeria`)} count={visibleAlbums(content.albums?.albums).length} />}
           </section>
         )}
 
