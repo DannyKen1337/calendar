@@ -4,6 +4,7 @@ import s from '@/weblap/fooldal.module.css';
 import { withBase } from '@/weblap/lib/basePath';
 import { storeStatus } from '@/weblap/lib/stores';
 import TableTent from '@/weblap/components/TableTent';
+import { MOODS } from '@/weblap/lib/moods';
 
 // A főoldal két ablaka, ugyanazon az oldalon (nem új lapon):
 //  - Naptárablak: bármely [data-cal] linkre kattintva a kattintás helyéről kinyíló aranykör, belőle felúszik a naptár
@@ -16,6 +17,8 @@ import TableTent from '@/weblap/components/TableTent';
 // stores: [{ id, name, address, mapQuery, hours }]; sign: a cégér képe; routeLabel: az útvonaltervezés gomb felirata
 const CLOSE = <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" strokeWidth="1.6" /></svg>;
 const LEAVE_MS = 950;
+// A töltőképernyő (cégér + hangulatszöveg) legalább ennyi ideig látszik, hogy el lehessen olvasni; utána elhalványul
+const MIN_LOADING_MS = 1200;
 
 export default function Overlays({ stores, sign, routeLabel }) {
   const [cal, setCal] = useState(null);   // { url, title, x, y, phase: 'open' | 'closing' }
@@ -25,12 +28,18 @@ export default function Overlays({ stores, sign, routeLabel }) {
   const lastFocus = useRef(null);
   const closeBtn = useRef({ cal: null, map: null, table: null });
   const setters = useRef({ cal: setCal, map: setMap, table: setTable }).current;
+  const openedAt = useRef({});
+  const [mood, setMood] = useState(0); // melyik hangulatszöveg látszik a töltőképernyőn (nyitásonként a következő)
+  // A betöltött ablak csak a töltőképernyő legkisebb ideje után jelenik meg
+  const loaded = (kind) => setTimeout(() => setReady(r => ({ ...r, [kind]: true })), Math.max(0, (openedAt.current[kind] || 0) + MIN_LOADING_MS - Date.now()));
 
   const lock = (on) => document.documentElement.classList.toggle(s.lock, on);
 
   const open = useCallback((kind, value) => {
     lastFocus.current = document.activeElement;
     setReady(r => ({ ...r, [kind]: false }));
+    openedAt.current[kind] = Date.now();
+    if (kind !== 'map') setMood(m => (m + 1) % MOODS.length);
     lock(true);
     // Két képkocka múlva kapja meg a nyitott állapotot, hogy az átmenet a zárt állapotból induljon
     setters[kind]({ ...value, phase: 'start' });
@@ -115,8 +124,8 @@ export default function Overlays({ stores, sign, routeLabel }) {
             <button ref={el => { closeBtn.current.cal = el; }} type="button" className={s.close} aria-label="A naptár bezárása" onClick={() => close('cal')}>{CLOSE}</button>
           </div>
           <div className={s.calFrame}>
-            <div className={s.loading}><img src={withBase(sign)} alt="" /></div>
-            {cal && <iframe title={cal.title || 'Naptár'} src={cal.url} style={ready.cal ? { opacity: 1 } : undefined} onLoad={() => setReady(r => ({ ...r, cal: true }))} />}
+            <div className={s.loading} data-toltes><img src={withBase(sign)} alt="" /><b>{MOODS[mood].title}</b><span>{MOODS[mood].text}</span></div>
+            {cal && <iframe title={cal.title || 'Naptár'} src={cal.url} style={ready.cal ? { opacity: 1 } : undefined} onLoad={() => loaded('cal')} />}
           </div>
         </div>
       </div>
@@ -131,8 +140,8 @@ export default function Overlays({ stores, sign, routeLabel }) {
             <button ref={el => { closeBtn.current.table = el; }} type="button" className={s.close} aria-label="Az asztalfoglalás bezárása" onClick={() => close('table')}>{CLOSE}</button>
           </div>
           <div className={s.calFrame}>
-            <div className={s.loading}><img src={withBase(sign)} alt="" /></div>
-            {table && <iframe title={table.title || 'Asztalfoglalás'} src={table.url} style={ready.table ? { opacity: 1 } : undefined} onLoad={() => setReady(r => ({ ...r, table: true }))} />}
+            <div className={s.loading} data-toltes><img src={withBase(sign)} alt="" /><b>{MOODS[mood].title}</b><span>{MOODS[mood].text}</span></div>
+            {table && <iframe title={table.title || 'Asztalfoglalás'} src={table.url} style={ready.table ? { opacity: 1 } : undefined} onLoad={() => loaded('table')} />}
           </div>
         </div>
       </div>

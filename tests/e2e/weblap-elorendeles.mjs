@@ -1,4 +1,4 @@
-// Weboldal: az Előrendelés mezőben az élő (nyitott) előrendelések; kattintásra animáció, utána a naptárablakban az előrendelés.
+// Weboldal: az Előrendelés sávban (a cégér alatt) az élő (nyitott) előrendelések; kattintásra animáció, utána a naptárablakban az előrendelés.
 import { openDb, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
 
 const { client, db } = await openDb();
@@ -7,7 +7,7 @@ const b = await browser();
 try {
   let p = await page(b, null);
   await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
-  ok(!(await p.$(SEL)), 'nyitott előrendelés nélkül nincs kártyasor');
+  ok(!(await p.$(SEL)) && !!(await p.$('[data-elorendeles-sav] a[data-cal]')), 'nyitott előrendelés nélkül nincs kártyasor, csak az Előrendelés link');
 
   const ids = (await db.collection('preorder_products').insertMany([
     { name: 'Mega Evolution Booster Box', category: 'Pokémon TCG', price: 52990, releaseDate: '2026. december 5.', stock: 40, isOpen: true, createdAt: new Date() },
@@ -15,10 +15,11 @@ try {
     { name: 'Régi, lezárt termék', category: 'Disney Lorcana', price: 1000, isOpen: false, createdAt: new Date() },
   ])).insertedIds;
   await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
-  const cards = await p.$$eval(`${SEL} [data-elorendeles]`, els => els.map(e => ({ text: e.textContent, href: e.getAttribute('href'), dot: getComputedStyle(e.querySelector('[data-elo]')).animationName })));
+  const cards = await p.$$eval(`${SEL} [data-elorendeles]`, els => els.map(e => ({ text: e.textContent, href: e.getAttribute('href') })));
+  const head = await p.$eval('[data-elorendeles-sav]', el => ({ text: el.textContent, dot: getComputedStyle(el.querySelector('[data-elo]')).animationName }));
   ok(cards.length === 2, `a két nyitott előrendelés kártyája (${cards.length})`);
   ok(cards.some(c => /Mega Evolution Booster Box/.test(c.text) && /52\s990\sFt/.test(c.text) && /december 5/.test(c.text)), 'név, ár, megjelenés');
-  ok(cards.every(c => /ÉLŐ/i.test(c.text) && c.dot !== 'none'), 'lüktető „ÉLŐ” jelzés');
+  ok(/ÉLŐ/i.test(head.text) && head.dot !== 'none', 'a sáv tetején lüktető „Élő előrendelés” jelzés');
   ok(cards.some(c => /OP-14/.test(c.text) && /Utolsó darabok/i.test(c.text)), 'kevés darabnál „Utolsó darabok!”');
   ok(cards.some(c => c.href.endsWith(`/elorendeles?termek=${ids[0]}`)), 'a kártya az adott termék előrendelésére visz');
 

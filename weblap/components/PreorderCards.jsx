@@ -3,14 +3,15 @@ import { useRef, useState } from 'react';
 import { formatPrice } from '@/lib/preorders';
 import s from '@/weblap/fooldal.module.css';
 
-// Az Előrendelés mező kártyái: az élő (nyitott) előrendelések, lüktető „ÉLŐ” jelzéssel. Kattintásra a kártya megnyomódik
-// és felpattan, holografikus fény söpör végig rajta, a kattintás helyéről aranyszikrák és egy körhullám indul; utána
-// ugyanonnan nyílik ki a naptárablak (Overlays) az adott termék előrendelésével. Csökkentett mozgásnál rögtön nyílik.
-// products: [{ id, name, category, price, releaseDate, remaining, logo, href }]
+// Az Előrendelés sáv a főcím (cégér) alatt: finoman beúszik (CSS: .heroPre). Benne az élő (nyitott) előrendelések kis
+// kártyái, lüktető „ÉLŐ” jelzéssel; kattintásra a kártya megnyomódik és felpattan, a kattintás helyéről aranyszikrák
+// és egy körhullám indul, utána ugyanonnan nyílik ki a naptárablak (Overlays) az adott termékkel. Csökkentett mozgásnál
+// rögtön nyílik. Ha nincs nyitott előrendelés, egyetlen „Előrendelés” link látszik.
+// products: [{ id, name, category, price, releaseDate, remaining, logo, href }]; allHref: az összes előrendelés
 const SPARKS = 14;
 const LAUNCH_MS = 560;
 
-export default function PreorderCards({ products }) {
+export default function PreorderCards({ products, allHref }) {
   const [launch, setLaunch] = useState(null); // { id, x, y } – a kattintás helye a kártyán belül
   const passing = useRef(false);
 
@@ -30,40 +31,50 @@ export default function PreorderCards({ products }) {
     }, LAUNCH_MS);
   };
 
+  if (!products.length) {
+    return (
+      <div className={s.heroPre} data-elorendeles-sav data-count="0">
+        <a className={s.preorderSolo} href={allHref} data-cal="" data-title="Előrendelés">
+          <span className={s.live}>Előrendelés</span>
+          <span>Foglald le az új kiadást a megjelenés előtt</span>
+          <span className={s.preorderGo} aria-hidden="true">›</span>
+        </a>
+      </div>
+    );
+  }
+
   return (
-    <div className={s.preorders} data-elorendelesek data-count={products.length} data-reveal>
-      {products.map(p => {
-        const going = launch?.id === p.id;
-        return (
-          <a key={p.id} href={p.href} className={s.preorder} data-cal="" data-title={p.name} data-elorendeles
-            data-indul={going ? '' : undefined} onClick={(ev) => onClick(ev, p)}>
-            <span className={s.preorderTop}>
-              <span className={s.live}><i data-elo aria-hidden="true" />Élő előrendelés</span>
-              {p.remaining !== null && p.remaining <= 5
-                ? <span className={s.preorderHot}>{p.remaining === 0 ? 'Elfogyott' : 'Utolsó darabok!'}</span>
-                : p.remaining !== null && <span className={s.preorderLeft}>még {p.remaining} db</span>}
-            </span>
-            <span className={s.preorderMain}>
+    <div className={s.heroPre} data-elorendeles-sav data-count={products.length}>
+      <div className={s.heroPreHead}>
+        <span className={s.live}><i data-elo aria-hidden="true" />Élő előrendelés</span>
+        <a href={allHref} data-cal="" data-title="Előrendelés">Összes előrendelés ›</a>
+      </div>
+      <div className={s.preorders} data-elorendelesek data-count={products.length}>
+        {products.map(p => {
+          const going = launch?.id === p.id;
+          return (
+            <a key={p.id} href={p.href} className={s.preorder} data-cal="" data-title={p.name} data-elorendeles
+              data-indul={going ? '' : undefined} onClick={(ev) => onClick(ev, p)}>
               {/* a játéklogók a naptár képei (public/jatekok), nem a weboldaléi */}
-              <img className={s.preorderLogo} src={p.logo} alt="" width={56} height={56} loading="lazy" />
+              <img className={s.preorderLogo} src={p.logo} alt="" width={44} height={44} />
               <span className={s.preorderText}>
                 <b>{p.name}</b>
-                {p.releaseDate && <span>Megjelenés: {p.releaseDate}</span>}
+                <span>
+                  {[p.releaseDate && `Megjelenés: ${p.releaseDate}`, p.price !== null && formatPrice(p.price)].filter(Boolean).join(' · ')}
+                  {p.remaining !== null && p.remaining <= 5 && <em className={s.preorderHot}>{p.remaining === 0 ? 'Elfogyott' : 'Utolsó darabok!'}</em>}
+                </span>
               </span>
-            </span>
-            <span className={s.preorderBottom}>
-              {p.price !== null && <b className={s.preorderPrice}>{formatPrice(p.price)}</b>}
-              <span className={s.preorderGo}>Előrendelem ›</span>
-            </span>
-            {going && (
-              <span className={s.burst} style={{ left: launch.x, top: launch.y }} aria-hidden="true">
-                <i className={s.ring} />
-                {Array.from({ length: SPARKS }, (_, i) => <i key={i} className={s.spark} data-szikra style={{ '--a': `${(360 / SPARKS) * i + (i % 2 ? 9 : 0)}deg`, '--d': `${70 + (i % 3) * 28}px` }} />)}
-              </span>
-            )}
-          </a>
-        );
-      })}
+              <span className={s.preorderGo} aria-hidden="true">›</span>
+              {going && (
+                <span className={s.burst} style={{ left: launch.x, top: launch.y }} aria-hidden="true">
+                  <i className={s.ring} />
+                  {Array.from({ length: SPARKS }, (_, i) => <i key={i} className={s.spark} data-szikra style={{ '--a': `${(360 / SPARKS) * i + (i % 2 ? 9 : 0)}deg`, '--d': `${70 + (i % 3) * 28}px` }} />)}
+                </span>
+              )}
+            </a>
+          );
+        })}
+      </div>
     </div>
   );
 }

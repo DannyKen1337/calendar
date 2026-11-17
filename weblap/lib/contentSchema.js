@@ -83,22 +83,9 @@ export const CONTENT_TABS = [
     }),
   },
   {
-    key: 'features', label: 'Mondatok',
-    intro: 'A nagy, színes mezők a program után. Mindegyikben egy cím és egy mondat, gomb nem kötelező.',
-    schema: object(null, {
-      items: list('Mezők', object(null, {
-        title: text('Cím (nagy betűkkel)', { max: 40 }),
-        text: area('Mondat a cím mellett', { max: 220, rows: 2 }),
-        button: text('Gomb felirata (nem kötelező)', { max: 30 }),
-        href: url('Gomb linkje', { help: 'A naptár oldalai (pl. az előrendelés) az oldalon belül nyílnak meg.' }),
-      }), { itemLabel: 'mező', titleKey: 'title', max: 6, collapsible: true }),
-    }),
-  },
-  {
     key: 'gallery', label: 'Főoldali fotók',
-    intro: 'A főoldal „Egy este nálunk” része: a nagy cím mellett három fotó. Egy képet a „Csere” gombbal cserélhetsz. Az események képei nem ide, hanem a Galéria fülre valók.',
+    intro: 'A főoldal Galéria része: a nagy cím mellett három fotó. Egy képet a „Csere” gombbal cserélhetsz. Az események képei nem ide, hanem a Galéria fülre valók.',
     schema: object(null, {
-      title: text('Cím', { max: 40 }),
       note: area('Képaláírás (bal alsó sarok)', { max: 200, rows: 2 }),
       pictures: list('Képek', object(null, { picture: image('Kép') }), { itemLabel: 'kép', titleKey: 'none', max: 3, photos: true }),
     }),

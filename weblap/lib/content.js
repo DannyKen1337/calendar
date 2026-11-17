@@ -26,7 +26,7 @@ export const DEFAULT_CONTENT = {
   },
   hero: {
     sign: { src: '/brand/tavern-ceger.png', alt: 'Tavern – TCG, Board, and Wargame Club and Store', position: '50% 50%' },
-    text: 'Kártya-, társas- és wargame klub és bolt Debrecenben és Miskolcon. Minden héten verseny, és mindig akad egy szabad asztal.',
+    text: 'Kártya-, társas- és wargame klub és bolt Debrecenben és Miskolcon.',
     button: 'A heti program',
   },
   program: {
@@ -35,17 +35,8 @@ export const DEFAULT_CONTENT = {
     allGames: 'Minden játék',
     empty: 'A következő napokra még nincs meghirdetett esemény. Nézz be a naptárba, vagy gyere be játszani.',
   },
-  features: {
-    items: [
-      { id: 'verseny', title: 'Minden héten verseny', text: 'Pokémon, One Piece, Riftbound, Magic, Warhammer és még sok más. Pénteken Nexus Night, kezdőknek is.', button: '', href: '' },
-      { id: 'klub', title: 'Három bolt, egy klub', text: 'Kettő Debrecen belvárosában, egy Miskolcon. Mindhárom klub is: asztal mindig akad, akkor is, ha csak játszani jössz.', button: '', href: '' },
-      { id: 'liga', title: 'Ligák szezononként', text: 'Pontok alkalomról alkalomra, nyilvános ranglistával. A szezon végén kiderül, ki a legjobb.', button: '', href: '' },
-      { id: 'elorendeles', title: 'Ne maradj le róla', text: 'Foglald le az új kiadást a megjelenés előtt, és vedd át a boltban.', button: 'Előrendelés', href: PREORDER_URL },
-    ],
-  },
   gallery: {
-    title: 'Egy este nálunk',
-    note: 'Péntek este a debreceni boltban: hat asztal, egy pakli-bontás, és senki nem siet haza.',
+    note: 'Péntek este. Hat asztal, és senki nem siet haza.',
     pictures: [
       { id: 'kep1', picture: { src: '/photos/bolt-asztalok.png', alt: 'Teli asztalok egy esti versenyen a Tavern Debrecenben', position: '50% 40%' } },
       { id: 'kep2', picture: { src: '/photos/klub-asztal.png', alt: 'Két játékos egy kártyameccs közben a klub egyik asztalánál', position: '50% 45%' } },
@@ -81,11 +72,11 @@ export const DEFAULT_CONTENT = {
     pageEmpty: 'Hamarosan itt is olvashatod a híreinket. Addig keress minket a boltok Facebook-oldalain.',
   },
   stores: {
-    title: 'Ülj be hozzánk',
+    title: 'Nyitvatartás és cím',
     todayLabel: 'Ma',
     routeButton: 'Útvonaltervezés',
     bookingTitle: 'Foglalj asztalt',
-    bookingText: 'Jöttök többen? Válassz boltot, napot és időpontot, és félretesszük nektek az asztalt. A foglalás a visszaigazolással él.',
+    bookingText: 'Jöttök többen? Válassz boltot és időpontot, mi félretesszük az asztalt. A foglalás a visszaigazolással él.',
     bookingButton: 'Asztalt foglalok',
     debrecen: {
       name: 'Tavern Debrecen',

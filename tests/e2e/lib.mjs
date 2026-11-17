@@ -28,8 +28,10 @@ export const get = (url, cookie) => fetch(`${BASE}${url}`, { headers: cookie ? {
 export async function browser() {
   return puppeteer.launch({ executablePath: CHROME, headless: 'new' });
 }
-export async function page(b, cookie, w = 1280, h = 900) {
+// intro: true esetén a weboldal töltőképernyője is látszik (alapból kimarad, mintha már látta volna a munkamenetben)
+export async function page(b, cookie, w = 1280, h = 900, { intro = false } = {}) {
   const p = await b.newPage();
+  if (!intro) await p.evaluateOnNewDocument(() => { try { sessionStorage.setItem('tavern-tolto', '1'); } catch { /* nincs tárhely */ } });
   await p.setViewport({ width: w, height: h, isMobile: w < 500, hasTouch: w < 500 });
   p.on('dialog', d => d.accept());
   p.errs = []; p.on('pageerror', e => p.errs.push(e.message));

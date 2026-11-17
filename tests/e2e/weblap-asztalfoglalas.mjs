@@ -1,4 +1,4 @@
-// Weboldal: az „Ülj be hozzánk” rész feljebb (a Hírek után), benne az asztalfoglalás blokkja és linkjei; kattintásra
+// Weboldal: az Asztalfoglalás külön szakasz (a Ligák után, a Hírek előtt), a gombjával és boltonkénti linkjeivel; kattintásra
 // a saját ablakában (felbillenő „Foglalt” tábla) nyílik a beépített asztalfoglalás. Telefonon is.
 import { openDb, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
 
@@ -8,16 +8,16 @@ const b = await browser();
 try {
   const p = await page(b, null);
   await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
-  const order = await p.evaluate(() => ['hirek', 'boltok', 'kinalat', 'kapcsolat'].map(id => document.getElementById(id)).map(el => el ? [...document.querySelectorAll('section')].indexOf(el.closest('section')) : -1));
-  ok(order.every(i => i >= 0) && order[0] < order[1] && order[1] < order[2] && order[2] < order[3], `az „Ülj be hozzánk” a Hírek után, a nagy mondatok előtt (${order.join(', ')})`);
-  ok((await p.$eval('#boltok-cim', h => h.textContent)) === 'Ülj be hozzánk', 'a rész címe: Ülj be hozzánk');
+  const order = await p.evaluate(() => ['liga', 'asztalfoglalas', 'hirek', 'boltok'].map(id => document.getElementById(id)).map(el => el ? [...document.querySelectorAll('section')].indexOf(el) : -1));
+  ok(order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), `az Asztalfoglalás a Ligák után, a Hírek előtt; a boltok lejjebb (${order.join(', ')})`);
+  ok((await p.$eval('#asztalfoglalas-cim', h => h.textContent)) === 'Foglalj asztalt' && (await p.$eval('#boltok-cim', h => h.textContent)) === 'Nyitvatartás és cím', 'címek: Foglalj asztalt, Nyitvatartás és cím');
   const links = await p.$$eval('[data-asztalfoglalas] a[data-table]', as => as.map(a => a.getAttribute('href')));
   ok(links.length === 4 && /\/asztalfoglalas$/.test(links[0]) && ['debrecen', 'jatekceh', 'miskolc'].every(id => links.some(h => h.endsWith(`/asztalfoglalas?bolt=${id}`))), `asztalfoglalás gomb és boltonkénti linkek (${links.length})`);
   const named = await p.$$eval('[data-asztalfoglalas] a[data-table]', as => as.map(a => ({ name: a.getAttribute('aria-label') || a.textContent, popup: a.getAttribute('aria-haspopup') })));
   ok(named.every(x => x.popup === 'dialog') && named.slice(1).every(x => /^Asztalfoglalás: /.test(x.name)), 'a foglalós gombok jelzik, hogy ablak nyílik; a boltgombok neve a felolvasónak egyértelmű');
   const border = await p.$eval('[data-asztalfoglalas] ul a', a => getComputedStyle(a).borderTopColor);
   ok(/0\.62\)/.test(border), `a boltgombok kerete erősebb (legalább 3:1) (${border})`);
-  ok(await p.$eval('#boltok', sec => !!sec.querySelector('[data-map]') && !!sec.querySelector('[data-asztalfoglalas]')), 'a blokk a térképes boltok mellett van');
+  ok(await p.$eval('#asztalfoglalas', sec => sec.hasAttribute('data-asztalfoglalas')) && (await p.$$('#boltok [data-map]')).length === 3, 'a foglalás külön szakasz, a térképes boltsorok a Nyitvatartás és cím részben');
   // a boltok neve egységesen, a teljes heti nyitvatartás a bolt sorában
   const rows = await p.$$eval('#boltok a[data-map]', as => as.map(a => ({ name: a.querySelector('h3').textContent, days: [...a.querySelectorAll('[data-nyitvatartas] dt')].map(d => d.childNodes[0].textContent), text: a.querySelector('[data-nyitvatartas]')?.textContent || '', ma: a.querySelectorAll('[data-ma]').length })));
   ok(rows.map(r => r.name).join('|') === 'Tavern Debrecen|JátékCéh|Tavern Miskolc', `a boltok neve: ${rows.map(r => r.name).join(', ')}`);
