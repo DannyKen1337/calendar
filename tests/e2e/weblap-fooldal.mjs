@@ -1,4 +1,4 @@
-// Weboldal, főoldal: a szakaszok sorrendje (Naptár, Ligák, Asztalfoglalás, Hírek, Galéria, Nyitvatartás és cím, Írj nekünk),
+// Weboldal, főoldal: a szakaszok sorrendje (Naptár, Ligák, Asztalfoglalás, Hírek, Galéria, Itt találsz minket (nyitvatartás és cím), Írj nekünk),
 // az Előrendelés sáv közvetlenül a cégér alatt (beúszik), a nagy „teljes naptár” gomb, a boltok sorai fotó nélkül,
 // a töltőképernyő (első betöltéskor 1–2 mp, hangulatszöveggel, utána eltűnik; munkamenetenként egyszer), és a
 // naptárablak töltőképernyője a hangulatszöveggel. Gépen és telefonon.
@@ -36,7 +36,7 @@ try {
   ok(order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), `a szakaszok sorrendje: ${ORDER.join(', ')} (${order.join(', ')})`);
   ok(!(await p.$('#kinalat')), 'a régi nagy mondatok mezői eltűntek');
   const titles = await p.evaluate(() => ({ liga: document.getElementById('liga-cim')?.textContent, galeria: document.getElementById('galeria-cim')?.textContent, boltok: document.getElementById('boltok-cim')?.textContent }));
-  ok(titles.liga === 'Ligák' && titles.galeria === 'Galéria' && titles.boltok === 'Nyitvatartás és cím', `új címek (${Object.values(titles).join(' | ')})`);
+  ok(titles.liga === 'Ligák' && titles.galeria === 'Galéria' && titles.boltok === 'Itt találsz minket', `új címek (${Object.values(titles).join(' | ')})`);
 
   // Előrendelés sáv a cégér alatt
   const pre = await p.evaluate(() => {

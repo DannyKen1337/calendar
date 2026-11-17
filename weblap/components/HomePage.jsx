@@ -5,7 +5,6 @@ import Motion from '@/weblap/components/Motion';
 import SiteNav from '@/weblap/components/SiteNav';
 import WeekProgram from '@/weblap/components/WeekProgram';
 import NewsList from '@/weblap/components/NewsList';
-import Mosaic from '@/weblap/components/Mosaic';
 import LeagueCards from '@/weblap/components/LeagueCards';
 import PreorderCards from '@/weblap/components/PreorderCards';
 import { getOpenPreorderProducts } from '@/lib/preorderData';
@@ -42,13 +41,13 @@ const overlayAttrs = (href, title) => {
 };
 
 // Az oldal fentről lefelé: cégér az egész első képernyőn (alatta az Előrendelés sáv), a naptár (heti program, nagy
-// „teljes naptár” gombbal), Ligák, Asztalfoglalás, Hírek, Galéria (három fotó és a képfal), Nyitvatartás és cím (a boltok
+// „teljes naptár” gombbal), Ligák, Asztalfoglalás, Hírek, Galéria (három fotó, link a Galéria oldalra), Itt találsz minket (nyitvatartás és cím: a boltok
 // sorai, kattintásra térképablak), Írj nekünk, lábléc. A naptár, a foglalás és a térkép ugyanezen az oldalon nyílik meg
 // (Overlays). Az első betöltéskor egy töltőképernyő mutat egy hangulatszöveget (weblap/lib/moods.js, app/(weblap)/layout.js).
 // content: az oldal tartalma (éles vagy előnézet); feed: a hírek; previewBar: az előnézet sávja (élesben nincs);
 // base: a hírek oldalainak eleje ('' élesben, '/elonezet' az előnézetben)
 export default async function HomePage({ content, feed, previewBar = null, base = '' }) {
-  const { general, hero, program, gallery, slideshow, news, contact } = content;
+  const { general, hero, program, gallery, news, contact } = content;
   const { stores, events, now } = await getHomeData(content);
   // A Ligák részben a publikált ranglisták (legfeljebb 4 liga)
   const leagues = (await getPublishedLeagues().catch(() => [])).filter(l => l.isPublished && l.rows.length > 0).slice(0, 4);
@@ -209,8 +208,6 @@ export default async function HomePage({ content, feed, previewBar = null, base 
             {visibleAlbums(content.albums?.albums).length > 0 && <a className={`${s.textlink} ${s.printsMore}`} href={withBase(`${base}/galeria`)}>Az összes album →</a>}
           </section>
         )}
-
-        {slideshow.pictures.length > 0 && <Mosaic title={slideshow.title} pictures={slideshow.pictures} />}
 
         <section className={s.stores} id="boltok" aria-labelledby="boltok-cim">
           <h2 id="boltok-cim" className={s.disp} data-reveal>{content.stores.title}</h2>

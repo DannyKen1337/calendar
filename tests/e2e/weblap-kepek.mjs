@@ -1,4 +1,4 @@
-// Weboldal szerkesztő: a nagy (iPhone-méretű, 4 MB fölötti) fotók feltöltés előtt a böngészőben tömörítődnek – a Képfalon,
+// Weboldal szerkesztő: a nagy (iPhone-méretű, 4 MB fölötti) fotók feltöltés előtt a böngészőben tömörítődnek – a Főoldali fotóknál,
 // a Galéria albumaiban és a Hírek űrlapján is –, és szépek maradnak (a hosszabbik oldal 2560 px, jó minőségű JPEG).
 // FAKE_IMGBB=1 szerverrel: az ál-ImgBB a cím végére írja a kapott kép méretét bájtban.
 import { openDb, token, browser, page, ok, summary, wait, BASE, SHOTS } from './lib.mjs';
@@ -12,7 +12,7 @@ const ids = (await db.collection('users').insertMany([
   { username: 'Kepes', email: 'k@x.hu', password: 'x', role: 'admin', features: ['website'], allowedCategories: [], allowedStores: [] },
 ])).insertedIds;
 const editor = await token(ids[0], 'Kepes', 'admin');
-await db.collection('website_content').insertOne({ _id: 'site', slideshow: { title: 'A boltokból', pictures: [] } });
+await db.collection('website_content').insertOne({ _id: 'site', gallery: { note: '', pictures: [] } });
 
 // egy „iPhone-fotó”: 4032 × 3024, zajos (rosszul tömöríthető), JPEG 100-as minőségben – jóval 4 MB fölött
 const DIR = mkdtempSync(join(tmpdir(), 'tavern-e2e-kepek-'));
@@ -39,20 +39,20 @@ const sentSize = (src) => +(String(src).match(/-(\d+)\.(jpg|png)$/)?.[1] || 0);
 
 const b = await browser();
 try {
-  // Képfal
+  // Főoldali fotók
   const p = await page(b, editor);
-  await p.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/weblapteszt/admin?lap=gallery`, { waitUntil: 'networkidle2', timeout: 240000 });
   await p.waitForSelector('input[type=file][multiple]', { timeout: 120000 });
   await (await p.$('input[type=file][multiple]')).uploadFile(BIG);
   await p.waitForFunction(() => document.querySelectorAll('[data-photo]').length > 0 || /legfeljebb 4 MB|nem tudtuk/i.test(document.body.innerText), { timeout: 60000 }).catch(() => {});
   const src = await p.$eval('[data-photo] img', i => i.getAttribute('src')).catch(() => '');
   const text = await p.evaluate(() => document.body.innerText);
-  ok(!!src && !/legfeljebb 4 MB/i.test(text), `Képfal: a 4 MB fölötti fotó is felment, hiba nélkül (${src})`);
-  ok(sentSize(src) > 0 && sentSize(src) <= 3.5 * 1024 * 1024 && /\.jpg$/.test(src), `Képfal: tömörítve ment fel (${(sentSize(src) / 1048576).toFixed(2)} MB JPEG)`);
-  ok(sentSize(src) > 300 * 1024, 'Képfal: nem túltömörítve (szép marad)');
+  ok(!!src && !/legfeljebb 4 MB/i.test(text), `Főoldali fotók: a 4 MB fölötti fotó is felment, hiba nélkül (${src})`);
+  ok(sentSize(src) > 0 && sentSize(src) <= 3.5 * 1024 * 1024 && /\.jpg$/.test(src), `Főoldali fotók: tömörítve ment fel (${(sentSize(src) / 1048576).toFixed(2)} MB JPEG)`);
+  ok(sentSize(src) > 300 * 1024, 'Főoldali fotók: nem túltömörítve (szép marad)');
 
   // szerkesztés feltöltés után: jobbra forgatás → álló kép kerül a helyére (az ál-kép 300 × 200-as)
-  await p.click('[data-photo] [data-szerkeszt]');
+  await p.evaluate(() => document.querySelector('[data-photo] [data-szerkeszt]').click());
   await p.waitForSelector('[data-kepszerkeszto][open]', { timeout: 10000 });
   await p.evaluate(() => [...document.querySelectorAll('[data-kepszerkeszto] button')].find(x => /Jobbra/.test(x.textContent)).click());
   await wait(100);
@@ -61,7 +61,7 @@ try {
   await p.waitForFunction((old) => document.querySelector('[data-photo] img')?.getAttribute('src') !== old && !document.querySelector('[data-kepszerkeszto][open]'), { timeout: 30000 }, src).catch(() => {});
   const edited = await p.$eval('[data-photo] img', i => i.getAttribute('src'));
   ok(/-200x300-\d+\.jpg$/.test(edited), `szerkesztés: jobbra forgatva, álló kép került a helyére (${edited})`);
-  await p.click('[data-photo] [data-szerkeszt]');
+  await p.evaluate(() => document.querySelector('[data-photo] [data-szerkeszt]').click());
   await p.waitForSelector('[data-kepszerkeszto][open]');
   await p.keyboard.press('Escape');
   await wait(200);
@@ -72,9 +72,9 @@ try {
   ok(!!(await p.$('[data-kirak-most]')), 'mentés után a mentés gomb mellett ott a „Kirakás az éles oldalra”');
   await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}), p.click('[data-kirak-most]')]);
   const live = await db.collection('website_content').findOne({ _id: 'site' });
-  ok(/lap=slideshow/.test(p.url()) && /Kirakva/.test(await p.evaluate(() => document.body.innerText)) && live?.slideshow?.pictures?.length >= 1 && /-200x300-/.test(live.slideshow.pictures[0].picture.src), `kirakva az éles oldalra, a Képfal fülön marad (${p.url().replace(BASE, '')})`);
+  ok(/lap=gallery/.test(p.url()) && /Kirakva/.test(await p.evaluate(() => document.body.innerText)) && live?.gallery?.pictures?.length >= 1 && /-200x300-/.test(live.gallery.pictures[0].picture.src), `kirakva az éles oldalra, a Főoldali fotók fülön marad (${p.url().replace(BASE, '')})`);
   const ph = await page(b, editor, 402, 874);
-  await ph.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2' });
+  await ph.goto(`${BASE}/weblapteszt/admin?lap=gallery`, { waitUntil: 'networkidle2' });
   await ph.evaluate(() => document.querySelector('[data-photo] [data-szerkeszt]')?.click());
   await ph.waitForSelector('[data-kepszerkeszto][open]', { timeout: 10000 }).catch(() => {});
   const tools = await ph.$$eval('[data-kepszerkeszto] button', bs => bs.map(x => Math.round(x.getBoundingClientRect().height)));
@@ -90,7 +90,7 @@ try {
   ok(/Kész: 1 \/ 1 kép/.test(await p.$eval('[data-mappa]', el => el.textContent)) && !(await p.$('[data-mappa] li')), 'Galéria: a mappa nagy fotója is hiba nélkül felment');
 
   // RAW (DNG): a beágyazott előnézet megy fel, tömörítve
-  await p.goto(`${BASE}/weblapteszt/admin?lap=slideshow`, { waitUntil: 'networkidle2' });
+  await p.goto(`${BASE}/weblapteszt/admin?lap=gallery`, { waitUntil: 'networkidle2' });
   await p.waitForSelector('input[type=file][multiple]', { timeout: 120000 });
   const before = (await p.$$('[data-photo]')).length;
   await (await p.$('input[type=file][multiple]')).uploadFile(DNG);

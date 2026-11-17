@@ -91,14 +91,6 @@ export const CONTENT_TABS = [
     }),
   },
   {
-    key: 'slideshow', label: 'Képfal',
-    intro: 'A főoldal mozgó képfala a három fotó után: pár másodpercenként egy-egy mezőben új kép nyílik ki. Tölts fel annyi képet, amennyit szeretnél (legfeljebb 40). Ha nincs kép, a képfal nem látszik.',
-    schema: object(null, {
-      title: text('Cím', { max: 40 }),
-      pictures: list('Képek', object(null, { picture: image('Kép'), caption: text('Felirat', { max: 40 }) }), { itemLabel: 'kép', titleKey: 'caption', max: 40, photos: true }),
-    }),
-  },
-  {
     key: 'albums', label: 'Galéria',
     intro: 'A külön Galéria oldal (a weboldal menüjében fent): eseményenként egy album, pl. Pokémon Prerelease, Pokeween, Riftbound Skirmish. A „Mappa feltöltése” gombbal egy egész mappát feltölthetsz: minden mappából egy album lesz a mappa nevével, a dátumot és a játékot a névből próbálja kitalálni.',
     schema: object(null, {
@@ -153,7 +145,7 @@ export const CONTENT_TABS = [
 
 export const TAB_KEYS = CONTENT_TABS.map(t => t.key);
 // A szerkesztőfelületen ezek a fülek látszanak (és csak ezeket lehet menteni); a többi tartalma marad, ahogy van
-export const EDITABLE_TABS = ['albums', 'gallery', 'slideshow'];
+export const EDITABLE_TABS = ['albums', 'gallery'];
 export const isEditableTab = (key) => EDITABLE_TABS.includes(key);
 export const tabByKey = (key) => CONTENT_TABS.find(t => t.key === key);
 

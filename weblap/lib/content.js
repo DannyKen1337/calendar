@@ -43,19 +43,6 @@ export const DEFAULT_CONTENT = {
       { id: 'kep3', picture: { src: '/photos/pakli-bontas.png', alt: 'Pakli-bontás a boltban', position: '50% 50%' } },
     ],
   },
-  // A képfal a bolt saját fotóival indul; a szerkesztők a Képfal fülön lecserélhetik (ha mindet törlik, a képfal eltűnik)
-  slideshow: {
-    title: 'A boltokból',
-    pictures: [
-      { id: 'kf1', picture: { src: '/photos/bolt-asztalok.png', alt: 'Teli asztalok egy esti versenyen a Tavern Debrecenben', position: '50% 40%' }, caption: 'Péntek este' },
-      { id: 'kf2', picture: { src: '/photos/verseny.png', alt: 'Verseny a boltban', position: '50% 45%' }, caption: 'Verseny' },
-      { id: 'kf3', picture: { src: '/photos/klub-asztal.png', alt: 'Két játékos egy kártyameccs közben', position: '50% 45%' }, caption: 'Klubasztal' },
-      { id: 'kf4', picture: { src: '/photos/pakli-bontas.png', alt: 'Pakli-bontás a boltban', position: '50% 50%' }, caption: 'Pakli-bontás' },
-      { id: 'kf5', picture: { src: '/photos/csapat.png', alt: 'A Tavern csapata', position: '50% 35%' }, caption: 'A csapat' },
-      { id: 'kf6', picture: { src: '/photos/miskolc-kirakat.jpg', alt: 'A Tavern Miskolc kirakata', position: '50% 50%' }, caption: 'Tavern Miskolc' },
-      { id: 'kf7', picture: { src: '/photos/jatekceh-kirakat.jpg', alt: 'A JátékCéh kirakata', position: '50% 50%' }, caption: 'JátékCéh' },
-    ],
-  },
   // A Galéria oldal: eseményenként egy album (a szerkesztők töltik fel a szerkesztőfelület Galéria fülén)
   albums: {
     title: 'Galéria',
@@ -72,7 +59,7 @@ export const DEFAULT_CONTENT = {
     pageEmpty: 'Hamarosan itt is olvashatod a híreinket. Addig keress minket a boltok Facebook-oldalain.',
   },
   stores: {
-    title: 'Nyitvatartás és cím',
+    title: 'Itt találsz minket',
     todayLabel: 'Ma',
     routeButton: 'Útvonaltervezés',
     bookingTitle: 'Foglalj asztalt',

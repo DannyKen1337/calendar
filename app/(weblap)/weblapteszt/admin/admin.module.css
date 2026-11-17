@@ -132,7 +132,7 @@
 .itemActions .small { background: var(--surface); }
 .itemActions .small:hover { background: var(--line); }
 
-/* Képek rácsban (Galéria, Képfal) */
+/* Képek rácsban (Galéria, Főoldali fotók) */
 .photos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .photo { display: flex; flex-direction: column; border-radius: var(--radius); background: var(--raised); overflow: hidden; }
 .photoImg { position: relative; aspect-ratio: 4 / 3; background: var(--field); cursor: crosshair; }

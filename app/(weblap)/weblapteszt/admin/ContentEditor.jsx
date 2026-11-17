@@ -6,7 +6,7 @@ import { compressImage } from '@/weblap/lib/compressImage';
 import { withBase } from '@/weblap/lib/basePath';
 import { saveContentAction, uploadImageAction, editImageAction, publishAction } from './actions';
 
-// Az oldal tartalmának egy füle (a szerkesztőfelületen a Galéria és a Képfal). Az űrlapot a fül sémája rajzolja ki
+// Az oldal tartalmának egy füle (a szerkesztőfelületen a Galéria és a Főoldali fotók). Az űrlapot a fül sémája rajzolja ki
 // (weblap/lib/contentSchema.js); mentéskor a teljes fül JSON-ban megy a szervernek, ami a séma szerint ellenőrzi.
 // s: az admin CSS-modulja; tabKey: a fül kulcsa; initial: a fül mostani tartalma; updated: { at, by } az utolsó mentésről
 const PREVIEW_PATH = '/elonezet';
@@ -543,7 +543,7 @@ function PhotoEditor({ src, s, onSave, onClose }) {
   );
 }
 
-// Képek rácsban (Galéria, Képfal): bélyegképek, egyszerre több kép feltöltése (vagy behúzása), kép linkje,
+// Képek rácsban (Galéria, Főoldali fotók): bélyegképek, egyszerre több kép feltöltése (vagy behúzása), kép linkje,
 // sorrend, csere, törlés és felirat. A képre kattintva választható ki, hova essen a kép közepe.
 function PhotoGrid({ f, value, onChange, s }) {
   const list = value || [];
