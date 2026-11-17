@@ -16,7 +16,7 @@ import { isValidChangelogId } from '@/lib/changelog';
 import { sanitizeEventType, sanitizeReservedSeats, RESERVED_SEATS_MAX } from '@/lib/eventTypes';
 import { normalizeEventDate, budapestDateTime } from '@/lib/eventDates';
 import { SERIES_ID_RE, SERIES_FIELDS, seriesMembers } from '@/lib/series';
-import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
+import { effectiveAccess, getGroupsMap, grantLevel1 } from '@/lib/userAccess';
 import { syncRgnEvent } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
 
@@ -737,6 +737,8 @@ export async function POST(request) {
         email: newEmail,
         password: await bcrypt.hash(tempPassword, 10),
         role: newRole,
+        // minden új szervező megkapja a személyes adatok 1. szintjét (név + üzenet)
+        ...(newRole === 'admin' && { features: ['personalBasic'] }),
         mustChangePassword: true,
         tempPasswordExpires: expiresAt,
         createdAt: new Date(),
@@ -758,6 +760,7 @@ export async function POST(request) {
 
       if (actionType === 'TOGGLE_ROLE') {
         await db.collection('users').updateOne(getQuery(payload.targetUserId), { $set: { role: payload.makeAdmin ? 'admin' : 'customer' } });
+        if (payload.makeAdmin) await grantLevel1(db, target._id);
         await addLog(db, session.username, 'JOGOSULTSÁG', `Jogosultságot módosított egy felhasználónál.`);
       } else {
         await db.collection('users').deleteOne(getQuery(payload.userId));

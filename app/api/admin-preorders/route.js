@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
-import { canManageCategory, hasFeature, seesPersonalData } from '@/lib/permissions';
+import { canManageCategory, hasFeature, seesPersonalData, canMessage } from '@/lib/permissions';
 import { sanitizeProductInput, productStock, productPrice, PREORDER_GAMES } from '@/lib/preorders';
 import { toObjectId } from '@/lib/preorderData';
 import { messagingStatus } from '@/lib/messages';
@@ -33,7 +33,7 @@ export async function GET() {
     return NextResponse.json({
       products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), price: productPrice(p), perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
       // 1. szint: e-mail és telefon nélkül (a rendszeren keresztül írhat nekik: hasEmail); 2. szint: minden adat
-      messaging: { personalData: seesPersonalData(session), ...messagingStatus() },
+      messaging: { personalData: seesPersonalData(session), canMessage: canMessage(session), ...messagingStatus() },
       preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, ...(seesPersonalData(session) ? { email: o.email, phone: o.phone } : { hasEmail: !!o.email }), quantity: o.quantity, date: o.date, updatedAt: o.updatedAt, handedOverAt: o.handedOverAt || null, handedOverBy: o.handedOverBy || '', paidAt: o.paidAt || null, paidBy: o.paidBy || '' })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
     });

@@ -7,7 +7,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageUsers } from '@/lib/permissions';
 import { isValidEmail } from '@/lib/rateLimit';
-import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, PROTECTED_FEATURES, seedDefaultGroups } from '@/lib/userAccess';
+import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, PROTECTED_FEATURES, seedDefaultGroups, isLevelGroup, grantLevel1, level1GroupId, ensureLevel1ForAll } from '@/lib/userAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +49,7 @@ export async function GET() {
     const db = await getTavernDb();
     // Az alapcsoportok (játékok, boltok, modulok) egyszeri létrehozása
     const seeded = await seedDefaultGroups(db, session.username).catch(() => 0);
+    await ensureLevel1ForAll(db).catch(err => console.error('1. szint:', err));
     if (seeded) await addLog(db, session.username, 'CSOPORT', `Alapcsoportok létrehozva: ${seeded} db (játékok, boltok, modulok)`);
     const [users, groupsById] = await Promise.all([
       db.collection('users').find({}, { projection: { password: 0 } }).sort({ username: 1 }).toArray(),
@@ -152,8 +153,18 @@ export async function POST(request) {
     if (actionType === 'SET_USER_GROUPS') {
       const { target, res } = await loadTarget(payload.userId);
       if (res) return res;
-      const found = await validGroupIds(payload.groupIds);
-      if (!isOwner && found.some(isProtectedGroup)) return protectedDenied();
+      let found = await validGroupIds(payload.groupIds);
+      if (!isOwner) {
+        // A személyes adatok szintjeit (1. és 2. szint) csak a tulajdonos adhatja / veheti el: a szervező mentésekor a
+        // felhasználó eddigi szint-csoportjai maradnak, a beküldöttek közül a szint-csoportok kimaradnak
+        const before = await validGroupIds(target.groupIds || []);
+        found = [...found.filter(g => !isLevelGroup(g)), ...before.filter(isLevelGroup)];
+        if (!usesGroups(target) && (target.features || []).includes('personalBasic')) {
+          const l1 = await level1GroupId(db);
+          if (!found.some(g => String(g._id) === l1)) found.push({ _id: l1, name: 'Személyes adatok: 1. szint', features: ['personalBasic'] });
+        }
+        if (found.some(isProtectedGroup)) return protectedDenied();
+      }
       await users.updateOne({ _id: target._id }, {
         $set: { groupIds: found.map(g => String(g._id)), accessMode: 'groups' },
         $unset: { allowedCategories: '', allowedStores: '', features: '' },
@@ -188,6 +199,7 @@ export async function POST(request) {
       if (res) return res;
       const role = payload.role === 'admin' ? 'admin' : 'customer';
       await users.updateOne({ _id: target._id }, { $set: { role } });
+      if (role === 'admin' && target.role !== 'admin') await grantLevel1(db, target._id);
       await addLog(db, session.username, 'JOGOSULTSÁG', `${target.username} szerepe: ${role === 'admin' ? 'szervező' : 'játékos'}`);
       return NextResponse.json({ success: true });
     }
@@ -223,6 +235,11 @@ export async function POST(request) {
       if (await users.findOne({ username }, { collation: { locale: 'en', strength: 2 } })) return bad('Ez a felhasználónév már foglalt.', 400, { field: 'username' });
       const found = role === 'admin' ? await validGroupIds(payload.groupIds) : [];
       if (!isOwner && found.some(isProtectedGroup)) return protectedDenied();
+      // Minden új szervező megkapja a személyes adatok 1. szintjét (név + üzenet)
+      if (role === 'admin') {
+        const l1 = await level1GroupId(db);
+        if (!found.some(g => String(g._id) === l1)) found.push({ _id: l1, name: 'Személyes adatok: 1. szint', features: ['personalBasic'] });
+      }
       const tempPassword = newTempPassword();
       const expiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
       await users.insertOne({

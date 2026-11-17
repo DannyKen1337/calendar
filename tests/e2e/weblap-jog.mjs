@@ -40,7 +40,7 @@ try {
   ok(!groups.some(g => g.name === 'Weblap jóváhagyó'), 'a „Weblap jóváhagyó” csoport törölve');
   ok(groups.find(g => g.name === 'Vegyes')?.features.join() === 'website', 'vegyes csoportból csak a megszűnt jog kerül ki');
   const old = await db.collection('users').findOne({ username: 'Szerkeszto' });
-  ok(old.features.join() === 'website', 'a felhasználóktól is kikerül');
+  ok(!old.features.includes('websitePublish') && old.features.includes('website'), 'a felhasználóktól is kikerül');
   console.log('  böngészőhibák:', p.errs.join(' | ') || 'nincs');
 } finally {
   await b.close(); await client.close(); summary();

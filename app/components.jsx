@@ -824,7 +824,7 @@ export const AdminModals = ({ app: v }) => {
               const isBanned = (v.blacklist || []).some(b => b.email === record.email);
               return (
                 <Space size={0} wrap>
-                  {(record.email || record.hasEmail) && <Button type="link" icon={<MailOutlined />} data-uzenet onClick={() => setMessageTo({ kind: 'registration', refId: String(record._id || record.id), name: [record.username, record.name !== record.username ? record.name : null].filter(Boolean).join(' · '), context: attendeesEvent?.name || '' })}>Üzenet</Button>}
+                  {v.messaging?.canMessage && (record.email || record.hasEmail) && <Button type="link" icon={<MailOutlined />} data-uzenet onClick={() => setMessageTo({ kind: 'registration', refId: String(record._id || record.id), name: [record.username, record.name !== record.username ? record.name : null].filter(Boolean).join(' · '), context: attendeesEvent?.name || '' })}>Üzenet</Button>}
                   <Popconfirm title="Törlöd a jelentkezést?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>
                   {v.userRole === 'owner' && record.email && (isBanned
                     ? <Tag color="red" style={{ margin: 0 }}>Tiltva</Tag>

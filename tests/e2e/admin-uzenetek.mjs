@@ -127,7 +127,41 @@ try {
   const hook = await fetch(`${BASE}/api/messages/inbound`, { method: 'POST', body: JSON.stringify({ type: 'email.received', data: { to: [`valasz-${th.token}@x.hu`] } }) });
   ok(hook.status === 401, `a válasz-webhook aláírás nélkül elutasít (${hook.status})`);
   ok((await db.collection('message_threads').findOne({ _id: new ObjectId(String(th._id)) })).messages.filter(m => m.dir === 'in').length === 1, 'és nem kerül be semmi');
-  console.log('  böngészőhibák:', [...p.errs, ...ph.errs].join(' | ') || 'nincs');
+  // 1. szint mindenkinek: a meglévő szervező megkapta, az új szervező is megkapja; a felhasználókezelő nem veheti el
+  ok(((await db.collection('users').findOne({ _id: L1 })).features || []).includes('personalBasic'), 'a meglévő szervező megkapta az 1. szintet');
+  const l1g = await db.collection('user_groups').findOne({ features: ['personalBasic'] });
+  ok(l1g?.name === 'Személyes adatok: 1. szint', 'van „Személyes adatok: 1. szint” csoport');
+  const created = await json('/api/admin-users', tok.owner, { actionType: 'CREATE_USER', payload: { username: 'Ujszervezo', email: 'uj@x.hu', role: 'admin', groupIds: [] } });
+  const uj = await db.collection('users').findOne({ username: 'Ujszervezo' });
+  ok(created.status === 200 && uj.groupIds.includes(String(l1g._id)), 'az új szervező automatikusan megkapja az 1. szintet');
+  const strip = await json('/api/admin-users', tok.users, { actionType: 'SET_USER_GROUPS', payload: { userId: String(uj._id), groupIds: [] } });
+  ok(strip.status === 200 && (await db.collection('users').findOne({ _id: uj._id })).groupIds.includes(String(l1g._id)), 'a felhasználókezelő mentésekor az 1. szint megmarad');
+  await json('/api/admin-users', tok.owner, { actionType: 'SET_USER_GROUPS', payload: { userId: String(uj._id), groupIds: [] } });
+  ok(!(await db.collection('users').findOne({ _id: uj._id })).groupIds.includes(String(l1g._id)), 'a tulajdonos elveheti');
+  const ujTok = await token(uj._id, 'Ujszervezo', 'admin');
+  ok((await json('/api/messages', ujTok, { actionType: 'SEND', payload: { kind: 'registration', refId: String(regs[0]), text: 'x' } })).status === 403, '1. szint nélkül nem írhat üzenetet');
+
+  // Felhasználók: szűrés jogosultság szerint
+  const u = await page(b, tok.owner);
+  u.on('console', m => { if (m.type() === 'error') u.errs.push(`console: ${m.text().slice(0, 300)}`); });
+  await u.goto(`${BASE}/admin/felhasznalok`, { waitUntil: 'networkidle2' });
+  await u.waitForSelector('[data-jog-szuro]', { timeout: 30000 });
+  await u.click('[data-jog-szuro]');
+  await u.keyboard.type('2. szint');
+  await wait(300);
+  await u.keyboard.press('Enter');
+  await wait(400);
+  const hit = await u.$eval('[data-jog-talalat]', el => el.innerText);
+  ok(/Személyes adatok: 2\. szint: 2 ember/.test(hit) && /Kettes/.test(hit) && /Tulaj/.test(hit) && !/Egyes/.test(hit), `a jog szerinti szűrés kilistázza, kinek van meg (${hit.replace(/\n/g, ' ')})`);
+  const cardsShown = await u.evaluate(() => document.body.innerText.includes('Egyes'));
+  ok(!cardsShown, 'a kártyák között is csak ők látszanak');
+  await u.screenshot({ path: `${SHOTS}felhasznalok-jog-szures.jpg`, quality: 60 });
+  await u.evaluate(() => document.querySelector('[data-jog-szuro] .ant-select-clear')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+  await wait(200);
+  await u.type('input[placeholder^="Keresés"]', '1. szint');
+  await wait(300);
+  ok(await u.evaluate(() => document.body.innerText.includes('Egyes') && !document.body.innerText.includes('Ujszervezo')), 'a szöveges kereső a jog nevére is talál');
+  console.log('  böngészőhibák:', [...p.errs, ...ph.errs, ...u.errs].join(' | ') || 'nincs');
 } finally {
   await b.close(); await client.close(); summary();
 }

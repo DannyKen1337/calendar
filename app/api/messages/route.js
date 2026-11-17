@@ -5,6 +5,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { consumeRateLimit } from '@/lib/rateLimit';
 import { cleanMessageText } from '@/lib/messageUtils';
+import { canMessage } from '@/lib/permissions';
 import { THREADS, messagingStatus, findRecipient, canSeeThread, publicThread, sendNewMessage, appendOutgoing, appendIncoming } from '@/lib/messages';
 
 export const dynamic = 'force-dynamic';
@@ -55,6 +56,7 @@ export async function POST(request) {
     };
 
     if (actionType === 'SEND' || actionType === 'REPLY') {
+      if (!canMessage(session)) return bad('Nincs jogosultságod üzenetet írni (Személyes adatok: 1. szint). A tulajdonos adhat hozzáférést.', 403);
       const { text, error } = cleanMessageText(payload.text);
       if (error) return bad(error);
       const subject = String(payload.subject ?? '').trim().replace(/\s+/g, ' ').slice(0, 120);

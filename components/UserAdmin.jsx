@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Button, Modal, Form, Input, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, message, Empty, Alert } from 'antd';
+import { ConfigProvider, Button, Modal, Form, Input, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, Select, message, Empty, Alert } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TeamOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, CopyOutlined, SwapOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
@@ -52,6 +52,26 @@ function AccessTags({ access, only = null }) {
   );
 }
 
+
+// Jogosultság-szűrő: megvan-e egy jog a felhasználónak. key: 'f:<modul>' | 'g:<játék>' | 's:<bolt>' | 'grp:<csoport azonosító>'.
+// A tulajdonosnak minden jog megvan (csoportnál a tagság számít); játékosnak semmi.
+function hasPerm(u, key) {
+  const i = key.indexOf(':');
+  const type = key.slice(0, i), value = key.slice(i + 1);
+  if (type === 'grp') return u.groupIds.includes(value);
+  if (u.role === 'owner') return true;
+  if (u.role !== 'admin') return false;
+  if (type === 'f') return u.access.features.includes(value);
+  if (type === 'g') return u.access.allowedCategories === null || u.access.allowedCategories.includes(value);
+  if (type === 's') return u.access.allowedStores === null || u.access.allowedStores.includes(value);
+  return false;
+}
+const permOptions = (groups) => [
+  { label: 'Modulok', options: Object.entries(FEATURES).map(([k, name]) => ({ value: `f:${k}`, label: name })) },
+  { label: 'Játékok', options: GAMES.map(g => ({ value: `g:${g}`, label: g })) },
+  { label: 'Boltok', options: Object.entries(STORE_NAMES).map(([k, name]) => ({ value: `s:${k}`, label: name })) },
+  { label: 'Csoportok', options: groups.map(g => ({ value: `grp:${g.id}`, label: `Csoport: ${g.name}` })) },
+];
 
 // Az „összes” csempe: ha ez van kiválasztva, az egyedi játékok / boltok feleslegesek (és fordítva)
 const isAllGroup = (g) => (g.kind === 'game' && g.allowedCategories === null) || (g.kind === 'store' && g.allowedStores === null);
@@ -143,6 +163,7 @@ export default function UserAdmin({ currentUserId }) {
   const [tab, setTab] = useState('users');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  const [perm, setPerm] = useState(null); // jogosultság-szűrő: 'f:<modul>' | 'g:<játék>' | 's:<bolt>' | 'grp:<csoport>'
   const [groupEdit, setGroupEdit] = useState(null);   // null: zárva; {}: új; {id,...}: szerkesztés
   const [membershipUser, setMembershipUser] = useState(null);
   const [membershipIds, setMembershipIds] = useState([]);
@@ -245,9 +266,12 @@ export default function UserAdmin({ currentUserId }) {
   };
 
   // --- Szűrés ---
+  // A szabad szöveges keresés a jogok neveire is talál (modulok, csoportok); a jogosultság-szűrő egy jog összes birtokosát mutatja
   const q = query.trim().toLowerCase();
+  const permHaystack = (u) => [...u.access.features.map(f => FEATURES[f] || ''), ...u.groupIds.map(id => groupsById.get(id)?.name || '')].join(' ');
   const users = [...data.users]
-    .filter(u => !q || `${u.username} ${u.email}`.toLowerCase().includes(q))
+    .filter(u => !q || `${u.username} ${u.email} ${permHaystack(u)}`.toLowerCase().includes(q))
+    .filter(u => !perm || hasPerm(u, perm))
     .filter(u => filter === 'all' || (filter === 'staff' ? (u.role === 'admin' || u.role === 'owner') : filter === 'players' ? (u.role !== 'admin' && u.role !== 'owner') : filter === 'disabled' ? u.disabled : filter === 'legacy' ? (u.role === 'admin' && !u.usesGroups) : true))
     .sort((a, b) => (ROLE_ORDER[a.role] ?? 2) - (ROLE_ORDER[b.role] ?? 2) || a.username.localeCompare(b.username, 'hu'));
   const legacyCount = data.users.filter(u => u.role === 'admin' && !u.usesGroups).length;
@@ -376,10 +400,11 @@ export default function UserAdmin({ currentUserId }) {
               children: (
                 <div className="flex flex-col gap-3">
                   {legacyCount > 0 && (
-                    <Alert type="warning" showIcon message={`${legacyCount} szervezőnek még egyéni (régi) jogai vannak.`} description="Ezek változatlanul működnek. A „Csoporttá alakítás” gombbal egy kattintással csoportra válthatod őket, vagy a „Csoportok” gombbal meglévő csoportba teheted." />
+                    <Alert type="warning" showIcon title={`${legacyCount} szervezőnek még egyéni (régi) jogai vannak.`} description="Ezek változatlanul működnek. A „Csoporttá alakítás” gombbal egy kattintással csoportra válthatod őket, vagy a „Csoportok” gombbal meglévő csoportba teheted." />
                   )}
                   <div className="flex flex-wrap items-center gap-2">
-                    <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés név vagy e-mail alapján..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ maxWidth: 320 }} />
+                    <Input allowClear prefix={<SearchOutlined style={{ color: '#E5B15D' }} />} placeholder="Keresés: név, e-mail vagy jog..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ maxWidth: 320 }} />
+                    <Select allowClear showSearch optionFilterProp="label" value={perm} onChange={(v) => setPerm(v ?? null)} options={permOptions(data.groups)} placeholder="Kinek van meg egy jog?" aria-label="Szűrés jogosultság szerint" style={{ minWidth: 260, maxWidth: '100%' }} data-jog-szuro />
                     {/* Telefonon a szűrősor oldalra görgethető, hogy ne lógjon ki a képernyőről */}
                     <div style={{ maxWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none' }}>
                     <Segmented value={filter} onChange={setFilter} options={[
@@ -391,6 +416,18 @@ export default function UserAdmin({ currentUserId }) {
                     ]} />
                     </div>
                   </div>
+                  {perm && (() => {
+                    const label = permOptions(data.groups).flatMap(o => o.options).find(o => o.value === perm)?.label || '';
+                    const who = data.users.filter(u => hasPerm(u, perm)).sort((a, b) => (ROLE_ORDER[a.role] ?? 2) - (ROLE_ORDER[b.role] ?? 2) || a.username.localeCompare(b.username, 'hu'));
+                    return (
+                      <div className="rounded-xl border border-[#5c4520] p-3" style={{ background: '#21180f' }} data-jog-talalat>
+                        <div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{label}: {who.length} ember</div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {who.length ? who.map(u => <Tag key={u.id} style={{ margin: 0 }} color={u.role === 'owner' ? 'purple' : undefined}>{u.username}{u.role === 'owner' ? ' (tulajdonos)' : ''}</Tag>) : <Text style={{ color: '#9a8a8c' }}>Senkinek nincs megadva.</Text>}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {users.length === 0 ? <Empty description={<span style={{ color: '#6b7280' }}>Nincs találat.</span>} /> : <div className="grid gap-3 md:grid-cols-2">{users.map(userCard)}</div>}
                 </div>
               ),
@@ -465,7 +502,7 @@ export default function UserAdmin({ currentUserId }) {
       <Modal title={modalTitle(`Jogosultságok: ${membershipUser?.username || ''}`)} open={!!membershipUser} onCancel={() => setMembershipUser(null)} onOk={saveMembership} okText="Mentés" cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' } }} closeIcon={closeIcon} width={760}>
         <div className="flex flex-col gap-3 pt-2">
           <Text style={{ color: '#baaaac' }}>Kattints arra, amit kezelhet. Legalább egy játék és egy bolt kell az eseményekhez, a modulok külön adhatók.</Text>
-          {membershipUser && !membershipUser.usesGroups && <Alert type="info" showIcon message="Mentés után a régi egyéni jogai megszűnnek, és csak az itt kiválasztottak számítanak." />}
+          {membershipUser && !membershipUser.usesGroups && <Alert type="info" showIcon title="Mentés után a régi egyéni jogai megszűnnek, és csak az itt kiválasztottak számítanak." />}
           <GroupPicker value={membershipIds} onChange={setMembershipIds} groups={data.groups} isOwner={isOwner} />
         </div>
       </Modal>
@@ -495,7 +532,7 @@ export default function UserAdmin({ currentUserId }) {
       <Modal title={modalTitle(credentials?.title || '')} open={!!credentials} onCancel={() => setCredentials(null)} footer={<Button type="primary" style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setCredentials(null)}>Kész</Button>} closeIcon={closeIcon}>
         {credentials && (
           <div className="flex flex-col gap-3 pt-2">
-            <Alert type="warning" showIcon message="Ezt az ideiglenes jelszót csak most látod. Másold ki, és juttasd el a felhasználónak." />
+            <Alert type="warning" showIcon title="Ezt az ideiglenes jelszót csak most látod. Másold ki, és juttasd el a felhasználónak." />
             <div className="rounded-lg p-3 flex flex-col gap-1" style={{ background: '#2a2022', border: '1px solid #2a2022' }}>
               <span style={{ color: '#baaaac' }}>Felhasználónév: <b style={{ color: '#E0D6C8' }}>{credentials.username}</b></span>
               <span style={{ color: '#baaaac' }}>Ideiglenes jelszó: <b style={{ color: '#E5B15D', fontFamily: 'monospace', fontSize: 16 }}>{credentials.tempPassword}</b></span>

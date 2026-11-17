@@ -139,9 +139,9 @@ export default function PreorderAdmin() {
       { title: 'E-mail', dataIndex: 'email', render: (t) => <a href={`mailto:${t}`} style={{ color: '#baaaac' }}>{t}</a> },
       { title: 'Telefon', dataIndex: 'phone', render: (t) => <a href={`tel:${t.replace(/[^\d+]/g, '')}`} style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{t}</a> },
     ] : []),
-    { title: '', key: 'msg', width: 110, render: (_, o) => (o.email || o.hasEmail) && (
+    ...(data.messaging?.canMessage ? [{ title: '', key: 'msg', width: 110, render: (_, o) => (o.email || o.hasEmail) && (
       <Button size="small" icon={<MailOutlined />} data-uzenet onClick={() => setMessageTo({ kind: 'preorder', refId: o.id, name: o.name, context: `Előrendelés: ${productById.get(o.productId)?.name || ''}` })} style={sideBtn}>Üzenet</Button>
-    ) },
+    ) }] : []),
     { title: 'Darab', dataIndex: 'quantity', align: 'right', width: 70 },
     { title: 'Leadva', dataIndex: 'date', render: (d, o) => <span style={{ color: '#9a8a8c', whiteSpace: 'nowrap' }} title={o.updatedAt && o.updatedAt !== d ? `Módosítva: ${formatHu(o.updatedAt)}` : undefined}>{formatHu(d)}</span> },
     { title: 'Fizetés', key: 'paid', width: 150, render: (_, o) => (o.paidAt ? (

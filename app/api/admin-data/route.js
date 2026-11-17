@@ -3,9 +3,9 @@ import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
-import { canManageEvent, canManageStore, hasFeature, seesPersonalData } from '@/lib/permissions';
+import { canManageEvent, canManageStore, hasFeature, seesPersonalData, canMessage } from '@/lib/permissions';
 import { getAttendanceStats } from '@/lib/attendanceHistory';
-import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
+import { effectiveAccess, getGroupsMap, ensureLevel1ForAll } from '@/lib/userAccess';
 import { syncDueRgnEvents, getRgnRegistrations } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
 import { budapestDateTime } from '@/lib/eventDates';
@@ -24,6 +24,8 @@ export async function GET() {
     const pickAccess = (a) => ({ allowedCategories: a.allowedCategories, allowedStores: a.allowedStores });
 
     const db = await getTavernDb();
+    // Egyszer: minden meglévő szervező megkapja a személyes adatok 1. szintjét
+    await ensureLevel1ForAll(db).catch(err => console.error('1. szint:', err));
 
     // Riftbound (külső oldalas) események jelentkezőinek frissítése: eseményenként legfeljebb 5 percenként, legfeljebb 4 mp várakozással
     await syncDueRgnEvents(db, { maxAgeMs: 5 * 60 * 1000, budgetMs: 4000 }).catch(err => console.error('rgn sync error:', err));
@@ -82,7 +84,7 @@ export async function GET() {
         tournaments: attachPublicAttendees(tournaments, registrations),
         registrations: shownRegistrations,
         // Üzenetek: a szint, a kiküldés állapota és az olvasatlan válaszok száma (a saját szálakban)
-        messaging: { personalData: fullData, ...messagingStatus(), unread: await db.collection(THREADS).countDocuments({ createdById: String(session.id), unread: true }) },
+        messaging: { personalData: fullData, canMessage: canMessage(session), ...messagingStatus(), unread: await db.collection(THREADS).countDocuments({ createdById: String(session.id), unread: true }) },
         attendanceStats,
         rgn,
         users,
