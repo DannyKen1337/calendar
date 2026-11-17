@@ -755,8 +755,8 @@ export const AdminModals = ({ app: v }) => {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <Text style={{ color: '#baaaac' }}>Létszám: <b style={{ color: '#E0D6C8' }}>{attendeesEvent.current_players} / {attendeesEvent.max_players}</b>{attendeesEvent.queue_count > 0 ? ` · várólistán: ${attendeesEvent.queue_count}` : ''}</Text>
               <Space wrap>
-                <Button icon={<MobileOutlined />} onClick={() => window.open(checkinPageUrl(attendeesEvent), '_blank', 'noopener')}>Mobilos check-in</Button>
-                <Button icon={<EyeOutlined />} onClick={() => window.open(registrationPageUrl(attendeesEvent), '_blank', 'noopener')}>Jelentkezési oldal megnyitása</Button>
+                <Button icon={<MobileOutlined />} href={checkinPageUrl(attendeesEvent)} target="_blank" rel="noopener">Mobilos check-in</Button>
+                <Button icon={<EyeOutlined />} href={registrationPageUrl(attendeesEvent)} target="_blank" rel="noopener">Jelentkezési oldal megnyitása</Button>
               </Space>
             </div>
             <AddParticipantForm key={String(attendeesEvent._id || attendeesEvent.id)} event={attendeesEvent} app={v} />

@@ -19,7 +19,7 @@ import { rgnEventId } from '@/lib/rgn';
 import { dayOccupancy, eventDay, STORE_IDS } from '@/lib/occupancy';
 import OccupancyManager from '@/components/OccupancyManager';
 import TableBookingAdmin from '@/components/TableBookingAdmin';
-import QuickActions from '@/components/QuickActions';
+import QuickActions, { quickActionsFor } from '@/components/QuickActions';
 import { Fab, PullToRefresh } from '@/components/PhoneApp';
 import s from './AdminApp.module.css';
 
@@ -83,9 +83,10 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   const tabs = TABS.filter(t => (t[0] !== 'telitettseg' || isOwner || occ.enabled) && (t[0] !== 'foglalasok' || has('tableBookings')));
   const pendingTables = (app.tableBookings || []).filter(b => b.status === 'pending').length;
   const unreadMessages = app.messaging?.unread || 0; // olvasatlan válaszok a saját üzeneteimre
+  // A fülnek saját címe van (/admin?lap=foglalasok), így linkként is megnyitható; cím nélkül az utoljára nézett fül
   const [savedTab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 'esemenyek';
-    return window.sessionStorage.getItem(TAB_STORAGE) || 'esemenyek';
+    return new URLSearchParams(window.location.search).get('lap') || window.sessionStorage.getItem(TAB_STORAGE) || 'esemenyek';
   });
   const tab = tabs.some(t => t[0] === savedTab) ? savedTab : 'esemenyek';
   const [selected, setSelected] = useState(null); // a megnyitott esemény azonosítója (teendőlap)
@@ -109,7 +110,10 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     return () => clearTimeout(t);
   }, []);
 
-  const goTab = (key) => { setTab(key); window.scrollTo({ top: 0 }); };
+  const tabHref = (key) => (key === 'esemenyek' ? '/admin' : `/admin?lap=${key}`);
+  const goTab = (key) => { setTab(key); window.history.replaceState(window.history.state, '', tabHref(key)); window.scrollTo({ top: 0 }); };
+  // A fül link: sima kattintásra helyben vált, Ctrl / Cmd / középső gombbal új lapon nyílik
+  const onTabClick = (ev, key) => { if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return; ev.preventDefault(); goTab(key); };
   const toggleSearch = () => {
     if (searchOpen) { setSearchOpen(false); setQuery(''); return; }
     // A billentyűzet csak a koppintáson belül kért fókuszra nyílik meg iPhone-on
@@ -526,11 +530,21 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         <nav className={s.tabbar} aria-label="Admin">
           <b className={s.brand}>Tavern Admin</b>
           {tabs.map(([key, label, Icon]) => (
-            <button key={key} type="button" className={s.tabBtn} aria-current={tab === key ? 'page' : undefined} onClick={() => goTab(key)}>
+            <a key={key} href={tabHref(key)} className={s.tabBtn} aria-current={tab === key ? 'page' : undefined} onClick={(ev) => onTabClick(ev, key)} data-ful={key}>
               <Icon className={s.tabIcon} aria-hidden="true" />
               {label}{key === 'tovabbiak' && (unseenCount > 0 || unreadMessages > 0) && <i className={s.tabDot} aria-label={unreadMessages > 0 ? `${unreadMessages} új válasz` : 'Új újdonság'} />}{key === 'foglalasok' && pendingTables > 0 && <i className={s.tabDot} aria-label={`${pendingTables} új foglalási kérés`} />}
-            </button>
+            </a>
           ))}
+          {/* Gépen: gyors elérés a többi oldalhoz, mindegyik saját linkkel */}
+          <div className={s.sideLinks} data-oldalsav>
+            <span className={s.sideHead}>Gyors elérés</span>
+            {[...quickActionsFor(app).slice(0, 3), ['Üzenetek', '/admin/uzenetek', MailOutlined, false, unreadMessages], ...quickActionsFor(app).slice(3)].map(([label, href, Icon, external, badge]) => {
+              const body = <><Icon className={s.sideIcon} aria-hidden="true" /><span>{label}</span>{badge > 0 && <span className={s.sideBadge} aria-label={`${badge} új`}>{badge}</span>}</>;
+              return external
+                ? <a key={href} href={href} className={s.sideLink}>{body}</a>
+                : <Link key={href} href={href} className={s.sideLink}>{body}</Link>;
+            })}
+          </div>
           <span className={s.sideUser}>{app.userName} · {isOwner ? 'tulajdonos' : 'szervező'}</span>
         </nav>
 

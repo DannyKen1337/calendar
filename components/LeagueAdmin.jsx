@@ -397,7 +397,7 @@ export default function LeagueAdmin() {
           <div className={m.cardTop}><span className={m.cardTitle}>{x.name}</span><span className={m.cardValue}>{x.players} játékos</span></div>
           <span className={m.cardSub}>Lezárva: {formatPublishedAt(x.closedAt)}{x.closedBy ? ` (${x.closedBy})` : ''} · Győztes: {x.winners.join(', ') || '—'}</span>
           <div className={m.cardBtns}>
-            <button type="button" className={m.cardBtn} onClick={() => window.open(`${leagueUrl(league.category)}?szezon=${encodeURIComponent(x.id)}`, '_blank', 'noopener')}><EyeOutlined /> Megnyitás</button>
+            <a className={m.cardBtn} href={`${leagueUrl(league.category)}?szezon=${encodeURIComponent(x.id)}`} target="_blank" rel="noopener"><EyeOutlined /> Megnyitás</a>
             <Popconfirm title="Törlöd ezt az archív szezont?" description="A végeredménye a nyilvános oldalról is eltűnik." onConfirm={() => deleteSeason(x)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
               <button type="button" className={`${m.cardBtn} ${m.cardBtnDanger}`}><DeleteOutlined /> Törlés</button>
             </Popconfirm>
@@ -459,7 +459,7 @@ export default function LeagueAdmin() {
             <div className={m.headerActions}>
               <Button type="primary" icon={<EyeOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setPreviewOpen(true)}>Előnézet és publikálás</Button>
               <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league.category)}`)} disabled={!league.published && seasons.length === 0}>{phone ? 'Link' : 'Link másolása'}</Button>
-              <Button icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open(leagueUrl(league.category), '_blank', 'noopener')} disabled={!league.published && seasons.length === 0}>Nyilvános oldal</Button>
+              <Button icon={<EyeOutlined />} style={sideBtn} href={leagueUrl(league.category)} target="_blank" rel="noopener" disabled={!league.published && seasons.length === 0}>Nyilvános oldal</Button>
               <Button icon={<SettingOutlined />} style={sideBtn} onClick={() => openSettings()}>Beállítások</Button>
               <Button icon={<FlagOutlined />} style={sideBtn} disabled={sessions.length === 0} title={sessions.length === 0 ? 'Nincs még rögzített alkalom' : 'A szezon végeredményének archiválása és új szezon indítása'} onClick={() => { closeForm.resetFields(); closeForm.setFieldsValue({ newName: '', keepPlayers: true }); setCloseOpen(true); }}>{phone ? 'Szezon zárása' : 'Szezon lezárása'}</Button>
             </div>
@@ -534,7 +534,7 @@ export default function LeagueAdmin() {
                       { title: 'Játékos', dataIndex: 'players', align: 'right' },
                       { title: '', key: 'actions', width: 96, render: (_, s) => (
                         <span className="flex">
-                          <Button type="text" icon={<EyeOutlined />} aria-label="Megnyitás" style={{ color: '#E0D6C8' }} onClick={() => window.open(`${leagueUrl(league.category)}?szezon=${encodeURIComponent(s.id)}`, '_blank', 'noopener')} />
+                          <Button type="text" icon={<EyeOutlined />} aria-label="Megnyitás" style={{ color: '#E0D6C8' }} href={`${leagueUrl(league.category)}?szezon=${encodeURIComponent(s.id)}`} target="_blank" rel="noopener" />
                           <Popconfirm title="Törlöd ezt az archív szezont?" description="A végeredménye a nyilvános oldalról is eltűnik." onConfirm={() => deleteSeason(s)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
                             <Button type="text" danger icon={<DeleteOutlined />} aria-label="Törlés" />
                           </Popconfirm>

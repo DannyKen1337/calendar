@@ -14,7 +14,7 @@ await db.collection('tournaments').insertMany([
 ]);
 await db.collection('table_bookings').insertOne({ store: 'debrecen', date: day(4), from: '14:00', to: '18:00', name: 'Horváth Gergő', phone: '+36301234567', email: 'g@x.hu', maxPeople: 6, note: 'Két asztal kellene.', status: 'pending', createdAt: new Date() });
 const tok = await token(owner, 'Tulaj', 'owner');
-const tab = (p, label) => p.evaluate((l) => [...document.querySelectorAll('nav[aria-label="Admin"] button')].find(b => b.textContent.includes(l)).click(), label);
+const tab = (p, label) => p.evaluate((l) => [...document.querySelectorAll('nav[aria-label="Admin"] [data-ful]')].find(b => b.textContent.includes(l)).click(), label);
 
 const b = await browser();
 try {

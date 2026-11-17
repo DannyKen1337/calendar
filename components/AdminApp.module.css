@@ -35,8 +35,8 @@
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: rgba(15, 11, 12, 0.92); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--line);
 }
-.brand, .sideUser { display: none; }
-.tabBtn { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: transparent; color: var(--faint); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.brand, .sideUser, .sideLinks { display: none; }
+.tabBtn { position: relative; text-decoration: none; -webkit-tap-highlight-color: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: transparent; color: var(--faint); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 .tabIcon { font-size: 21px; }
 .tabBtn[aria-current="page"] { color: #ffffff; }
 .tabBtn[aria-current="page"] .tabIcon { color: var(--gold); }
@@ -163,14 +163,21 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
   .searchClosed { display: flex; }
   .hint { display: block; }
   .tabIcon { display: none; }
-  .tabBtn { display: block; }
+  .tabBtn { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; }
   .main { max-width: 1240px; padding: 20px 24px 0; }
-  .tabbar { top: 0; right: auto; width: 216px; height: auto; display: flex; flex-direction: column; gap: 2px; padding: 14px 10px; border-top: 0; border-right: 1px solid var(--line); z-index: 11; }
+  .tabbar { top: 0; right: auto; width: 216px; height: auto; display: flex; flex-direction: column; gap: 2px; padding: 14px 10px; overflow-y: auto; border-top: 0; border-right: 1px solid var(--line); z-index: 11; }
   .brand { display: block; padding: 6px 10px 14px; font-size: 16px; }
   .tabBtn { height: 36px; padding: 0 10px; border-radius: 6px; text-align: left; font-size: 14px; font-weight: 500; color: var(--muted); }
   .tabBtn:hover { color: #ffffff; }
   .tabBtn[aria-current="page"] { background: #1d1617; font-weight: 700; }
   .tabDot { position: static; margin-left: 4px; }
+  .sideLinks { display: flex; flex-direction: column; gap: 1px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .sideHead { padding: 0 10px 6px; color: var(--faint); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .sideLink { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 6px; color: var(--muted); font-size: 14px; font-weight: 500; text-decoration: none; }
+  .sideLink:hover { background: #1d1617; color: #ffffff; }
+  .sideLink:focus-visible, .tabBtn:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .sideIcon { font-size: 15px; color: var(--gold); }
+  .sideBadge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--red); color: #fff; font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; }
   .sideUser { display: block; margin-top: auto; padding: 10px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
   .onPhone { display: none; }
   .onDesk { display: block; }

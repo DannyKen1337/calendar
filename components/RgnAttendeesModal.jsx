@@ -57,7 +57,7 @@ export default function RgnAttendeesModal({ event, data, open, onClose, onSync, 
           </Text>
           <span className="flex flex-wrap gap-2">
             <Button size="small" icon={<SyncOutlined spin={syncing} />} onClick={onSync} loading={false} disabled={syncing}>Frissítés most</Button>
-            <Button size="small" icon={<LinkOutlined />} onClick={() => window.open(event.external_url, '_blank', 'noopener')}>Riftbound oldal</Button>
+            <Button size="small" icon={<LinkOutlined />} href={event.external_url} target="_blank" rel="noopener">Riftbound oldal</Button>
           </span>
         </div>
         <Text style={{ color: rgn.ok === false ? '#ff9b9b' : '#7d6e70', fontSize: 12 }}>

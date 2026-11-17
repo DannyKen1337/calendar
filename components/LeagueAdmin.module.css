@@ -19,7 +19,7 @@
 .cardValue { flex: none; color: #f3ece3; font-weight: 800; font-variant-numeric: tabular-nums; }
 .cardSub { color: #b8aca7; font-size: 13px; overflow-wrap: anywhere; }
 .cardBtns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; margin-top: 6px; }
-.cardBtn { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border: 0; border-radius: 8px; background: #2a2022; color: #f3ece3; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.cardBtn { text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border: 0; border-radius: 8px; background: #2a2022; color: #f3ece3; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .cardBtnDanger { color: #ef7b74; }
 .empty { margin: 0; padding: 16px; border-radius: 10px; background: #221a1c; color: #b8aca7; }
 

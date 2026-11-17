@@ -264,7 +264,7 @@ export default function PreorderAdmin() {
             <Button type="primary" icon={<PlusOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => openEditor({ category: gameFilter.length === 1 ? gameFilter[0] : undefined })} disabled={data.games.length === 0}>Új termék</Button>
             <Button icon={<FileExcelOutlined />} style={sideBtn} href="/api/admin-preorders/export" disabled={data.products.length === 0}>Excel (összes termék)</Button>
             <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderLink(origin))}>Nyilvános link másolása</Button>
-            <Button icon={<EyeOutlined />} style={sideBtn} onClick={() => window.open('/elorendeles', '_blank', 'noopener')}>Megnyitás</Button>
+            <Button icon={<EyeOutlined />} style={sideBtn} href="/elorendeles" target="_blank" rel="noopener">Megnyitás</Button>
           </div>
           <Text style={{ color: '#9a8a8c', fontSize: 13 }}>
             Nyilvános oldal: <span style={{ color: '#E0D6C8' }}>{preorderLink(origin)}</span> · {openCount} nyitott előrendelés. Ez az összesítő: minden játék előrendelése látszik rajta. A termékeknél a „Link másolása” csak azt az egy terméket, a „Játék linkje” annak a játéknak az összes előrendelését mutatja.

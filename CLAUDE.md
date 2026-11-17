@@ -42,6 +42,10 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - Játékonként egy lista (`players`: category, username, name, email, playerId (Pokémon), summoner (Riftbound), note, aliases, events, firstSeen, lastSeen, lastEvent, source). A jelentkezésekből magától bővül az oldal betöltésekor (csak az előző futás óta érkezetteket nézi: `settings.player_base_sync`, zárolással): egyezés e-mail szerint, e-mail nélkül név szerint (felhasználónév / teljes név, ékezet és kis/nagybetű nélkül); azonos név, de más e-mail: új játékos. **Riftboundnál csak az idézőnév** számít (a külső jelentkezők `external_registrations.name`-je is). A törölt játékos csak újabb jelentkezéssel kerül vissza.
 - Csak az látja / szerkeszti, aki az adott játékot kezelheti (`canManageCategory`); az e-mail cím csak 2. szinten jön ki és írható. Pokémonnál Player ID (csak számjegy). Kézi felvétel, szerkesztés, törlés (napló: `JÁTÉKOS`). Gépen táblázat, telefonon kártyák. Elérés: a Játékosok csempe az admin kezdőlap gyorsgombjai között (`components/QuickActions.jsx`, annak, aki legalább egy játékot kezel), és a Továbbiak › Játékosok.
 
+## Admin linkek (2026-11-17, a felhasználó kérése)
+- Ami másik oldalra visz, az valódi link (`<a>` / `Link` / antd `Button href`), nem `window.open` vagy `router.push`: új lapon is megnyitható. A fülek is linkek saját címmel (`/admin?lap=foglalasok|telitettseg|tovabbiak`, váltáskor `history.replaceState`).
+- Gépen a bal oldali sávban a fülek alatt „Gyors elérés”: a gyorsgombok (`quickActionsFor`) és az Üzenetek (olvasatlan számmal), jog szerint.
+
 ## Telefonos app nézet (admin, 960 px alatt)
 - Felső sáv és alsó fülsáv: `components/AdminApp.jsx`; lebegő „+” gomb és lehúzásos frissítés: `components/PhoneApp.jsx`; viselkedés és teljes képernyős ablakok: `app/(naptar)/admin/app.css` (csak az /admin oldalakon töltődik be).
 - Nincs service worker: offline nem működik, és nincs push értesítés.

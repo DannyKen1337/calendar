@@ -61,6 +61,22 @@ try {
   await p.waitForSelector('nav[aria-label="Gyors gombok"]', { timeout: 60000 });
   ok(await p.$eval('nav[aria-label="Gyors gombok"]', n => [...n.querySelectorAll('a')].some(a => a.getAttribute('href') === '/admin/jatekosok' && /Játékosok/.test(a.textContent))), 'az admin kezdőlapon Játékosok csempe');
   await p.screenshot({ path: `${SHOTS}jatekosok-csempe.jpg`, quality: 60, clip: { x: 0, y: 0, width: 1280, height: 320 } });
+  // bal oldali sáv: gyors elérés saját linkekkel; a fülek is linkek, saját címmel
+  const side = await p.$eval('[data-oldalsav]', el => ({ visible: !!el.offsetParent, links: [...el.querySelectorAll('a')].map(a => [a.textContent.trim(), a.getAttribute('href')]) }));
+  const hrefOf = (label) => side.links.find(([t]) => t.startsWith(label))?.[1];
+  ok(side.visible && hrefOf('Játékosok') === '/admin/jatekosok' && hrefOf('Üzenetek') === '/admin/uzenetek' && hrefOf('Check-in') === '/admin/checkin' && hrefOf('Generátor') === '/admin/generator' && hrefOf('Statisztika') === '/admin/statisztika' && hrefOf('Naptár') === '/', `a bal oldali sávban gyors elérés, saját linkekkel (${side.links.map(([t]) => t).join(', ')})`);
+  ok(!hrefOf('Előrendelés') && !hrefOf('Rendszer'), 'csak az látszik, amihez joga van');
+  const tabs = await p.$$eval('nav[aria-label="Admin"] [data-ful]', els => els.map(a => [a.tagName, a.getAttribute('href')]));
+  ok(tabs.every(([tag]) => tag === 'A') && tabs.some(([, h]) => h === '/admin?lap=tovabbiak'), `a fülek linkek saját címmel (${tabs.map(([, h]) => h).join(', ')})`);
+  await p.click('nav[aria-label="Admin"] [data-ful="tovabbiak"]');
+  await wait(300);
+  ok(p.url().endsWith('/admin?lap=tovabbiak') && /Továbbiak/.test(await p.$eval('main', m => m.innerText)), 'fülváltáskor a cím is változik');
+  const p3 = await page(b, tok.pk);
+  await p3.goto(`${BASE}/admin?lap=tovabbiak`, { waitUntil: 'networkidle2' });
+  await p3.waitForSelector('[data-eszkoz]', { timeout: 60000 });
+  ok(await p3.$eval('nav[aria-label="Admin"] [data-ful="tovabbiak"]', a => a.getAttribute('aria-current') === 'page'), 'a fül címe linkként is megnyitható (/admin?lap=tovabbiak)');
+  await p3.close();
+  await p.screenshot({ path: `${SHOTS}admin-oldalsav.jpg`, quality: 60 });
   await p.goto(`${BASE}/admin/jatekosok`, { waitUntil: 'networkidle2' });
   await p.waitForSelector('[data-jatekos-tabla] tbody tr', { timeout: 60000 });
   ok(await p.evaluate(() => ![...document.querySelectorAll('th')].some(t => t.textContent === 'E-mail') && [...document.querySelectorAll('th')].some(t => t.textContent === 'Player ID')), 'táblázat: Player ID oszlop, e-mail oszlop nincs (1. szint)');

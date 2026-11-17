@@ -1,6 +1,6 @@
 "use client";
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ConfigProvider, Input, Button, Segmented, Tag, Typography } from 'antd';
 import { CheckOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, SyncOutlined, CalendarOutlined } from '@ant-design/icons';
 import { AddParticipantForm } from '@/app/components';
@@ -17,7 +17,6 @@ const hasRegistration = (evt) => !evt.isOpenAttendance && !evt.external_url;
 
 // Eseményválasztó: a tegnapi, mai és a következő 7 nap eseményei, amelyeknél a szervező check-inelhet
 function EventPicker({ app }) {
-  const router = useRouter();
   const [now] = useState(() => Date.now());
   const today = new Date(now); today.setHours(0, 0, 0, 0);
   const from = today.getTime() - 86400000;
@@ -42,11 +41,10 @@ function EventPicker({ app }) {
         const regs = (app.registrations || []).filter(r => String(r.tournamentId) === eventKey(evt));
         const checked = regs.filter(r => r.attended === true).length;
         return (
-          <button
+          <Link
             key={eventKey(evt)}
-            type="button"
-            onClick={() => router.push(`/admin/checkin?event=${encodeURIComponent(eventKey(evt))}`)}
-            className="text-left bg-[#191314] rounded-xl border border-[#2a2022] p-4 cursor-pointer active:bg-[#2a2022]"
+            href={`/admin/checkin?event=${encodeURIComponent(eventKey(evt))}`}
+            className="block text-left bg-[#191314] rounded-xl border border-[#2a2022] p-4 cursor-pointer active:bg-[#2a2022] no-underline"
             style={{ borderLeft: `4px solid ${getGameColor(evt)}` }}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -55,7 +53,7 @@ function EventPicker({ app }) {
             </div>
             <div style={{ color: '#E0D6C8', fontSize: 18, fontWeight: 'bold' }}>{evt.name}</div>
             <Text style={{ color: '#9a8a8c', fontSize: 13 }}>{evt.category} · {checked} / {regs.filter(isActiveReg).length} megjelent</Text>
-          </button>
+          </Link>
         );
       })}
     </div>
