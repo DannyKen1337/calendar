@@ -35,6 +35,7 @@ try {
   const order = await p.evaluate((ids) => ids.map(id => { const el = document.getElementById(id); return el ? [...document.querySelectorAll('main section')].indexOf(el) : -1; }), ORDER);
   ok(order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), `a szakaszok sorrendje: ${ORDER.join(', ')} (${order.join(', ')})`);
   ok(!(await p.$('#kinalat')), 'a régi nagy mondatok mezői eltűntek');
+  ok(!/senki nem siet haza/.test(await p.$eval('#galeria', el => el.innerText)) && !(await p.$('[aria-labelledby="kepfal-cim"]')), 'a Galériában nincs képaláírás, és nincs képfal');
   const titles = await p.evaluate(() => ({ liga: document.getElementById('liga-cim')?.textContent, galeria: document.getElementById('galeria-cim')?.textContent, boltok: document.getElementById('boltok-cim')?.textContent }));
   ok(titles.liga === 'Ligák' && titles.galeria === 'Galéria' && titles.boltok === 'Itt találsz minket', `új címek (${Object.values(titles).join(' | ')})`);
 

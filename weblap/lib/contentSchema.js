@@ -86,7 +86,6 @@ export const CONTENT_TABS = [
     key: 'gallery', label: 'Főoldali fotók',
     intro: 'A főoldal Galéria része: a nagy cím mellett három fotó. Egy képet a „Csere” gombbal cserélhetsz. Az események képei nem ide, hanem a Galéria fülre valók.',
     schema: object(null, {
-      note: area('Képaláírás (bal alsó sarok)', { max: 200, rows: 2 }),
       pictures: list('Képek', object(null, { picture: image('Kép') }), { itemLabel: 'kép', titleKey: 'none', max: 3, photos: true }),
     }),
   },

@@ -24,7 +24,7 @@ try {
   await p.goto(`${BASE}/weblapteszt/admin?lap=hero`, { waitUntil: 'networkidle2' });
   ok((await p.$eval('[aria-current="page"]', a => a.textContent.trim())) === 'Hírek' && !!(await p.$('input[name=title]')), 'régi cím (?lap=hero): a Hírek fül nyílik');
 
-  // Főoldali fotók: két kép linkkel, képaláírás, mentés
+  // Főoldali fotók: két kép linkkel, a kép leírása, mentés
   await p.goto(`${BASE}/weblapteszt/admin?lap=gallery`, { waitUntil: 'networkidle2' });
   ok((await bodyText(p)).includes('Még nincs kép'), 'fotók nélkül: magyarázó szöveg');
   for (const n of [1, 2]) {
@@ -34,7 +34,7 @@ try {
     await wait(150);
   }
   ok((await p.$$('[data-photo]')).length === 2, 'két kép a rácsban');
-  await p.type('form textarea', 'Péntek este');
+  await p.type('[data-photo]:first-child input[aria-label^="Mi látható"]', 'Péntek este');
   await clickText(p, '[data-photo]:nth-child(2) button', 'Előre');
   ok((await p.$eval('[data-photo]:first-child img', i => i.getAttribute('src'))) === IMG(2), 'sorrend: a második kép előre került');
   await clickText(p, 'button', 'Mentés az előnézetbe');
@@ -51,7 +51,7 @@ try {
   // hamisított mentés egy nem szerkeszthető fülre
   await p.$eval('input[name=tab]', el => { el.value = 'hero'; });
   await p.$eval('input[name=payload]', el => { el.value = JSON.stringify({ text: 'Feltört' }); });
-  await p.$eval('form textarea', el => el.focus());
+  await p.$eval('[data-photo]:first-child input[aria-label^="Mi látható"]', el => el.focus());
   await p.keyboard.type('!');
   await p.$eval('input[name=tab]', el => { el.value = 'hero'; });
   await p.$eval('input[name=payload]', el => el.form.requestSubmit());

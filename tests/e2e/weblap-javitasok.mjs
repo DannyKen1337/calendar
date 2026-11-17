@@ -33,6 +33,8 @@ ok(custom && custom.allowedStores.join() === 'debrecen' && custom.features.lengt
 
 const b = await browser();
 try {
+  // egy fotóval indul: a leírását írjuk át feltöltés közben
+  await db.collection('website_content').updateOne({ _id: 'draft' }, { $set: { gallery: { pictures: [{ id: 'k0', picture: { src: 'https://i.ibb.co/x/elso.jpg', alt: '', position: '50% 50%' } }] } } }, { upsert: true });
   const p = await page(b, editor);
   await p.goto(`${BASE}/weblapteszt/admin?lap=gallery`, { waitUntil: 'networkidle2', timeout: 240000 });
   await p.waitForSelector('input[type=file][multiple]', { timeout: 120000 }); // friss szervernél az oldal még fordulhat
@@ -41,19 +43,18 @@ try {
   ok(await p.$eval('input[type=file][multiple]', el => { el.focus(); return document.activeElement === el; }), '#10 a képfeltöltés fókuszálható');
 
   // #2: feltöltés közben nem lehet menteni
-  await p.$eval('form textarea', el => el.focus());
-  await p.keyboard.type(' x');
   await (await p.$('input[type=file][multiple]')).uploadFile(files[0], files[1]);
   await wait(300);
   ok(await busy(p), '#2 (előfeltétel) feltöltés folyamatban');
   ok(await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('Mentés az előnézetbe')).disabled), '#2 feltöltés közben a mentés tiltva');
 
-  // #1: feltöltés közben átírt képaláírás megmarad
-  await p.$eval('form textarea', el => el.select());
-  await p.keyboard.type('Új aláírás');
+  // #1: feltöltés közben átírt képleírás megmarad
+  const ALT = '[data-photo]:first-child input[aria-label^="Mi látható"]';
+  await p.$eval(ALT, el => el.focus());
+  await p.keyboard.type('Új leírás');
   await waitIdle(p);
-  ok((await p.$eval('form textarea', el => el.value)) === 'Új aláírás', '#1 a képaláírás nem ugrik vissza a feltöltés végén');
-  ok((await p.$$('[data-photo]')).length === 2, '#1 mindkét kép bekerült');
+  ok((await p.$eval(ALT, el => el.value)) === 'Új leírás', '#1 a képleírás nem ugrik vissza a feltöltés végén');
+  ok((await p.$$('[data-photo]')).length === 3, '#1 mindkét kép bekerült');
 
   // #8: csere közben átrendezés: a cserélt kép kapja az új címet
   const before = await srcs(p);

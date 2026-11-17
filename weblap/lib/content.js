@@ -36,7 +36,6 @@ export const DEFAULT_CONTENT = {
     empty: 'A következő napokra még nincs meghirdetett esemény. Nézz be a naptárba, vagy gyere be játszani.',
   },
   gallery: {
-    note: 'Péntek este. Hat asztal, és senki nem siet haza.',
     pictures: [
       { id: 'kep1', picture: { src: '/photos/bolt-asztalok.png', alt: 'Teli asztalok egy esti versenyen a Tavern Debrecenben', position: '50% 40%' } },
       { id: 'kep2', picture: { src: '/photos/klub-asztal.png', alt: 'Két játékos egy kártyameccs közben a klub egyik asztalánál', position: '50% 45%' } },

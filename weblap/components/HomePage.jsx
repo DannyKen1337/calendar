@@ -204,7 +204,6 @@ export default async function HomePage({ content, feed, previewBar = null, base 
                 <Image src={g.picture.src} alt={g.picture.alt} width={600} height={800} sizes="20vw" style={{ objectPosition: g.picture.position }} />
               </figure>
             ))}
-            {gallery.note && <p className={s.printsNote}>{gallery.note}</p>}
             {visibleAlbums(content.albums?.albums).length > 0 && <a className={`${s.textlink} ${s.printsMore}`} href={withBase(`${base}/galeria`)}>Az összes album →</a>}
           </section>
         )}
