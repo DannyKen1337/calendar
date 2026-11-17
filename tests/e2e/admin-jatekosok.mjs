@@ -57,7 +57,11 @@ try {
   // szerkesztés a felületen: Player ID
   const p = await page(b, tok.pk);
   p.on('console', m => { if (m.type() === 'error') p.errs.push(`console: ${m.text().slice(0, 300)}`); });
-  await p.goto(`${BASE}/admin/jatekosok`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/admin`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.waitForSelector('nav[aria-label="Gyors gombok"]', { timeout: 60000 });
+  ok(await p.$eval('nav[aria-label="Gyors gombok"]', n => [...n.querySelectorAll('a')].some(a => a.getAttribute('href') === '/admin/jatekosok' && /Játékosok/.test(a.textContent))), 'az admin kezdőlapon Játékosok csempe');
+  await p.screenshot({ path: `${SHOTS}jatekosok-csempe.jpg`, quality: 60, clip: { x: 0, y: 0, width: 1280, height: 320 } });
+  await p.goto(`${BASE}/admin/jatekosok`, { waitUntil: 'networkidle2' });
   await p.waitForSelector('[data-jatekos-tabla] tbody tr', { timeout: 60000 });
   ok(await p.evaluate(() => ![...document.querySelectorAll('th')].some(t => t.textContent === 'E-mail') && [...document.querySelectorAll('th')].some(t => t.textContent === 'Player ID')), 'táblázat: Player ID oszlop, e-mail oszlop nincs (1. szint)');
   await p.screenshot({ path: `${SHOTS}jatekosok-gep.jpg`, quality: 60 });

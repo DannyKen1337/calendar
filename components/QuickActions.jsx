@@ -2,14 +2,15 @@
 import Link from 'next/link';
 import {
   CopyOutlined, MobileOutlined, ShoppingCartOutlined, TrophyOutlined, BarChartOutlined, TeamOutlined,
-  DashboardOutlined, GlobalOutlined, CalendarOutlined,
+  DashboardOutlined, GlobalOutlined, CalendarOutlined, ContactsOutlined,
 } from '@ant-design/icons';
+import { GAME_CONFIG } from '@/lib/gameConfig';
 import s from './QuickActions.module.css';
 
 const WEBSITE_ADMIN = `${process.env.NEXT_PUBLIC_WEBSITE_URL || '/weblapteszt'}/admin`;
 
 // Az admin gyors gombjai a bejelentkezett felhasználó rangja és jogai szerint:
-// mindenkinek Generátor, Check-in, Statisztika, Naptár; az Előrendelés, a Ligák, a Weboldal és a Felhasználók csak annak,
+// mindenkinek Generátor, Check-in, Statisztika, Naptár; a Játékosok annak, aki legalább egy játékot kezel; az Előrendelés, a Ligák, a Weboldal és a Felhasználók csak annak,
 // akinek a csoportja megadja; a Rendszer csak a tulajdonosnak. Telefonon görgethető sor, gépen egy sorban.
 export function quickActionsFor(app) {
   const owner = app.userRole === 'owner';
@@ -17,6 +18,7 @@ export function quickActionsFor(app) {
   return [
     ['Generátor', '/admin/generator', CopyOutlined],
     ['Check-in', '/admin/checkin', MobileOutlined],
+    Object.keys(GAME_CONFIG).some(g => owner || app.canManageGame?.(g)) && ['Játékosok', '/admin/jatekosok', ContactsOutlined],
     has('preorders') && ['Előrendelés', '/admin/elorendeles', ShoppingCartOutlined],
     has('leagues') && ['Ligák', '/admin/liga', TrophyOutlined],
     ['Statisztika', '/admin/statisztika', BarChartOutlined],
