@@ -451,6 +451,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         {buttonRow(PlusOutlined, 'Új esemény', null, openNewEvent)}
         {linkRow(UnorderedListOutlined, 'Generátor', 'Ismétlődő események egyszerre', '/admin/generator')}
         {linkRow(MailOutlined, 'Üzenetek', unreadMessages > 0 ? `${unreadMessages} új válasz` : 'Jelentkezőknek és előrendelőknek', '/admin/uzenetek')}
+        {Object.keys(GAME_CONFIG).some(g => app.canManageGame(g)) && linkRow(TeamOutlined, 'Játékosok', 'Játékos bázis játékonként', '/admin/jatekosok')}
         {linkRow(MobileOutlined, 'Check-in', null, '/admin/checkin')}
         {linkRow(BarChartOutlined, 'Statisztika', null, '/admin/statisztika')}
         {linkRow(GlobalOutlined, 'Nyilvános naptár', null, '/', true)}

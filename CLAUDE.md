@@ -38,6 +38,10 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - A felhasználó kérése: a backend legyen átlátható és gyors, ne dizájnos.
 - Látványterv szerint (2026-11-10, https://claude.ai/artifact/QPH3bSAmDYXkSczUeVLf2b, Tavern-arculat mindenkinek – a lila tulajdonosi téma elvetve): a kártyákon és a táblázatban telítettségsáv (`CapBar`: arany a jelentkezők, szürke a várólista), állapotcímke, „MA” jelölés, a Check-in a kiemelt gomb; az alsó lapon telítettségkártya; foglalásnál −/+ helyszám-léptető (`TableBookingAdmin`); a Továbbiak sorai ikonnal. Az alsó lap (antd Drawer) a `.shell`-en kívül, portálban van: ott fix színek kellenek, a CSS-változók nem érvényesek.
 
+## Játékos bázis (lib/playerBase.js, lib/playerBaseSync.js, /api/players, oldal: /admin/jatekosok)
+- Játékonként egy lista (`players`: category, username, name, email, playerId (Pokémon), summoner (Riftbound), note, aliases, events, firstSeen, lastSeen, lastEvent, source). A jelentkezésekből magától bővül az oldal betöltésekor (csak az előző futás óta érkezetteket nézi: `settings.player_base_sync`, zárolással): egyezés e-mail szerint, e-mail nélkül név szerint (felhasználónév / teljes név, ékezet és kis/nagybetű nélkül); azonos név, de más e-mail: új játékos. **Riftboundnál csak az idézőnév** számít (a külső jelentkezők `external_registrations.name`-je is). A törölt játékos csak újabb jelentkezéssel kerül vissza.
+- Csak az látja / szerkeszti, aki az adott játékot kezelheti (`canManageCategory`); az e-mail cím csak 2. szinten jön ki és írható. Pokémonnál Player ID (csak számjegy). Kézi felvétel, szerkesztés, törlés (napló: `JÁTÉKOS`). Gépen táblázat, telefonon kártyák. Továbbiak › Játékosok.
+
 ## Telefonos app nézet (admin, 960 px alatt)
 - Felső sáv és alsó fülsáv: `components/AdminApp.jsx`; lebegő „+” gomb és lehúzásos frissítés: `components/PhoneApp.jsx`; viselkedés és teljes képernyős ablakok: `app/(naptar)/admin/app.css` (csak az /admin oldalakon töltődik be).
 - Nincs service worker: offline nem működik, és nincs push értesítés.
