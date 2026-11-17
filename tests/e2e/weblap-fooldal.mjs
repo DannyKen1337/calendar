@@ -9,7 +9,10 @@ const ORDER = ['program', 'liga', 'asztalfoglalas', 'hirek', 'galeria', 'boltok'
 const MOOD = /Minden héten verseny|Három bolt, egy klub|Ligák szezononként|Ne maradj le/;
 const b = await browser();
 try {
-  await db.collection('preorder_products').insertOne({ name: 'Mega Evolution Booster Box', category: 'Pokémon TCG', price: 52990, releaseDate: '2026. december 5.', stock: 40, isOpen: true, createdAt: new Date() });
+  await db.collection('preorder_products').insertMany([
+    { name: 'Mega Evolution Booster Box', category: 'Pokémon TCG', price: 52990, releaseDate: '2026. december 5.', stock: 40, isOpen: true, createdAt: new Date() },
+    { name: 'OP-14 Booster Display', category: 'One Piece Card Game', price: 44990, releaseDate: '2026. november 28.', stock: 30, isOpen: true, createdAt: new Date(Date.now() - 1000) },
+  ]);
 
   // töltőképernyő az első betöltéskor
   const p = await page(b, null, 1280, 900, { intro: true });
@@ -44,15 +47,26 @@ try {
   });
   ok(pre.below && /Mega Evolution/.test(pre.text), 'az Előrendelés sáv közvetlenül a cégér alatt, az első képernyőn');
   ok(/heroPreIn/.test(pre.anim), `finoman beúszik (${pre.anim})`);
+  const all = await p.$eval('[data-osszes-elorendeles]', a => ({ h: a.getBoundingClientRect().height, href: a.getAttribute('href'), cal: a.hasAttribute('data-cal') }));
+  ok((await p.$$('[data-elorendeles]')).length === 2 && all.h >= 44 && /\/elorendeles$/.test(all.href) && all.cal, 'több előrendelésnél is ott az „Összes előrendelés” gomb (44 px)');
   await wait(1900);
   await p.screenshot({ path: `${SHOTS}fooldal-hero.jpg`, quality: 60 });
 
   // a teljes naptár gombja
-  const cta = await p.$eval('[data-teljes-naptar]', a => { const r = a.getBoundingClientRect(); return { h: r.height, w: r.width, bg: getComputedStyle(a).backgroundColor, cal: a.hasAttribute('data-cal') }; });
-  ok(cta.h >= 80 && cta.w >= 900 && cta.bg === 'rgb(229, 177, 93)' && cta.cal, `a teljes naptár gomb nagy, arany (${Math.round(cta.w)}×${Math.round(cta.h)})`);
-  await p.$eval('#program', el => el.scrollIntoView({ block: 'end' }));
+  const cta = await p.$eval('[data-teljes-naptar]', a => { const r = a.getBoundingClientRect(), h = document.getElementById('program-cim').getBoundingClientRect(); return { h: r.height, w: r.width, right: innerWidth - r.right, top: r.top < h.bottom && r.bottom > h.top, bg: getComputedStyle(a).backgroundColor, cal: a.hasAttribute('data-cal') }; });
+  ok(cta.h >= 64 && cta.h < 100 && cta.w < 600 && cta.right < 60 && cta.top && cta.bg === 'rgb(229, 177, 93)' && cta.cal, `a teljes naptár gomb a blokk jobb felső sarkában, arany (${Math.round(cta.w)}×${Math.round(cta.h)})`);
+  await p.$eval('#program', el => el.scrollIntoView({ block: 'start' }));
   await wait(400);
   await p.screenshot({ path: `${SHOTS}fooldal-naptar-gomb.jpg`, quality: 60 });
+
+  // Hírek: minta Facebook- / Instagram-posztok (a behúzás még nincs beállítva)
+  const posts = await p.$$eval('#hirek [data-poszt]', els => els.map(e => ({ src: e.dataset.poszt, pics: +e.dataset.kepek, text: e.textContent })));
+  ok(posts.length === 6 && posts.every(x => /Minta/.test(x.text) && /30\. évfordulós/.test(x.text)), `6 minta poszt a 30. évfordulós ETB-kről (${posts.length})`);
+  ok(posts.map(x => x.pics).join() === '0,1,0,1,5,4' && posts.some(x => x.src === 'instagram') && posts.some(x => x.src === 'facebook'), `kép nélkül, 1 képpel, sok képpel; Facebook és Instagram (${posts.map(x => x.pics).join()})`);
+  ok(await p.$eval('#hirek [data-kepek="5"]', el => /\+1/.test(el.textContent)), 'sok képnél 4 látszik, az utolsón „+1”');
+  await p.$eval('[data-kozossegi]', el => el.scrollIntoView({ block: 'start' }));
+  await wait(600);
+  await p.screenshot({ path: `${SHOTS}fooldal-hirek-minta.jpg`, quality: 60, fullPage: false });
 
   // boltok: fotó nélkül
   ok((await p.$$('#boltok a[data-map]')).length === 3 && !(await p.$('#boltok a[data-map] img')), 'a boltok soraiban nincs előnézeti fotó');
@@ -78,7 +92,10 @@ try {
   await wait(1900);
   await ph.screenshot({ path: `${SHOTS}fooldal-hero-telefon.jpg`, quality: 60 });
   const phCta = await ph.$eval('[data-teljes-naptar]', a => { const r = a.getBoundingClientRect(); return { h: r.height, w: r.width }; });
-  ok(phCta.h >= 80 && phCta.w >= 360, `telefonon a teljes naptár gomb teljes szélességű (${Math.round(phCta.w)}×${Math.round(phCta.h)})`);
+  ok(phCta.h >= 64 && phCta.w >= 360, `telefonon a teljes naptár gomb teljes szélességű (${Math.round(phCta.w)}×${Math.round(phCta.h)})`);
+  await ph.$eval('[data-kozossegi]', el => el.scrollIntoView({ block: 'start' }));
+  await wait(500);
+  await ph.screenshot({ path: `${SHOTS}fooldal-hirek-minta-telefon.jpg`, quality: 60 });
   await ph.$eval('[data-teljes-naptar]', el => el.scrollIntoView({ block: 'center' }));
   await wait(500);
   await ph.screenshot({ path: `${SHOTS}fooldal-naptar-gomb-telefon.jpg`, quality: 60 });

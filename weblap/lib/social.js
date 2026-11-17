@@ -45,10 +45,16 @@ function facebookPages() {
 // Minden beállított oldal posztjai együtt; mindegyik poszt tudja, melyik bolté (store)
 export async function getFacebookPosts(limit = 12) {
   const lists = await Promise.all(facebookPages().map(async (page) => {
-    const data = await graph(`${page.id}/posts`, { fields: 'id,message,created_time,permalink_url,full_picture', limit: String(limit) }, page.token);
+    // attachments: a több képes (album) posztok összes képe (images); egy képnél csak a full_picture
+    const data = await graph(`${page.id}/posts`, { fields: 'id,message,created_time,permalink_url,full_picture,attachments{media,subattachments.limit(10){media}}', limit: String(limit) }, page.token);
     return (data || [])
       .filter(p => p.message || p.full_picture)
-      .map(p => ({ source: 'facebook', store: page.store, id: p.id, text: p.message || '', image: p.full_picture || null, url: p.permalink_url, date: new Date(p.created_time).toISOString() }));
+      .map(p => {
+        const att = p.attachments?.data?.[0];
+        const subs = (att?.subattachments?.data || []).map(a => a.media?.image?.src).filter(Boolean);
+        const images = subs.length ? subs : p.full_picture ? [p.full_picture] : [];
+        return { source: 'facebook', store: page.store, id: p.id, text: p.message || '', image: images[0] || null, images, url: p.permalink_url, date: new Date(p.created_time).toISOString() };
+      });
   }));
   return lists.flat();
 }
@@ -56,16 +62,21 @@ export async function getFacebookPosts(limit = 12) {
 export async function getInstagramPosts(limit = 12) {
   const id = process.env.IG_USER_ID;
   if (!id) return [];
-  const data = await graph(`${id}/media`, { fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp', limit: String(limit) });
-  return (data || []).map(p => ({
-    source: 'instagram',
-    id: p.id,
-    text: p.caption || '',
-    // Videónál a borítókép, képnél és albumnál az (első) kép
-    image: p.media_type === 'VIDEO' ? p.thumbnail_url || null : p.media_url || null,
-    url: p.permalink,
-    date: new Date(p.timestamp).toISOString(),
-  }));
+  const data = await graph(`${id}/media`, { fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,children{media_type,media_url,thumbnail_url}', limit: String(limit) });
+  // Videónál a borítókép, képnél a kép, albumnál (CAROUSEL_ALBUM) az összes kép
+  const pic = (m) => (m.media_type === 'VIDEO' ? m.thumbnail_url || null : m.media_url || null);
+  return (data || []).map(p => {
+    const images = (p.children?.data?.length ? p.children.data.map(pic) : [pic(p)]).filter(Boolean);
+    return {
+      source: 'instagram',
+      id: p.id,
+      text: p.caption || '',
+      image: images[0] || null,
+      images,
+      url: p.permalink,
+      date: new Date(p.timestamp).toISOString(),
+    };
+  });
 }
 
 export const socialConfigured = () => ({

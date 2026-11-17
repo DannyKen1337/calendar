@@ -18,6 +18,8 @@ import { visibleAlbums } from '@/weblap/lib/albums';
 import { getHomeData } from '@/weblap/lib/home';
 import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
 import { moodAt } from '@/weblap/lib/moods';
+import { samplePosts } from '@/weblap/lib/samplePosts';
+import SocialPost from '@/weblap/components/SocialPost';
 import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl } from '@/weblap/lib/calendar';
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
@@ -80,9 +82,14 @@ export default async function HomePage({ content, feed, previewBar = null, base 
     });
   const games = [...new Set(week.map(e => e.category))].map(c => ({ category: c, label: gameShort(c) }));
 
-  // A hírek: a boltok Facebook-posztjai a bolt nevével, a kirakott hírek a saját oldalukra visznek
+  // A hírek: a kirakott hírek (a saját oldalukra visznek) a listában; a Facebookról / Instagramról behúzott posztok
+  // alatta, a közösségi oldalak formájában (SocialPost). Amíg nincs behúzott poszt, minta posztok mutatják, hogy fognak kinézni.
   const storeName = (id) => stores.find(st => st.id === id)?.name;
-  const posts = feed.map(p => ({
+  const storeOf = (id) => stores.find(st => st.id === id);
+  const socialFeed = feed.filter(p => p.source === 'facebook' || p.source === 'instagram');
+  const social = (socialFeed.length ? socialFeed : samplePosts().map(p => ({ ...p, sample: true, images: p.images.map(withBase), url: p.source === 'instagram' ? general.instagram : storeOf(p.store)?.facebook })))
+    .map(p => ({ key: p.key, source: p.source, who: storeName(p.store) || storeName('debrecen'), date: p.date, text: p.text || '', images: p.images || (p.image ? [p.image] : []), url: p.url || null, sample: !!p.sample }));
+  const posts = feed.filter(p => p.source === 'manual').map(p => ({
     key: p.key,
     store: p.store || null,
     who: storeName(p.store) || SOURCE_NAMES[p.source],
@@ -124,6 +131,13 @@ export default async function HomePage({ content, feed, previewBar = null, base 
         <section className={s.program} id="program" aria-labelledby="program-cim">
           <div className={s.programHead}>
             <h2 id="program-cim" className={s.disp} data-reveal>{program.title}</h2>
+            {program.button && general.cta.href && (
+              <a className={s.calCta} href={general.cta.href} data-cal data-title={general.cta.label || program.button} data-teljes-naptar aria-haspopup="dialog">
+                <svg className={s.calCtaIcon} viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+                <span className={s.calCtaText}><b>{program.button}</b><small>Minden esemény, mindhárom bolt</small></span>
+                <span className={s.calCtaGo} aria-hidden="true"><svg viewBox="0 0 10 10"><path d="M1 5h7M5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg></span>
+              </a>
+            )}
           </div>
           {week.length ? (
             <WeekProgram
@@ -134,13 +148,6 @@ export default async function HomePage({ content, feed, previewBar = null, base 
             />
           ) : (
             <p className={s.programEmpty}>{program.empty}</p>
-          )}
-          {program.button && general.cta.href && (
-            <a className={s.calCta} href={general.cta.href} data-cal data-title={general.cta.label || program.button} data-teljes-naptar aria-haspopup="dialog">
-              <svg className={s.calCtaIcon} viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-              <span className={s.calCtaText}><b>{program.button}</b><small>Minden esemény, mindhárom bolt</small></span>
-              <span className={s.calCtaGo} aria-hidden="true"><svg viewBox="0 0 10 10"><path d="M1 5h7M5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg></span>
-            </a>
           )}
         </section>
 
@@ -175,17 +182,19 @@ export default async function HomePage({ content, feed, previewBar = null, base 
           <div className={s.newsHead}>
             <h2 id="hirek-cim" className={s.disp} data-reveal>{news.title}</h2>
           </div>
-          {posts.length ? (
+          {posts.length > 0 && (
             <>
               <NewsList posts={posts} stores={postStores} allLabel={news.allStores} />
               <Link className={`${s.textlink} ${s.newsAll}`} href={withBase(`${base}/hirek`)}>{news.allLink}</Link>
             </>
-          ) : (
-            <>
-              <p className={s.newsEmpty}>{news.emptyText}</p>
-              <p className={s.newsLinks}>{facebookPages.map(st => <a key={st.id} className={s.textlink} href={st.facebook} target="_blank" rel="noopener noreferrer">{st.name} ↗</a>)}</p>
-            </>
           )}
+          <div className={s.socialBlock} data-kozossegi>
+            <h3 className={s.socialTitle}>{social.some(p => p.sample) ? 'Minta: így jelennek meg a Facebook- és Instagram-posztok' : 'A boltok oldalairól'}</h3>
+            <div className={s.socialGrid}>
+              {social.map(p => <SocialPost key={p.key} post={p} />)}
+            </div>
+            <p className={s.newsLinks}>{facebookPages.map(st => <a key={st.id} className={s.textlink} href={st.facebook} target="_blank" rel="noopener noreferrer">{st.name} ↗</a>)}</p>
+          </div>
         </section>
 
         {gallery.pictures.length > 0 && (

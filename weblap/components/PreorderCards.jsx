@@ -47,7 +47,7 @@ export default function PreorderCards({ products, allHref }) {
     <div className={s.heroPre} data-elorendeles-sav data-count={products.length}>
       <div className={s.heroPreHead}>
         <span className={s.live}><i data-elo aria-hidden="true" />Élő előrendelés</span>
-        <a href={allHref} data-cal="" data-title="Előrendelés">Összes előrendelés ›</a>
+        <a className={s.preorderAll} href={allHref} data-cal="" data-title="Előrendelés" data-osszes-elorendeles aria-haspopup="dialog">Összes előrendelés<span aria-hidden="true">›</span></a>
       </div>
       <div className={s.preorders} data-elorendelesek data-count={products.length}>
         {products.map(p => {
