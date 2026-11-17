@@ -47,6 +47,8 @@ export const useCalendar = ({ eager = false } = {}) => {
   const [bookings, setBookings] = useState([]);
   // Asztalfoglalás (lib/tableBookings.js): a kérések a jogosult adminnak, név nélküli időpontok a nyilvános naptárnak
   const [tableBookings, setTableBookings] = useState([]);
+  // Szervezői üzenetek: { personalData (2. szint), send, replies, unread } (app/api/admin-data, lib/messages.js)
+  const [messaging, setMessaging] = useState({ personalData: false, send: false, replies: false, unread: 0 });
   const [fetchedPublicTableBookings, setPublicTableBookings] = useState([]);
   const [publicOccupancy, setPublicOccupancy] = useState(null);
   const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
@@ -175,6 +177,7 @@ export const useCalendar = ({ eager = false } = {}) => {
       if (data.occupancy) setOccupancy(data.occupancy);
       if (Array.isArray(data.bookings)) setBookings(data.bookings);
       if (Array.isArray(data.tableBookings)) setTableBookings(data.tableBookings);
+      if (data.messaging) setMessaging(data.messaging);
       if (typeof data.serverTime === 'number') serverOffsetRef.current = data.serverTime - Date.now();
       if (data.error && !isBackground) messageApi.error(data.error);
     } catch {
@@ -677,7 +680,7 @@ export const useCalendar = ({ eager = false } = {}) => {
     tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
     allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen, sessionChecked,
     selectedStore, handleSelectStore, 
-    isMaintenance, toggleMaintenance, occupancy, bookings, publicOccupancy, saveOccupancy, saveBooking, deleteBooking, tableBookings, decideTableBooking, publicTableBookings, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
+    isMaintenance, toggleMaintenance, occupancy, bookings, publicOccupancy, saveOccupancy, saveBooking, deleteBooking, tableBookings, decideTableBooking, publicTableBookings, messaging, setMessaging, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,
     isAuthModalOpen, setIsAuthModalOpen, isRegistering, setIsRegistering, authForm, handleAuthSubmit, handleLogout, toggleUserRole,
     isPasswordModalOpen, setIsPasswordModalOpen, selectedUserForPassword, passwordForm, initiatePasswordChange, submitPasswordChange,
     isOwnPasswordModalOpen, setIsOwnPasswordModalOpen, ownPasswordForm, submitOwnPasswordChange, handleDeleteUser,

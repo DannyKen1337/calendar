@@ -3,13 +3,14 @@ import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { attachPublicAttendees } from '@/lib/attendance';
-import { canManageEvent, canManageStore, hasFeature } from '@/lib/permissions';
+import { canManageEvent, canManageStore, hasFeature, seesPersonalData } from '@/lib/permissions';
 import { getAttendanceStats } from '@/lib/attendanceHistory';
 import { effectiveAccess, getGroupsMap } from '@/lib/userAccess';
 import { syncDueRgnEvents, getRgnRegistrations } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
 import { budapestDateTime } from '@/lib/eventDates';
 import { normalizeOccupancy } from '@/lib/occupancy';
+import { THREADS, messagingStatus } from '@/lib/messages';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +65,14 @@ export async function GET() {
     const visibleRegistrations = isOwner ? registrations : registrations.filter(r => manageableIds.has(String(r.tournamentId)));
 
     // Megbízhatósági statisztika (megjelent / nem jelent meg) a látható jelentkezők e-mail címeire, az összes eseményből számolva
-    const attendanceStats = await getAttendanceStats(db, visibleRegistrations.map(r => r.email));
+    // A statisztika a jelentkezés azonosítójához kötve megy ki (az e-mail cím 1. szinten nem kerülhet a böngészőbe)
+    const statsByEmail = await getAttendanceStats(db, visibleRegistrations.map(r => r.email));
+    const attendanceStats = Object.fromEntries(visibleRegistrations.filter(r => r.email && statsByEmail[r.email]).map(r => [String(r._id), statsByEmail[r.email]]));
+
+    // 1. szint (személyes adatok joga nélkül): a jelentkezőnek csak a felhasználóneve és a teljes neve látszik; e-mail helyett
+    // csak az, hogy írható-e neki üzenet a rendszeren keresztül (/api/messages)
+    const fullData = seesPersonalData(session);
+    const shownRegistrations = fullData ? visibleRegistrations : visibleRegistrations.map(({ email, ...r }) => ({ ...r, hasEmail: !!email }));
 
     // Riftbound jelentkezők (Riot-azonosítók) és előzmények: csak a kezelhető eseményekhez
     const rgnIds = tournaments.filter(t => rgnEventId(t.external_url) && manageableIds.has(String(t._id || t.id))).map(t => String(t._id || t.id));
@@ -72,7 +80,9 @@ export async function GET() {
 
     return NextResponse.json({
         tournaments: attachPublicAttendees(tournaments, registrations),
-        registrations: visibleRegistrations,
+        registrations: shownRegistrations,
+        // Üzenetek: a szint, a kiküldés állapota és az olvasatlan válaszok száma (a saját szálakban)
+        messaging: { personalData: fullData, ...messagingStatus(), unread: await db.collection(THREADS).countDocuments({ createdById: String(session.id), unread: true }) },
         attendanceStats,
         rgn,
         users,

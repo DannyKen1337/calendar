@@ -8,7 +8,7 @@ import {
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
   CalendarOutlined, PieChartOutlined, AppstoreOutlined, ScheduleOutlined, PlusOutlined, BarChartOutlined, GlobalOutlined,
   ShoppingOutlined, TrophyOutlined, ReadOutlined, TeamOutlined, ProfileOutlined, StopOutlined, ToolOutlined, DownloadOutlined,
-  StarOutlined, LogoutOutlined,
+  StarOutlined, LogoutOutlined, MailOutlined,
 } from '@ant-design/icons';
 import { STORES, AdminModals, AttendeeNames, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
@@ -82,6 +82,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   const occ = app.occupancy || { enabled: false, capacity: {} };
   const tabs = TABS.filter(t => (t[0] !== 'telitettseg' || isOwner || occ.enabled) && (t[0] !== 'foglalasok' || has('tableBookings')));
   const pendingTables = (app.tableBookings || []).filter(b => b.status === 'pending').length;
+  const unreadMessages = app.messaging?.unread || 0; // olvasatlan válaszok a saját üzeneteimre
   const [savedTab, setTab] = useState(() => {
     if (typeof window === 'undefined') return 'esemenyek';
     return window.sessionStorage.getItem(TAB_STORAGE) || 'esemenyek';
@@ -449,6 +450,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       <div className={s.group}>
         {buttonRow(PlusOutlined, 'Új esemény', null, openNewEvent)}
         {linkRow(UnorderedListOutlined, 'Generátor', 'Ismétlődő események egyszerre', '/admin/generator')}
+        {linkRow(MailOutlined, 'Üzenetek', unreadMessages > 0 ? `${unreadMessages} új válasz` : 'Jelentkezőknek és előrendelőknek', '/admin/uzenetek')}
         {linkRow(MobileOutlined, 'Check-in', null, '/admin/checkin')}
         {linkRow(BarChartOutlined, 'Statisztika', null, '/admin/statisztika')}
         {linkRow(GlobalOutlined, 'Nyilvános naptár', null, '/', true)}
@@ -525,7 +527,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
           {tabs.map(([key, label, Icon]) => (
             <button key={key} type="button" className={s.tabBtn} aria-current={tab === key ? 'page' : undefined} onClick={() => goTab(key)}>
               <Icon className={s.tabIcon} aria-hidden="true" />
-              {label}{key === 'tovabbiak' && unseenCount > 0 && <i className={s.tabDot} aria-label="Új újdonság" />}{key === 'foglalasok' && pendingTables > 0 && <i className={s.tabDot} aria-label={`${pendingTables} új foglalási kérés`} />}
+              {label}{key === 'tovabbiak' && (unseenCount > 0 || unreadMessages > 0) && <i className={s.tabDot} aria-label={unreadMessages > 0 ? `${unreadMessages} új válasz` : 'Új újdonság'} />}{key === 'foglalasok' && pendingTables > 0 && <i className={s.tabDot} aria-label={`${pendingTables} új foglalási kérés`} />}
             </button>
           ))}
           <span className={s.sideUser}>{app.userName} · {isOwner ? 'tulajdonos' : 'szervező'}</span>

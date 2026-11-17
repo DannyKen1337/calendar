@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { Card, Button, Typography, Tag, Space, List, Popconfirm, Table, Modal, Divider, Grid, Form, Input, Select, ConfigProvider, theme, Checkbox, Radio } from "antd";
-import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, DeleteOutlined, PlusOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, StarFilled, UserAddOutlined, SearchOutlined, MobileOutlined, WarningOutlined } from "@ant-design/icons";
+import { TeamOutlined, CalendarOutlined, LinkOutlined, ShareAltOutlined, CheckOutlined, StopOutlined, UsergroupAddOutlined, DeleteOutlined, PlusOutlined, CloseOutlined, EyeOutlined, LeftOutlined, RightOutlined, StarFilled, UserAddOutlined, SearchOutlined, MobileOutlined, WarningOutlined, MailOutlined } from "@ant-design/icons";
 import { S } from "./styles";
 import { resolveAttendance } from '@/lib/attendance';
 import { GAME_CONFIG, getGameConfig, getGameColor } from '@/lib/gameConfig'; 
@@ -10,6 +10,7 @@ import { findHostConflicts } from '@/lib/hostConflicts';
 
 import { rgnEventId } from '@/lib/rgn';
 import RgnAttendeesModal from '@/components/RgnAttendeesModal';
+import MessageModal from '@/components/MessageModal';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text, Paragraph } = Typography;
@@ -584,6 +585,8 @@ const ReliabilityTag = ({ stats }) => {
 // Az admin felület ablakai: esemény létrehozása / szerkesztése / másolása, saját jelszó, jelentkezők, Riftbound-jelentkezők,
 // feketelista. Az admin felület (components/AdminApp) használja.
 export const AdminModals = ({ app: v }) => {
+  const [messageTo, setMessageTo] = useState(null); // üzenet egy jelentkezőnek (MessageModal)
+  const fullData = !!v.messaging?.personalData; // 2. szint: az e-mail cím is látszik
   const manageableGames = Object.keys(GAME_CONFIG).filter(g => v.canManageGame(g));
   // Előbb az aktív jelentkezők, utána a várólista, mindkettő jelentkezési sorrendben
   const isActiveReg = (r) => r.status === 'Aktív' || r.status === 'Active';
@@ -766,10 +769,11 @@ export const AdminModals = ({ app: v }) => {
                 {record.username
                   ? <><div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{record.username}</div><div style={{ color: '#E0D6C8' }}>{text}</div></>
                   : <div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{text}</div>}
-                <ReliabilityTag stats={v.attendanceStats?.[record.email]} />
+                <ReliabilityTag stats={v.attendanceStats?.[String(record._id || record.id)]} />
               </div>
           ) },
-          { title: 'E-mail', dataIndex: 'email', key: 'email', render: (text, record) => <div><span style={{ color: '#baaaac' }}>{text || '—'}</span>{record.addedBy && <div style={{ color: '#6b7280', fontSize: 12 }}>Felvette: {record.addedBy}</div>}</div> },
+          // Az e-mail cím csak 2. szinten (személyes adatok joga); 1. szinten a szerver el sem küldi
+          ...(fullData ? [{ title: 'E-mail', dataIndex: 'email', key: 'email', render: (text, record) => <div><span style={{ color: '#baaaac' }}>{text || '—'}</span>{record.addedBy && <div style={{ color: '#6b7280', fontSize: 12 }}>Felvette: {record.addedBy}</div>}</div> }] : []),
           { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> },
           { title: 'Megjelent?', key: 'attended', render: (_, record) => {
               const id = record._id || record.id;
@@ -816,10 +820,11 @@ export const AdminModals = ({ app: v }) => {
               );
           }}] : []),
           { title: 'Művelet', key: 'action', render: (_, record) => {
-              const stats = v.attendanceStats?.[record.email];
+              const stats = v.attendanceStats?.[String(record._id || record.id)];
               const isBanned = (v.blacklist || []).some(b => b.email === record.email);
               return (
                 <Space size={0} wrap>
+                  {(record.email || record.hasEmail) && <Button type="link" icon={<MailOutlined />} data-uzenet onClick={() => setMessageTo({ kind: 'registration', refId: String(record._id || record.id), name: [record.username, record.name !== record.username ? record.name : null].filter(Boolean).join(' · '), context: attendeesEvent?.name || '' })}>Üzenet</Button>}
                   <Popconfirm title="Törlöd a jelentkezést?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>
                   {v.userRole === 'owner' && record.email && (isBanned
                     ? <Tag color="red" style={{ margin: 0 }}>Tiltva</Tag>
@@ -831,6 +836,7 @@ export const AdminModals = ({ app: v }) => {
           }}
         ]} />
       </Modal>
+      <MessageModal target={messageTo} status={v.messaging} onClose={() => setMessageTo(null)} />
       <RgnAttendeesModal
         event={(v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedRgnEventId))}
         data={v.rgnData}

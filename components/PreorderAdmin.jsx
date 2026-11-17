@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
-import { PlusOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons';
+import { PlusOutlined, MailOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
+import MessageModal from '@/components/MessageModal';
 import { getGameColor } from '@/lib/gameConfig';
 import useLiveRefresh from '@/lib/useLiveRefresh';
 import { preorderLink, preorderGameLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX } from '@/lib/preorders';
@@ -22,6 +23,7 @@ const STATUS_OPTIONS = [{ value: 'all', label: 'Mind' }, { value: 'open', label:
 export default function PreorderAdmin() {
   const [messageApi, contextHolder] = message.useMessage();
   const [data, setData] = useState(null);
+  const [messageTo, setMessageTo] = useState(null); // üzenet egy előrendelőnek (MessageModal)
   const [error, setError] = useState('');
   const [status, setStatus] = useState('all');
   const [gameFilter, setGameFilter] = useState([]);
@@ -128,10 +130,18 @@ export default function PreorderAdmin() {
   const matchesStatus = (p) => status === 'all' || (status === 'open' ? p.isOpen : !p.isOpen);
   const openCount = data.products.filter(p => p.isOpen).length;
 
+  const fullData = !!data.messaging?.personalData;
+  const productById = new Map(data.products.map(p => [p.id, p]));
   const orderColumns = [
     { title: 'Név', dataIndex: 'name', render: (t) => <span style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{t}</span> },
-    { title: 'E-mail', dataIndex: 'email', render: (t) => <a href={`mailto:${t}`} style={{ color: '#baaaac' }}>{t}</a> },
-    { title: 'Telefon', dataIndex: 'phone', render: (t) => <a href={`tel:${t.replace(/[^\d+]/g, '')}`} style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{t}</a> },
+    // Az e-mail és a telefon csak 2. szinten (személyes adatok joga); 1. szinten a szerver el sem küldi, helyette Üzenet gomb
+    ...(fullData ? [
+      { title: 'E-mail', dataIndex: 'email', render: (t) => <a href={`mailto:${t}`} style={{ color: '#baaaac' }}>{t}</a> },
+      { title: 'Telefon', dataIndex: 'phone', render: (t) => <a href={`tel:${t.replace(/[^\d+]/g, '')}`} style={{ color: '#baaaac', whiteSpace: 'nowrap' }}>{t}</a> },
+    ] : []),
+    { title: '', key: 'msg', width: 110, render: (_, o) => (o.email || o.hasEmail) && (
+      <Button size="small" icon={<MailOutlined />} data-uzenet onClick={() => setMessageTo({ kind: 'preorder', refId: o.id, name: o.name, context: `Előrendelés: ${productById.get(o.productId)?.name || ''}` })} style={sideBtn}>Üzenet</Button>
+    ) },
     { title: 'Darab', dataIndex: 'quantity', align: 'right', width: 70 },
     { title: 'Leadva', dataIndex: 'date', render: (d, o) => <span style={{ color: '#9a8a8c', whiteSpace: 'nowrap' }} title={o.updatedAt && o.updatedAt !== d ? `Módosítva: ${formatHu(o.updatedAt)}` : undefined}>{formatHu(d)}</span> },
     { title: 'Fizetés', key: 'paid', width: 150, render: (_, o) => (o.paidAt ? (
@@ -247,6 +257,7 @@ export default function PreorderAdmin() {
   return (
     <ConfigProvider theme={adminTheme}>
       {contextHolder}
+      <MessageModal target={messageTo} status={data.messaging} onClose={() => setMessageTo(null)} />
       <div className="flex flex-col gap-4">
         <div className={`${panel} flex flex-col gap-3`}>
           <div className="flex flex-wrap items-center gap-2">

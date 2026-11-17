@@ -7,7 +7,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageUsers } from '@/lib/permissions';
 import { isValidEmail } from '@/lib/rateLimit';
-import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, seedDefaultGroups } from '@/lib/userAccess';
+import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, PROTECTED_FEATURES, seedDefaultGroups } from '@/lib/userAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,11 +100,11 @@ export async function POST(request) {
       if (!isOwner) {
         if (String(target._id) === String(session.id)) return { res: bad('A saját fiókodat nem módosíthatod.', 403) };
         const targetAccess = effectiveAccess(target, await getGroupsMap(db, target.groupIds || []));
-        if (targetAccess.features.includes('users')) return { res: bad('Felhasználókezelő fiókot csak a tulajdonos módosíthat.', 403) };
+        if (targetAccess.features.some(f => PROTECTED_FEATURES.includes(f))) return { res: bad('Felhasználókezelő vagy személyes adatokat látó fiókot csak a tulajdonos módosíthat.', 403) };
       }
       return { target };
     };
-    const protectedDenied = () => bad('A felhasználókezelést adó csoportot csak a tulajdonos kezelheti.', 403);
+    const protectedDenied = () => bad('A felhasználókezelést vagy a személyes adatokat adó csoportot csak a tulajdonos kezelheti.', 403);
     // Csak létező csoportok
     const validGroupIds = async (ids) => {
       const list = (Array.isArray(ids) ? ids : []).map(oid).filter(Boolean);
