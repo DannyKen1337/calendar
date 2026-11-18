@@ -341,8 +341,8 @@ export async function POST(request) {
       return NextResponse.json({ success: true, id: String(inserted.insertedId), added: created.length });
     }
 
-    // One Piece végeredmény (.csv) feldolgozása: a pontozást és a dátumot feltöltésenként adják meg, a pontokat a szerver
-    // számolja a fájlból. assignments: játékosonként (tagsági szám) a liga meglévő játékosa (playerId), vagy új játékos a
+    // One Piece végeredmény (.csv) feldolgozása: mindenki annyi pontot kap, amennyi Win Point a fájlban áll mellette
+    // (a szervező az előnézetben átírhatja), a dátumot feltöltésenként adják meg. assignments: játékosonként (tagsági szám) a liga meglévő játékosa (playerId), vagy új játékos a
     // megadott becenévvel. Akinek a neve már szerepel a ligában, azt a kliens párosítja, a szerver pedig nem enged két
     // azonos nevű játékost, így a pontjai nem válnak ketté.
     if (actionType === 'UPLOAD_OP_CSV') {
@@ -350,8 +350,6 @@ export async function POST(request) {
       if (res) return res;
       if (league.category !== OP_CSV_CATEGORY) return bad(`Ilyen CSV fájlt csak a(z) ${OP_CSV_CATEGORY} ligához lehet feltölteni.`);
       const leagueId = String(league._id);
-      const rules = sanitizeTdfRules(payload.rules);
-      if (!rules) return bad('Add meg, hány pont jár a megjelenésért, a győzelemért és a döntetlenért (0 is lehet).');
       const date = String(payload.date ?? '');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(`${date}T00:00:00Z`).getTime())) return bad('Add meg a verseny napját.');
       const title = String(payload.title ?? '').trim().replace(/\s+/g, ' ');
@@ -403,14 +401,14 @@ export async function POST(request) {
       // A győzelmek a Win Pointsból számoltak (a vereségek száma nincs a fájlban), ezért nem a wins/draws mezőben
       // tároljuk őket: a ranglistán így nem jelenik meg hamis győzelem–vereség mérleg
       const results = entries.map(({ p, playerId, override }) => ({
-        playerId, attended: true, points: override ?? opPoints(p, rules), place: p.place, winPoints: p.winPoints, opWins: p.wins, opDraws: p.draws, bandaiId: p.bandaiId,
+        playerId, attended: true, points: override ?? opPoints(p), place: p.place, winPoints: p.winPoints, opWins: p.wins, opDraws: p.draws, bandaiId: p.bandaiId,
       }));
       const inserted = await sessions.insertOne({
         date, title, results, tournamentId: null, leagueId, createdAt: now, updatedAt: now, createdBy: session.username,
-        opCsv: { fingerprint: parsed.fingerprint, rules, fileName: String(payload.fileName || '').slice(0, 120) },
+        opCsv: { fingerprint: parsed.fingerprint, scoring: 'winPoints', fileName: String(payload.fileName || '').slice(0, 120) },
       });
       const nicks = new Map(entries.map(e => [e.playerId, e.nickname]));
-      await addLog(db, session.username, 'LIGA CSV', `CSV feltöltve (${league.category}): ${date}${title ? ` ${title}` : ''}, pontozás: megjelenés ${rules.attendance}, győzelem ${rules.win}, döntetlen ${rules.draw}. ${results.length} játékos, ebből ${created.length} új. Pontok: ${describePointChanges([], results, id => nicks.get(id))}${describeOverrides(entries, p => opPoints(p, rules)) ? `. Kézzel átírva (számolt → beírt): ${describeOverrides(entries, p => opPoints(p, rules))}` : ''}`);
+      await addLog(db, session.username, 'LIGA CSV', `CSV feltöltve (${league.category}): ${date}${title ? ` ${title}` : ''}, pont = Win Points. ${results.length} játékos, ebből ${created.length} új. Pontok: ${describePointChanges([], results, id => nicks.get(id))}${describeOverrides(entries, opPoints) ? `. Kézzel átírva (Win Points → beírt): ${describeOverrides(entries, opPoints)}` : ''}`);
       return NextResponse.json({ success: true, id: String(inserted.insertedId), added: created.length });
     }
 

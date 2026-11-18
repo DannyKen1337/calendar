@@ -29,6 +29,8 @@ const sourceTag = (src) => (src === 'tdf' ? <Tag color="gold" style={{ margin: 0
 // Az alkalom jelölése a listában: a TDF vagy CSV fájlból számolt alkalomnál a használt pontozás is látszik
 const tdfRulesText = (tdf) => (tdf?.rules ? `megjelenés ${tdf.rules.attendance}, győzelem ${tdf.rules.win}, döntetlen ${tdf.rules.draw}` : '');
 const fileTag = (s) => (s.tdf ? 'TDF' : s.opCsv ? 'CSV' : '');
+// A One Piece CSV-nél a pont a fájlban álló Win Points
+const fileRulesText = (s) => (s.tdf ? tdfRulesText(s.tdf) : s.opCsv ? (s.opCsv.rules ? tdfRulesText(s.opCsv) : 'pont = Win Points') : '');
 const storeNames = (stores) => stores.map(s => STORE_NAMES[s] || s).join(', ');
 const STORE_OPTIONS = Object.entries(STORE_NAMES).map(([value, label]) => ({ value, label }));
 
@@ -315,7 +317,7 @@ export default function LeagueAdmin() {
 
   const sessionColumns = [
     { title: 'Dátum', dataIndex: 'date', render: (d) => <span style={{ color: '#E0D6C8', whiteSpace: 'nowrap' }}>{formatDay(d)}</span> },
-    { title: 'Megnevezés', dataIndex: 'title', render: (t, s) => <span className="flex flex-wrap items-center gap-2" style={{ color: '#baaaac' }}>{t || '—'}{fileTag(s) && <Tag color="gold" style={{ margin: 0 }} title={tdfRulesText(s.tdf || s.opCsv)}>{fileTag(s)}</Tag>}</span> },
+    { title: 'Megnevezés', dataIndex: 'title', render: (t, s) => <span className="flex flex-wrap items-center gap-2" style={{ color: '#baaaac' }}>{t || '—'}{fileTag(s) && <Tag color="gold" style={{ margin: 0 }} title={fileRulesText(s)}>{fileTag(s)}</Tag>}</span> },
     { title: 'Játékos', key: 'att', align: 'right', render: (_, s) => s.results.length },
     { title: 'Kiosztott pont', key: 'pts', align: 'right', render: (_, s) => s.results.reduce((sum, r) => sum + resultPoints(r, league.rules), 0) },
     { title: '', key: 'actions', width: 96, render: (_, s) => (
@@ -345,7 +347,7 @@ export default function LeagueAdmin() {
       {sessions.map(x => (
         <div key={x.id} className={m.card}>
           <div className={m.cardTop}><span className={m.cardTitle}>{formatDay(x.date)}</span><span className={m.cardValue}>{x.results.reduce((sum, r) => sum + resultPoints(r, league.rules), 0)} pont</span></div>
-          <span className={m.cardSub}>{x.title || 'Megnevezés nélkül'} · {x.results.length} játékos{fileTag(x) ? ` · ${fileTag(x)}: ${tdfRulesText(x.tdf || x.opCsv)}` : ''}</span>
+          <span className={m.cardSub}>{x.title || 'Megnevezés nélkül'} · {x.results.length} játékos{fileTag(x) ? ` · ${fileTag(x)}: ${fileRulesText(x)}` : ''}</span>
           <div className={m.cardBtns}>
             <button type="button" className={m.cardBtn} onClick={() => openSession(x)}><EditOutlined /> Pontok</button>
             <Popconfirm title="Törlöd ezt az alkalmat?" description="A benne kiosztott pontok is törlődnek." onConfirm={() => deleteSession(x)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
@@ -766,7 +768,7 @@ export default function LeagueAdmin() {
               {selectedEvent && <Checkbox checked={onlyEventPlayers} onChange={(e) => setOnlyEventPlayers(e.target.checked)}>Csak az esemény jelentkezői</Checkbox>}
               <Button icon={<UserAddOutlined />} style={sideBtn} onClick={() => openPlayer({})}>Új játékos</Button>
             </div>
-            {(sessionEdit.tdf || sessionEdit.opCsv) && <Alert type="info" showIcon title={`Ezeket a pontokat a ${sessionEdit.tdf ? 'TDF' : 'CSV'} fájl alapján számolta a rendszer (${tdfRulesText(sessionEdit.tdf || sessionEdit.opCsv)}). Itt kézzel átírhatod őket, a változás naplózódik.`} />}
+            {(sessionEdit.tdf || sessionEdit.opCsv) && <Alert type="info" showIcon title={`Ezeket a pontokat a ${sessionEdit.tdf ? 'TDF' : 'CSV'} fájl alapján számolta a rendszer (${fileRulesText(sessionEdit)}). Itt kézzel átírhatod őket, a változás naplózódik.`} />}
             <Text style={{ color: '#7d6e70', fontSize: 12 }}>Írd be a pontot (0 is lehet, levonásnál negatív). Akinél üresen marad, az nem vett részt ezen az alkalmon. A pontok minden változása naplózódik.</Text>
             {phone ? (
               editorRows.length === 0 ? <p className={m.empty}>{selectedEvent && onlyEventPlayers && !q ? 'Erre az eseményre még nincs beemelt jelentkező.' : 'Nincs találat.'}</p> : (

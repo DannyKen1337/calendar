@@ -1,24 +1,22 @@
 "use client";
 import { useMemo, useRef, useState } from 'react';
-import { Modal, Button, InputNumber, Input, Select, Alert, Typography, Popconfirm } from 'antd';
+import { Modal, Button, Input, Select, Alert, Typography, Popconfirm } from 'antd';
 import { CloseOutlined, UploadOutlined } from '@ant-design/icons';
-import { POINTS_MAX, SESSION_TITLE_MAX, normalizeNickname, nicknameKey, uniqueNickname } from '@/lib/leagues';
-import { sanitizeTdfRules } from '@/lib/tdf';
+import { SESSION_TITLE_MAX, normalizeNickname, nicknameKey, uniqueNickname } from '@/lib/leagues';
 import { parseOpCsv, opPoints, matchOpPlayers, defaultOpNickname, titleFromFileName, bandaiKey, OP_CSV_MAX_BYTES } from '@/lib/opCsv';
 import ImportPointsInput from './ImportPointsInput';
 import m from './LeagueAdmin.module.css';
 
 const { Text } = Typography;
-const RULE_FIELDS = [['attendance', 'Megjelenés'], ['win', 'Győzelem'], ['draw', 'Döntetlen']];
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-// A Bandai versenyrendszeréből letöltött One Piece végeredmény (.csv) feltöltése. A pontozást minden feltöltéskor be kell
-// írni, a fájlt a böngésző dolgozza fel az előnézethez, mentéskor a szerver újraszámol. Akinek a neve vagy tagsági száma
+// A Bandai versenyrendszeréből letöltött One Piece végeredmény (.csv) feltöltése. Mindenki annyi pontot kap, amennyi Win
+// Point a fájlban áll mellette (ez az előnézetben átírható); a fájlt a böngésző dolgozza fel az előnézethez, mentéskor a
+// szerver újraszámol. Akinek a neve vagy tagsági száma
 // már szerepel a ligában, annak a meglévő pontjaihoz adódik az új pont; a párosítás itt javítható. Rögzíteni csak az
 // előnézet jóváhagyása után lehet.
 export default function OpCsvImportModal({ league, players, sessions, busy, post, onClose, onSaved, phone }) {
   const inputRef = useRef(null);
-  const [rules, setRules] = useState({ attendance: null, win: null, draw: null });
   const [upload, setUpload] = useState(null); // { fileName, csv, parsed }
   const [date, setDate] = useState(todayStr());
   const [title, setTitle] = useState('');
@@ -52,7 +50,6 @@ export default function OpCsvImportModal({ league, players, sessions, busy, post
   };
 
   const parsed = upload?.parsed || null;
-  const validRules = sanitizeTdfRules(rules);
   const duplicate = parsed ? sessions.find(s => s.opCsv?.fingerprint === parsed.fingerprint) : null;
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const beforeSeason = validDate && date < league.seasonStart;
@@ -67,8 +64,8 @@ export default function OpCsvImportModal({ league, players, sessions, busy, post
     return null;
   };
   const hasNicknameProblem = parsed ? parsed.players.some(p => !choices[p.bandaiId]?.playerId && nicknameProblem(p.bandaiId)) : false;
-  const canSave = !!validRules && !!parsed && !duplicate && !hasNicknameProblem && validDate;
-  const computedOf = (p) => (validRules ? opPoints(p, validRules) : null);
+  const canSave = !!parsed && !duplicate && !hasNicknameProblem && validDate;
+  const computedOf = (p) => opPoints(p);
   const pointsOf = (p) => overrides[p.bandaiId] ?? computedOf(p);
   const setOverride = (bandaiId, v) => setOverrides(o => { const next = { ...o }; if (v === undefined) delete next[bandaiId]; else next[bandaiId] = v; return next; });
   const setChoice = (bandaiId, patch) => setChoices(c => ({ ...c, [bandaiId]: { ...c[bandaiId], ...patch } }));
@@ -80,15 +77,14 @@ export default function OpCsvImportModal({ league, players, sessions, busy, post
       fileName: upload.fileName,
       date,
       title,
-      rules: validRules,
       assignments: parsed.players.map(p => ({ bandaiId: p.bandaiId, playerId: choices[p.bandaiId].playerId || null, nickname: choices[p.bandaiId].nickname, ...(overrides[p.bandaiId] !== undefined ? { points: overrides[p.bandaiId] } : {}) })),
     });
     if (res) onSaved(res);
   };
 
-  const total = parsed && validRules ? parsed.players.reduce((sum, p) => sum + pointsOf(p), 0) : 0;
+  const total = parsed ? parsed.players.reduce((sum, p) => sum + pointsOf(p), 0) : 0;
   const existingCount = parsed ? parsed.players.filter(p => choices[p.bandaiId]?.playerId).length : 0;
-  const summary = parsed ? `${parsed.players.length} játékos${validRules ? ` · ${total} pont` : ''}` : '';
+  const summary = parsed ? `${parsed.players.length} játékos · ${total} pont` : '';
   const saveBtn = (
     <Popconfirm
       key="save"
@@ -118,32 +114,8 @@ export default function OpCsvImportModal({ league, players, sessions, busy, post
         : [<span key="sum" style={{ color: '#9a8a8c', marginRight: 12 }}>{summary}</span>, cancelBtn, saveBtn]}
     >
       <div className="flex flex-col gap-3 pt-2">
-        <Text style={{ color: '#baaaac', fontWeight: 700 }}>1. Hány pont jár ezen a versenyen?</Text>
-        <div className="flex flex-wrap gap-3">
-          {RULE_FIELDS.map(([key, label]) => (
-            <label key={key} className="flex flex-col gap-1">
-              <span style={{ color: '#baaaac', fontSize: 13 }}>{label}</span>
-              <InputNumber
-                size={phone ? 'large' : 'middle'}
-                inputMode="numeric"
-                min={0}
-                max={POINTS_MAX}
-                precision={0}
-                controls={false}
-                value={rules[key]}
-                placeholder="pont"
-                status={parsed && rules[key] === null ? 'warning' : undefined}
-                onChange={(v) => setRules(r => ({ ...r, [key]: v }))}
-                style={{ width: phone ? 92 : 110 }}
-                aria-label={`${label}: pont`}
-              />
-            </label>
-          ))}
-        </div>
-        <Text style={{ color: '#7d6e70', fontSize: 12 }}>A fájlban a győzelem 3, a döntetlen 1 Win Pointot ér; ebből számoljuk ki, ki hányszor nyert. A vereség nem ad pontot.</Text>
-
-        <Text style={{ color: '#baaaac', fontWeight: 700, marginTop: 4 }}>2. A végeredmény fájl</Text>
-        <Text style={{ color: '#7d6e70', fontSize: 12 }}>A Bandai versenyoldaláról letöltött …_standing.csv fájl.</Text>
+        <Text style={{ color: '#baaaac', fontWeight: 700 }}>1. A végeredmény fájl</Text>
+        <Text style={{ color: '#7d6e70', fontSize: 12 }}>A Bandai versenyoldaláról letöltött …_standing.csv fájl. Mindenki annyi pontot kap, amennyi Win Point a fájlban áll mellette.</Text>
         <div className="flex flex-wrap items-center gap-3">
           <input ref={inputRef} type="file" accept=".csv,text/csv" onChange={pickFile} style={{ display: 'none' }} aria-label="CSV fájl" />
           <Button icon={<UploadOutlined />} size={phone ? 'large' : 'middle'} onClick={() => inputRef.current?.click()}>{upload ? 'Másik fájl' : 'Fájl kiválasztása'}</Button>
@@ -165,10 +137,9 @@ export default function OpCsvImportModal({ league, players, sessions, busy, post
             </div>
             {duplicate && <Alert type="error" showIcon title={`Ezt a végeredményt már feltöltötték (${duplicate.date}${duplicate.title ? `, ${duplicate.title}` : ''}). Ha újra fel akarod tölteni, előbb töröld a korábbi alkalmat.`} />}
             {beforeSeason && <Alert type="warning" showIcon title={`A dátum a szezon kezdete (${league.seasonStart}) előtti. Biztosan jó?`} />}
-            {!validRules && <Alert type="warning" showIcon title="A pontok kiszámításához add meg mindhárom értéket (0 is lehet)." />}
 
-            <Text style={{ color: '#baaaac', fontWeight: 700, marginTop: 4 }}>3. Ki hány pontot kap?</Text>
-            <Text style={{ color: '#7d6e70', fontSize: 12 }}>Nézd át, és ha minden jó, hagyd jóvá. A pontot bárkinél átírhatod, ha a számolttól eltérő jár neki. Akinek a neve vagy tagsági száma már szerepel a ligában, annak a meglévő pontjaihoz adódik hozzá; ha rossz játékost választott ki a rendszer, itt átírhatod. Akit nem talál, új játékosként kerül be.</Text>
+            <Text style={{ color: '#baaaac', fontWeight: 700, marginTop: 4 }}>2. Ki hány pontot kap?</Text>
+            <Text style={{ color: '#7d6e70', fontSize: 12 }}>Nézd át, és ha minden jó, hagyd jóvá. A pontot bárkinél átírhatod, ha nem a Win Points jár neki. Akinek a neve vagy tagsági száma már szerepel a ligában, annak a meglévő pontjaihoz adódik hozzá; ha rossz játékost választott ki a rendszer, itt átírhatod. Akit nem talál, új játékosként kerül be.</Text>
             <div className={m.list}>
               {parsed.players.map(p => {
                 const choice = choices[p.bandaiId] || {};
