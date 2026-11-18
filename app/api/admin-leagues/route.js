@@ -7,21 +7,31 @@ import { canManageCategory, hasFeature, eventStore, STORE_NAMES } from '@/lib/pe
 import { toObjectId } from '@/lib/preorderData';
 import { PREORDER_GAMES } from '@/lib/preorders';
 import { budapestDateTime, addDays } from '@/lib/eventDates';
-import { DEFAULT_RULES, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, normalizeNickname, uniqueNickname, nicknameKey, riotIdKey, computeStandings, buildSnapshot, describePointChanges, hasManualPoints } from '@/lib/leagues';
+import { DEFAULT_RULES, POINTS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, normalizeNickname, uniqueNickname, nicknameKey, riotIdKey, computeStandings, buildSnapshot, describePointChanges, hasManualPoints } from '@/lib/leagues';
 import { parseTdf, sanitizeTdfRules, tdfPoints, defaultTdfNickname, isFullNameNickname, TDF_CATEGORY, TDF_MAX_BYTES } from '@/lib/tdf';
+import { parseOpCsv, opPoints, bandaiKey, OP_CSV_CATEGORY, OP_CSV_MAX_BYTES } from '@/lib/opCsv';
 import { syncLeaguePlayers, leagueSeasonStart, playerKeys } from '@/lib/leagueSync';
 
 export const dynamic = 'force-dynamic';
 
 // Ligák kezelése az admin felületen. Játékonként egy liga; a szervező csak az általa kezelt játékok ligáit
 // látja és szerkesztheti. A pontokat a szervező írja be alkalmanként, a játékosok viszont a liga boltjainak
-// eseményeiről automatikusan bekerülnek (lib/leagueSync.js), a Pokémon ligában a pontok TOM fájlból is számolhatók
-// (UPLOAD_TDF, lib/tdf.js). A nyilvános ranglista csak a PUBLISH művelettel frissül.
-// A pontok minden változása naplózódik (LIGA PONTOK, LIGA TDF); a liga naplóját a külön „Liga napló” jog mutatja.
+// eseményeiről automatikusan bekerülnek (lib/leagueSync.js), a Pokémon ligában a pontok TOM fájlból (UPLOAD_TDF, lib/tdf.js),
+// a One Piece ligában a Bandai végeredmény-CSV-jéből (UPLOAD_OP_CSV, lib/opCsv.js) is számolhatók.
+// A nyilvános ranglista csak a PUBLISH művelettel frissül.
+// A pontok minden változása naplózódik (LIGA PONTOK, LIGA TDF, LIGA CSV); a liga naplóját a külön „Liga napló” jog mutatja.
 
 async function addLog(db, adminName, action, details) {
   await db.collection('audit_logs').insertOne({ adminName: adminName || 'Rendszer', action, details, date: new Date() });
 }
+// Fájlfeltöltésnél a szervező az előnézetben játékosonként átírhatja a számolt pontot: null = nincs átírva, NaN = hibás
+const manualPoints = (choice) => {
+  const v = choice?.points;
+  if (v === undefined || v === null) return null;
+  return Number.isInteger(v) && Math.abs(v) <= POINTS_MAX ? v : NaN;
+};
+// A naplóba: kinél írták át kézzel a fájlból számolt pontot
+const describeOverrides = (entries, computed) => entries.filter(e => e.override !== null).map(e => `${e.nickname}: ${computed(e.p)} → ${e.override}`).join(', ');
 const storeList = (stores) => (stores.length ? stores.map(s => STORE_NAMES[s] || s).join(', ') : 'kikapcsolva');
 
 const leagueOut = (l) => ({
@@ -33,8 +43,8 @@ const leagueOut = (l) => ({
   ignoredCount: (l.ignoredPlayers || []).length,
   published: l.published ? { at: l.published.at, by: l.published.by || '', rows: l.published.rows || [] } : null,
 });
-const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, popId: p.popId || null, birthDate: p.birthDate || null, source: p.source || 'manual', eventIds: p.eventIds || [], createdAt: p.createdAt });
-const sessionOut = (s) => ({ id: String(s._id), leagueId: s.leagueId, date: s.date, title: s.title || '', tournamentId: s.tournamentId || null, tdf: s.tdf || null, results: s.results || [], updatedAt: s.updatedAt });
+const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, popId: p.popId || null, bandaiId: p.bandaiId || null, birthDate: p.birthDate || null, source: p.source || 'manual', eventIds: p.eventIds || [], createdAt: p.createdAt });
+const sessionOut = (s) => ({ id: String(s._id), leagueId: s.leagueId, date: s.date, title: s.title || '', tournamentId: s.tournamentId || null, tdf: s.tdf || null, opCsv: s.opCsv || null, results: s.results || [], updatedAt: s.updatedAt });
 
 const LOG_LIMIT = 300;
 // Egy liga naplója: minden LIGA műveletnél a részletek tartalmazzák a játékot zárójelben, pl. "(Pokémon TCG)"
@@ -177,14 +187,15 @@ export async function POST(request) {
       const leagueId = String(league._id);
       const existingId = payload.id ? toObjectId(payload.id) : null;
       if (payload.id && !existingId) return bad('A játékos nem található.', 404);
-      // Az eseményekről vagy TDF fájlból beemelt játékosnál a teljes név és az e-mail nem kötelező
+      // Az eseményekről, TDF vagy CSV fájlból beemelt játékosnál a teljes név és az e-mail nem kötelező
       const current = existingId ? await players.findOne({ _id: existingId, leagueId }, { projection: { source: 1 } }) : null;
-      const { player, error, field } = sanitizePlayer(payload, { relaxed: ['event', 'rgn', 'tdf'].includes(current?.source) });
+      const { player, error, field } = sanitizePlayer(payload, { relaxed: ['event', 'rgn', 'tdf', 'csv'].includes(current?.source) });
       if (error) return bad(error, 400, { field });
-      const others = await players.find({ leagueId, ...(existingId ? { _id: { $ne: existingId } } : {}) }, { projection: { nickname: 1, email: 1, riotId: 1, popId: 1 } }).toArray();
+      const others = await players.find({ leagueId, ...(existingId ? { _id: { $ne: existingId } } : {}) }, { projection: { nickname: 1, email: 1, riotId: 1, popId: 1, bandaiId: 1 } }).toArray();
       if (player.email && others.some(o => o.email === player.email)) return bad('Ezzel az e-mail címmel már van játékos ebben a ligában.', 400, { field: 'email' });
       if (player.riotId && others.some(o => o.riotId && riotIdKey(o.riotId) === riotIdKey(player.riotId))) return bad('Ezzel a Riot-azonosítóval már van játékos ebben a ligában.', 400, { field: 'riotId' });
       if (player.popId && others.some(o => o.popId === player.popId)) return bad('Ezzel a POP-azonosítóval már van játékos ebben a ligában.', 400, { field: 'popId' });
+      if (player.bandaiId && others.some(o => o.bandaiId && bandaiKey(o.bandaiId) === bandaiKey(player.bandaiId))) return bad('Ezzel a Bandai tagsági számmal már van játékos ebben a ligában.', 400, { field: 'bandaiId' });
       if (others.some(o => nicknameKey(o.nickname) === nicknameKey(player.nickname))) return bad('Ez a becenév már foglalt ebben a ligában.', 400, { field: 'nickname' });
       if (existingId) {
         const upd = await players.updateOne({ _id: existingId, leagueId }, { $set: { ...player, updatedAt: new Date() } });
@@ -236,13 +247,14 @@ export async function POST(request) {
         const oid = toObjectId(payload.id);
         const existing = oid ? await sessions.findOne({ _id: oid, leagueId }) : null;
         if (!existing) return bad('Az alkalom nem található.', 404);
-        // A TDF fájlból jött meccsadatok a pont átírása után is megmaradnak (a kapott pont már a kézzel beírt)
+        // A TDF és a CSV fájlból jött adatok (meccsek, helyezés, azonosító) a pont átírása után is megmaradnak
+        // (a kapott pont már a kézzel beírt)
         const before = new Map((existing.results || []).map(r => [String(r.playerId), r]));
+        const FILE_FIELDS = ['wins', 'draws', 'losses', 'byes', 'place', 'division', 'popId', 'winPoints', 'opWins', 'opDraws', 'bandaiId'];
         const results = data.results.map(r => {
           const old = before.get(r.playerId);
-          if (!old || !hasManualPoints(old) || !Number.isInteger(old.wins)) return r;
-          const { wins, draws, losses, byes, place, division, popId } = old;
-          return { ...r, wins, draws, losses, byes, place, division, popId };
+          if (!old || !hasManualPoints(old)) return r;
+          return { ...r, ...Object.fromEntries(FILE_FIELDS.filter(k => old[k] !== undefined).map(k => [k, old[k]])) };
         });
         await sessions.updateOne({ _id: oid, leagueId }, { $set: { ...data, results, tournamentId, updatedAt: now, updatedBy: session.username } });
         const changes = describePointChanges(existing.results, results, nicknameOf, rules);
@@ -281,6 +293,8 @@ export async function POST(request) {
       const entries = [];
       for (const p of parsed.players) {
         const choice = assignments.get(p.popId);
+        const override = manualPoints(choice);
+        if (Number.isNaN(override)) return bad(`${p.fullName}: a pont -${POINTS_MAX} és ${POINTS_MAX} közötti egész szám lehet.`);
         const playerId = choice?.playerId ? String(choice.playerId) : null;
         if (playerId) {
           const target = byId.get(playerId);
@@ -296,7 +310,7 @@ export async function POST(request) {
             taken.add(nicknameKey(nickname));
           }
           links.push({ updateOne: { filter: { _id: target._id }, update: { $set: { popId: p.popId, nickname, ...(p.birthDate ? { birthDate: p.birthDate } : {}), ...(target.fullName ? {} : { fullName: p.fullName }) } } } });
-          entries.push({ p, playerId, nickname });
+          entries.push({ p, override, playerId, nickname });
           continue;
         }
         const nickname = normalizeNickname(choice?.nickname);
@@ -308,13 +322,13 @@ export async function POST(request) {
         taken.add(nicknameKey(nickname));
         const _id = new ObjectId();
         created.push({ _id, fullName: p.fullName, nickname, email: null, riotId: null, popId: p.popId, birthDate: p.birthDate, source: 'tdf', eventIds: [], leagueId, createdAt: now, createdBy: session.username });
-        entries.push({ p, playerId: String(_id), nickname });
+        entries.push({ p, override, playerId: String(_id), nickname });
       }
 
       if (created.length) await players.insertMany(created);
       if (links.length) await players.bulkWrite(links);
-      const results = entries.map(({ p, playerId }) => ({
-        playerId, attended: true, points: tdfPoints(p, rules),
+      const results = entries.map(({ p, playerId, override }) => ({
+        playerId, attended: true, points: override ?? tdfPoints(p, rules),
         wins: p.wins, draws: p.draws, losses: p.losses, byes: p.byes, place: p.place, division: p.division, popId: p.popId,
       }));
       const title = tournament.name.slice(0, SESSION_TITLE_MAX);
@@ -323,7 +337,80 @@ export async function POST(request) {
         tdf: { id: tournament.id, name: tournament.name, city: tournament.city, rules, rounds: tournament.rounds, topCutRounds: tournament.topCutRounds, fileName: String(payload.fileName || '').slice(0, 120) },
       });
       const nicks = new Map(entries.map(e => [e.playerId, e.nickname]));
-      await addLog(db, session.username, 'LIGA TDF', `TDF feltöltve (${league.category}): ${tournament.date} ${tournament.name} (${tournament.id}), pontozás: megjelenés ${rules.attendance}, győzelem ${rules.win}, döntetlen ${rules.draw}. ${results.length} játékos, ebből ${created.length} új. Pontok: ${describePointChanges([], results, id => nicks.get(id))}`);
+      await addLog(db, session.username, 'LIGA TDF', `TDF feltöltve (${league.category}): ${tournament.date} ${tournament.name} (${tournament.id}), pontozás: megjelenés ${rules.attendance}, győzelem ${rules.win}, döntetlen ${rules.draw}. ${results.length} játékos, ebből ${created.length} új. Pontok: ${describePointChanges([], results, id => nicks.get(id))}${describeOverrides(entries, p => tdfPoints(p, rules)) ? `. Kézzel átírva (számolt → beírt): ${describeOverrides(entries, p => tdfPoints(p, rules))}` : ''}`);
+      return NextResponse.json({ success: true, id: String(inserted.insertedId), added: created.length });
+    }
+
+    // One Piece végeredmény (.csv) feldolgozása: a pontozást és a dátumot feltöltésenként adják meg, a pontokat a szerver
+    // számolja a fájlból. assignments: játékosonként (tagsági szám) a liga meglévő játékosa (playerId), vagy új játékos a
+    // megadott becenévvel. Akinek a neve már szerepel a ligában, azt a kliens párosítja, a szerver pedig nem enged két
+    // azonos nevű játékost, így a pontjai nem válnak ketté.
+    if (actionType === 'UPLOAD_OP_CSV') {
+      const { league, res } = await loadLeague(payload.leagueId);
+      if (res) return res;
+      if (league.category !== OP_CSV_CATEGORY) return bad(`Ilyen CSV fájlt csak a(z) ${OP_CSV_CATEGORY} ligához lehet feltölteni.`);
+      const leagueId = String(league._id);
+      const rules = sanitizeTdfRules(payload.rules);
+      if (!rules) return bad('Add meg, hány pont jár a megjelenésért, a győzelemért és a döntetlenért (0 is lehet).');
+      const date = String(payload.date ?? '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(`${date}T00:00:00Z`).getTime())) return bad('Add meg a verseny napját.');
+      const title = String(payload.title ?? '').trim().replace(/\s+/g, ' ');
+      if (title.length > SESSION_TITLE_MAX) return bad(`A megnevezés legfeljebb ${SESSION_TITLE_MAX} karakter lehet.`);
+      if (typeof payload.csv !== 'string' || Buffer.byteLength(payload.csv) > OP_CSV_MAX_BYTES) return bad('A fájl hiányzik, vagy túl nagy.');
+      const parsed = parseOpCsv(payload.csv);
+      if (parsed.error) return bad(parsed.error);
+      const duplicate = await sessions.findOne({ leagueId, 'opCsv.fingerprint': parsed.fingerprint }, { projection: { date: 1 } });
+      if (duplicate) return bad(`Ezt a végeredményt már feltöltötték ${duplicate.date} dátummal. Ha újra fel akarod tölteni, előbb töröld a korábbi alkalmat.`, 409);
+
+      const assignments = new Map((Array.isArray(payload.assignments) ? payload.assignments : []).map(a => [bandaiKey(a?.bandaiId), a]));
+      const existing = await players.find({ leagueId }, { projection: { nickname: 1, fullName: 1, bandaiId: 1 } }).toArray();
+      const byId = new Map(existing.map(p => [String(p._id), p]));
+      const taken = new Set(existing.map(p => nicknameKey(p.nickname)));
+      const usedIds = new Set();
+      const links = [];
+      const created = [];
+      const now = new Date();
+      const entries = [];
+      for (const p of parsed.players) {
+        const choice = assignments.get(bandaiKey(p.bandaiId));
+        const override = manualPoints(choice);
+        if (Number.isNaN(override)) return bad(`${p.name}: a pont -${POINTS_MAX} és ${POINTS_MAX} közötti egész szám lehet.`);
+        const playerId = choice?.playerId ? String(choice.playerId) : null;
+        if (playerId) {
+          const target = byId.get(playerId);
+          if (!target) return bad(`${p.name}: a kiválasztott ligajátékos nem található.`);
+          if (target.bandaiId && bandaiKey(target.bandaiId) !== bandaiKey(p.bandaiId)) return bad(`${target.nickname} egy másik tagsági számhoz tartozik, ${p.name} nem párosítható vele.`);
+          if (usedIds.has(playerId)) return bad(`${target.nickname} két játékoshoz is ki van választva.`);
+          usedIds.add(playerId);
+          if (!target.bandaiId) links.push({ updateOne: { filter: { _id: target._id }, update: { $set: { bandaiId: p.bandaiId } } } });
+          entries.push({ p, override, playerId, nickname: target.nickname });
+          continue;
+        }
+        // A tagsági szám egyedi: ha már van ilyen játékos, azt kell kiválasztani, különben kettészakadnának a pontjai
+        const sameId = existing.find(o => o.bandaiId && bandaiKey(o.bandaiId) === bandaiKey(p.bandaiId));
+        if (sameId) return bad(`${p.name} már szerepel a ligában ${sameId.nickname} néven, válaszd ki őt.`);
+        const nickname = normalizeNickname(choice?.nickname);
+        if (!nickname) return bad(`${p.name}: a becenév 2-24 karakter lehet (betű, szám, szóköz, pont, aláhúzás, kötőjel).`);
+        if (taken.has(nicknameKey(nickname))) return bad(`A(z) „${nickname}” név már szerepel ebben a ligában. Ha ugyanaz a játékos, válaszd ki őt, különben adj meg másik becenevet.`);
+        taken.add(nicknameKey(nickname));
+        const _id = new ObjectId();
+        created.push({ _id, fullName: '', nickname, email: null, riotId: null, popId: null, bandaiId: p.bandaiId, source: 'csv', eventIds: [], leagueId, createdAt: now, createdBy: session.username });
+        entries.push({ p, override, playerId: String(_id), nickname });
+      }
+
+      if (created.length) await players.insertMany(created);
+      if (links.length) await players.bulkWrite(links);
+      // A győzelmek a Win Pointsból számoltak (a vereségek száma nincs a fájlban), ezért nem a wins/draws mezőben
+      // tároljuk őket: a ranglistán így nem jelenik meg hamis győzelem–vereség mérleg
+      const results = entries.map(({ p, playerId, override }) => ({
+        playerId, attended: true, points: override ?? opPoints(p, rules), place: p.place, winPoints: p.winPoints, opWins: p.wins, opDraws: p.draws, bandaiId: p.bandaiId,
+      }));
+      const inserted = await sessions.insertOne({
+        date, title, results, tournamentId: null, leagueId, createdAt: now, updatedAt: now, createdBy: session.username,
+        opCsv: { fingerprint: parsed.fingerprint, rules, fileName: String(payload.fileName || '').slice(0, 120) },
+      });
+      const nicks = new Map(entries.map(e => [e.playerId, e.nickname]));
+      await addLog(db, session.username, 'LIGA CSV', `CSV feltöltve (${league.category}): ${date}${title ? ` ${title}` : ''}, pontozás: megjelenés ${rules.attendance}, győzelem ${rules.win}, döntetlen ${rules.draw}. ${results.length} játékos, ebből ${created.length} új. Pontok: ${describePointChanges([], results, id => nicks.get(id))}${describeOverrides(entries, p => opPoints(p, rules)) ? `. Kézzel átírva (számolt → beírt): ${describeOverrides(entries, p => opPoints(p, rules))}` : ''}`);
       return NextResponse.json({ success: true, id: String(inserted.insertedId), added: created.length });
     }
 
