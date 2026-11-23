@@ -5,6 +5,7 @@ import { getGameConfig } from '@/lib/gameConfig';
 import EmbedBridge from '@/components/EmbedBridge';
 import { Field, ErrorSummary, SubmitButton, Success, ICONS } from '@/components/FormKit';
 import s from './RegistrationPage.module.css';
+import EventImage from '@/components/EventImage';
 
 // Külön, játékhoz tematikus jelentkezési oldal (/jelentkezes/[id]). A színeket a játék témája adja (lib/gameThemes.js),
 // az űrlap elemei a FormKitből jönnek: úszó címke, ellenőrzés a mező elhagyásakor, pipa a jó mezőn,
@@ -62,7 +63,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
     );
   }
 
-  const logo = event.imageUrl || getGameConfig(event.category).logo || DEFAULT_LOGO;
+  const gameLogo = getGameConfig(event.category).logo || DEFAULT_LOGO;
   const store = STORE_NAMES[event.store || 'debrecen'] || 'Tavern';
   const isPast = new Date(event.date).getTime() < now;
   const isFull = !event.isOpenAttendance && event.current_players >= event.max_players;
@@ -109,7 +110,7 @@ export default function RegistrationPage({ event, embed = false, maintenance = f
 
   const header = (
     <header className={s.head}>
-      <span className={s.logo}><img src={logo} alt={event.category || ''} onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} /></span>
+      <span className={s.logo}><EventImage src={event.imageUrl} fallback={gameLogo} alt={event.category || ''} /></span>
       <p className={s.kicker}>{store} · {event.category || 'Esemény'}</p>
       <h1 className={s.title}>{event.name}</h1>
       <p className={s.when}>{formatDate(event.date)}</p>

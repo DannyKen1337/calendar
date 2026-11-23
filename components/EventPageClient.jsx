@@ -7,6 +7,7 @@ import { PublicModals, AttendeeNames, ShareEventButton, EventTypeTag, STORES, ta
 import { isSpecialEvent, getEventTypeConfig } from '@/lib/eventTypes';
 import { getGameColor } from '@/lib/gameConfig';
 import s from './EventPage.module.css';
+import EventImage from '@/components/EventImage';
 
 // Megosztható eseményoldal (/esemeny/[id]). A szerver által betöltött adatokkal azonnal megjelenik,
 // majd a naptár adataiból frissül (pl. jelentkezés után a létszám). A nyilvános naptár kinézete (sötét alap, arany,
@@ -77,8 +78,8 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
           <div className={s.stripe} style={{ background: special ? special.gradient : color }} aria-hidden="true" />
           <header className={s.head}>
             <span className={s.logo}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={evt.imageUrl || getCategoryImage(evt.category)} alt="" />
+              {/* a saját kép, ha nem tölt be (törölt, vagy a tárhely tiltja), a játék logója */}
+              <EventImage src={evt.imageUrl} fallback={getCategoryImage(evt.category)} />
             </span>
             <div className={s.headText}>
               <div className={s.tags}>
