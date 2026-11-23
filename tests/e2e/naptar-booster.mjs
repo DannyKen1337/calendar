@@ -1,0 +1,53 @@
+// Nyilvános naptár, lassú (hideg)indítás: betöltés közben Tavern booster lebeg váltakozó szöveggel; amikor megjön az
+// adat, letépődik a teteje és kijön belőle a naptár. Gyors betöltésnél nem jelenik meg; a réteg nem fogja el a kattintást.
+import { openDb, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
+
+const { client, db } = await openDb();
+const pad = (n) => String(n).padStart(2, '0');
+const d = new Date();
+const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+await db.collection('tournaments').insertOne({ name: 'Pokémon klubnap', date: `${today}T23:30`, category: 'Pokémon TCG', store: 'debrecen', max_players: 16, current_players: 3, is_open: true, createdAt: new Date() });
+
+const b = await browser();
+try {
+  // lassú adat: a nyilvános adat 2,5 mp múlva érkezik
+  const p = await page(b, null, 402, 874);
+  await p.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 }); // első fordítás
+  await p.setRequestInterception(true);
+  p.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 2500); else req.continue().catch(() => {}); });
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  await wait(900);
+  const pack = await p.evaluate(() => { const el = document.querySelector('[data-booster]'); return el ? { phase: el.dataset.booster, text: el.innerText, logo: !!el.querySelector('img[src*="tavern-ceger"]'), clickThrough: getComputedStyle(el).pointerEvents === 'none' } : null; });
+  ok(pack?.clickThrough, 'a booster rétege nem fogja el a kattintást');
+  ok(pack?.phase === 'pack' && pack.logo && /Keverjük|asztal|lapokat|program|kezdünk/.test(pack.text), `lassú betöltésnél Tavern booster, élénkítő szöveggel (${pack?.text?.replace(/\n/g, ' ')})`);
+  await p.screenshot({ path: `${SHOTS}naptar-booster.jpg`, quality: 60 });
+  const l1 = await p.$eval('[data-booster] p', el => el.textContent);
+  await wait(1900);
+  const l2 = await p.$eval('[data-booster] p', el => el.textContent).catch(() => l1);
+  ok(l1 !== l2, `a szöveg váltakozik (${l1} → ${l2})`);
+  await p.waitForSelector('[data-booster="tear"]', { timeout: 15000 }).catch(() => {});
+  const tear = await p.evaluate(() => ({ phase: document.querySelector('[data-booster]')?.dataset.booster, html: document.documentElement.dataset.boosterNyit }));
+  ok(tear.phase === 'tear' && tear.html === '1', `adat megjött: a booster teteje letépődik, a naptár kijön (${JSON.stringify(tear)})`);
+  await wait(350);
+  await p.screenshot({ path: `${SHOTS}naptar-booster-tepes.jpg`, quality: 60 });
+  await wait(300);
+  await p.screenshot({ path: `${SHOTS}naptar-booster-tepes2.jpg`, quality: 60 });
+  await wait(1300);
+  ok(!(await p.$('[data-booster]')) && !(await p.evaluate(() => document.documentElement.dataset.boosterNyit)), 'utána eltűnik');
+  ok(await p.evaluate(() => /Pokémon klubnap/.test(document.body.innerText)), 'a naptár látszik az eseménnyel');
+  await p.screenshot({ path: `${SHOTS}naptar-booster-utana.jpg`, quality: 60 });
+
+  // gyors betöltésnél nincs booster
+  const f = await page(b, null, 402, 874);
+  await f.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } });
+  let seen = false;
+  await f.exposeFunction('__booster', () => { seen = true; });
+  await f.evaluateOnNewDocument(() => { new MutationObserver(() => { if (document.querySelector('[data-booster]')) window.__booster?.(); }).observe(document, { childList: true, subtree: true }); });
+  await f.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await wait(500);
+  ok(!seen, 'gyors betöltésnél nem villan fel a booster');
+  console.log('  böngészőhibák:', [...p.errs, ...f.errs].join(' | ') || 'nincs');
+} finally {
+  await b.close(); await client.close(); summary();
+}

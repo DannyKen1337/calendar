@@ -13,6 +13,7 @@ import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
 import { STORE_HOURS } from '@/lib/storeHours';
 import { dayOccupancy, eventDay } from '@/lib/occupancy';
 import EmbedBridge from '@/components/EmbedBridge';
+import BoosterLoading from '@/components/BoosterLoading';
 import s from './PublicCalendar.module.css';
 
 // Ugyanabban a városban lévő boltok: játékszűrésnél egymás minden eseménye látszik (halványan)
@@ -29,6 +30,18 @@ const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad(
 // fixedStore: a beágyazó által rögzített helyszín (?store=...), ilyenkor nincs boltválasztó.
 export default function PublicCalendar({ embed = false, fixedStore = null }) {
   const app = useCalendar({ eager: true });
+  // Betöltés közben (pl. hidegindításnál) a Tavern booster; amikor megjön az adat, letépődik a teteje és kijön belőle
+  // a naptár. Külön réteg, hogy a betöltés végén is megmaradjon, és ki tudja játszani a tépést.
+  const waiting = app.loading || (app.isMaintenance && !app.sessionChecked);
+  return (
+    <>
+      {!embed && <BoosterLoading loading={waiting} />}
+      <PublicCalendarView app={app} embed={embed} fixedStore={fixedStore} />
+    </>
+  );
+}
+
+function PublicCalendarView({ app, embed, fixedStore }) {
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false;
   const [activeFilters, setActiveFilters] = useState([]);

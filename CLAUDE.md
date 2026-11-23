@@ -15,6 +15,7 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - A régi `tavern-web` repó (külön mappa) már nem szinkronban van ezzel a másolattal.
 
 ## Nyilvános naptár (components/PublicCalendar.jsx, MonthCalendar.jsx)
+- **Betöltés (2026-11-23, a felhasználó kérése):** lassú (hideg)indításnál Tavern booster lebeg csillogó fóliával, alatta váltakozó, élénkítő szöveggel (6 mp után: „ébresztjük a szervert”); amikor megjön az adat, a teteje letépődik (cikkcakkos tépésvonal), kiugranak a lapok, a csomag lecsúszik, és alóla előjön a naptár (`components/BoosterLoading.jsx` + `.module.css`, a `PublicCalendar` külső rétege; `html[data-booster-nyit]`). 250 ms alatti betöltésnél nem jelenik meg; ha megjelent, legalább 900 ms. Nem fogja el a kattintást; csökkentett mozgásnál csak elhalványul; a beágyazott (embed) nézetben nincs. Teszt: `naptar-booster`.
 - Kinézet: Tavern arculat (sötét `#0f0b0c`, arany `#e5b15d` csak adaton, Cinzel címek, Manrope szöveg).
 - Nézetváltó: **Havi (alapból, telefonon is)** / Heti (a régi heti nézet: `CalendarView weekly`) / Lista. A választást a `tavern-naptar-nezet` localStorage kulcs őrzi.
 - Havi rács: naponta legfeljebb 3 játékszínű csík (zsúfolt napon 2 + „+N további”), a különleges események előre; telefonon kompakt rács, alatta a kiválasztott nap.
