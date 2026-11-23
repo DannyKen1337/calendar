@@ -8,7 +8,7 @@ import { canManageCategory, hasFeature, eventStore, STORE_NAMES } from '@/lib/pe
 import { toObjectId } from '@/lib/preorderData';
 import { PREORDER_GAMES } from '@/lib/preorders';
 import { budapestDateTime, addDays } from '@/lib/eventDates';
-import { DEFAULT_RULES, POINTS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, normalizeNickname, uniqueNickname, nicknameKey, riotIdKey, computeStandings, buildSnapshot, describePointChanges, hasManualPoints, newLeagueSlug, leagueSlugOf } from '@/lib/leagues';
+import { DEFAULT_RULES, POINTS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, normalizeNickname, uniqueNickname, nicknameKey, riotIdKey, computeStandings, buildSnapshot, describePointChanges, hasManualPoints, newLeagueSlug, leagueSlugOf, usesTotalPoints } from '@/lib/leagues';
 import { parseTdf, sanitizeTdfRules, tdfPoints, defaultTdfNickname, isFullNameNickname, TDF_CATEGORY, TDF_MAX_BYTES } from '@/lib/tdf';
 import { parseOpCsv, opPoints, bandaiKey, OP_CSV_CATEGORY, OP_CSV_MAX_BYTES } from '@/lib/opCsv';
 import { syncLeaguePlayers, leagueSeasonStart, playerKeys } from '@/lib/leagueSync';
@@ -48,7 +48,7 @@ const leagueOut = (l) => ({
   ignoredCount: (l.ignoredPlayers || []).length,
   published: l.published ? { at: l.published.at, by: l.published.by || '', rows: l.published.rows || [] } : null,
 });
-const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, popId: p.popId || null, bandaiId: p.bandaiId || null, birthDate: p.birthDate || null, source: p.source || 'manual', eventIds: p.eventIds || [], createdAt: p.createdAt });
+const playerOut = (p) => ({ id: String(p._id), leagueId: p.leagueId, fullName: p.fullName || '', nickname: p.nickname, email: p.email || '', riotId: p.riotId || null, popId: p.popId || null, bandaiId: p.bandaiId || null, birthDate: p.birthDate || null, points: Number.isInteger(p.points) ? p.points : null, source: p.source || 'manual', eventIds: p.eventIds || [], createdAt: p.createdAt });
 const sessionOut = (s) => ({ id: String(s._id), leagueId: s.leagueId, date: s.date, title: s.title || '', tournamentId: s.tournamentId || null, tdf: s.tdf || null, opCsv: s.opCsv || null, results: s.results || [], updatedAt: s.updatedAt });
 
 const LOG_LIMIT = 300;
@@ -435,6 +435,26 @@ export async function POST(request) {
 
     // Publikálás: az állást a szerver számolja újra a piszkozatból, és elmenti a nyilvános pillanatképet
     // a legutóbbi publikálás óta kapott pontokkal együtt
+    // Összpontok átírása (Riftbound): payload.points = { <játékos azonosító>: pont }. Naplózva, régi → új pont.
+    if (actionType === 'SET_POINTS') {
+      const { league, res } = await loadLeague(payload.leagueId);
+      if (res) return res;
+      if (!usesTotalPoints(league.category)) return bad('Ebben a ligában a pontokat alkalmanként kell beírni.');
+      const leagueId = String(league._id);
+      const entries = Object.entries(payload.points && typeof payload.points === 'object' ? payload.points : {});
+      if (!entries.length) return bad('Nincs változás.');
+      if (entries.some(([, v]) => !Number.isInteger(v) || v < 0 || v > POINTS_MAX)) return bad(`A pont 0 és ${POINTS_MAX} közötti egész szám lehet.`);
+      const ids = entries.map(([id]) => toObjectId(id)).filter(Boolean);
+      const found = await players.find({ _id: { $in: ids }, leagueId }).toArray();
+      if (found.length !== entries.length) return bad('Valamelyik játékos nem található ebben a ligában.', 404);
+      const byId = new Map(found.map(p => [String(p._id), p]));
+      const now = new Date();
+      await players.bulkWrite(entries.map(([id, v]) => ({ updateOne: { filter: { _id: byId.get(id)._id }, update: { $set: { points: v, pointsAt: now, pointsBy: session.username } } } })));
+      const changes = entries.map(([id, v]) => { const p = byId.get(id); return `${p.riotId || p.nickname}: ${Number.isInteger(p.points) ? p.points : 0} → ${v}`; });
+      await addLog(db, session.username, 'LIGA PONTOK', `${league.name} (${league.category}): ${changes.join(', ')}`);
+      return NextResponse.json({ success: true, changed: entries.length });
+    }
+
     if (actionType === 'PUBLISH') {
       const { league, res } = await loadLeague(payload.leagueId);
       if (res) return res;
@@ -443,7 +463,7 @@ export async function POST(request) {
         players.find({ leagueId }).toArray(),
         sessions.find({ leagueId }).toArray(),
       ]);
-      const standings = computeStandings({ ...DEFAULT_RULES, ...(league.rules || {}) }, pl.map(p => ({ id: String(p._id), nickname: p.nickname })), ss);
+      const standings = computeStandings({ ...DEFAULT_RULES, ...(league.rules || {}) }, pl.map(p => ({ id: String(p._id), nickname: p.nickname, points: p.points })), ss, { totals: usesTotalPoints(league.category) });
       const rows = buildSnapshot(standings, league.published?.rows);
       const now = new Date();
       // Feltételes mentés: ha közben valaki más publikált, nem írjuk felül (különben rossz lenne a "+pont")
@@ -466,8 +486,9 @@ export async function POST(request) {
       const keepPlayers = payload.keepPlayers !== false;
       const leagueId = String(league._id);
       const [pl, ss] = await Promise.all([players.find({ leagueId }).toArray(), sessions.find({ leagueId }).toArray()]);
-      if (ss.length === 0) return bad('Ebben a szezonban még nincs rögzített alkalom, nincs mit lezárni.');
-      const standings = computeStandings({ ...DEFAULT_RULES, ...(league.rules || {}) }, pl.map(p => ({ id: String(p._id), nickname: p.nickname })), ss);
+      const totals = usesTotalPoints(league.category);
+      if (ss.length === 0 && !(totals && pl.some(p => p.points >= 1))) return bad(totals ? 'Ebben a szezonban még senkinek nincs pontja, nincs mit lezárni.' : 'Ebben a szezonban még nincs rögzített alkalom, nincs mit lezárni.');
+      const standings = computeStandings({ ...DEFAULT_RULES, ...(league.rules || {}) }, pl.map(p => ({ id: String(p._id), nickname: p.nickname, points: p.points })), ss, { totals: usesTotalPoints(league.category) });
       const rows = buildSnapshot(standings, null).map(r => ({ ...r, delta: 0 }));
       const now = new Date();
       // Feltételes váltás: ha közben valaki más már lezárta, ne archiváljunk kétszer
@@ -476,6 +497,7 @@ export async function POST(request) {
       await db.collection('league_seasons').insertOne({ leagueId, category: league.category, name: league.name, rules: league.rules, closedAt: now, closedBy: session.username, sessionCount: ss.length, rows });
       await sessions.deleteMany({ leagueId });
       if (!keepPlayers) await players.deleteMany({ leagueId });
+      else if (totals) await players.updateMany({ leagueId }, { $unset: { points: '' } }); // az új szezon nulláról indul
       await addLog(db, session.username, 'LIGA SZEZON', `${league.name} (${league.category}) lezárva, ${rows.length} játékos, ${ss.length} alkalom. Új szezon: ${newName}${keepPlayers ? ' (játékosok megtartva)' : ' (játékosok törölve)'}`);
       refreshWebsite();
       return NextResponse.json({ success: true });

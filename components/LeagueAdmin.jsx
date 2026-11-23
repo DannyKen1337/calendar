@@ -13,7 +13,7 @@ import { OP_CSV_CATEGORY } from '@/lib/opCsv';
 import m from './LeagueAdmin.module.css';
 import {
   POINTS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX,
-  computeStandings, buildSnapshot, hasUnpublishedChanges, resultPoints, leagueUrl,
+  computeStandings, buildSnapshot, hasUnpublishedChanges, resultPoints, leagueUrl, usesTotalPoints, nicknameKey,
 } from '@/lib/leagues';
 
 const { Title, Text } = Typography;
@@ -128,7 +128,10 @@ export default function LeagueAdmin() {
   const sessions = useMemo(() => (league ? data.sessions.filter(s => s.leagueId === league.id) : []), [data, league]);
   const seasons = useMemo(() => (league ? (data.seasons || []).filter(s => s.leagueId === league.id) : []), [data, league]);
   const events = useMemo(() => (league ? (data.events || []).filter(e => e.leagueId === league.id) : []), [data, league]);
-  const standings = useMemo(() => (league ? computeStandings(league.rules, players, sessions) : []), [league, players, sessions]);
+  // Riftboundban összpontos liga: a pontot játékosonként írják át (nincsenek alkalmak)
+  const totals = !!league && usesTotalPoints(league.category);
+  const [pointDraft, setPointDraft] = useState({}); // játékos azonosító => új összpont (még nincs mentve)
+  const standings = useMemo(() => (league ? computeStandings(league.rules, players, sessions, { totals }) : []), [league, players, sessions, totals]);
   const snapshot = useMemo(() => buildSnapshot(standings, league?.published?.rows), [standings, league]);
   const logs = useMemo(() => (league ? (data.logs || []).filter(l => l.leagueId === league.id && (!onlyPointLogs || l.action === 'LIGA PONTOK' || l.action === 'LIGA TDF' || l.action === 'LIGA CSV')) : []), [data, league, onlyPointLogs]);
   const statsById = useMemo(() => new Map(standings.map(s => [s.playerId, s])), [standings]);
@@ -314,6 +317,62 @@ export default function LeagueAdmin() {
     );
   }
 
+  // --- Riftbound: összpontok átírása ---
+  // Játékosonként a mostani összpont (átírható), és hogy a következő publikáláskor mennyit változik a ranglistán
+  // (a nyilvános oldal ezt „+2” formában és a helyezésváltozással mutatja). A ranglistán csak az van, akinek legalább 1 pontja van.
+  const pointsTab = () => {
+    const pub = new Map((league.published?.rows || []).map(r => [r.playerId, r]));
+    const current = (p) => statsById.get(p.id)?.points ?? (Number.isInteger(p.points) ? p.points : 0);
+    const value = (p) => (pointDraft[p.id] ?? current(p));
+    const dirty = Object.entries(pointDraft).filter(([id, v]) => { const p = players.find(x => x.id === id); return p && Number.isInteger(v) && v !== current(p); });
+    const q = nicknameKey(playerQuery);
+    const rows = [...players]
+      .filter(p => !q || nicknameKey(`${p.nickname} ${p.riotId || ''} ${p.fullName}`).includes(q))
+      .sort((a, b) => current(b) - current(a) || (a.riotId || a.nickname).localeCompare(b.riotId || b.nickname, 'hu'));
+    const save = async () => {
+      const points = Object.fromEntries(dirty.map(([id, v]) => [id, v]));
+      const res = await post('SET_POINTS', { leagueId: league.id, points });
+      if (!res) return;
+      messageApi.success(`${res.changed} játékos pontja elmentve. A weboldalon az „Előnézet és publikálás” után látszik.`);
+      setPointDraft({});
+      load();
+    };
+    return (
+      <div className="flex flex-col gap-3" data-rb-pontok>
+        <Text style={{ color: '#9a8a8c', fontSize: 13 }}>Írd át a játékos összpontját (pl. 13 → 15), majd mentsd el. Publikálás után a nyilvános ranglistán látszik, hogy +2 pontot kapott, és ha feljebb lépett. A ranglistára csak az kerül fel, akinek legalább 1 pontja van. A játékosok a Riftbound eseményekről maguktól bekerülnek ide.</Text>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input allowClear size={phone ? 'large' : 'middle'} prefix={<SearchOutlined style={{ color: '#9a8d89' }} />} placeholder="Keresés idézőnévre…" value={playerQuery} onChange={(e) => setPlayerQuery(e.target.value)} style={{ maxWidth: phone ? undefined : 360, flex: 1 }} />
+          <Button type="primary" size={phone ? 'large' : 'middle'} block={phone} loading={busy} disabled={dirty.length === 0} onClick={save} style={{ color: '#000', fontWeight: 'bold' }} data-pontok-mentes>{dirty.length ? `Pontok mentése (${dirty.length})` : 'Pontok mentése'}</Button>
+          {dirty.length > 0 && <Button size={phone ? 'large' : 'middle'} style={sideBtn} onClick={() => setPointDraft({})}>Mégse</Button>}
+        </div>
+        {players.length === 0 && <Text style={{ color: '#faad14' }}>Még nincs játékos. A Riftbound eseményekre jelentkezők maguktól bekerülnek, vagy a „Játékosok” fülön kézzel is felvehetsz valakit.</Text>}
+        <div className="flex flex-col">
+          {rows.map(p => {
+            const v = value(p);
+            const before = pub.get(p.id)?.points ?? 0;
+            const diff = v - before;
+            const changed = pointDraft[p.id] !== undefined && pointDraft[p.id] !== current(p);
+            return (
+              <div key={p.id} className="flex items-center gap-3 py-2 border-b border-[#2a2022]" style={{ minHeight: 56 }} data-rb-sor={p.riotId || p.nickname}>
+                <span className="flex-1 min-w-0">
+                  <b style={{ color: v >= 1 ? '#E5B15D' : '#9a8a8c', overflowWrap: 'anywhere' }}>{p.riotId || p.nickname}</b>
+                  {p.riotId && p.nickname && p.nickname !== p.riotId && <span style={{ color: '#7d6e70', fontSize: 12, marginLeft: 8 }}>{p.nickname}</span>}
+                  <span className="block" style={{ fontSize: 12, color: '#7d6e70' }}>
+                    {v >= 1 ? (diff !== 0 ? <span style={{ color: diff > 0 ? '#8fd18f' : '#ff9b9b', fontWeight: 700 }}>{diff > 0 ? `+${diff}` : diff} pont a publikálás óta</span> : 'nincs változás a publikálás óta') : 'nincs a ranglistán (0 pont)'}
+                  </span>
+                </span>
+                <InputNumber size={phone ? 'large' : 'middle'} min={0} max={POINTS_MAX} precision={0} value={v}
+                  onChange={(n) => setPointDraft(d => ({ ...d, [p.id]: Number.isInteger(n) ? n : 0 }))}
+                  style={{ width: phone ? 110 : 120, borderColor: changed ? '#E5B15D' : undefined }} aria-label={`${p.riotId || p.nickname} pontja`} />
+                <span style={{ color: '#9a8a8c', width: 34 }}>pont</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // --- Táblázatok ---
   const playerColumns = [
     { title: 'Becenév', dataIndex: 'nickname', render: (t) => <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{t}</span>, sorter: (a, b) => a.nickname.localeCompare(b.nickname, 'hu') },
@@ -496,7 +555,7 @@ export default function LeagueAdmin() {
               <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league)}`)} disabled={!league.published && seasons.length === 0}>{phone ? 'Link' : 'Link másolása'}</Button>
               <Button icon={<EyeOutlined />} style={sideBtn} href={leagueUrl(league)} target="_blank" rel="noopener" disabled={!league.published && seasons.length === 0}>Nyilvános oldal</Button>
               <Button icon={<SettingOutlined />} style={sideBtn} onClick={() => openSettings()}>Beállítások</Button>
-              <Button icon={<FlagOutlined />} style={sideBtn} disabled={sessions.length === 0} title={sessions.length === 0 ? 'Nincs még rögzített alkalom' : 'A szezon végeredményének archiválása és új szezon indítása'} onClick={() => { closeForm.resetFields(); closeForm.setFieldsValue({ newName: '', keepPlayers: true }); setCloseOpen(true); }}>{phone ? 'Szezon zárása' : 'Szezon lezárása'}</Button>
+              <Button icon={<FlagOutlined />} style={sideBtn} disabled={totals ? standings.length === 0 : sessions.length === 0} title={(totals ? standings.length === 0 : sessions.length === 0) ? (totals ? 'Még senkinek nincs pontja' : 'Nincs még rögzített alkalom') : 'A szezon végeredményének archiválása és új szezon indítása'} onClick={() => { closeForm.resetFields(); closeForm.setFieldsValue({ newName: '', keepPlayers: true }); setCloseOpen(true); }}>{phone ? 'Szezon zárása' : 'Szezon lezárása'}</Button>
             </div>
           </div>
           {league.autoStores === null && (
@@ -512,10 +571,11 @@ export default function LeagueAdmin() {
 
         <div className={panel}>
           <Tabs
-            activeKey={tab}
+            activeKey={totals && tab === 'sessions' ? 'points' : tab}
             onChange={setTab}
             items={[
-              {
+              ...(totals ? [{ key: 'points', label: `Pontok (${standings.length})`, children: pointsTab() }] : []),
+              ...(totals ? [] : [{
                 key: 'sessions',
                 label: `Alkalmak (${sessions.length})`,
                 children: (
@@ -532,7 +592,7 @@ export default function LeagueAdmin() {
                     {phone ? sessionCards() : <Table size="small" dataSource={sessions} rowKey="id" columns={sessionColumns} pagination={sessions.length > 15 ? { pageSize: 15 } : false} scroll={{ x: 600 }} locale={{ emptyText: <span style={{ color: '#6b7280' }}>Még nincs rögzített alkalom.</span> }} />}
                   </div>
                 ),
-              },
+              }]),
               {
                 key: 'players',
                 label: `Játékosok (${players.length})`,
