@@ -3,6 +3,7 @@ import { useEffect, useState, ViewTransition } from 'react';
 import Link from 'next/link';
 import { ALBUM_INTRO_KEY } from '@/weblap/components/AlbumsLink';
 import s from '@/weblap/fooldal.module.css';
+import SafeImg from '@/weblap/components/SafeImg';
 
 // A Galéria oldal albumkártyái, játékszűrővel (ha több játék albumai is vannak). Ha a főoldal „Az összes album”
 // gombjával érkezett (AlbumsLink, néhány másodpercen belül), az arany borító felhúzódik, és a kártyák egymás után
@@ -36,8 +37,7 @@ export default function AlbumList({ albums }) {
             <Link href={a.href} className={s.albumCard} data-album>
               <ViewTransition name={`album-${a.id}`} share="morph" default="none">
               <span className={s.albumCover}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={a.cover} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                <SafeImg src={a.cover} alts={[a.coverFull]} alt="" loading="lazy" />
                 <span className={s.albumCount}>{a.count} kép</span>
               </span>
               </ViewTransition>

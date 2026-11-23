@@ -8,6 +8,7 @@ import { visibleAlbums, albumDate, albumSlugs } from '@/weblap/lib/albums';
 import { ALBUM_GAMES, STORE_LABELS } from '@/weblap/lib/contentSchema';
 import { withBase } from '@/weblap/lib/basePath';
 import s from '@/weblap/fooldal.module.css';
+import SafeImg from '@/weblap/components/SafeImg';
 
 // A Galéria oldal (eseményenként egy album) és egy album oldala, élesben és az előnézetben is (preview: { bar, base }).
 // Az albumokat a szerkesztőfelület Galéria fülén töltik fel (content.albums).
@@ -41,6 +42,7 @@ export function GalleryIndex({ content, preview = null }) {
     gameLabel: gameLabel(a.game),
     count: a.pictures.filter(p => p.picture?.src).length,
     cover: withBase(a.pictures.find(p => p.picture?.src).picture.thumb || a.pictures.find(p => p.picture?.src).picture.src),
+    coverFull: withBase(a.pictures.find(p => p.picture?.src).picture.src), // tartalék, ha a bélyegkép nem tölt be
   }));
   return (
     <SubPage content={content} preview={preview} current="galeria">
@@ -75,8 +77,7 @@ export function GalleryAlbum({ id, content, preview = null }) {
         {pictures[0] && (
           <ViewTransition name={`album-${a.id}`} share="morph" default="none">
             <span className={s.albumHero} data-album-hero>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pictures[0].thumb || pictures[0].src} alt="" decoding="async" referrerPolicy="no-referrer" />
+              <SafeImg src={pictures[0].thumb || pictures[0].src} alts={[pictures[0].src]} alt="" />
             </span>
           </ViewTransition>
         )}

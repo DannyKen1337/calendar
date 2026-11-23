@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import s from '@/weblap/fooldal.module.css';
+import SafeImg from '@/weblap/components/SafeImg';
 
 // Egy album képei rácsban; kattintásra nagyban (teljes képernyő): nyilak, Esc, billentyűzet és ujjal lapozás,
 // a szomszéd képek előre betöltődnek. pictures: [{ id, src, thumb, alt, caption }]; title: az album neve (a képleíráshoz)
@@ -35,8 +36,7 @@ export default function AlbumPhotos({ pictures, title }) {
           <li key={p.id || i}>
             <button type="button" data-kep onClick={(e) => { lastFocus.current = e.currentTarget; setOpen(i); }} aria-label={`${alt(p, i)} – nagyítás`}>
               {/* Külső képek (ImgBB): sima img, a rácsban a kisebb változat */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.thumb || p.src} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+              <SafeImg src={p.thumb || p.src} alts={[p.src]} alt="" loading="lazy" />
             </button>
             {p.caption && <span className={s.albumCaption}>{p.caption}</span>}
           </li>
@@ -53,8 +53,7 @@ export default function AlbumPhotos({ pictures, title }) {
             </button>
           </div>
           <figure className={s.lightboxFig} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img key={cur.src} src={cur.src} alt={alt(cur, open)} referrerPolicy="no-referrer" />
+            <SafeImg key={cur.src} src={cur.src} alts={[cur.thumb]} alt={alt(cur, open)} />
             {cur.caption && <figcaption>{cur.caption}</figcaption>}
           </figure>
           {n > 1 && (

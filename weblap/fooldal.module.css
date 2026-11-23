@@ -509,6 +509,8 @@ a.socialGo:hover { color: var(--ink) !important; }
 
 /* --- Galéria oldal: albumkártyák (borító, dátum · bolt, cím, játék), egy album képrácsa és a nagyító --- */
 .albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 2.5rem var(--gutter); margin-top: 2rem !important; }
+/* a nem betöltődő (újrapróbált) kép helyőrzője (SafeImg) */
+.imgFail { display: grid; place-items: center; width: 100%; height: 100%; min-height: 120px; aspect-ratio: 4 / 3; padding: 12px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 14px), var(--surface); color: var(--muted); font-size: var(--step-small); text-align: center; }
 .albumHero { display: block; width: 100%; aspect-ratio: 21 / 8; margin-bottom: 2rem; border-radius: 6px; overflow: hidden; background: var(--surface); }
 .albumHero img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .albumCard { display: flex; flex-direction: column; gap: 0.5rem; text-decoration: none; }
