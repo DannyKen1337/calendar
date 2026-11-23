@@ -213,6 +213,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 /* --- Ligák: cím, egy mondat, a publikált ranglisták (LeagueCards) --- */
 .liga { padding: var(--section) var(--margin); background: radial-gradient(ellipse 60% 70% at 15% 0%, rgba(229, 177, 93, 0.1), transparent 70%), var(--bg); }
 .ligaHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1rem 3rem; margin-bottom: clamp(2rem, 5vh, 3.5rem); }
+.ligaTitle { display: flex; flex-direction: column; gap: 1rem; }
 .ligaHead h2 { font-size: var(--step-head); }
 .ligaHead p { font-size: var(--step-lead); line-height: 1.35; max-width: 34ch; color: var(--muted); }
 
@@ -521,14 +522,13 @@ a.socialGo:hover { color: var(--ink) !important; }
   .items { grid-template-columns: 1fr; }
   .item { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 0 14px; }
   .item img { width: 76px; height: 46px; padding: 6px 8px; }
-  .programHead { flex-direction: column; align-items: stretch; }
+  .programHead, .ligaHead { flex-direction: column; align-items: stretch; }
   .calCta { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.5rem; padding: 0.8rem 0.8rem 0.8rem 1.25rem; }
   .calCtaIcon { display: none; }
   .calCtaText b { font-size: 7vw; }
   .calCtaGo { width: 46px; height: 46px; }
   .liga { padding: 5rem var(--margin); }
   .ligaHead h2 { font-size: 16vw; }
-  .liga > .btn { width: 100%; }
   .preorders > :nth-child(n + 3) { display: none; }
   .prints { height: auto; min-height: 0; display: block; padding: 7rem var(--margin) 6rem; }
   .prints h2 { font-size: 22vw; text-align: left; }

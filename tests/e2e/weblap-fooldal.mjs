@@ -69,6 +69,13 @@ try {
   await wait(600);
   await p.screenshot({ path: `${SHOTS}fooldal-hirek-minta.jpg`, quality: 60, fullPage: false });
 
+  // Ligák: „Az összes liga” gomb jobbra fent, mint a naptárnál
+  const lg = await p.$eval('[data-osszes-liga]', a => { const r = a.getBoundingClientRect(), h = document.getElementById('liga-cim').getBoundingClientRect(); return { h: r.height, right: innerWidth - r.right, top: r.top < h.bottom + 80 && r.bottom > h.top - 80, href: a.getAttribute('href'), cal: a.hasAttribute('data-cal'), bg: getComputedStyle(a).backgroundColor }; });
+  ok(lg.h >= 64 && lg.right < 60 && lg.top && /\/liga$/.test(lg.href) && lg.cal && lg.bg === 'rgb(229, 177, 93)', `„Az összes liga” gomb a Ligák jobb felső sarkában, arany, az oldalon belül nyílik (${lg.href})`);
+  await p.$eval('#liga', el => el.scrollIntoView({ block: 'start' }));
+  await wait(500);
+  await p.screenshot({ path: `${SHOTS}fooldal-osszes-liga.jpg`, quality: 60 });
+
   // boltok: fotó nélkül
   ok((await p.$$('#boltok a[data-map]')).length === 3 && !(await p.$('#boltok a[data-map] img')), 'a boltok soraiban nincs előnézeti fotó');
 
@@ -93,6 +100,7 @@ try {
   await wait(1900);
   await ph.screenshot({ path: `${SHOTS}fooldal-hero-telefon.jpg`, quality: 60 });
   const phCta = await ph.$eval('[data-teljes-naptar]', a => { const r = a.getBoundingClientRect(); return { h: r.height, w: r.width }; });
+  ok(await ph.$eval('[data-osszes-liga]', a => a.getBoundingClientRect().width >= 360), 'telefonon „Az összes liga” is teljes szélességű');
   ok(phCta.h >= 64 && phCta.w >= 360, `telefonon a teljes naptár gomb teljes szélességű (${Math.round(phCta.w)}×${Math.round(phCta.h)})`);
   await ph.$eval('[data-kozossegi]', el => el.scrollIntoView({ block: 'start' }));
   await wait(500);

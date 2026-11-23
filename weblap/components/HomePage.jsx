@@ -153,12 +153,18 @@ export default async function HomePage({ content, feed, previewBar = null, base 
 
         <section className={s.liga} id="liga" aria-labelledby="liga-cim">
           <div className={s.ligaHead}>
-            <h2 id="liga-cim" className={s.disp} data-reveal>Ligák</h2>
-            <p>Pontok alkalomról alkalomra, nyilvános ranglistával.</p>
+            <div className={s.ligaTitle}>
+              <h2 id="liga-cim" className={s.disp} data-reveal>Ligák</h2>
+              <p>Pontok alkalomról alkalomra, nyilvános ranglistával.</p>
+            </div>
+            {/* Az összes liga: ugyanolyan nagy arany gomb, mint „A teljes naptár”; az oldalon belül, a naptárablakban nyílik */}
+            <a className={s.calCta} href={LEAGUES_URL} data-cal data-title="Ligák" data-osszes-liga aria-haspopup="dialog">
+              <svg className={s.calCtaIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8M10 17h4" /></svg>
+              <span className={s.calCtaText}><b>Az összes liga</b><small>Ranglisták, korábbi szezonok</small></span>
+              <span className={s.calCtaGo} aria-hidden="true"><svg viewBox="0 0 10 10"><path d="M1 5h7M5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg></span>
+            </a>
           </div>
-          {leagues.length > 0
-            ? <LeagueCards leagues={leagues} />
-            : <a className={s.btn} href={LEAGUES_URL} data-cal data-title="Ligák">A ligák ranglistái</a>}
+          {leagues.length > 0 && <LeagueCards leagues={leagues} />}
         </section>
 
         <section className={s.booking} id="asztalfoglalas" aria-labelledby="asztalfoglalas-cim" data-asztalfoglalas>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { ObjectId } from 'mongodb';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
@@ -13,6 +14,10 @@ import { parseOpCsv, opPoints, bandaiKey, OP_CSV_CATEGORY, OP_CSV_MAX_BYTES } fr
 import { syncLeaguePlayers, leagueSeasonStart, playerKeys } from '@/lib/leagueSync';
 
 export const dynamic = 'force-dynamic';
+
+// A weboldal (főoldal Ligák része) azonnal frissüljön, ha a liga nyilvános adata változik (publikálás, szezonzárás,
+// név / boltok, törlés), ne csak az 5 perces frissítéssel. A naptár /liga oldalai úgyis mindig frissek.
+const refreshWebsite = () => { try { revalidatePath('/(weblap)/weblapteszt', 'layout'); } catch (e) { console.error('weboldal frissítése:', e); } };
 
 // Ligák kezelése az admin felületen. Egy játékhoz több liga is lehet (pl. boltonként); a szervező csak az általa kezelt játékok ligáit
 // látja és szerkesztheti. A pontokat a szervező írja be alkalmanként, a játékosok viszont a liga boltjainak
@@ -158,6 +163,7 @@ export async function POST(request) {
       if (!name || name.length > LEAGUE_NAME_MAX) return bad(`A liga neve kötelező (legfeljebb ${LEAGUE_NAME_MAX} karakter).`);
       const autoStores = sanitizeLeagueStores(payload.autoStores) || [];
       await leagues.updateOne({ _id: league._id }, { $set: { name, autoStores, updatedAt: new Date() } });
+      refreshWebsite();
       await addLog(db, session.username, 'LIGA', `Beállítások módosítva: ${name} (${league.category}), automatikus beemelés: ${storeList(autoStores)}`);
       const { added } = await syncLeaguePlayers(db, { ...league, name, autoStores }, { force: true });
       return NextResponse.json({ success: true, added });
@@ -179,6 +185,7 @@ export async function POST(request) {
       const id = String(league._id);
       await Promise.all([players.deleteMany({ leagueId: id }), sessions.deleteMany({ leagueId: id }), db.collection('league_seasons').deleteMany({ leagueId: id })]);
       await leagues.deleteOne({ _id: league._id });
+      refreshWebsite();
       await addLog(db, session.username, 'LIGA TÖRLÉSE', `${league.name} (${league.category}) a játékosokkal, alkalmakkal és korábbi szezonokkal együtt`);
       return NextResponse.json({ success: true });
     }
@@ -444,6 +451,7 @@ export async function POST(request) {
       const upd = await leagues.updateOne(filter, { $set: { published: { at: now, by: session.username, rows } } });
       if (upd.matchedCount === 0) return bad('Közben valaki más publikálta a ranglistát. Frissítsd az oldalt, nézd meg az előnézetet, és publikáld újra.', 409);
       await addLog(db, session.username, 'LIGA PUBLIKÁLÁS', `${league.name} (${league.category}): ${rows.length} játékos`);
+      refreshWebsite();
       return NextResponse.json({ success: true, publishedAt: now, rows });
     }
 
@@ -469,6 +477,7 @@ export async function POST(request) {
       await sessions.deleteMany({ leagueId });
       if (!keepPlayers) await players.deleteMany({ leagueId });
       await addLog(db, session.username, 'LIGA SZEZON', `${league.name} (${league.category}) lezárva, ${rows.length} játékos, ${ss.length} alkalom. Új szezon: ${newName}${keepPlayers ? ' (játékosok megtartva)' : ' (játékosok törölve)'}`);
+      refreshWebsite();
       return NextResponse.json({ success: true });
     }
 
