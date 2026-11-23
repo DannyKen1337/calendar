@@ -10,7 +10,7 @@ import PreorderCards from '@/weblap/components/PreorderCards';
 import { getOpenPreorderProducts } from '@/lib/preorderData';
 import { getPublishedLeagues } from '@/lib/leagueData';
 import Overlays from '@/weblap/components/Overlays';
-import TableTent from '@/weblap/components/TableTent';
+import BookingTent from '@/weblap/components/BookingTent';
 import StoreStatus from '@/weblap/components/StoreStatus';
 import { weekHours } from '@/weblap/lib/stores';
 import { visibleAlbums } from '@/weblap/lib/albums';
@@ -78,6 +78,8 @@ export default async function HomePage({ content, feed, previewBar = null, base 
         day: diff === 0 ? 'ma' : diff === 1 ? 'holnap' : SHORT_DAYS[weekdayOf(day)],
         time: timeOf(e.date),
         full: !e.isOpenAttendance && e.max_players > 0 && (e.current_players || 0) >= e.max_players,
+        // a telítettség-sávhoz (csak a létszámos, jelentkezős eseményeknél)
+        seats: !e.isOpenAttendance && !e.external_url && e.eventType !== 'community' && e.max_players > 0 ? { taken: Math.min(e.current_players || 0, e.max_players), max: e.max_players } : null,
       };
     });
   const games = [...new Set(week.map(e => e.category))].map(c => ({ category: c, label: gameShort(c) }));
@@ -181,7 +183,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
               ))}
             </ul>
           </div>
-          <div className={s.bookingScene}><TableTent /></div>
+          <BookingTent />
         </section>
 
         <section className={s.news} id="hirek" aria-labelledby="hirek-cim">

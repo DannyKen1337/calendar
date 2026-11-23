@@ -26,7 +26,11 @@ export default function TableBookingPage({ maintenance = false, initialStore = '
       const res = await fetch('/api/table-bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.error) setProblem({ error: data.error || 'A foglalás most nem sikerült. Próbáld újra később.', field: data.field });
-      else setDone({ ...form, mailSent: data.mailSent });
+      else {
+        setDone({ ...form, mailSent: data.mailSent });
+        // A weboldal ablakában: szólunk a weboldalnak, hogy a „FOGLALT” tábla a foglalás adataival billenjen fel (személyes adat nélkül)
+        if (embed && window.parent !== window) window.parent.postMessage({ type: 'tavern:asztal-foglalva', store: STORE_NAMES[form.store] || '', date: form.date, from: form.from, people: form.maxPeople }, '*');
+      }
     } catch {
       setProblem({ error: 'Hálózati hiba. Ellenőrizd a kapcsolatot, és próbáld újra.' });
     } finally {

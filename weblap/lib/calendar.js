@@ -67,7 +67,8 @@ export const eventUrl = (e) => `/esemeny/${encodeURIComponent(e._id || e.id)}`;
 // Hiba esetén üres lista (az oldal akkor is megjelenik).
 export async function getUpcomingEvents(stores = ['debrecen']) {
   try {
-    const res = await fetch(`${CALENDAR_URL}/api/public-data`, { next: { revalidate: 300 } });
+    // élesben 5 percig gyorsítótárazva; fejlesztéskor (és a teszteken) mindig friss
+    const res = await fetch(`${CALENDAR_URL}/api/public-data`, process.env.NODE_ENV === 'development' ? { cache: 'no-store' } : { next: { revalidate: 300 } });
     if (!res.ok) return { events: [], ok: false };
     const data = await res.json();
     const today = budapestNow().day;

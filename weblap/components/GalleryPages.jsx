@@ -1,3 +1,4 @@
+import { ViewTransition } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import SubPage from '@/weblap/components/SubPage';
@@ -70,6 +71,15 @@ export function GalleryAlbum({ id, content, preview = null }) {
           <h1 id="album-cim" className={s.h2}>{a.title || 'Album'}</h1>
           <p className={s.albumInfo}>{[gameLabel(a.game), `${pictures.length} kép`].filter(Boolean).join(' · ')}</p>
         </div>
+        {/* a Galéria albumkártyájának borítója ide nő át (ViewTransition, ugyanaz a név) */}
+        {pictures[0] && (
+          <ViewTransition name={`album-${a.id}`} share="morph" default="none">
+            <span className={s.albumHero} data-album-hero>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pictures[0].thumb || pictures[0].src} alt="" decoding="async" referrerPolicy="no-referrer" />
+            </span>
+          </ViewTransition>
+        )}
         <AlbumPhotos pictures={pictures} title={a.title || 'Album'} />
       </section>
     </SubPage>

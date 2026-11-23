@@ -4,7 +4,7 @@ import s from '@/weblap/fooldal.module.css';
 // asztalfoglaló ablakban (Overlays) ez billen fel a kattintás helyéről, és ebből nyílik ki a foglalás.
 export default function TableTent({ className = '' }) {
   return (
-    <div className={`${s.tent} ${className}`} aria-hidden="true">
+    <div className={`${s.tent} ${className}`} aria-hidden="true" data-tabla>
       <div className={s.tentFace}>
         <span>Tavern</span>
         <b>Foglalt</b>

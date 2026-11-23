@@ -8,7 +8,9 @@ export function storeStatus(store, now = budapestNow()) {
   const h = store.hours;
   if (!h) return null;
   const today = h[now.weekday];
-  if (today && now.time >= today[0] && now.time < today[1]) return { open: true, text: `Nyitva ${today[1]}-ig` };
+  // closesIn: hány perc múlva zár (a weboldal visszaszámlálásához)
+  const mins = (hm) => { const [h, m] = hm.split(':').map(Number); return h * 60 + m; };
+  if (today && now.time >= today[0] && now.time < today[1]) return { open: true, text: `Nyitva ${today[1]}-ig`, closesIn: mins(today[1]) - mins(now.time) };
   if (today && now.time < today[0]) return { open: false, text: `Ma ${today[0]}-kor nyit` };
   for (let i = 1; i <= 7; i++) {
     const wd = (now.weekday + i) % 7;

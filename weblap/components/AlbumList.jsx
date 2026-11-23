@@ -1,11 +1,13 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ViewTransition } from 'react';
+import Link from 'next/link';
 import { ALBUM_INTRO_KEY } from '@/weblap/components/AlbumsLink';
 import s from '@/weblap/fooldal.module.css';
 
 // A Galéria oldal albumkártyái, játékszűrővel (ha több játék albumai is vannak). Ha a főoldal „Az összes album”
 // gombjával érkezett (AlbumsLink, néhány másodpercen belül), az arany borító felhúzódik, és a kártyák egymás után
-// beúsznak, mintha a pakliból terülnének szét.
+// beúsznak, mintha a pakliból terülnének szét. Egy albumra kattintva a borítója átnő a megnyitott album fejlécképébe
+// (React ViewTransition, azonos név a két oldalon; csak a támogató böngészőkben, csökkentett mozgásnál nincs).
 // albums: [{ id, href, title, date, store, game, gameLabel, count, cover }]
 const fromHomeButton = () => {
   try { const t = Number(sessionStorage.getItem(ALBUM_INTRO_KEY)); return t > 0 && Date.now() - t < 5000; } catch { return false; }
@@ -31,16 +33,18 @@ export default function AlbumList({ albums }) {
       <ul className={s.albums} data-belep={intro ? '' : undefined}>
         {shown.map((a, i) => (
           <li key={a.id} style={{ '--i': i }}>
-            <a href={a.href} className={s.albumCard} data-album>
+            <Link href={a.href} className={s.albumCard} data-album>
+              <ViewTransition name={`album-${a.id}`} share="morph" default="none">
               <span className={s.albumCover}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={a.cover} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
                 <span className={s.albumCount}>{a.count} kép</span>
               </span>
+              </ViewTransition>
               <span className={s.albumMeta}>{[a.date, a.store].filter(Boolean).join(' · ')}</span>
               <b className={s.albumTitle}>{a.title}</b>
               {a.gameLabel && <span className={s.albumGame}>{a.gameLabel}</span>}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>

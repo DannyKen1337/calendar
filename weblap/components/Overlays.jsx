@@ -5,6 +5,7 @@ import { withBase } from '@/weblap/lib/basePath';
 import { storeStatus } from '@/weblap/lib/stores';
 import TableTent from '@/weblap/components/TableTent';
 import { MOODS } from '@/weblap/lib/moods';
+import { CALENDAR_URL } from '@/weblap/lib/calendar';
 
 // A főoldal két ablaka, ugyanazon az oldalon (nem új lapon):
 //  - Naptárablak: bármely [data-cal] linkre kattintva a kattintás helyéről kinyíló aranykör, belőle felúszik a naptár
@@ -29,6 +30,7 @@ export default function Overlays({ stores, sign, routeLabel }) {
   const closeBtn = useRef({ cal: null, map: null, table: null });
   const setters = useRef({ cal: setCal, map: setMap, table: setTable }).current;
   const openedAt = useRef({});
+  const booked = useRef(null); // a beágyazott asztalfoglalás sikeres kérése ({ store, date, from, people })
   const [mood, setMood] = useState(0); // melyik hangulatszöveg látszik a töltőképernyőn (nyitásonként a következő)
   // A betöltött ablak csak a töltőképernyő legkisebb ideje után jelenik meg
   const loaded = (kind) => setTimeout(() => setReady(r => ({ ...r, [kind]: true })), Math.max(0, (openedAt.current[kind] || 0) + MIN_LOADING_MS - Date.now()));
@@ -51,7 +53,11 @@ export default function Overlays({ stores, sign, routeLabel }) {
   const close = useCallback((kind, fromHistory = false) => {
     const set = setters[kind];
     set(v => (v && v.phase !== 'closing' ? { ...v, phase: 'closing' } : v));
-    setTimeout(() => { set(null); lock(false); lastFocus.current?.focus?.(); }, LEAVE_MS);
+    setTimeout(() => {
+      set(null); lock(false); lastFocus.current?.focus?.();
+      // sikeres asztalfoglalás után: a foglalás blokkjában felbillen a „FOGLALT” tábla (BookingTent)
+      if (kind === 'table' && booked.current) { window.dispatchEvent(new CustomEvent('tavern:foglalva', { detail: booked.current })); booked.current = null; }
+    }, LEAVE_MS);
     if (!fromHistory) history.back();
   }, [setters]);
 
@@ -92,6 +98,18 @@ export default function Overlays({ stores, sign, routeLabel }) {
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
   }, [open, stores]);
+
+  // A beágyazott asztalfoglalás jelzése a sikeres kérésről (csak a naptár, illetve a saját oldal címéről)
+  useEffect(() => {
+    const allowed = new Set([window.location.origin, new URL(CALENDAR_URL).origin]);
+    const onMessage = (e) => {
+      if (!allowed.has(e.origin) || e.data?.type !== 'tavern:asztal-foglalva') return;
+      const str = (v, max) => String(v ?? '').slice(0, max);
+      booked.current = { store: str(e.data.store, 40), date: str(e.data.date, 10), from: str(e.data.from, 5), people: Number(e.data.people) || null };
+    };
+    addEventListener('message', onMessage);
+    return () => removeEventListener('message', onMessage);
+  }, []);
 
   // Esc és a böngésző vissza gombja
   useEffect(() => {

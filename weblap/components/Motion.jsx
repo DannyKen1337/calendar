@@ -30,6 +30,22 @@ export default function Motion() {
     addEventListener('scroll', reveal, { passive: true });
     addEventListener('resize', reveal);
 
+    // A Galéria fotói egérrel fölé menve enyhén megbillennek, és fény fut rajtuk (mint egy kártya a kézben); érintésnél nincs
+    const prints = [...document.querySelectorAll('[data-nyomat]')];
+    const tilt = (e) => {
+      if (e.pointerType !== 'mouse') return;
+      const el = e.currentTarget, r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+      el.dataset.billen = '';
+      el.style.setProperty('--ry', `${(x * 14).toFixed(2)}deg`);
+      el.style.setProperty('--rx', `${(-y * 14).toFixed(2)}deg`);
+      el.style.setProperty('--gx', `${((x + 0.5) * 100).toFixed(1)}%`);
+      el.style.setProperty('--gy', `${((y + 0.5) * 100).toFixed(1)}%`);
+      el.style.setProperty('--go', '1');
+    };
+    const untilt = (e) => { const el = e.currentTarget; delete el.dataset.billen; ['--rx', '--ry', '--go'].forEach(p => el.style.removeProperty(p)); };
+    prints.forEach(el => { el.addEventListener('pointermove', tilt); el.addEventListener('pointerleave', untilt); });
+
     const sign = document.querySelector('[data-sign]');
     const hero = sign?.closest('section');
     let frame = 0;
@@ -46,6 +62,7 @@ export default function Motion() {
       // Ha a komponens újraindul, ne maradjon elrejtve semmi
       pending.forEach(el => { el.classList.remove(s.pending); el.classList.add(s.shown); });
       removeEventListener('scroll', onScroll); cancelAnimationFrame(frame);
+      prints.forEach(el => { el.removeEventListener('pointermove', tilt); el.removeEventListener('pointerleave', untilt); });
     };
   }, []);
   return null;
