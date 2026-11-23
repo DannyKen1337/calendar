@@ -56,6 +56,9 @@ export default function LeagueAdmin() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [game, setGame] = useState(null);
+  // Egy játékhoz több liga is lehet (pl. boltonként): a kiválasztott liga, és hogy épp újat hozunk-e létre
+  const [leagueId, setLeagueId] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState('sessions');
   const [busy, setBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -113,7 +116,8 @@ export default function LeagueAdmin() {
     }
   };
 
-  const league = data?.leagues.find(l => l.category === game) || null;
+  const gameLeagues = useMemo(() => (data ? data.leagues.filter(l => l.category === game) : []), [data, game]);
+  const league = useMemo(() => (creating ? null : gameLeagues.find(l => l.id === leagueId) || gameLeagues[0] || null), [creating, gameLeagues, leagueId]);
   const players = useMemo(() => (league ? data.players.filter(p => p.leagueId === league.id) : []), [data, league]);
   const sessions = useMemo(() => (league ? data.sessions.filter(s => s.leagueId === league.id) : []), [data, league]);
   const seasons = useMemo(() => (league ? (data.seasons || []).filter(s => s.leagueId === league.id) : []), [data, league]);
@@ -137,9 +141,11 @@ export default function LeagueAdmin() {
 
   // --- Műveletek ---
   const createLeague = async (values) => {
-    const res = await post('CREATE_LEAGUE', { category: game, ...values });
+    const res = await post('CREATE_LEAGUE', { category: game, ...values }, createForm);
     if (!res) return;
     messageApi.success(`Liga létrehozva.${addedNote(res.added)}`);
+    setLeagueId(res.id);
+    setCreating(false);
     setTab('players');
     load();
   };
@@ -238,7 +244,7 @@ export default function LeagueAdmin() {
     <Select
       size="large"
       value={game}
-      onChange={(g) => { setGame(g); setTab('sessions'); }}
+      onChange={(g) => { setGame(g); setLeagueId(null); setCreating(false); setTab('sessions'); }}
       options={data.games.map(g => ({ value: g, label: <span className="flex items-center gap-2">{gameDot(g)}{g}{data.leagues.some(l => l.category === g) ? '' : ' · nincs liga'}</span> }))}
       style={{ width: '100%' }}
       aria-label="Játék"
@@ -248,13 +254,30 @@ export default function LeagueAdmin() {
       <Text style={{ color: '#b8aca7' }}>Játék:</Text>
       <Segmented
         value={game}
-        onChange={(g) => { setGame(g); setTab('sessions'); }}
+        onChange={(g) => { setGame(g); setLeagueId(null); setCreating(false); setTab('sessions'); }}
         options={data.games.map(g => ({
           value: g,
           label: <span className="flex items-center gap-2">{gameDot(g)}{g}</span>,
         }))}
         className={m.gameSeg}
       />
+    </div>
+  );
+
+  // A játék ligái (boltonként több is lehet) és az „Új liga” gomb
+  const leaguePicker = gameLeagues.length > 0 && (
+    <div className={`${panel} flex flex-wrap items-center gap-3`} data-liga-valaszto>
+      <Text style={{ color: '#b8aca7' }}>Liga:</Text>
+      <div style={{ maxWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <Segmented
+          value={creating ? '__uj' : league?.id}
+          onChange={(v) => { if (v === '__uj') { setCreating(true); createForm.resetFields(); } else { setCreating(false); setLeagueId(v); setTab('sessions'); } }}
+          options={[
+            ...gameLeagues.map(l => ({ value: l.id, label: <span className="flex flex-col items-start leading-tight py-1"><b>{l.name}</b>{l.autoStores?.length ? <small style={{ color: '#9a8a8c' }}>{storeNames(l.autoStores)}</small> : null}</span> })),
+            { value: '__uj', label: <span className="flex items-center gap-1 py-1"><PlusOutlined /> Új liga</span> },
+          ]}
+        />
+      </div>
     </div>
   );
 
@@ -265,15 +288,19 @@ export default function LeagueAdmin() {
         {contextHolder}
         <div className="flex flex-col gap-4">
           {gamePicker}
+          {leaguePicker}
           <div className={panel}>
-            <Title level={4} style={{ color: '#f3ece3', fontWeight: 800, marginTop: 0 }}>Liga létrehozása: {game}</Title>
-            <Text style={{ color: '#9a8a8c', display: 'block', marginBottom: 16 }}>Játékonként egy liga lehet. A játékosok a kiválasztott boltok eseményeiről maguktól bekerülnek, a pontokat pedig alkalmanként ti írjátok be.</Text>
-            <Form key={game} form={createForm} layout="vertical" requiredMark={false} onFinish={createLeague} initialValues={{ name: `${game} liga`, autoStores: lastSelectedStores() }} style={{ maxWidth: 640 }}>
+            <Title level={4} style={{ color: '#f3ece3', fontWeight: 800, marginTop: 0 }}>{gameLeagues.length ? 'Új liga' : 'Liga létrehozása'}: {game}</Title>
+            <Text style={{ color: '#9a8a8c', display: 'block', marginBottom: 16 }}>Egy játékhoz több liga is futhat egyszerre, pl. boltonként külön (Debrecenben és Miskolcon). Minden ligának saját ranglistája és linkje van. A játékosok a kiválasztott boltok eseményeiről maguktól bekerülnek, a pontokat pedig alkalmanként ti írjátok be.</Text>
+            <Form key={`${game}-${gameLeagues.length}`} form={createForm} layout="vertical" requiredMark={false} onFinish={createLeague} initialValues={{ name: gameLeagues.length ? '' : `${game} liga`, autoStores: lastSelectedStores() }} style={{ maxWidth: 640 }} data-uj-liga>
               <Form.Item name="name" label="Liga neve" rules={[{ required: true, whitespace: true, message: 'Add meg a liga nevét!' }]}>
-                <Input maxLength={LEAGUE_NAME_MAX} placeholder="Pl.: Pokémon liga – 2026 ősz" />
+                <Input maxLength={LEAGUE_NAME_MAX} placeholder="Pl.: One Piece liga – Miskolc" />
               </Form.Item>
               <StoreInputs />
-              <Button type="primary" htmlType="submit" loading={busy} icon={<TrophyOutlined />} style={{ color: '#000', fontWeight: 'bold' }}>Liga létrehozása</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="primary" htmlType="submit" loading={busy} icon={<TrophyOutlined />} style={{ color: '#000', fontWeight: 'bold' }}>Liga létrehozása</Button>
+                {gameLeagues.length > 0 && <Button style={sideBtn} onClick={() => setCreating(false)}>Mégse</Button>}
+              </div>
             </Form>
           </div>
         </div>
@@ -397,7 +424,7 @@ export default function LeagueAdmin() {
           <div className={m.cardTop}><span className={m.cardTitle}>{x.name}</span><span className={m.cardValue}>{x.players} játékos</span></div>
           <span className={m.cardSub}>Lezárva: {formatPublishedAt(x.closedAt)}{x.closedBy ? ` (${x.closedBy})` : ''} · Győztes: {x.winners.join(', ') || '—'}</span>
           <div className={m.cardBtns}>
-            <a className={m.cardBtn} href={`${leagueUrl(league.category)}?szezon=${encodeURIComponent(x.id)}`} target="_blank" rel="noopener"><EyeOutlined /> Megnyitás</a>
+            <a className={m.cardBtn} href={`${leagueUrl(league)}?szezon=${encodeURIComponent(x.id)}`} target="_blank" rel="noopener"><EyeOutlined /> Megnyitás</a>
             <Popconfirm title="Törlöd ezt az archív szezont?" description="A végeredménye a nyilvános oldalról is eltűnik." onConfirm={() => deleteSeason(x)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
               <button type="button" className={`${m.cardBtn} ${m.cardBtnDanger}`}><DeleteOutlined /> Törlés</button>
             </Popconfirm>
@@ -442,6 +469,7 @@ export default function LeagueAdmin() {
       {contextHolder}
       <div className="flex flex-col gap-4">
         {gamePicker}
+        {leaguePicker}
 
         {/* Liga fejléc: állapot és publikálás */}
         <div className={`${panel} flex flex-col gap-3`} style={{ borderLeft: `5px solid ${getGameColor({ category: league.category })}` }}>
@@ -458,8 +486,8 @@ export default function LeagueAdmin() {
             </div>
             <div className={m.headerActions}>
               <Button type="primary" icon={<EyeOutlined />} style={{ color: '#000', fontWeight: 'bold' }} onClick={() => setPreviewOpen(true)}>Előnézet és publikálás</Button>
-              <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league.category)}`)} disabled={!league.published && seasons.length === 0}>{phone ? 'Link' : 'Link másolása'}</Button>
-              <Button icon={<EyeOutlined />} style={sideBtn} href={leagueUrl(league.category)} target="_blank" rel="noopener" disabled={!league.published && seasons.length === 0}>Nyilvános oldal</Button>
+              <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(`${origin}${leagueUrl(league)}`)} disabled={!league.published && seasons.length === 0}>{phone ? 'Link' : 'Link másolása'}</Button>
+              <Button icon={<EyeOutlined />} style={sideBtn} href={leagueUrl(league)} target="_blank" rel="noopener" disabled={!league.published && seasons.length === 0}>Nyilvános oldal</Button>
               <Button icon={<SettingOutlined />} style={sideBtn} onClick={() => openSettings()}>Beállítások</Button>
               <Button icon={<FlagOutlined />} style={sideBtn} disabled={sessions.length === 0} title={sessions.length === 0 ? 'Nincs még rögzített alkalom' : 'A szezon végeredményének archiválása és új szezon indítása'} onClick={() => { closeForm.resetFields(); closeForm.setFieldsValue({ newName: '', keepPlayers: true }); setCloseOpen(true); }}>{phone ? 'Szezon zárása' : 'Szezon lezárása'}</Button>
             </div>
@@ -534,7 +562,7 @@ export default function LeagueAdmin() {
                       { title: 'Játékos', dataIndex: 'players', align: 'right' },
                       { title: '', key: 'actions', width: 96, render: (_, s) => (
                         <span className="flex">
-                          <Button type="text" icon={<EyeOutlined />} aria-label="Megnyitás" style={{ color: '#E0D6C8' }} href={`${leagueUrl(league.category)}?szezon=${encodeURIComponent(s.id)}`} target="_blank" rel="noopener" />
+                          <Button type="text" icon={<EyeOutlined />} aria-label="Megnyitás" style={{ color: '#E0D6C8' }} href={`${leagueUrl(league)}?szezon=${encodeURIComponent(s.id)}`} target="_blank" rel="noopener" />
                           <Popconfirm title="Törlöd ezt az archív szezont?" description="A végeredménye a nyilvános oldalról is eltűnik." onConfirm={() => deleteSeason(s)} okText="Törlés" cancelText="Mégse" okButtonProps={{ danger: true }}>
                             <Button type="text" danger icon={<DeleteOutlined />} aria-label="Törlés" />
                           </Popconfirm>

@@ -1,6 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { getPublishedLeague } from '@/lib/leagueData';
-import { categoryFromSlug } from '@/lib/leagues';
+import { getPublishedLeagueBySlug } from '@/lib/leagueData';
 import { getGameColor } from '@/lib/gameConfig';
 
 // Facebook / Discord előnézeti kép a liga ranglistájához: az első öt helyezett pontokkal.
@@ -13,8 +12,8 @@ const MEDALS = { 1: '#E5B15D', 2: '#C0C0C8', 3: '#C8875A' };
 
 export default async function Image({ params }) {
   const { slug } = await params;
-  const category = categoryFromSlug(slug);
-  const league = category ? await getPublishedLeague(category).catch(() => null) : null;
+  const league = await getPublishedLeagueBySlug(slug).catch(() => null);
+  const category = league?.category || null;
   const color = category ? getGameColor({ category }) : '#E5B15D';
   const rows = league?.isPublished ? league.rows.slice(0, 5) : [];
   const title = league?.name || 'Tavern liga';

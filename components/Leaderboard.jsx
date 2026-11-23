@@ -42,12 +42,13 @@ export default function Leaderboard({ league, rows, publishedAt, compact = false
         <div className="min-w-0">
           <p className="uppercase tracking-[0.2em] text-xs m-0" style={{ color }}>{league.category}</p>
           <h2 className={`${compact ? 'text-xl' : 'text-2xl md:text-3xl'} font-bold font-serif text-white m-0`} style={{ overflowWrap: 'anywhere' }}>{league.name}</h2>
+          {league.stores?.length > 0 && <p className="text-sm text-[#cfc6b8] m-0 mt-1">{league.stores.map(s => s.name).join(' · ')}</p>}
           {subtitle && <p className="text-xs m-0 mt-1" style={{ color }}>{subtitle}</p>}
           {publishedAt && <p className="text-xs text-[#9a8a8c] m-0 mt-1">Frissítve: {formatPublishedAt(publishedAt)}</p>}
         </div>
       </div>
       {rows.length === 0 ? (
-        <p className="text-center text-[#6b7280] italic m-0 p-6">Még nincs játékos a ranglistán.</p>
+        <p className="text-center text-[#6b7280] italic m-0 p-6">Hamarosan indul: az első alkalom után itt lesz a ranglista.</p>
       ) : (
         <ol className="list-none m-0 p-2 md:p-3 flex flex-col gap-1">
           <li className="flex items-center gap-3 px-3 pb-1 text-xs uppercase tracking-wider text-[#7d6e70]" aria-hidden="true">

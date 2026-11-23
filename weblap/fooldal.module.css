@@ -584,11 +584,16 @@ a.socialGo:hover { color: var(--ink) !important; }
 /* A Ligák mező ranglistái (LeagueCards): 2–4 liga; a nagy cím alatt, a mező teljes szélességében */
 .leagues { grid-column: 1 / -1; grid-row: 3; margin-top: clamp(2rem, 5vh, 3.5rem); display: grid; gap: var(--gutter); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .leagues[data-count="1"] { grid-template-columns: minmax(0, 560px); }
-.leagues[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.leagues[data-count="3"], .leagues[data-count="5"], .leagues[data-count="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (min-width: 1280px) { .leagues[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .league { display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px rgba(229, 177, 93, 0.18); color: var(--ink); }
 .leagueHead { display: flex; align-items: center; gap: 12px; }
 .leagueHead h3 { margin: 0; font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem); line-height: 1; }
+.leagueTitle { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.leagueTitle small { color: var(--muted); font-size: 0.875rem; }
+.leagueSoon { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 140px; padding: 18px; border-radius: 10px; border: 1px dashed rgba(229, 177, 93, 0.45); background: rgba(229, 177, 93, 0.06); }
+.leagueSoon b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.5rem, 1.1rem + 1vw, 2rem); color: var(--gold); line-height: 1; }
+.leagueSoon span { color: var(--muted); font-size: 0.9375rem; line-height: 1.4; }
 .leagueLogo { flex: none; width: 48px; height: 48px; border-radius: 10px; background: var(--bg); display: grid; place-items: center; padding: 6px; box-sizing: border-box; }
 .leagueLogo img { width: 100%; height: 100%; object-fit: contain; }
 .leagueRows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }

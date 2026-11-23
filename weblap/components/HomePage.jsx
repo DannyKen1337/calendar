@@ -50,8 +50,8 @@ const overlayAttrs = (href, title) => {
 export default async function HomePage({ content, feed, previewBar = null, base = '' }) {
   const { general, hero, program, gallery, news, contact } = content;
   const { stores, events, now } = await getHomeData(content);
-  // A Ligák részben a publikált ranglisták (legfeljebb 4 liga)
-  const leagues = (await getPublishedLeagues().catch(() => [])).filter(l => l.isPublished && l.rows.length > 0).slice(0, 4);
+  // A Ligák részben a publikált ligák (legfeljebb 6; egy játéknak boltonként több is lehet); eredmény nélkül „Hamarosan indul”
+  const leagues = (await getPublishedLeagues().catch(() => [])).filter(l => l.isPublished).slice(0, 6);
   // Az Előrendelés sávban az élő (nyitott) előrendelések, a legújabb elöl (legfeljebb 3)
   const preorders = (await getOpenPreorderProducts().catch(() => [])).slice(0, 3).map(p => ({
     ...p, logo: getGameConfig(p.category)?.logo || DEFAULT_GAME_LOGO, href: `${PREORDER_URL}?termek=${encodeURIComponent(p.id)}`,

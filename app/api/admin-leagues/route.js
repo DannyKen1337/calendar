@@ -7,7 +7,7 @@ import { canManageCategory, hasFeature, eventStore, STORE_NAMES } from '@/lib/pe
 import { toObjectId } from '@/lib/preorderData';
 import { PREORDER_GAMES } from '@/lib/preorders';
 import { budapestDateTime, addDays } from '@/lib/eventDates';
-import { DEFAULT_RULES, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, normalizeNickname, uniqueNickname, nicknameKey, riotIdKey, computeStandings, buildSnapshot, describePointChanges, hasManualPoints } from '@/lib/leagues';
+import { DEFAULT_RULES, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitizeLeagueStores, sanitizePlayer, sanitizeSession, normalizeNickname, uniqueNickname, nicknameKey, riotIdKey, computeStandings, buildSnapshot, describePointChanges, hasManualPoints, newLeagueSlug, leagueSlugOf } from '@/lib/leagues';
 import { parseTdf, sanitizeTdfRules, tdfPoints, defaultTdfNickname, isFullNameNickname, TDF_CATEGORY, TDF_MAX_BYTES } from '@/lib/tdf';
 import { syncLeaguePlayers, leagueSeasonStart, playerKeys } from '@/lib/leagueSync';
 
@@ -25,7 +25,7 @@ async function addLog(db, adminName, action, details) {
 const storeList = (stores) => (stores.length ? stores.map(s => STORE_NAMES[s] || s).join(', ') : 'kikapcsolva');
 
 const leagueOut = (l) => ({
-  id: String(l._id), category: l.category, name: l.name, rules: { ...DEFAULT_RULES, ...(l.rules || {}) },
+  id: String(l._id), category: l.category, name: l.name, slug: leagueSlugOf(l), rules: { ...DEFAULT_RULES, ...(l.rules || {}) },
   createdAt: l.createdAt, createdBy: l.createdBy || '',
   // Automatikus beemelés: a kiválasztott boltok (null = még nincs beállítva), a szezon kezdete és a kizárt (törölt) játékosok száma
   autoStores: Array.isArray(l.autoStores) ? l.autoStores : null,
@@ -126,15 +126,17 @@ export async function POST(request) {
       const name = String(payload.name ?? '').trim().replace(/\s+/g, ' ');
       if (!name || name.length > LEAGUE_NAME_MAX) return bad(`A liga neve kötelező (legfeljebb ${LEAGUE_NAME_MAX} karakter).`);
       const autoStores = sanitizeLeagueStores(payload.autoStores) || [];
-      if (await leagues.findOne({ category })) return bad('Ennek a játéknak már van ligája.');
+      // Egy játékhoz több liga is lehet (pl. boltonként külön); a liga saját linket kap
+      const existing = await leagues.find({}, { projection: { category: 1, slug: 1, name: 1 } }).toArray();
+      if (existing.some(l => l.category === category && l.name.toLowerCase() === name.toLowerCase())) return bad('Ennél a játéknál már van ilyen nevű liga.', 400, { field: 'name' });
       try {
-        const doc = { category, name, rules: DEFAULT_RULES, autoStores, createdAt: new Date(), createdBy: session.username };
+        const doc = { category, name, slug: newLeagueSlug(existing, category, name), rules: DEFAULT_RULES, autoStores, createdAt: new Date(), createdBy: session.username };
         const inserted = await leagues.insertOne(doc);
         await addLog(db, session.username, 'LIGA', `Új liga: ${name} (${category}), automatikus beemelés: ${storeList(autoStores)}`);
         const { added } = await syncLeaguePlayers(db, { ...doc, _id: inserted.insertedId }, { force: true });
         return NextResponse.json({ success: true, id: String(inserted.insertedId), added });
       } catch (e) {
-        if (e?.code === 11000) return bad('Ennek a játéknak már van ligája.');
+        if (e?.code === 11000) return bad('Ez a liga most jött létre egy másik kéréssel. Frissítsd az oldalt.');
         throw e;
       }
     }
