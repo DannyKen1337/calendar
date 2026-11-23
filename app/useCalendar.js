@@ -149,8 +149,25 @@ export const useCalendar = ({ eager = false } = {}) => {
     if (!isBackground) setLoading(false);
   };
 
+  // A még folyamatban lévő (vagy a lekérés indulása után befejezett) helyi jelölések rátétele a szerver adatára
+  const pendingMarks = useRef(new Map()); // "<jelentkezés>:<mező>" => { id, field, value, doneAt }
+  const withPendingMarks = (list, startedAt) => {
+    if (!pendingMarks.current.size) return list;
+    const marks = [];
+    for (const [key, m] of pendingMarks.current) {
+      if (m.doneAt && startedAt > m.doneAt) pendingMarks.current.delete(key); // ez a válasz már tartalmazza
+      else marks.push(m);
+    }
+    if (!marks.length) return list;
+    return list.map(r => {
+      const mine = marks.filter(m => m.id === String(r._id || r.id));
+      return mine.length ? mine.reduce((acc, m) => ({ ...acc, [m.field]: m.value ?? undefined }), r) : r;
+    });
+  };
+
   const fetchAdminData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
+    const startedAt = Date.now(); // a helyben jelölt, még be nem érkezett változások ennél régebbi válaszban nincsenek benne
     try {
       const response = await fetch(`/api/admin-data?t=${Date.now()}`);
       if (response.status === 401) {
@@ -166,7 +183,7 @@ export const useCalendar = ({ eager = false } = {}) => {
         }));
         setTournaments(coloredTournaments);
       }
-      if (data.registrations) setRegistrations(data.registrations);
+      if (data.registrations) setRegistrations(withPendingMarks(data.registrations, startedAt));
       if (data.rgn) setRgnData(data.rgn);
       if (data.attendanceStats) setAttendanceStats(data.attendanceStats);
       if (data.users) setUsersList(data.users);
@@ -561,23 +578,26 @@ export const useCalendar = ({ eager = false } = {}) => {
   };
 
   // Check-in: azonnal (optimistán) jelöljük, hiba esetén visszaállítjuk; utána frissítjük a statisztikát
-  const setAttendance = async (registrationId, attended) => {
+  // Megjelenés / decklist jelölése: azonnal látszik (optimista), és amíg a mentés nincs kész, a közben beérkező
+  // háttérfrissítés (amely még a mentés előtti állapotot hozza) nem veheti ki a pipát. A jelölés csak akkor
+  // adja át a helyét a szerver adatának, ha az a mentés befejezése UTÁN indult lekérésből jön.
+  const markSet = (registrationId, field, value, actionType) => {
     const id = String(registrationId);
-    const prev = registrations.find(r => String(r._id || r.id) === id)?.attended;
-    const apply = (value) => setRegistrations(list => list.map(r => String(r._id || r.id) === id ? { ...r, attended: value ?? undefined } : r));
-    apply(attended);
-    if (!(await postAction('SET_ATTENDANCE', { registrationId: id, attended }))) { apply(prev); return; }
-    fetchData(true);
+    const key = `${id}:${field}`;
+    const prev = registrations.find(r => String(r._id || r.id) === id)?.[field];
+    const apply = (v) => setRegistrations(list => list.map(r => String(r._id || r.id) === id ? { ...r, [field]: v ?? undefined } : r));
+    const mark = { id, field, value, doneAt: null };
+    pendingMarks.current.set(key, mark);
+    apply(value);
+    postAction(actionType, { registrationId: id, [field]: value }).then((ok) => {
+      if (pendingMarks.current.get(key) !== mark) return; // közben újra kattintott: az újabb jelölés számít
+      if (!ok) { pendingMarks.current.delete(key); apply(prev); return; }
+      mark.doneAt = Date.now();
+      if (field === 'attended') fetchData(true); // a megbízhatósági statisztika frissítéséhez
+    });
   };
-
-  // Decklist leadása: ugyanúgy optimistán jelöljük, mint a megjelenést
-  const setDecklist = async (registrationId, decklist) => {
-    const id = String(registrationId);
-    const prev = registrations.find(r => String(r._id || r.id) === id)?.decklist;
-    const apply = (value) => setRegistrations(list => list.map(r => String(r._id || r.id) === id ? { ...r, decklist: value ?? undefined } : r));
-    apply(decklist);
-    if (!(await postAction('SET_DECKLIST', { registrationId: id, decklist }))) apply(prev);
-  };
+  const setAttendance = (registrationId, attended) => markSet(registrationId, 'attended', attended, 'SET_ATTENDANCE');
+  const setDecklist = (registrationId, decklist) => markSet(registrationId, 'decklist', decklist, 'SET_DECKLIST');
 
   // Riftbound jelentkezők azonnali frissítése a Riftbound oldalról
   const syncRgn = async (tournamentId) => {
