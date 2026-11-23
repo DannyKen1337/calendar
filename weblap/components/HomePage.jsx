@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from '@/weblap/components/Image';
-import { bigShoulders, publicSans } from '@/weblap/lib/fonts';
+import { displayFont, textFont } from '@/weblap/lib/fonts';
 import Motion from '@/weblap/components/Motion';
 import SiteNav from '@/weblap/components/SiteNav';
 import WeekProgram from '@/weblap/components/WeekProgram';
@@ -104,7 +104,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
   const facebookPages = stores.filter(st => st.facebook);
 
   return (
-    <div className={`${bigShoulders.variable} ${publicSans.variable} ${s.page} ${previewBar ? s.withPreview : ''}`}>
+    <div className={`${displayFont.variable} ${textFont.variable} ${s.page} ${previewBar ? s.withPreview : ''}`}>
       {/* Töltőképernyő: csak az első betöltéskor (html[data-tolto="fut"]), 1,6 mp után elhalványul */}
       <div className={s.intro} data-toltokep aria-hidden="true">
         <img src={withBase(hero.sign.src)} alt="" width={1499} height={403} />

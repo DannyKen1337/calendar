@@ -1,18 +1,18 @@
-/* A Tavern weboldal (főoldal és Hírek oldalak) stílusa. Korom, papírfehér és cégérarany; a címek magas feliratbetűvel
-   (Big Shoulders), a szöveg Public Sans. A felépítés: töltőképernyő (első betöltéskor), cégér az egész első képernyőn
+/* A Tavern weboldal (főoldal és Hírek oldalak) stílusa. Korom, papírfehér és cégérarany; a címek Cinzel feliratbetűvel,
+   a szöveg Manrope (ugyanaz, mint a naptárban). A felépítés: töltőképernyő (első betöltéskor), cégér az egész első képernyőn
    az Előrendelés sávval, a naptár (heti program), Ligák, Asztalfoglalás, Hírek, Galéria, Itt találsz minket (nyitvatartás és cím), Írj nekünk, lábléc. */
 
 .page {
   --bg: #0f0f0f; --surface: #1a1a1a; --band: #232323; --ink: #ffffff; --muted: #a8a8a8;
   --gold: #e5b15d; --gold-hover: #f0c57d; --gold-deep: #d9a24a; --on-gold: #0f0f0f; --cellar: #2a211b; --raised: #262626;
   --paper: #ffffff; --paper-ink: #0f0f0f; --paper-muted: #555555; --paper-hover: #f3efe6;
-  --display: var(--f-display), 'Arial Narrow', sans-serif; --text: var(--f-text), system-ui, sans-serif;
+  --display: var(--f-display), Georgia, serif; --text: var(--f-text), system-ui, sans-serif;
   --step-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
   --step-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
   --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
   --step-statement: clamp(1.375rem, 0.9rem + 1.15vw, 2.125rem);
-  --step-head: clamp(2.75rem, 1rem + 5.4vw, 6rem);
-  --step-display: clamp(4rem, 1rem + 10vw, 10rem);
+  --step-head: clamp(2rem, 1rem + 3.2vw, 3.9rem);
+  --step-display: clamp(2.5rem, 1rem + 6vw, 6rem);
   --margin: clamp(1rem, 2.2vw, 2rem);
   --gutter: clamp(1rem, 2vw, 2rem);
   --section: clamp(5rem, 12vw, 13rem);
@@ -35,7 +35,7 @@
 .page :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .page ::selection { background: var(--gold); color: var(--on-gold); }
 
-.disp { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: -0.005em; line-height: 0.9; }
+.disp { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.08; }
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 3.25rem; padding: 0 1.4rem; background: var(--gold); color: var(--on-gold) !important; font-weight: 600; text-decoration: none; white-space: nowrap; transition: transform 140ms var(--ease-out), background-color 180ms ease; }
 .btn:hover { background: var(--gold-hover); }
 .btn:active { transform: scale(0.97); }
@@ -85,7 +85,7 @@
 :global(html[data-tolto="fut"]) .intro { position: fixed; inset: 0; z-index: 200; display: grid; place-content: center; justify-items: center; gap: 1.1rem; padding: 0 var(--margin); background: var(--bg); text-align: center; animation: introOut 520ms var(--ease-in-out) 1600ms forwards; }
 :global(html[data-tolto-kesz]) .intro { display: none; }
 .intro img { width: min(62vw, 340px); height: auto; margin-bottom: 1.5rem; }
-.introTitle { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(2.75rem, 1.6rem + 4.2vw, 5.5rem); line-height: 0.92; color: var(--gold); text-wrap: balance; }
+.introTitle { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.9rem, 1.2rem + 2.8vw, 3.6rem); line-height: 1.1; color: var(--gold); text-wrap: balance; }
 .introText { font-size: var(--step-lead); line-height: 1.35; color: var(--muted); max-width: 30ch; text-wrap: balance; }
 @keyframes introOut { to { opacity: 0; visibility: hidden; } }
 @keyframes introRise { from { opacity: 0; transform: translateY(14px); } }
@@ -128,7 +128,7 @@
 .picker button[aria-pressed="true"] { color: var(--ink); text-decoration-color: var(--gold); }
 .cat { margin-top: 5rem; }
 .catHead { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; }
-.catHead h3 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-lead); display: flex; align-items: center; gap: 14px; }
+.catHead h3 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: var(--step-lead); display: flex; align-items: center; gap: 14px; }
 .catHead h3 img { height: 52px; width: auto; }
 .catHead span { color: var(--muted); }
 .items { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 4rem; }
@@ -149,7 +149,7 @@
 .page .calCta:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
 .calCtaIcon { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .calCtaText { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
-.calCtaText b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.375rem, 1rem + 1vw, 2rem); line-height: 0.95; }
+.calCtaText b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.05rem, 0.85rem + 0.7vw, 1.45rem); line-height: 1.1; }
 .calCtaText small { font-size: var(--step-small); font-weight: 600; opacity: 0.78; }
 .calCtaGo { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--on-gold); color: var(--gold); transition: transform 220ms var(--ease-out); }
 .calCtaGo svg { width: 18px; height: 18px; }
@@ -166,11 +166,11 @@
 .newsLinks { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin-top: 1.5rem; }
 /* A behúzott Facebook- / Instagram-posztok (SocialPost): a közösségi oldalak megszokott kártyája, oszlopokba rendezve */
 .socialBlock { margin-top: clamp(3rem, 6vw, 5rem); }
-.socialTitle { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-lead); letter-spacing: 0.02em; color: var(--muted); margin-bottom: 1.5rem !important; }
+.socialTitle { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: var(--step-lead); letter-spacing: 0.02em; color: var(--muted); margin-bottom: 1.5rem !important; }
 .socialGrid { columns: 3 320px; column-gap: 1rem; }
 .social { break-inside: avoid; display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1rem; padding: 1rem; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
 .socialHead { display: flex; align-items: center; gap: 0.75rem; }
-.socialAvatar { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--on-gold); font-family: var(--display); font-weight: 800; font-size: 1.25rem; }
+.socialAvatar { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--on-gold); font-family: var(--display); font-weight: 700; font-size: 1.25rem; }
 .socialWho { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
 .socialWho b { font-weight: 700; font-size: 1rem; }
 .socialWho small { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--muted); font-size: 0.8125rem; }
@@ -189,7 +189,7 @@
 .socialPic { position: relative; display: block; aspect-ratio: 1; background: var(--raised); }
 .socialPics[data-db="1"] .socialPic, .socialPics[data-db="3"] .socialPic:first-child { aspect-ratio: 4 / 3; }
 .socialPic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.socialPlus { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(15, 15, 15, 0.6); color: #fff; font-family: var(--display); font-weight: 800; font-size: 2.25rem; }
+.socialPlus { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(15, 15, 15, 0.6); color: #fff; font-family: var(--display); font-weight: 700; font-size: 2.25rem; }
 .socialGo { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; color: var(--muted) !important; font-size: 0.875rem; font-weight: 600; text-decoration: none; }
 a.socialGo:hover { color: var(--ink) !important; }
 .posts { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gutter); row-gap: 1.25rem; margin-top: 3rem; }
@@ -219,7 +219,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 
 /* --- Galéria: nyomatok a cím két oldalán (a cím szabadon marad) --- */
 .prints { position: relative; height: 86svh; min-height: 620px; background: var(--bg); overflow: hidden; display: grid; place-items: center; }
-.prints h2 { font-size: clamp(7rem, 15vw, 14rem); text-align: center; position: relative; z-index: 4; line-height: 0.86; max-width: 4.6em; text-wrap: balance; }
+.prints h2 { font-size: clamp(3.5rem, 8vw, 8rem); text-align: center; position: relative; z-index: 4; line-height: 1; text-wrap: balance; }
 .print { position: absolute; width: 19vw; padding: 8px; background: #d8cfc0; transition: transform 200ms var(--ease-out); z-index: 2; }
 .print img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
 .print:nth-of-type(1) { left: 3vw; top: 12%; transform: rotate(-8deg); }
@@ -239,7 +239,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .albumsBtn:hover .albumsStack i:nth-child(1), .prints[data-albumba] .albumsStack i:nth-child(1) { transform: rotate(-22deg) translate(-6px, 2px); }
 .albumsBtn:hover .albumsStack i:nth-child(2), .prints[data-albumba] .albumsStack i:nth-child(2) { transform: rotate(15deg) translate(6px, -2px); }
 .albumsText { display: flex; flex-direction: column; gap: 0.15rem; }
-.albumsText b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.5rem, 1rem + 1.4vw, 2.4rem); line-height: 0.95; }
+.albumsText b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.1rem, 0.85rem + 0.9vw, 1.65rem); line-height: 1.1; }
 .albumsText small { font-size: var(--step-small); font-weight: 600; opacity: 0.75; }
 .albumsGo { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--on-gold); color: var(--gold); transition: transform 220ms var(--ease-out); }
 .albumsGo svg { width: 20px; height: 20px; }
@@ -251,7 +251,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 /* …majd a gombból arany album-borító nyílik ki az egész képernyőre, fényvillanással */
 .albumCover2, .albumCurtain { position: fixed; inset: 0; z-index: 160; display: grid; place-items: center; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, var(--gold-hover), var(--gold) 55%, var(--gold-deep)); color: var(--on-gold); }
 .albumCover2 { animation: albumGrow 640ms var(--ease-expo) 520ms both; }
-.albumCover2 b, .albumCurtain b { position: relative; font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(4rem, 2rem + 8vw, 10rem); line-height: 1; }
+.albumCover2 b, .albumCurtain b { position: relative; font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(2.6rem, 1.4rem + 5vw, 6rem); line-height: 1.1; }
 .albumCover2 b { animation: albumWord 520ms var(--ease-out) 820ms both; }
 .albumCover2Flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 60%); animation: albumFlash 560ms ease-out 760ms both; }
 @keyframes albumGrow { 0% { opacity: 0; clip-path: inset(var(--t) var(--r) var(--b) var(--l) round 6px); } 6% { opacity: 1; } 100% { opacity: 1; clip-path: inset(0 round 0); } }
@@ -276,7 +276,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 24rem); align-items: start; gap: 1.5rem 3rem; padding: 2.25rem var(--margin); text-decoration: none; }
 .row:nth-of-type(odd) { background: var(--band); }
 .rowMain { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
-.row h3 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-head); line-height: 1; }
+.row h3 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: var(--step-head); line-height: 1; }
 .row small { font-size: var(--step-body); max-width: 40ch; color: var(--muted); }
 .row:hover small { color: var(--ink); text-decoration: underline; }
 .rowMap { margin-top: 0.4rem; color: var(--gold); font-weight: 700; }
@@ -315,7 +315,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .tentFace { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; background: linear-gradient(180deg, #f3cd8c 0%, #e5b15d 48%, #d29a43 100%); color: var(--on-gold); box-shadow: inset 0 0 0 7px rgba(15, 15, 15, 0.06), inset 0 0 0 8px rgba(15, 15, 15, 0.3); overflow: hidden; }
 .tentFace::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: linear-gradient(180deg, rgba(15, 15, 15, 0.22), transparent); }
 .tentFace::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%); transform: translateX(-120%); }
-.tentFace b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: 3.6rem; line-height: 0.9; letter-spacing: 0.02em; }
+.tentFace b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: 2.35rem; line-height: 1.05; letter-spacing: 0.04em; }
 .tentFace span { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; }
 .tentFace i { width: 56%; height: 1px; background: currentColor; opacity: 0.45; }
 @media (prefers-reduced-motion: no-preference) {
@@ -326,10 +326,10 @@ a.socialGo:hover { color: var(--ink) !important; }
 
 /* --- Kapcsolat: a három bolt Facebook-oldala --- */
 .contact { padding: 3.5rem 20px 2.5rem; background: var(--gold); color: var(--on-gold); }
-.contact h2 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-head); line-height: 1; }
+.contact h2 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: var(--step-head); line-height: 1; }
 .contact > p { font-size: var(--step-lead); line-height: 1.35; margin: 1rem 0 2rem; max-width: 44ch; }
 .fb a { display: grid; grid-template-columns: 1fr auto 52px; align-items: center; gap: 2rem; padding: 1.6rem 0; text-decoration: none; }
-.fb b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(2rem, 1rem + 3vw, 3.75rem); line-height: 1; }
+.fb b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.35rem, 0.9rem + 1.7vw, 2.4rem); line-height: 1.1; }
 .fb span { font-size: var(--step-lead); text-align: right; }
 .fb a:hover b, .fb a:hover span { text-decoration: underline; text-underline-offset: 0.15em; text-decoration-thickness: 3px; }
 .round { width: 52px; height: 52px; border-radius: 50%; background: var(--on-gold); color: var(--gold); display: grid; place-items: center; transition: transform 180ms var(--ease-out); }
@@ -339,7 +339,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 /* --- Lábléc: a név tömbökből --- */
 .footer { background: var(--bg); padding: 4rem var(--margin) 2rem; }
 .blocks { display: flex; gap: 4px; align-items: flex-end; height: 30svh; min-height: 200px; }
-.blocks span { flex: 1; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: var(--step-display); line-height: 1; }
+.blocks span { flex: 1; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: var(--step-display); line-height: 1; }
 .blocks span:nth-child(3n+1) { background: var(--gold); color: var(--on-gold); }
 .blocks span:nth-child(3n+2) { background: var(--cellar); color: var(--ink); }
 .blocks span:nth-child(3n) { background: var(--band); color: var(--gold); }
@@ -369,7 +369,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .calFrame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); opacity: 0; transition: opacity 400ms ease; }
 .calFrame iframe.ready { opacity: 1; }
 .loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 1rem; padding: 0 var(--margin); text-align: center; }
-.loading b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(2rem, 1.2rem + 3vw, 4rem); line-height: 0.95; color: var(--gold); margin-top: 1rem; }
+.loading b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.4rem, 1rem + 2vw, 2.6rem); line-height: 1.1; color: var(--gold); margin-top: 1rem; }
 .loading span { color: var(--muted); font-size: var(--step-lead); max-width: 30ch; }
 .loading img { width: min(60%, 360px); height: auto; animation: breathe 1.6s ease-in-out infinite; }
 @keyframes breathe { 50% { opacity: 0.45; transform: scale(0.98); } }
@@ -421,7 +421,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .mapov.open .fold { animation: fold 1200ms ease 980ms; }
 @keyframes fold { 0%, 30% { opacity: 1; } 100% { opacity: 0; } }
 .mapHead { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem 1.25rem; align-items: center; padding: 18px 20px; }
-.mapHead h2 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.75rem, 1rem + 2vw, 2.75rem); line-height: 1; }
+.mapHead h2 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.25rem, 0.9rem + 1.2vw, 1.9rem); line-height: 1.1; }
 .mapHead p { grid-column: 1; color: var(--muted); }
 .mapHead p b { color: var(--ink); font-weight: 600; }
 .mapHead .btn { grid-column: 2; grid-row: 1 / span 2; }
@@ -443,7 +443,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .subPage { padding-top: 7rem; }
 .section { padding: 2rem var(--margin) var(--section); }
 .sectionHead { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 3rem; }
-.h2 { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-head); line-height: 0.95; }
+.h2 { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: var(--step-head); line-height: 0.95; }
 .sectionLead { font-size: var(--step-lead); max-width: 52ch; }
 .postList { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.5rem var(--gutter); }
 .post { position: relative; display: flex; flex-direction: column; gap: 0.9rem; }
@@ -463,7 +463,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .postsEmpty { font-size: var(--step-lead); max-width: 52ch; }
 .postsMore { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin-top: 3rem; }
 .article { max-width: 52rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
-.articleTitle { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: var(--step-head); line-height: 0.95; }
+.articleTitle { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: var(--step-head); line-height: 0.95; }
 .articleImage { width: 100%; height: auto; display: block; }
 .articleText { display: flex; flex-direction: column; gap: 1em; font-size: var(--step-lead); line-height: 1.5; }
 .article .btn { align-self: flex-start; }
@@ -476,7 +476,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .albumCard:hover .albumCover img { transform: scale(1.05); }
 .albumCount { position: absolute; right: 10px; bottom: 10px; padding: 0.2rem 0.6rem; background: rgba(15, 15, 15, 0.82); color: var(--ink); font-size: var(--step-small); font-weight: 600; }
 .albumMeta { color: var(--muted); font-size: var(--step-small); }
-.albumTitle { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.3rem); line-height: 1; }
+.albumTitle { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.15rem, 0.95rem + 0.7vw, 1.55rem); line-height: 1.15; }
 .albumCard:hover .albumTitle { color: var(--gold); }
 .albumGame { align-self: flex-start; padding: 0.15rem 0.55rem; border: 1px solid rgba(229, 177, 93, 0.5); color: var(--gold); font-size: var(--step-small); font-weight: 600; }
 .albumInfo { color: var(--muted); font-size: var(--step-lead); }
@@ -525,13 +525,13 @@ a.socialGo:hover { color: var(--ink) !important; }
   .programHead, .ligaHead { flex-direction: column; align-items: stretch; }
   .calCta { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.5rem; padding: 0.8rem 0.8rem 0.8rem 1.25rem; }
   .calCtaIcon { display: none; }
-  .calCtaText b { font-size: 7vw; }
+  .calCtaText b { font-size: 5vw; }
   .calCtaGo { width: 46px; height: 46px; }
   .liga { padding: 5rem var(--margin); }
-  .ligaHead h2 { font-size: 16vw; }
+  .ligaHead h2 { font-size: 10vw; }
   .preorders > :nth-child(n + 3) { display: none; }
   .prints { height: auto; min-height: 0; display: block; padding: 7rem var(--margin) 6rem; }
-  .prints h2 { font-size: 22vw; text-align: left; }
+  .prints h2 { font-size: 12vw; text-align: left; }
   .print { position: relative; width: 62vw; margin-top: 1.5rem; }
   .print:nth-of-type(1) { left: auto; top: auto; transform: rotate(-4deg); }
   .print:nth-of-type(2) { right: auto; top: auto; margin-left: auto; transform: rotate(4deg); }
@@ -550,26 +550,26 @@ a.socialGo:hover { color: var(--ink) !important; }
   .newsBig { grid-template-columns: 1fr; }
   .newsRow { grid-column: 1 / -1; grid-template-columns: 112px 1fr; }
   .row { padding: 2.5rem 16px 2rem; grid-template-columns: 1fr; gap: 1.25rem; }
-  .row h3 { font-size: 11vw; }
+  .row h3 { font-size: 7vw; }
   .row small { font-size: var(--step-lead); }
   .hours { grid-column: 1 / -1; }
   .booking { grid-template-columns: 1fr; padding: 5rem 16px 4rem; gap: 2rem; }
-  .bookingSay h2 { font-size: 13vw; }
+  .bookingSay h2 { font-size: 8vw; }
   .bookingSay .btn { width: 100%; }
   .bookingStores { flex-direction: column; }
   .bookingStores a { display: flex; justify-content: space-between; min-height: 52px; }
   .bookingScene { min-height: 210px; grid-row: 1; }
   .bookingScene .tent { width: 200px; margin-bottom: 40px; }
-  .bookingScene .tentFace b { font-size: 2.8rem; }
+  .bookingScene .tentFace b { font-size: 1.85rem; }
   .tableSheet { width: 100%; height: 100%; border-top: 0; }
   .contact { padding-top: 4.5rem; }
-  .contact h2 { font-size: 11vw; }
+  .contact h2 { font-size: 8vw; }
   .fb a { grid-template-columns: 1fr 44px; gap: 0.35rem 1rem; }
-  .fb b { font-size: 9vw; grid-column: 1; }
+  .fb b { font-size: 6vw; grid-column: 1; }
   .fb span { grid-column: 1; grid-row: 2; text-align: left; font-size: var(--step-body); }
   .fb .round { grid-column: 2; grid-row: 1 / span 2; width: 44px; height: 44px; }
   .blocks { height: 20svh; min-height: 130px; }
-  .blocks span { font-size: 13vw; }
+  .blocks span { font-size: 9vw; }
   .footLinks { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
   .footAddr { grid-column: 1 / -1; margin-top: 2rem; }
   .calSheet { inset: 0; }
@@ -588,11 +588,11 @@ a.socialGo:hover { color: var(--ink) !important; }
 @media (min-width: 1280px) { .leagues[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .league { display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px rgba(229, 177, 93, 0.18); color: var(--ink); }
 .leagueHead { display: flex; align-items: center; gap: 12px; }
-.leagueHead h3 { margin: 0; font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem); line-height: 1; }
+.leagueHead h3 { margin: 0; font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.02rem, 0.9rem + 0.45vw, 1.3rem); line-height: 1.15; }
 .leagueTitle { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .leagueTitle small { color: var(--muted); font-size: 0.875rem; }
 .leagueSoon { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 140px; padding: 18px; border-radius: 10px; border: 1px dashed rgba(229, 177, 93, 0.45); background: rgba(229, 177, 93, 0.06); }
-.leagueSoon b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.5rem, 1.1rem + 1vw, 2rem); color: var(--gold); line-height: 1; }
+.leagueSoon b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.15rem, 0.95rem + 0.6vw, 1.45rem); color: var(--gold); line-height: 1; }
 .leagueSoon span { color: var(--muted); font-size: 0.9375rem; line-height: 1.4; }
 .leagueLogo { flex: none; width: 48px; height: 48px; border-radius: 10px; background: var(--bg); display: grid; place-items: center; padding: 6px; box-sizing: border-box; }
 .leagueLogo img { width: 100%; height: 100%; object-fit: contain; }
@@ -628,7 +628,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .preorderHot { margin-left: 0.5rem; padding: 1px 8px; border-radius: 999px; background: rgba(255, 93, 77, 0.15); color: #ff9d92; font-size: 0.75rem; font-style: normal; font-weight: 800; white-space: nowrap; }
 .preorderLogo { width: 44px; height: 44px; padding: 5px; box-sizing: border-box; border-radius: 10px; background: var(--bg); object-fit: contain; }
 .preorderText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.preorderText b { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem); line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preorderText b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(0.95rem, 0.88rem + 0.3vw, 1.08rem); line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .preorderText > span { color: var(--muted); font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .preorderGo { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--gold); color: var(--on-gold); font-weight: 800; font-size: 1.25rem; }
 /* szikrák és körhullám a kattintás helyéről */

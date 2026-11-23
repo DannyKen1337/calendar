@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { bigShoulders, publicSans } from '@/weblap/lib/fonts';
+import { displayFont, textFont } from '@/weblap/lib/fonts';
 import { getEditor, isLoggedIn } from '@/weblap/lib/auth';
 import { hasDatabase, getTavernDb } from '@/weblap/lib/db';
 import { getAllForEditor, postHeading, postDate, SOURCE_NAMES } from '@/weblap/lib/posts';
@@ -40,7 +40,7 @@ function toLocalInput(date) {
 }
 
 const Shell = ({ children }) => (
-  <div className={`${bigShoulders.variable} ${publicSans.variable} ${s.page}`}>{children}</div>
+  <div className={`${displayFont.variable} ${textFont.variable} ${s.page}`}>{children}</div>
 );
 
 // Egy kapcsoló gomb (kiemelés, elrejtés, közzététel) – szkript nélkül is működik

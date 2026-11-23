@@ -1,8 +1,9 @@
-// A weboldal betűtípusai egy helyen (a next/font egy betűt egyszer töltsön be). A Cinzel és a Manrope a szerkesztőfelületé.
-import { Cinzel, Manrope, Big_Shoulders, Public_Sans } from 'next/font/google';
+// A weboldal betűtípusai egy helyen (a next/font egy betűt egyszer töltsön be). 2026-11-23 óta a weboldal is a naptár
+// betűit használja (a felhasználó választása): Cinzel a címekhez, Manrope a szöveghez.
+import { Cinzel, Manrope } from 'next/font/google';
 
-export const cinzel = Cinzel({ subsets: ['latin', 'latin-ext'], weight: ['600', '800'], variable: '--f-cinzel' });
-export const manrope = Manrope({ subsets: ['latin', 'latin-ext'], weight: ['400', '600'], variable: '--f-manrope' });
-// A főoldal (és a Hírek oldalak) betűi: magas feliratbetű a címekhez, egyszerű groteszk a szöveghez
-export const bigShoulders = Big_Shoulders({ subsets: ['latin', 'latin-ext'], weight: ['800'], variable: '--f-display' });
-export const publicSans = Public_Sans({ subsets: ['latin', 'latin-ext'], weight: ['400', '600'], variable: '--f-text' });
+export const cinzel = Cinzel({ subsets: ['latin', 'latin-ext'], weight: ['600', '700', '800'], variable: '--f-cinzel' });
+export const manrope = Manrope({ subsets: ['latin', 'latin-ext'], weight: ['400', '600', '700', '800'], variable: '--f-manrope' });
+// A főoldal, az aloldalak és a szerkesztőfelület betűi: a címek (--f-display) Cinzel, a szöveg (--f-text) Manrope
+export const displayFont = Cinzel({ subsets: ['latin', 'latin-ext'], weight: ['700'], variable: '--f-display' });
+export const textFont = Manrope({ subsets: ['latin', 'latin-ext'], weight: ['400', '600', '700', '800'], variable: '--f-text' });
