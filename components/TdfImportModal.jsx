@@ -4,6 +4,7 @@ import { Modal, Button, InputNumber, Input, Select, Alert, Typography } from 'an
 import { CloseOutlined, UploadOutlined } from '@ant-design/icons';
 import { POINTS_MAX, normalizeNickname, nicknameKey, uniqueNickname } from '@/lib/leagues';
 import { parseTdf, sanitizeTdfRules, tdfPoints, matchTdfPlayers, defaultTdfNickname, divisionName, TDF_MAX_BYTES } from '@/lib/tdf';
+import ImportPointsInput from './ImportPointsInput';
 import m from './LeagueAdmin.module.css';
 
 const { Text } = Typography;
@@ -18,6 +19,7 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
   const [upload, setUpload] = useState(null); // { fileName, xml, parsed }
   const [error, setError] = useState('');
   const [choices, setChoices] = useState({}); // POP-azonosító => { playerId, nickname }
+  const [overrides, setOverrides] = useState({}); // POP-azonosító => kézzel átírt pont
 
   const pickFile = async (e) => {
     const file = e.target.files?.[0];
@@ -39,6 +41,7 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
       next[p.popId] = { playerId, nickname };
     }
     setChoices(next);
+    setOverrides({});
     setUpload({ fileName: file.name, xml, parsed });
   };
 
@@ -58,6 +61,9 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
   const hasNicknameProblem = parsed ? parsed.players.some(p => !choices[p.popId]?.playerId && nicknameProblem(p.popId)) : false;
   const canSave = !!validRules && !!parsed && !duplicate && !hasNicknameProblem;
   const winners = parsed ? parsed.players.filter(p => p.place === 1 && !p.dropped) : [];
+  const computedOf = (p) => (validRules ? tdfPoints(p, validRules) : null);
+  const pointsOf = (p) => overrides[p.popId] ?? computedOf(p);
+  const setOverride = (popId, v) => setOverrides(o => { const next = { ...o }; if (v === undefined) delete next[popId]; else next[popId] = v; return next; });
   const setChoice = (popId, patch) => setChoices(c => ({ ...c, [popId]: { ...c[popId], ...patch } }));
 
   const save = async () => {
@@ -66,12 +72,12 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
       xml: upload.xml,
       fileName: upload.fileName,
       rules: validRules,
-      assignments: parsed.players.map(p => ({ popId: p.popId, playerId: choices[p.popId].playerId || null, nickname: choices[p.popId].nickname })),
+      assignments: parsed.players.map(p => ({ popId: p.popId, playerId: choices[p.popId].playerId || null, nickname: choices[p.popId].nickname, ...(overrides[p.popId] !== undefined ? { points: overrides[p.popId] } : {}) })),
     });
     if (res) onSaved(res);
   };
 
-  const summary = parsed ? `${parsed.players.length} játékos${validRules ? ` · ${parsed.players.reduce((sum, p) => sum + tdfPoints(p, validRules), 0)} pont` : ''}` : '';
+  const summary = parsed ? `${parsed.players.length} játékos${validRules ? ` · ${parsed.players.reduce((sum, p) => sum + pointsOf(p), 0)} pont` : ''}` : '';
   const saveBtn = <Button key="save" size={phone ? 'large' : 'middle'} type="primary" loading={busy} disabled={!canSave} onClick={save} style={canSave ? { color: '#000', fontWeight: 'bold' } : { fontWeight: 'bold' }}>Pontok rögzítése</Button>;
   const cancelBtn = <Button key="cancel" size={phone ? 'large' : 'middle'} onClick={onClose}>Mégse</Button>;
 
@@ -133,7 +139,7 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
             {!validRules && <Alert type="warning" showIcon title="A pontok kiszámításához add meg mindhárom értéket (0 is lehet)." />}
 
             <Text style={{ color: '#baaaac', fontWeight: 700, marginTop: 4 }}>3. Eredmény és játékosok</Text>
-            <Text style={{ color: '#7d6e70', fontSize: 12 }}>A helyezés a TOM végeredménye. A ranglistán csak a rövidített név (becenév) látszik; a teljes nevet, a POP-azonosítót és a születési dátumot csak a szervezők látják. Ellenőrizd a párosítást: ha valaki már szerepel a ligában, válaszd ki, különben új játékosként kerül be.</Text>
+            <Text style={{ color: '#7d6e70', fontSize: 12 }}>A helyezés a TOM végeredménye. A ranglistán csak a rövidített név (becenév) látszik; a teljes nevet, a POP-azonosítót és a születési dátumot csak a szervezők látják. Ellenőrizd a párosítást: ha valaki már szerepel a ligában, válaszd ki, különben új játékosként kerül be. A pontot bárkinél átírhatod, ha a számolttól eltérő jár neki.</Text>
             <div className={m.list}>
               {parsed.players.map(p => {
                 const choice = choices[p.popId] || {};
@@ -142,7 +148,7 @@ export default function TdfImportModal({ league, players, sessions, busy, post, 
                   <div key={p.popId} className={m.card}>
                     <div className={m.cardTop}>
                       <span className={m.cardTitle}>{p.place ? `${p.place}. ` : ''}{p.fullName}</span>
-                      <span className={m.cardValue}>{validRules ? `${tdfPoints(p, validRules)} pont` : '—'}</span>
+                      <ImportPointsInput computed={computedOf(p)} value={overrides[p.popId]} onChange={(v) => setOverride(p.popId, v)} phone={phone} label={p.fullName} />
                     </div>
                     <span className={m.cardSub}>{p.wins} győzelem{p.byes ? ` (ebből ${p.byes} bye)` : ''} · {p.draws} döntetlen · {p.losses} vereség{p.division !== null && divisionName(p.division) ? ` · ${divisionName(p.division)}` : ''}{p.dropped ? ' · kiesett / feladta' : ''}</span>
                     <span className={m.cardSub}>POP: {p.popId}{p.birthDate ? ` · Született: ${p.birthDate}` : ''}</span>
