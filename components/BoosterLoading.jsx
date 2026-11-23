@@ -4,7 +4,8 @@ import s from './BoosterLoading.module.css';
 
 // A nyilvános naptár betöltése (pl. hidegindításnál): egy Tavern booster lebeg, csillog, alatta váltakozó, élénkítő
 // szöveg. Amikor megjön az adat, a booster teteje letépődik, a csomag lecsúszik, és „kijön belőle” a naptár.
-// Gyors betöltésnél (250 ms alatt) nem jelenik meg semmi; ha megjelent, legalább 900 ms-ig látszik, hogy ne villanjon.
+// Csak lassú betöltésnél (hidegindítás) jelenik meg: ha 1,5 mp alatt megjön az adat, semmi nem látszik. Ha megjelent,
+// és utána megjön az adat, rögtön letépődik (legfeljebb egy pillanatig tartjuk vissza, hogy ne villanjon).
 // Csökkentett mozgásnál nincs tépés, csak elhalványul. loading: tölt-e még a naptár
 const LINES = [
   'Keverjük a paklit…',
@@ -13,8 +14,8 @@ const LINES = [
   'Behúzzuk a heti programot…',
   'Mindjárt kezdünk!',
 ];
-const SHOW_AFTER = 250;
-const MIN_VISIBLE = 900;
+const SHOW_AFTER = 1500;
+const MIN_VISIBLE = 400;
 const TEAR_MS = 1150;
 
 export default function BoosterLoading({ loading }) {

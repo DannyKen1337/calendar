@@ -10,20 +10,22 @@ await db.collection('tournaments').insertOne({ name: 'Pokémon klubnap', date: `
 
 const b = await browser();
 try {
-  // lassú adat: a nyilvános adat 2,5 mp múlva érkezik
+  // lassú adat: a nyilvános adat 4 mp múlva érkezik
   const p = await page(b, null, 402, 874);
   await p.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } });
   await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 }); // első fordítás
   await p.setRequestInterception(true);
-  p.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 2500); else req.continue().catch(() => {}); });
+  p.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 4000); else req.continue().catch(() => {}); });
   await p.reload({ waitUntil: 'domcontentloaded' });
-  await wait(900);
+  await wait(1000);
+  ok(!(await p.$('[data-booster]')), '1 mp-ig nincs booster (csak a lassú betöltésnél jön)');
+  await wait(1000);
   const pack = await p.evaluate(() => { const el = document.querySelector('[data-booster]'); return el ? { phase: el.dataset.booster, text: el.innerText, logo: !!el.querySelector('img[src*="tavern-ceger"]'), clickThrough: getComputedStyle(el).pointerEvents === 'none' } : null; });
   ok(pack?.clickThrough, 'a booster rétege nem fogja el a kattintást');
   ok(pack?.phase === 'pack' && pack.logo && /Keverjük|asztal|lapokat|program|kezdünk/.test(pack.text), `lassú betöltésnél Tavern booster, élénkítő szöveggel (${pack?.text?.replace(/\n/g, ' ')})`);
   await p.screenshot({ path: `${SHOTS}naptar-booster.jpg`, quality: 60 });
   const l1 = await p.$eval('[data-booster] p', el => el.textContent);
-  await wait(1900);
+  await wait(1850);
   const l2 = await p.$eval('[data-booster] p', el => el.textContent).catch(() => l1);
   ok(l1 !== l2, `a szöveg váltakozik (${l1} → ${l2})`);
   await p.waitForSelector('[data-booster="tear"]', { timeout: 15000 }).catch(() => {});
@@ -37,6 +39,19 @@ try {
   ok(!(await p.$('[data-booster]')) && !(await p.evaluate(() => document.documentElement.dataset.boosterNyit)), 'utána eltűnik');
   ok(await p.evaluate(() => /Pokémon klubnap/.test(document.body.innerText)), 'a naptár látszik az eseménnyel');
   await p.screenshot({ path: `${SHOTS}naptar-booster-utana.jpg`, quality: 60 });
+
+  // közepesen lassú betöltés (1 mp): még nincs booster
+  const m = await page(b, null, 402, 874);
+  await m.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } });
+  await m.setRequestInterception(true);
+  m.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 1000); else req.continue().catch(() => {}); });
+  let mid = false;
+  await m.exposeFunction('__booster', () => { mid = true; });
+  await m.evaluateOnNewDocument(() => { new MutationObserver(() => { if (document.querySelector('[data-booster]')) window.__booster?.(); }).observe(document, { childList: true, subtree: true }); });
+  await m.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await wait(800);
+  ok(!mid, 'egy átlagos (1 mp-es) betöltésnél sem jelenik meg a booster');
+  await m.close();
 
   // gyors betöltésnél nincs booster
   const f = await page(b, null, 402, 874);
