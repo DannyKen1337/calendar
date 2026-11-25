@@ -1,8 +1,9 @@
 // Admin: jelentkezők és előrendelők adatai két szinten, és üzenet a rendszeren keresztül.
 //  - 1. szint (a „Személyes adatok” jog nélkül): csak a felhasználónév és a teljes név; e-mail és telefon az API-válaszban sincs.
 //  - 2. szint (personalData): minden adat. A jogot csak a tulajdonos adhatja (a felhasználókezelő sem).
-//  - Üzenet: a Jelentkezők ablakból és az előrendelésekből; a szál csak az írójának és a tulajdonosnak látszik; teszt mód
-//    (nincs e-mail beállítás): elmentődik, „Teszt válasz” gombbal kipróbálható; az olvasatlan válasz jelzést kap.
+//  - Üzenet: a Jelentkezők ablakból és az előrendelésekből; a szál csak az írójának és a tulajdonosnak látszik; e-mail
+//    beállítás nélkül elmentődik; a beérkezett válasz (itt közvetlenül az adatbázisba írva) olvasatlan jelzést kap.
+//    „Teszt válasz” gomb és művelet nincs.
 //  - A válasz webhookja aláírás nélkül elutasít.
 import { openDb, token, browser, page, ok, summary, wait, SHOTS, BASE, ObjectId } from './lib.mjs';
 
@@ -81,7 +82,9 @@ try {
   ok((await json('/api/messages', tok.owner)).data.threads.length === 1, 'a tulajdonos látja');
 
   // teszt válasz: olvasatlan jelzés, majd az Üzenetek oldalon megnyitva olvasott
-  ok((await json('/api/messages', tok.owner, { actionType: 'TEST_REPLY', payload: { threadId: String(th._id), text: 'Köszi, ott leszek!' } })).status === 200, 'teszt válasz (tulajdonos)');
+  ok((await json('/api/messages', tok.owner, { actionType: 'TEST_REPLY', payload: { threadId: String(th._id) } })).status === 400, 'teszt válasz művelet nincs');
+  // beérkezett válasz (mintha a postafiókból jött volna: lib/mailboxSync.js → appendIncoming)
+  await db.collection('message_threads').updateOne({ _id: th._id }, { $push: { messages: { id: 'v1', dir: 'in', text: 'Köszi, ott leszek!', at: new Date(), emailId: '<v1@teszt>' } }, $set: { unread: true, lastAt: new Date() } });
   ok((await json('/api/admin-data', tok.l1)).data.messaging.unread === 1, 'az írónak 1 olvasatlan válasz');
   await p.goto(`${BASE}/admin/uzenetek`, { waitUntil: 'networkidle2' });
   await p.waitForSelector('[data-szal]', { timeout: 15000 });
@@ -89,6 +92,7 @@ try {
   await p.click('[data-szal]');
   await p.waitForSelector('[data-beszelgetes] [data-irany="in"]');
   ok(await p.$eval('[data-beszelgetes]', el => /Köszi, ott leszek!/.test(el.innerText) && /Csak elmentve \(teszt\)/.test(el.innerText)), 'a beszélgetésben a válasz és a kimenő állapota');
+  ok(!(await p.$('[data-teszt-valasz]')) && !(await p.evaluate(() => /Teszt válasz/.test(document.body.innerText))), 'nincs „Teszt válasz” gomb');
   await p.type('[data-valasz]', 'Szuper, várunk!');
   await p.click('[data-valasz-kuld]');
   await p.waitForFunction(() => document.querySelectorAll('[data-beszelgetes] [data-irany="out"]').length === 2, { timeout: 10000 }).catch(() => {});

@@ -2,8 +2,7 @@
 import Link from 'next/link';
 import {
   CopyOutlined, MobileOutlined, ShoppingCartOutlined, TrophyOutlined, BarChartOutlined, TeamOutlined,
-  DashboardOutlined, GlobalOutlined, CalendarOutlined, ContactsOutlined,
-} from '@ant-design/icons';
+  DashboardOutlined, GlobalOutlined, CalendarOutlined, ContactsOutlined, InboxOutlined } from '@ant-design/icons';
 import { GAME_CONFIG } from '@/lib/gameConfig';
 import s from './QuickActions.module.css';
 
@@ -21,6 +20,7 @@ export function quickActionsFor(app) {
     Object.keys(GAME_CONFIG).some(g => owner || app.canManageGame?.(g)) && ['Játékosok', '/admin/jatekosok', ContactsOutlined],
     has('preorders') && ['Előrendelés', '/admin/elorendeles', ShoppingCartOutlined],
     has('leagues') && ['Ligák', '/admin/liga', TrophyOutlined],
+    has('mailbox') && ['Levelek', '/admin/levelek', InboxOutlined],
     ['Statisztika', '/admin/statisztika', BarChartOutlined],
     has('users') && ['Felhasználók', '/admin/felhasznalok', TeamOutlined],
     owner && ['Rendszer', '/admin/rendszer', DashboardOutlined],

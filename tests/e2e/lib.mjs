@@ -25,8 +25,10 @@ export async function openDb() {
 }
 export const token = (id, username, role) => new SignJWT({ id: String(id), username, email: 'x', role }).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('1h').sign(new TextEncoder().encode(SECRET));
 export const get = (url, cookie) => fetch(`${BASE}${url}`, { headers: cookie ? { Cookie: `tavern_session=${cookie}` } : {}, redirect: 'manual' });
+// LATHATO=1: a böngésző látható ablakban és lassítva fut (LASSIT=ms, alapból 60), hogy a teszt menet közben követhető legyen
+const VISIBLE = !!process.env.LATHATO;
 export async function browser() {
-  return puppeteer.launch({ executablePath: CHROME, headless: 'new' });
+  return puppeteer.launch({ executablePath: CHROME, headless: VISIBLE ? false : 'new', ...(VISIBLE && { slowMo: Number(process.env.LASSIT) || 60, args: ['--window-size=1320,980'] }) });
 }
 // intro: true esetén a weboldal töltőképernyője is látszik (alapból kimarad, mintha már látta volna a munkamenetben)
 export async function page(b, cookie, w = 1280, h = 900, { intro = false } = {}) {

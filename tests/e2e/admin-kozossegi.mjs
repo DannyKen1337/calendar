@@ -43,8 +43,9 @@ try {
   ok(await p.evaluate(() => /25 \/ 60/.test(document.body.innerText)), 'nyilvános napi telítettség: 25 / 60');
   await p.evaluate(() => [...document.querySelectorAll('[data-ujsor] button')].find(x => x.textContent.includes('Pokeween')).click());
   await wait(700);
+  // az időpont sorát kihagyva (hónap 25-én a dátumban is van „25”)
   const modal = await p.evaluate(() => document.querySelector('.ant-modal-container')?.innerText || '');
-  ok(/Jelmezes Pokémon-este/.test(modal) && !/25/.test(modal), 'a részletekben a leírás látszik, a helyszám nem');
+  ok(/Jelmezes Pokémon-este/.test(modal) && !/25/.test(modal.replace(/Időpont:[^\n]*/, '')), `a részletekben a leírás látszik, a helyszám nem (${modal.replace(/\s+/g, ' ').slice(0, 200)})`);
 
   // admin: a kártyán a lefoglalt helyek, a telítettség azonnal kitöltve
   const a = await page(b, tok, 402, 874);

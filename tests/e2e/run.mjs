@@ -3,14 +3,14 @@
 // Egy fájl: npm run test:e2e -- naptar-havi
 // Előfeltétel: Google Chrome (CHROME_PATH-szal felülírható); a 3179-es port szabad; ne fusson közben másik `next dev` ebben a mappában.
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const URL_ = 'http://localhost:3179/api/auth/session';
 const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fut
 const ROUNDS = [
-  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep'] },
+  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep'] },
   { fake: true, tests: ['weblap-javitasok', 'weblap-galeria', 'weblap-kepek'] },
 ];
 const only = process.argv.slice(2);
@@ -49,10 +49,34 @@ async function gone() {
   throw new Error('A tesztszerver nem állt le 30 mp alatt.');
 }
 
-const run = (file) => new Promise(resolve => {
-  const child = spawn(process.execPath, [`${HERE}${file}.mjs`], { stdio: 'inherit' });
-  const timer = setTimeout(() => { console.log(`  IDŐTÚLLÉPÉS: ${file} (${TEST_TIMEOUT / 60000} perc)`); child.kill('SIGKILL'); }, TEST_TIMEOUT);
-  child.on('exit', code => { clearTimeout(timer); resolve(code === 0); });
+// A futás jegyzőkönyve a képes beszámolóhoz (gallery.mjs): tesztenként a kezdete, a vége, az eredménye és a kiírt sorai.
+// A képernyőképeket az időpontjuk alapján rendeli a tesztekhez.
+mkdirSync(`${HERE}shots`, { recursive: true });
+const LOG = { startedAt: Date.now(), endedAt: null, tests: [] };
+const saveLog = () => { try { writeFileSync(`${HERE}shots/_futas.json`, JSON.stringify(LOG)); } catch { /* a beszámoló nem fontosabb a tesztnél */ } };
+
+const run = (file, round) => new Promise(resolve => {
+  const entry = { name: file, fake: !!round?.fake, start: Date.now(), end: null, ok: null, lines: [] };
+  LOG.tests.push(entry);
+  const child = spawn(process.execPath, [`${HERE}${file}.mjs`], { stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+  let buf = '';
+  const take = (d, out) => {
+    out.write(d);
+    buf += String(d);
+    const parts = buf.split('\n'); buf = parts.pop();
+    entry.lines.push(...parts.filter(l => l.trim()).map(l => l.slice(0, 500)));
+    if (entry.lines.length > 400) entry.lines.splice(0, entry.lines.length - 400);
+  };
+  child.stdout.on('data', d => take(d, process.stdout));
+  child.stderr.on('data', d => take(d, process.stderr));
+  const timer = setTimeout(() => { const m = `  IDŐTÚLLÉPÉS: ${file} (${TEST_TIMEOUT / 60000} perc)`; console.log(m); entry.lines.push(m); child.kill('SIGKILL'); }, TEST_TIMEOUT);
+  child.on('exit', code => {
+    clearTimeout(timer);
+    if (buf.trim()) entry.lines.push(buf.slice(0, 500));
+    Object.assign(entry, { end: Date.now(), ok: code === 0 });
+    saveLog();
+    resolve(code === 0);
+  });
 });
 
 if (await listening()) {
@@ -70,7 +94,7 @@ for (const round of ROUNDS) {
     for (const t of tests) {
       console.log(`\n== ${t}${round.fake ? ' (ál-ImgBB)' : ''}`);
       if (!server.isAlive()) { console.log(`  A tesztszerver közben leállt:\n${server.tail.join('\n')}`); failed.push(t); continue; }
-      if (!(await run(t))) failed.push(t);
+      if (!(await run(t, round))) failed.push(t);
     }
   } catch (err) {
     console.error(err.message);
@@ -80,5 +104,9 @@ for (const round of ROUNDS) {
     await gone();
   }
 }
+LOG.endedAt = Date.now();
+LOG.failed = failed;
+saveLog();
 console.log(failed.length ? `\nHIBÁS: ${failed.join(', ')}` : '\nMinden e2e teszt rendben.');
+console.log('Képes beszámoló: node tests/e2e/gallery.mjs');
 process.exit(failed.length ? 1 : 0);

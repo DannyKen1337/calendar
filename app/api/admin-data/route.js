@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
@@ -11,10 +11,12 @@ import { rgnEventId } from '@/lib/rgn';
 import { budapestDateTime } from '@/lib/eventDates';
 import { normalizeOccupancy } from '@/lib/occupancy';
 import { THREADS, messagingStatus } from '@/lib/messages';
+import { syncMailbox } from '@/lib/mailboxSync';
+import { appUrl } from '@/lib/mailer';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request) {
   try {
     const session = await verifyAdmin();
     if (!session) {
@@ -26,6 +28,8 @@ export async function GET() {
     const db = await getTavernDb();
     // Egyszer: minden meglévő szervező megkapja a személyes adatok 1. szintjét
     await ensureLevel1ForAll(db).catch(err => console.error('1. szint:', err));
+    // A rendszer postafiókja (válaszok, Beérkezett levelek): a háttérben, legfeljebb percenként (lib/mailboxSync.js)
+    after(() => syncMailbox(db, appUrl(request)).catch(() => {}));
 
     // Riftbound (külső oldalas) események jelentkezőinek frissítése: eseményenként legfeljebb 5 percenként, legfeljebb 4 mp várakozással
     await syncDueRgnEvents(db, { maxAgeMs: 5 * 60 * 1000, budgetMs: 4000 }).catch(err => console.error('rgn sync error:', err));

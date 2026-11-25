@@ -8,8 +8,7 @@ import {
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
   CalendarOutlined, PieChartOutlined, AppstoreOutlined, ScheduleOutlined, PlusOutlined, BarChartOutlined, GlobalOutlined,
   ShoppingOutlined, TrophyOutlined, ReadOutlined, TeamOutlined, ProfileOutlined, StopOutlined, ToolOutlined, DownloadOutlined,
-  StarOutlined, LogoutOutlined, MailOutlined,
-} from '@ant-design/icons';
+  StarOutlined, LogoutOutlined, MailOutlined, InboxOutlined } from '@ant-design/icons';
 import { STORES, AdminModals, AttendeeNames, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
@@ -456,6 +455,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         {linkRow(UnorderedListOutlined, 'Generátor', 'Ismétlődő események egyszerre', '/admin/generator')}
         {linkRow(MailOutlined, 'Üzenetek', unreadMessages > 0 ? `${unreadMessages} új válasz` : 'Jelentkezőknek és előrendelőknek', '/admin/uzenetek')}
         {Object.keys(GAME_CONFIG).some(g => app.canManageGame(g)) && linkRow(TeamOutlined, 'Játékosok', 'Játékos bázis játékonként', '/admin/jatekosok')}
+        {has('mailbox') && linkRow(InboxOutlined, 'Beérkezett levelek', 'A rendszer postafiókja', '/admin/levelek')}
         {linkRow(MobileOutlined, 'Check-in', null, '/admin/checkin')}
         {linkRow(BarChartOutlined, 'Statisztika', null, '/admin/statisztika')}
         {linkRow(GlobalOutlined, 'Nyilvános naptár', null, '/', true)}

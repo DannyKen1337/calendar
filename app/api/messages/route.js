@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
@@ -6,13 +6,15 @@ import { verifyAdmin } from '@/lib/auth';
 import { consumeRateLimit } from '@/lib/rateLimit';
 import { cleanMessageText } from '@/lib/messageUtils';
 import { canMessage } from '@/lib/permissions';
-import { THREADS, messagingStatus, findRecipient, canSeeThread, publicThread, sendNewMessage, appendOutgoing, appendIncoming } from '@/lib/messages';
+import { THREADS, messagingStatus, findRecipient, canSeeThread, publicThread, sendNewMessage, appendOutgoing } from '@/lib/messages';
+import { syncMailbox } from '@/lib/mailboxSync';
+import { appUrl } from '@/lib/mailer';
 
 export const dynamic = 'force-dynamic';
 
 // Szervezői üzenetek (lib/messages.js). GET: a látható szálak (a sajátjaim; a tulajdonosnak mind), a kiküldés állapota
 // és az olvasatlan válaszok száma. POST: SEND (új üzenet), REPLY (válasz a szálban), READ (elolvastam),
-// TEST_REPLY (teszt mód: válasz szimulálása, amíg a válaszok fogadása nincs beállítva).
+// (A postafiókos módban a GET a háttérben a postafiókot is megnézi az új válaszokért: lib/mailboxSync.js.)
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 const oid = (id) => (ObjectId.isValid(String(id || '')) && String(id).length === 24 ? new ObjectId(String(id)) : null);
 
@@ -20,11 +22,12 @@ async function addLog(db, adminName, action, details) {
   await db.collection('audit_logs').insertOne({ adminName: adminName || 'Rendszer', action, details, date: new Date() });
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     const session = await verifyAdmin();
     if (!session) return bad('Jogosulatlan hozzáférés', 401);
     const db = await getTavernDb();
+    after(() => syncMailbox(db, appUrl(request)).catch(() => {}));
     const query = session.role === 'owner' ? {} : { createdById: String(session.id) };
     const threads = await db.collection(THREADS).find(query).sort({ lastAt: -1 }).limit(300).toArray();
     return NextResponse.json({
@@ -88,16 +91,6 @@ export async function POST(request) {
       if (!thread) return bad('A beszélgetés nem található.', 404);
       // Olvasottnak csak az írója jelölheti (a tulajdonos nézelődése nem tünteti el a jelzést)
       if (String(thread.createdById) === String(session.id)) await col.updateOne({ _id: thread._id }, { $set: { unread: false } });
-      return NextResponse.json({ success: true });
-    }
-
-    if (actionType === 'TEST_REPLY') {
-      if (messagingStatus().replies) return bad('A válaszok fogadása be van állítva: teszt válasz nem kell.');
-      const thread = await loadThread();
-      if (!thread) return bad('A beszélgetés nem található.', 404);
-      const { text, error } = cleanMessageText(payload.text || 'Szia! Köszönöm, holnap bemegyek érte. (teszt válasz)');
-      if (error) return bad(error);
-      await appendIncoming(db, thread, { text, test: true });
       return NextResponse.json({ success: true });
     }
 

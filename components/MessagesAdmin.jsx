@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button, Input, Tag, Alert, Empty, message } from 'antd';
-import { LeftOutlined, SendOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { LeftOutlined, SendOutlined } from '@ant-design/icons';
 import useLiveRefresh from '@/lib/useLiveRefresh';
 
 // Üzenetek: a szervező beszélgetései a jelentkezőkkel / előrendelőkkel (lib/messages.js). Mindenki a sajátjait látja,
@@ -65,10 +65,6 @@ export default function MessagesAdmin({ onUnreadChange }) {
     } catch (e) { api.error(e.message); } finally { setBusy(false); }
   };
 
-  const testReply = async () => {
-    try { await post('TEST_REPLY', { threadId: thread.id }); await load(); api.success('Teszt válasz hozzáadva.'); } catch (e) { api.error(e.message); }
-  };
-
   if (error && !data) return <div className={`${panel} p-4`} style={{ color: '#ff7875' }}>{error}</div>;
   if (!data) return <div className={`${panel} p-4`} style={{ color: '#baaaac' }}>Betöltés...</div>;
 
@@ -123,7 +119,6 @@ export default function MessagesAdmin({ onUnreadChange }) {
       <div className="flex flex-col gap-2 p-4 border-t border-[#2a2022]">
         <Input.TextArea value={reply} onChange={e => setReply(e.target.value)} rows={3} maxLength={4000} placeholder={`Válasz neki: ${thread.toName}`} aria-label="Válasz" data-valasz />
         <div className="flex flex-wrap gap-2 justify-end">
-          {!data.status.replies && <Button icon={<ExperimentOutlined />} onClick={testReply} data-teszt-valasz title="Amíg a válaszok fogadása nincs beállítva, így kipróbálható, hogyan jelenik meg egy válasz">Teszt válasz</Button>}
           <Button type="primary" icon={<SendOutlined />} loading={busy} onClick={sendReply} style={{ color: '#000', fontWeight: 'bold' }} data-valasz-kuld>Küldés</Button>
         </div>
       </div>
@@ -133,10 +128,10 @@ export default function MessagesAdmin({ onUnreadChange }) {
   return (
     <>
       {holder}
-      {!data.status.send && <Alert type="warning" showIcon className="mb-4" title="Teszt mód: az e-mail küldés még nincs beállítva" description="Az üzenetek a rendszerben mentődnek el, de levél nem megy ki. A „Teszt válasz” gombbal kipróbálhatod, hogyan jelenik meg egy válasz." />}
+      {!data.status.send && <Alert type="warning" showIcon className="mb-4" title="Teszt mód: az e-mail küldés még nincs beállítva" description="Az üzenetek a rendszerben mentődnek el, de levél nem megy ki." />}
       {data.status.send && !data.status.replies && <Alert type="info" showIcon className="mb-4" title="A levelek kimennek, de a válaszok még nem ide érkeznek, hanem a rendszer postafiókjába." />}
       <p style={{ color: '#9a8a8c', marginTop: 0 }}>A jelentkezőknek és az előrendelőknek a rendszeren keresztül írhatsz: az e-mail címüket nem látod, a válaszukat csak te és a tulajdonos látjátok.</p>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className={thread ? 'hidden lg:block' : ''}>{list}</div>
         <div className={thread ? '' : 'hidden lg:block'}>{view || <div className={`${panel} p-6`} style={{ color: '#9a8a8c' }}>Válassz egy beszélgetést.</div>}</div>
       </div>
