@@ -21,6 +21,7 @@ import TableBookingAdmin from '@/components/TableBookingAdmin';
 import QuickActions, { quickActionsFor } from '@/components/QuickActions';
 import { Fab, PullToRefresh } from '@/components/PhoneApp';
 import s from './AdminApp.module.css';
+import PushToggle from './PushToggle';
 
 // Az admin felület (tulajdonos és szervezők): egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
 // Fülek: Események (hónaponként, ez a kezdőoldal), Telítettség (napi telítettség, kézi helyfoglalás; a tulajdonosnak a modul
@@ -505,6 +506,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       )}
       <h2 className={s.groupTitle}>Fiók · {app.userName}</h2>
       <div className={s.group}>
+        <PushToggle />
         <button type="button" className={s.tool} onClick={onShowChangelog} data-eszkoz><span className={s.toolIcon} aria-hidden="true"><StarOutlined /></span><span className={s.toolText}><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
         {isOwner && buttonRow(LockOutlined, 'Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
         {buttonRow(LogoutOutlined, 'Kijelentkezés', null, () => app.handleLogout(), true)}
