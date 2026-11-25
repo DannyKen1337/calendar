@@ -54,7 +54,7 @@ export default function MessageModal({ target, status, onClose, onSent }) {
         <div data-uzenet-ablak>
           <p style={{ color: '#baaaac', marginTop: 0 }}>{target?.context}. Az e-mail címét nem látod: a levelet a rendszer küldi el, a választ az <Link href="/admin/uzenetek" style={{ color: '#E5B15D' }}>Üzenetek</Link> között látod (csak te és a tulajdonos).</p>
           {!status?.send && <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Teszt mód" description="Az e-mail küldés még nincs beállítva: az üzenet csak a rendszerben mentődik el, levél nem megy ki." />}
-          {status?.send && !status?.replies && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="A válaszok fogadása még nincs beállítva: a levél kimegy, de a válasz nem érkezik vissza ide." />}
+          {status?.send && !status?.replies && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="A levél kimegy, de a válasz még nem ide érkezik, hanem a rendszer postafiókjába." />}
           <label style={{ display: 'block', marginBottom: 12 }}>
             <span style={{ display: 'block', color: '#E0D6C8', marginBottom: 4 }}>Tárgy</span>
             <Input value={subject} onChange={e => setSubject(e.target.value)} maxLength={120} placeholder={target ? `Tavern: ${target.context}` : ''} />
