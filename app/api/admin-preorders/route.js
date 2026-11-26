@@ -6,8 +6,12 @@ import { canManageCategory, hasFeature, seesPersonalData, canMessage } from '@/l
 import { sanitizeProductInput, productStock, productPrice, PREORDER_GAMES } from '@/lib/preorders';
 import { toObjectId } from '@/lib/preorderData';
 import { messagingStatus } from '@/lib/messages';
+import { isMailConfigured, sendMail } from '@/lib/mailer';
+import { sanitizeArrival, arrivalMail, arrivalRecipients } from '@/lib/arrivalMail';
 
 export const dynamic = 'force-dynamic';
+// A „Megérkezett” értesítő sok levelet küldhet egyszerre
+export const maxDuration = 300;
 
 // Előrendelések kezelése az admin felületen. A szervező csak azoknak a játékoknak a termékeit
 // és jelentkezőit látja és kezelheti, amelyeket kezelhet (az eseményekhez hasonlóan).
@@ -31,10 +35,10 @@ export async function GET() {
       : [];
 
     return NextResponse.json({
-      products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), price: productPrice(p), stripeUrl: p.stripeUrl || '', perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
+      products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), price: productPrice(p), stripeUrl: p.stripeUrl || '', perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, arrivalNotice: p.arrivalNotice || null, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
       // 1. szint: e-mail és telefon nélkül (a rendszeren keresztül írhat nekik: hasEmail); 2. szint: minden adat
       messaging: { personalData: seesPersonalData(session), canMessage: canMessage(session), ...messagingStatus() },
-      preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, ...(seesPersonalData(session) ? { email: o.email, phone: o.phone } : { hasEmail: !!o.email }), quantity: o.quantity, date: o.date, updatedAt: o.updatedAt, checkoutAt: o.checkoutAt || null, handedOverAt: o.handedOverAt || null, handedOverBy: o.handedOverBy || '', paidAt: o.paidAt || null, paidBy: o.paidBy || '' })),
+      preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, ...(seesPersonalData(session) ? { email: o.email, phone: o.phone } : { hasEmail: !!o.email }), quantity: o.quantity, date: o.date, updatedAt: o.updatedAt, checkoutAt: o.checkoutAt || null, arrivalMailAt: o.arrivalMailAt || null, handedOverAt: o.handedOverAt || null, handedOverBy: o.handedOverBy || '', paidAt: o.paidAt || null, paidBy: o.paidBy || '' })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
     });
   } catch (error) {
@@ -131,6 +135,39 @@ export async function POST(request) {
         : { $unset: { paidAt: '', paidBy: '' } });
       await addLog(db, session.username, 'ELŐRENDELÉS FIZETÉS', `${paid ? 'Fizetve' : 'Fizetés visszavonva'}: ${order.name} – ${product?.name || 'törölt termék'} (${order.quantity} db)`);
       return NextResponse.json({ success: true });
+    }
+
+    // „Megérkezett” értesítő: a szervező által (az előnézetben) jóváhagyott tárgy és szöveg, vásárlónként külön levélben
+    // (a címek nem látják egymást). Akinek kiment, annál arrivalMailAt jelzi: így egy félbeszakadt küldés folytatható.
+    if (actionType === 'SEND_ARRIVAL_NOTICE') {
+      const existing = await findProduct(payload.productId);
+      if (!existing) return NextResponse.json({ error: 'A termék nem található.' }, { status: 404 });
+      if (!canManageCategory(session, existing.category)) return noPermission();
+      if (!canMessage(session)) return NextResponse.json({ error: 'Az értesítés kiküldéséhez a „Személyes adatok: 1. szint” jog kell. A tulajdonos adhat hozzáférést.' }, { status: 403 });
+      if (!isMailConfigured()) return NextResponse.json({ error: 'Az e-mail küldés nincs beállítva, ezért a levél most nem küldhető ki.' }, { status: 400 });
+      const mail = sanitizeArrival(payload);
+      if (mail.error) return NextResponse.json({ error: mail.error }, { status: 400 });
+      const orders = await db.collection('preorders').find({ productId: String(existing._id) }).sort({ date: 1 }).toArray();
+      const recipients = arrivalRecipients(orders, { skipHanded: payload.skipHanded !== false, skipNotified: payload.skipNotified !== false });
+      if (!recipients.length) return NextResponse.json({ error: 'Nincs kinek kiküldeni (mindenki megkapta már, vagy átvette).' }, { status: 400 });
+
+      let sent = 0;
+      const failed = [];
+      for (let i = 0; i < recipients.length; i += 3) {
+        await Promise.all(recipients.slice(i, i + 3).map(async (o) => {
+          try {
+            await sendMail({ to: o.email, ...arrivalMail(mail, { name: o.name, quantity: o.quantity }) });
+            await db.collection('preorders').updateOne({ _id: o._id }, { $set: { arrivalMailAt: new Date() } });
+            sent++;
+          } catch (err) {
+            failed.push(o.name);
+            await logSystemError('arrival mail', err);
+          }
+        }));
+      }
+      if (sent) await products.updateOne({ _id: existing._id }, { $set: { arrivalNotice: { at: new Date(), by: session.username, count: sent + (existing.arrivalNotice?.count || 0) } } });
+      await addLog(db, session.username, 'ELŐRENDELÉS ÉRTESÍTÉS', `Megérkezett: ${existing.name} – ${sent} levél kiment${failed.length ? `, ${failed.length} nem (${failed.join(', ')})` : ''}`);
+      return NextResponse.json({ success: true, sent, failed });
     }
 
     // Egy jelentkezés törlése

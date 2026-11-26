@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
-import { PlusOutlined, MailOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined, CreditCardOutlined } from '@ant-design/icons';
+import { PlusOutlined, MailOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined, CreditCardOutlined, NotificationOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
 import MessageModal from '@/components/MessageModal';
+import ArrivalNoticeModal from '@/components/ArrivalNoticeModal';
 import { getGameColor } from '@/lib/gameConfig';
 import useLiveRefresh from '@/lib/useLiveRefresh';
 import { preorderLink, preorderGameLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX, STRIPE_URL_MAX, normalizeStripeUrl } from '@/lib/preorders';
@@ -32,6 +33,7 @@ export default function PreorderAdmin() {
   const [gameQuery, setGameQuery] = useState({}); // játék => keresés a játék jelentkezői között
   const [editing, setEditing] = useState(null); // null: zárva; {}: új termék; {id,...}: szerkesztés
   const [saving, setSaving] = useState(false);
+  const [arrival, setArrival] = useState(null); // a „Megérkezett” értesítő termékének azonosítója
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
@@ -216,6 +218,7 @@ export default function PreorderAdmin() {
               <Tag color={p.isOpen ? 'green' : 'default'} style={{ margin: 0 }}>{p.isOpen ? 'Nyitott' : 'Lezárva'}</Tag>
               {soldOut && <Tag color="red" style={{ margin: 0 }}>{total > p.stock ? `Túlfoglalva (+${total - p.stock} db)` : 'Elfogyott'}</Tag>}
               {p.price !== null && <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{formatPrice(p.price)}</span>}
+              {p.arrivalNotice && <Tag color="gold" icon={<NotificationOutlined />} style={{ margin: 0 }} title={`${formatHu(p.arrivalNotice.at)} – ${p.arrivalNotice.by}`} data-ertesitve>Értesítve ({p.arrivalNotice.count} fő)</Tag>}
               {p.stripeUrl && <Tag color="purple" icon={<CreditCardOutlined />} style={{ margin: 0 }} title={p.stripeUrl} data-stripe-cimke>Megveszem most gomb</Tag>}
             </div>
             <div style={{ color: '#9a8a8c', fontSize: 13, marginTop: 2 }}>
@@ -241,6 +244,9 @@ export default function PreorderAdmin() {
           <Button size="small" icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderLink(origin, p.id))} title="Csak ezt a terméket mutató link, meghirdetéshez">Link másolása</Button>
           <Button size="small" icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderGameLink(origin, p.category))} title={`A(z) ${p.category} összes nyitott előrendelését mutató link`}>Játék linkje</Button>
           <Button size="small" icon={<FileExcelOutlined />} style={sideBtn} href={`/api/admin-preorders/export?productId=${encodeURIComponent(p.id)}`}>Excel</Button>
+          {data.messaging?.canMessage && orders.length > 0 && (
+            <Button size="small" icon={<NotificationOutlined />} style={{ ...sideBtn, color: '#E5B15D', borderColor: '#5c4520' }} onClick={() => setArrival(p.id)} data-megerkezett title="E-mail a feliratkozóknak, hogy a termék megérkezett és átvehető">Megérkezett</Button>
+          )}
           <Button size="small" icon={<EditOutlined />} style={sideBtn} onClick={() => openEditor(p)}>Szerkesztés</Button>
           {p.isOpen
             ? <Popconfirm title="Lezárod az előrendelést?" description="A nyilvános oldalon nem jelenik meg többé, a jelentkezések megmaradnak." onConfirm={() => setOpen(p, false)} okText="Lezárás" cancelText="Mégse"><Button size="small" icon={<LockOutlined />} style={sideBtn}>Lezárás</Button></Popconfirm>
@@ -336,6 +342,22 @@ export default function PreorderAdmin() {
           );
         })}
       </div>
+
+      {arrival && productById.get(arrival) && (
+        <ArrivalNoticeModal
+          product={productById.get(arrival)}
+          orders={ordersByProduct.get(arrival) || []}
+          canSend={!!data.messaging?.send}
+          post={post}
+          onClose={() => setArrival(null)}
+          onSent={(res) => {
+            setArrival(null);
+            if (res.sent) messageApi.success(`Kiment ${res.sent} levél.`);
+            if (res.failed?.length) messageApi.warning({ content: `${res.failed.length} levél nem ment ki: ${res.failed.join(', ')}. Később újra megpróbálhatod: aki már megkapta, az nem kapja meg újra.`, duration: 10 });
+            load();
+          }}
+        />
+      )}
 
       <Modal
         title={<span style={{ fontWeight: 800, color: '#f3ece3' }}>{editing?.id ? 'Termék szerkesztése' : 'Új előrendelhető termék'}</span>}
