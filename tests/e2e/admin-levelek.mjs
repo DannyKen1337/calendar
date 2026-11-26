@@ -57,6 +57,8 @@ try {
   await p.waitForFunction(() => /csütörtökön érkeznek/.test(document.querySelector('[data-levelszoveg]')?.innerText || ''), { timeout: 10000 });
   const v = await p.$eval('[data-levelnezet]', el => el.innerText);
   ok(/Szállítás csütörtökön/.test(v) && /rendeles@nagyker\.hu/.test(v) && /szamla\.pdf/.test(v), 'a megnyitott levél: tárgy, feladó, melléklet neve');
+  // (az oldal kérésenként renderelődik: a cím a szerver válasza után frissül)
+  await p.waitForFunction(() => location.search.includes('level='), { timeout: 15000 }).catch(() => {});
   ok(p.url().includes('level='), 'a megnyitott levélnek saját linkje van');
   ok(!(await p.$('textarea')) && !(await p.$eval('[data-levelnezet]', el => [...el.querySelectorAll('button')].some(x => /Válasz|Küldés|Törlés/.test(x.textContent)))), 'csak olvasás: nincs válasz, küldés, törlés');
   await p.type('[data-level-kereso] input', 'anna');

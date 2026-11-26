@@ -109,8 +109,8 @@ try {
     await p.goto(`${BASE}/admin?lap=tovabbiak`, { waitUntil: 'networkidle2', timeout: 240000 });
     await p.waitForFunction(() => document.body.innerText.includes('Kijelentkezés minden eszközről'), { timeout: 60000 });
     await clickText(p, 'button', 'Kijelentkezés minden eszközről');
-    await p.waitForSelector('.ant-popconfirm .ant-btn-dangerous', { timeout: 10000 });
-    await p.click('.ant-popconfirm .ant-btn-dangerous');
+    await p.waitForSelector('.ant-popconfirm .ant-btn-dangerous', { visible: true, timeout: 10000 });
+    await p.evaluate(() => document.querySelector('.ant-popconfirm .ant-btn-dangerous').click()); // (a buborék még nyílik)
     await wait(1500);
     ok(await whoAmI(orgTok) === null, 'a gombbal minden eszközről kijelentkezik');
     ok(p.errs.length === 0, `nincs hiba az oldalon (${p.errs.join(' | ')})`);

@@ -10,7 +10,7 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const URL_ = 'http://localhost:3179/api/auth/session';
 const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fut
 const ROUNDS = [
-  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'biztonsag'] },
+  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'biztonsag', 'csp'] },
   { fake: true, tests: ['weblap-javitasok', 'weblap-galeria', 'weblap-kepek'] },
 ];
 const only = process.argv.slice(2);
@@ -38,6 +38,13 @@ function startServer(fake) {
     throw new Error(`A tesztszerver nem indult el 4 perc alatt:\n${tail.join('\n')}`);
   };
   return { proc, ready, isAlive: () => !exited, tail };
+}
+
+// Bemelegítés: a fő oldalak első (hideg) fordítása itt történik meg, ne az első teszt időkeretében
+async function warmUp() {
+  for (const path of ['/', '/admin', '/weblapteszt', '/weblapteszt/admin', '/esemeny/x', '/asztalfoglalas', '/elorendeles']) {
+    try { await fetch(`http://localhost:3179${path}`, { signal: AbortSignal.timeout(5 * 60 * 1000) }); } catch { /* a teszt majd jelzi */ }
+  }
 }
 
 // A következő kör előtt a régi szervernek tényleg le kell állnia (különben a teszt egy leálló szerverbe fut)
@@ -91,6 +98,7 @@ for (const round of ROUNDS) {
   const server = startServer(round.fake);
   try {
     await server.ready();
+    await warmUp();
     for (const t of tests) {
       console.log(`\n== ${t}${round.fake ? ' (ál-ImgBB)' : ''}`);
       if (!server.isAlive()) { console.log(`  A tesztszerver közben leállt:\n${server.tail.join('\n')}`); failed.push(t); continue; }
