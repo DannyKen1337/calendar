@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
-import { normalizePhone, normalizeQuantity, phoneKey, productStock, productLimit, stripeCheckoutUrl, PREORDER_MAX_ITEMS } from '@/lib/preorders';
+import { normalizePhone, normalizeQuantity, phoneKey, productStock, productLimit, stripeCheckoutUrl, storesText, PREORDER_MAX_ITEMS } from '@/lib/preorders';
 import { toObjectId } from '@/lib/preorderData';
 import { isMailConfigured, sendMail } from '@/lib/mailer';
 import { preorderMail } from '@/lib/preorderMail';
@@ -134,7 +134,7 @@ export async function POST(request) {
     let mailSent = false;
     if (isMailConfigured()) {
       try {
-        await sendMail({ to: email, ...preorderMail({ name, items: products.map(p => ({ name: p.name, category: p.category, quantity: items.get(String(p._id)) })), checkoutUrl }) });
+        await sendMail({ to: email, ...preorderMail({ name, items: products.map(p => ({ name: p.name, category: p.category, stores: storesText(p), quantity: items.get(String(p._id)) })), checkoutUrl }) });
         mailSent = true;
       } catch (mailErr) {
         console.error('preorder mail error:', mailErr);

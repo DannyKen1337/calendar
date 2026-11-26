@@ -1,13 +1,13 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
-import { PlusOutlined, MailOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined, CreditCardOutlined, NotificationOutlined } from '@ant-design/icons';
+import { PlusOutlined, MailOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined, CreditCardOutlined, NotificationOutlined, ShopOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
 import MessageModal from '@/components/MessageModal';
 import ArrivalNoticeModal from '@/components/ArrivalNoticeModal';
 import { getGameColor } from '@/lib/gameConfig';
 import useLiveRefresh from '@/lib/useLiveRefresh';
-import { preorderLink, preorderGameLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX, STRIPE_URL_MAX, normalizeStripeUrl } from '@/lib/preorders';
+import { preorderLink, preorderGameLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX, STRIPE_URL_MAX, normalizeStripeUrl, PREORDER_STORES, storeLabel, preorderStoreLink } from '@/lib/preorders';
 
 const { Title, Text } = Typography;
 
@@ -80,7 +80,7 @@ export default function PreorderAdmin() {
 
   const openEditor = (product) => {
     setEditing(product);
-    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '', stock: product.stock ?? null, perPersonLimit: product.perPersonLimit ?? null, price: product.price ?? null, stripeUrl: product.stripeUrl || '' });
+    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '', stock: product.stock ?? null, perPersonLimit: product.perPersonLimit ?? null, price: product.price ?? null, stripeUrl: product.stripeUrl || '', stores: product.stores || [] });
   };
 
   const save = async (values) => {
@@ -218,6 +218,9 @@ export default function PreorderAdmin() {
               <Tag color={p.isOpen ? 'green' : 'default'} style={{ margin: 0 }}>{p.isOpen ? 'Nyitott' : 'Lezárva'}</Tag>
               {soldOut && <Tag color="red" style={{ margin: 0 }}>{total > p.stock ? `Túlfoglalva (+${total - p.stock} db)` : 'Elfogyott'}</Tag>}
               {p.price !== null && <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{formatPrice(p.price)}</span>}
+              {p.stores?.length > 0
+                ? p.stores.map(id => <Tag key={id} icon={<ShopOutlined />} style={{ margin: 0 }} data-termek-bolt={id}>{storeLabel(id)}</Tag>)
+                : <Tag icon={<ShopOutlined />} style={{ margin: 0, color: '#9a8a8c' }}>Minden bolt</Tag>}
               {p.arrivalNotice && <Tag color="gold" icon={<NotificationOutlined />} style={{ margin: 0 }} title={`${formatHu(p.arrivalNotice.at)} – ${p.arrivalNotice.by}`} data-ertesitve>Értesítve ({p.arrivalNotice.count} fő)</Tag>}
               {p.stripeUrl && <Tag color="purple" icon={<CreditCardOutlined />} style={{ margin: 0 }} title={p.stripeUrl} data-stripe-cimke>Megveszem most gomb</Tag>}
             </div>
@@ -276,8 +279,14 @@ export default function PreorderAdmin() {
             <Button icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderLink(origin))}>Nyilvános link másolása</Button>
             <Button icon={<EyeOutlined />} style={sideBtn} href="/elorendeles" target="_blank" rel="noopener">Megnyitás</Button>
           </div>
+          <div className="flex flex-wrap items-center gap-2" data-bolt-linkek>
+            <span style={{ color: '#baaaac', fontSize: 13 }}><ShopOutlined /> Bolt linkje (csak annak a boltnak az előrendelései, a helyi közösségnek):</span>
+            {PREORDER_STORES.map(id => (
+              <Button key={id} size="small" icon={<LinkOutlined />} style={sideBtn} onClick={() => copy(preorderStoreLink(origin, id), `${storeLabel(id)} linkje vágólapra másolva!`)} data-bolt-link={id}>{storeLabel(id)}</Button>
+            ))}
+          </div>
           <Text style={{ color: '#9a8a8c', fontSize: 13 }}>
-            Nyilvános oldal: <span style={{ color: '#E0D6C8' }}>{preorderLink(origin)}</span> · {openCount} nyitott előrendelés. Ez az összesítő: minden játék előrendelése látszik rajta. A termékeknél a „Link másolása” csak azt az egy terméket, a „Játék linkje” annak a játéknak az összes előrendelését mutatja.
+            Nyilvános oldal: <span style={{ color: '#E0D6C8' }}>{preorderLink(origin)}</span> · {openCount} nyitott előrendelés. Ez az összesítő: minden játék és minden bolt előrendelése látszik rajta. A termékeknél a „Link másolása” csak azt az egy terméket, a „Játék linkje” annak a játéknak az összes előrendelését mutatja.
           </Text>
           <div className="flex flex-wrap items-center gap-3">
             <Segmented options={STATUS_OPTIONS} value={status} onChange={setStatus} />
@@ -388,6 +397,9 @@ export default function PreorderAdmin() {
           </div>
           <Form.Item name="price" label="Ár (nem kötelező)" extra="Darabonkénti ár forintban. A vásárló a termék mellett és a végösszegnél is látja.">
             <InputNumber min={0} max={PRODUCT_PRICE_MAX} precision={0} step={500} suffix="Ft" placeholder="Pl.: 25000" style={{ width: '100%' }} formatter={(val) => (val === undefined || val === null || val === '' ? '' : String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ' '))} parser={(val) => String(val || '').replace(/\D/g, '')} />
+          </Form.Item>
+          <Form.Item name="stores" label="Bolt (nem kötelező)" extra="Melyik boltban vehető át. Ha üresen hagyod, mindegyikben. A bolt linkjén csak az ott átvehető termékek látszanak, az összesítőn minden.">
+            <Select mode="multiple" allowClear placeholder="Minden bolt" options={PREORDER_STORES.map(id => ({ value: id, label: storeLabel(id) }))} data-bolt-valaszto />
           </Form.Item>
           <Form.Item name="stripeUrl" label="Stripe fizetési link (nem kötelező)"
             extra="Ha megadod, a vásárló a „Megveszem most” gombbal rögtön fizethet. A gombra kattintva bekerül a jelentkezők közé akkor is, ha végül nem fizet. Később is hozzáadható, átírható, vagy üresre törölve kivehető."

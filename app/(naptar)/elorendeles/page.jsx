@@ -1,7 +1,7 @@
 import { isMaintenanceOn } from '@/lib/events';
 import { getOpenPreorderProducts } from '@/lib/preorderData';
 import PreorderPage from '@/components/PreorderPage';
-import { formatPrice } from '@/lib/preorders';
+import { formatPrice, availableInStore, storeLabel, PREORDER_STORES } from '@/lib/preorders';
 import { categoryFromSlug } from '@/lib/leagues';
 
 const DEFAULT_META = {
@@ -23,10 +23,11 @@ export async function generateMetadata({ searchParams }) {
 }
 
 // Nyilvános előrendelő oldal. ?termek=<azonosító>: csak az a termék látszik; ?jatek=<játék>: csak annak a játéknak az
-// előrendelései (meghirdetéshez megosztható linkek); paraméter nélkül az összes játék (összesítő).
+// előrendelései; ?bolt=<bolt>: csak annak a boltnak az előrendelései (a minden boltban átvehetőkkel együtt), a helyi
+// közösségnek megosztható; a kettő együtt is megadható. Paraméter nélkül minden játék és minden bolt (összesítő).
 // A searchParams használata miatt minden kérésnél frissen töltődik (dinamikus oldal).
 export default async function Page({ searchParams }) {
-  const { termek, jatek, embed: embedParam } = await searchParams;
+  const { termek, jatek, bolt, embed: embedParam } = await searchParams;
   // ?embed=1: a weboldal ablakában, beépítve (kompakt, nagy fejléc nélkül)
   const embed = embedParam === '1';
   if (await isMaintenanceOn().catch(() => false)) return <PreorderPage maintenance embed={embed} />;
@@ -36,9 +37,14 @@ export default async function Page({ searchParams }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   // Termék-linknél csak az az egy termék kerül le a böngészőbe
   if (focused) return <PreorderPage products={[focused]} focusId={focusId} embed={embed} />;
+  // Bolt-link: csak annak a boltnak a termékei (ismeretlen boltnál az összes). Ha a boltnak nincs nyitott előrendelése,
+  // azt írja ki (nem az összes bolt termékeit, hogy a helyi közösség ne rendeljen elő máshol átvehetőt).
+  const store = !focusId && typeof bolt === 'string' && PREORDER_STORES.includes(bolt) ? bolt : null;
+  const inStore = store ? products.filter(p => availableInStore(p, store)) : products;
   // Játék-linknél csak annak a játéknak a termékei (ha ismeretlen a játék, vagy most nincs nyitott terméke: az összes)
   const game = !focusId && typeof jatek === 'string' ? categoryFromSlug(jatek) : null;
-  const ofGame = game ? products.filter(p => p.category === game) : [];
-  if (ofGame.length) return <PreorderPage products={ofGame} game={game} embed={embed} />;
-  return <PreorderPage products={products} focusId={focusId} embed={embed} />;
+  const ofGame = game ? inStore.filter(p => p.category === game) : [];
+  const storeName = store ? storeLabel(store) : null;
+  if (ofGame.length) return <PreorderPage products={ofGame} game={game} store={store} storeName={storeName} embed={embed} />;
+  return <PreorderPage products={inStore} focusId={focusId} store={store} storeName={storeName} embed={embed} />;
 }

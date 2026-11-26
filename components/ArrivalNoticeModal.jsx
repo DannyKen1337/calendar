@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Modal, Input, Checkbox, Button, Popconfirm, Alert, Tag } from 'antd';
 import { CloseOutlined, SendOutlined, UndoOutlined } from '@ant-design/icons';
+import { storesText } from '@/lib/preorders';
 import { arrivalMail, arrivalRecipients, defaultArrivalSubject, defaultArrivalBody, ARRIVAL_SUBJECT_MAX, ARRIVAL_BODY_MAX } from '@/lib/arrivalMail';
 
 // „Megérkezett” értesítő egy termék előrendelőinek: előre megírt, szerkeszthető levél élő előnézettel (pontosan az, ami
@@ -12,7 +13,7 @@ const label = { color: '#baaaac', fontSize: 13, fontWeight: 700, display: 'block
 
 export default function ArrivalNoticeModal({ product, orders, canSend, post, onClose, onSent }) {
   const [subject, setSubject] = useState(() => defaultArrivalSubject(product.name));
-  const [body, setBody] = useState(() => defaultArrivalBody(product.name));
+  const [body, setBody] = useState(() => defaultArrivalBody(product.name, storesText(product)));
   const [skipHanded, setSkipHanded] = useState(true);
   const [skipNotified, setSkipNotified] = useState(true);
   const [sending, setSending] = useState(false);
@@ -77,7 +78,7 @@ export default function ArrivalNoticeModal({ product, orders, canSend, post, onC
               <Input.TextArea id="ertesites-szoveg" value={body} onChange={e => setBody(e.target.value)} maxLength={ARRIVAL_BODY_MAX} autoSize={{ minRows: 9, maxRows: 18 }} status={body.trim() ? undefined : 'error'} />
               <div style={{ color: '#9a8a8c', fontSize: 12, marginTop: 6 }}>A <b style={{ color: '#E0D6C8' }}>{'{név}'}</b> helyére a vásárló neve, a <b style={{ color: '#E0D6C8' }}>{'{darab}'}</b> helyére az előrendelt darabszám kerül. Üres sor: új bekezdés.</div>
             </div>
-            <Button size="small" type="text" icon={<UndoOutlined />} onClick={() => { setSubject(defaultArrivalSubject(product.name)); setBody(defaultArrivalBody(product.name)); }} style={{ color: '#9a8a8c', alignSelf: 'flex-start' }}>Alapszöveg visszaállítása</Button>
+            <Button size="small" type="text" icon={<UndoOutlined />} onClick={() => { setSubject(defaultArrivalSubject(product.name)); setBody(defaultArrivalBody(product.name, storesText(product))); }} style={{ color: '#9a8a8c', alignSelf: 'flex-start' }}>Alapszöveg visszaállítása</Button>
           </div>
           <div>
             <span style={label}>Előnézet: így kapja meg {sample.name}</span>

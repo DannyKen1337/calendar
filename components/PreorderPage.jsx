@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getGameConfig, getGameColor } from '@/lib/gameConfig';
-import { groupByGame, maxSelectable, formatPrice } from '@/lib/preorders';
+import { groupByGame, maxSelectable, formatPrice, storesText } from '@/lib/preorders';
 import { Field, Progress, ErrorSummary, SubmitButton, Success, ICONS } from '@/components/FormKit';
 import PreorderContact from '@/components/PreorderContact';
 import s from './PreorderPage.module.css';
@@ -44,7 +44,7 @@ const privacyText = (
 
 const Shell = ({ children, embed }) => <main className={`${s.page} ${embed ? s.embed : ''}`}><div className={s.wrap}>{children}</div></main>;
 // contact: a „Kérdésed van? Írj nekünk” gomb (és lenyitva az üzenetküldő), a fejléc alján
-const Header = ({ subtitle, game, showAll, embed, contact }) => (embed ? (
+const Header = ({ subtitle, game, storeName, showAll, embed, contact }) => (embed ? (
   <>
     {showAll && <nav className={s.embedTop}><a className={s.allLink} href="/elorendeles?embed=1">Összes előrendelés ›</a></nav>}
     {contact}
@@ -52,7 +52,7 @@ const Header = ({ subtitle, game, showAll, embed, contact }) => (embed ? (
 ) : (
   <>
     <header className={s.head}>
-      <p className={s.kicker}>Tavern{game ? ` · ${game}` : ''}</p>
+      <p className={s.kicker} data-bolt-fejlec={storeName || undefined}>{storeName || 'Tavern'}{game ? ` · ${game}` : ''}</p>
       <h1 className={s.title}>Előrendelés</h1>
       {subtitle && <p className={s.sub}>{subtitle}</p>}
       {showAll && <a className={s.allLink} href="/elorendeles">Összes előrendelés ›</a>}
@@ -61,8 +61,9 @@ const Header = ({ subtitle, game, showAll, embed, contact }) => (embed ? (
   </>
 ));
 
-// game: játék-link (?jatek=) esetén a játék neve; ilyenkor és termék-linknél „Összes előrendelés” link az összesítőre
-export default function PreorderPage({ products = [], focusId = null, game = null, maintenance = false, loadError = false, embed = false }) {
+// game: játék-link (?jatek=) esetén a játék neve; store / storeName: bolt-link (?bolt=) esetén a bolt; ilyenkor és
+// termék-linknél „Összes előrendelés” link az összesítőre
+export default function PreorderPage({ products = [], focusId = null, game = null, store = null, storeName = null, maintenance = false, loadError = false, embed = false }) {
   const focused = focusId ? products.find(p => p.id === focusId) : null;
   const shown = focused ? [focused] : products;
   const [selected, setSelected] = useState(() => (focused && maxSelectable(focused, focused.remaining) > 0 ? { [focused.id]: 1 } : {}));
@@ -83,7 +84,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
   );
 
   if (products.length === 0) {
-    return <Shell embed={embed}><Header embed={embed} contact={contact} />{notFoundNotice}<div className={`${s.panel} ${s.center}`}><p className={s.p}>Jelenleg nincs nyitott előrendelés.</p></div></Shell>;
+    return <Shell embed={embed}><Header embed={embed} contact={contact} storeName={storeName} showAll={!!storeName} />{notFoundNotice}<div className={`${s.panel} ${s.center}`}><p className={s.p}>{storeName ? `A(z) ${storeName} boltban jelenleg nincs nyitott előrendelés.` : 'Jelenleg nincs nyitott előrendelés.'}</p></div></Shell>;
   }
 
   const chosen = shown.filter(p => selected[p.id]);
@@ -189,7 +190,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
 
   return (
     <Shell embed={embed}>
-      <Header embed={embed} game={game} showAll={!!(focused || game)} contact={contact} subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : game ? `A(z) ${game} előrendelései. Válaszd ki, mire szeretnél feliratkozni.` : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
+      <Header embed={embed} game={game} storeName={storeName} showAll={!!(focused || game || storeName)} contact={contact} subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : game ? `A(z) ${game} előrendelései${storeName ? ` (${storeName})` : ''}. Válaszd ki, mire szeretnél feliratkozni.` : storeName ? `A(z) ${storeName} előrendelései. Válaszd ki, mire szeretnél feliratkozni.` : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
       {notFoundNotice}
       <form onSubmit={submit} noValidate className={s.form}>
         {!embed && <Progress done={done} total={1 + FIELDS.length} />}
@@ -218,6 +219,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
                           {p.price !== null && p.price !== undefined && <span className={s.price}>{formatPrice(p.price)}{isOn && selected[p.id] > 1 ? <span className={s.muted}> · {selected[p.id]} db: {formatPrice(p.price * selected[p.id])}</span> : null}</span>}
                           {soldOut && <span className={s.soldOut}>Elfogyott</span>}
                           {p.releaseDate && <span className={s.release}>Megjelenés: {p.releaseDate}</span>}
+                          {p.stores?.length > 0 ? <span className={s.meta} data-atvetel>Átvétel: {storesText(p)}</span> : !store && <span className={s.meta} data-atvetel>Átvétel: bármelyik boltunkban</span>}
                           {!soldOut && (p.perPersonLimit > 0 || p.remaining !== null) && (
                             <span className={s.meta}>{[p.perPersonLimit > 0 && `Személyenként legfeljebb ${p.perPersonLimit} db`, p.remaining !== null && `Még ${p.remaining} db foglalható`].filter(Boolean).join(' · ')}</span>
                           )}

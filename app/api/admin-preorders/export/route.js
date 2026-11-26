@@ -3,7 +3,7 @@ import { logSystemError } from '@/lib/systemLog';
 import { verifyAdmin } from '@/lib/auth';
 import { canManageCategory, hasFeature, seesPersonalData } from '@/lib/permissions';
 import { toObjectId } from '@/lib/preorderData';
-import { groupByGame, productStock, productLimit, productPrice } from '@/lib/preorders';
+import { groupByGame, productStock, productLimit, productPrice, storesText } from '@/lib/preorders';
 import { buildXlsx } from '@/lib/xlsx';
 
 export const dynamic = 'force-dynamic';
@@ -47,7 +47,7 @@ export async function GET(request) {
 
     // Az árak és összegek forintban, számként (az Excelben összeadhatók)
     // A jelentkezők termékenként név szerinti (ábécé) sorrendben – az átadás nem változtat a sorrenden, csak az „Átadva” oszlopon
-    const summary = [['Termék', 'Játék', 'Megjelenés', 'Állapot', 'Ár (Ft)', 'Jelentkezők', 'Összes darab', 'Várható összeg (Ft)', 'Elérhető mennyiség', 'Limit / fő', 'Fizetve (jelentkező)', 'Befizetve (Ft)', 'Átadva (jelentkező)']];
+    const summary = [['Termék', 'Játék', 'Bolt', 'Megjelenés', 'Állapot', 'Ár (Ft)', 'Jelentkezők', 'Összes darab', 'Várható összeg (Ft)', 'Elérhető mennyiség', 'Limit / fő', 'Fizetve (jelentkező)', 'Befizetve (Ft)', 'Átadva (jelentkező)']];
     // 1. szint (személyes adatok joga nélkül): az e-mail és a telefon oszlop kimarad
     const full = seesPersonalData(session);
     const list = [['Termék', 'Játék', 'Név', ...(full ? ['E-mail', 'Telefon'] : []), 'Darab', 'Ár (Ft)', 'Összeg (Ft)', 'Leadva', 'Utoljára módosítva', 'Stripe-ra ment (Megveszem most)', 'Fizetve', 'Fizetést rögzítette', 'Átadva', 'Átadta']];
@@ -56,7 +56,7 @@ export async function GET(request) {
       const rows = [...byProduct.get(String(p._id))].sort(byName);
       const price = productPrice(p);
       const qty = rows.reduce((s, o) => s + (o.quantity || 0), 0);
-      summary.push([p.name, p.category, p.releaseDate || '', p.isOpen ? 'Nyitott' : 'Lezárva', price ?? '', rows.length, qty, price !== null ? price * qty : '', productStock(p) ?? 'nincs megadva', productLimit(p) || 'korlátlan', `${rows.filter(o => o.paidAt).length} / ${rows.length}`, price !== null ? price * rows.filter(o => o.paidAt).reduce((s, o) => s + (o.quantity || 0), 0) : '', `${rows.filter(o => o.handedOverAt).length} / ${rows.length}`]);
+      summary.push([p.name, p.category, storesText(p) || 'minden bolt', p.releaseDate || '', p.isOpen ? 'Nyitott' : 'Lezárva', price ?? '', rows.length, qty, price !== null ? price * qty : '', productStock(p) ?? 'nincs megadva', productLimit(p) || 'korlátlan', `${rows.filter(o => o.paidAt).length} / ${rows.length}`, price !== null ? price * rows.filter(o => o.paidAt).reduce((s, o) => s + (o.quantity || 0), 0) : '', `${rows.filter(o => o.handedOverAt).length} / ${rows.length}`]);
       rows.forEach(o => list.push([p.name, p.category, o.name, ...(full ? [o.email, o.phone] : []), o.quantity, price ?? '', price !== null ? price * (o.quantity || 0) : '', formatHu(o.date), o.updatedAt && new Date(o.updatedAt).getTime() !== new Date(o.date).getTime() ? formatHu(o.updatedAt) : '', o.checkoutAt ? formatHu(o.checkoutAt) : '', o.paidAt ? formatHu(o.paidAt) : '', o.paidBy || '', o.handedOverAt ? formatHu(o.handedOverAt) : '', o.handedOverBy || '']));
     });
 
