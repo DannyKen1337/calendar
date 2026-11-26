@@ -4,7 +4,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { randomInt, randomBytes } from 'crypto';
-import { verifyAdmin, verifyOwner } from '@/lib/auth';
+import { verifyAdmin, verifyOwner, attachSession, bumpSessionVersion } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
 import { canManageEvent, canManageStore, hasFeature, sanitizeCategories, sanitizeStores, sanitizeFeatures, FEATURES, STORE_NAMES } from '@/lib/permissions';
 import { DECISIONS, tableBookingWhen } from '@/lib/tableBookings';
@@ -50,10 +50,32 @@ const safeUrl = (value) => {
   }
 };
 
+// A mezők típusa: a szöveg szöveg marad (legfeljebb a megadott hosszon), a szám szám, a pipa igaz/hamis.
+// Hibás típusú mező (pl. objektum a név helyén) kimarad, így nem törheti el a naptár megjelenítését.
+const TEXT_LIMITS = { name: 200, store: 60, category: 60, date: 40, description: 20000, external_url: 2000, imageUrl: 2000 };
+const BOOL_FIELDS = ['isExternalEvent', 'isFeatured', 'isOpenAttendance'];
+const SAFE_COLOR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|[a-z]{3,20})$/i;
+
+function typedTournamentField(key, value) {
+  if (key in TEXT_LIMITS) {
+    if (value === null) return '';
+    return typeof value === 'string' ? value.slice(0, TEXT_LIMITS[key]) : undefined;
+  }
+  if (BOOL_FIELDS.includes(key)) return value === true;
+  if (key === 'max_players') {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(0, Math.min(10000, Math.round(n))) : undefined;
+  }
+  if (key === 'color') return value == null || value === '' ? '' : (typeof value === 'string' && SAFE_COLOR.test(value.trim()) ? value.trim() : undefined);
+  return value; // eventType, decklistEnabled, reservedSeats: lent külön ellenőrizve
+}
+
 function pickTournamentFields(source) {
   const doc = {};
   for (const key of TOURNAMENT_EDIT_FIELDS) {
-    if (source[key] !== undefined) doc[key] = source[key];
+    if (source[key] === undefined) continue;
+    const value = typedTournamentField(key, source[key]);
+    if (value !== undefined) doc[key] = value;
   }
   if (doc.external_url !== undefined) doc.external_url = safeUrl(doc.external_url);
   if (doc.imageUrl !== undefined) doc.imageUrl = safeUrl(doc.imageUrl);
@@ -772,8 +794,8 @@ export async function POST(request) {
     if (actionType === 'CHANGE_USER_PASSWORD') {
       const ownerSession = await verifyOwner();
       if (!ownerSession) return NextResponse.json({ error: 'Csak Tulajdonos cserélhet jelszót!' }, { status: 403 });
-      if (!payload.newPassword || payload.newPassword.length < 6) {
-        return NextResponse.json({ error: 'Az új jelszónak legalább 6 karakter hosszúnak kell lennie.' }, { status: 400 });
+      if (typeof payload.newPassword !== 'string' || payload.newPassword.length < 6 || payload.newPassword.length > 72) {
+        return NextResponse.json({ error: 'Az új jelszó 6 és 72 karakter közötti legyen.' }, { status: 400 });
       }
 
       const target = await db.collection('users').findOne(getQuery(payload.userId));
@@ -781,7 +803,7 @@ export async function POST(request) {
       if (target.role === 'owner') return NextResponse.json({ error: 'Tulajdonosi fiók jelszava itt nem módosítható.' }, { status: 403 });
 
       const hashedPassword = await bcrypt.hash(payload.newPassword, 10);
-      await db.collection('users').updateOne(getQuery(payload.userId), { $set: { password: hashedPassword }, $unset: { mustChangePassword: '', tempPasswordExpires: '' } });
+      await db.collection('users').updateOne(getQuery(payload.userId), { $set: { password: hashedPassword }, $unset: { mustChangePassword: '', tempPasswordExpires: '' }, ...bumpSessionVersion }); // a régi belépései érvénytelenek
       await addLog(db, session.username, 'JELSZÓ CSERE', `Kicserélte egy fiók jelszavát.`);
       return NextResponse.json({ success: true });
     }
@@ -793,11 +815,11 @@ export async function POST(request) {
       }
 
       const { currentPassword, newPassword } = payload;
-      if (!currentPassword || !newPassword) {
+      if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
         return NextResponse.json({ error: 'A jelenlegi és az új jelszó megadása kötelező.' }, { status: 400 });
       }
-      if (newPassword.length < 6) {
-        return NextResponse.json({ error: 'Az új jelszónak legalább 6 karakter hosszúnak kell lennie.' }, { status: 400 });
+      if (newPassword.length < 6 || newPassword.length > 72) {
+        return NextResponse.json({ error: 'Az új jelszó 6 és 72 karakter közötti legyen.' }, { status: 400 });
       }
 
       const user = await db.collection('users').findOne(getQuery(ownerSession.id));
@@ -807,9 +829,10 @@ export async function POST(request) {
       if (!isMatch) return NextResponse.json({ error: 'A jelenlegi jelszó hibás.' }, { status: 400 });
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await db.collection('users').updateOne(getQuery(ownerSession.id), { $set: { password: hashedPassword } });
+      // A többi eszközön kilépteti, ezen az eszközön új sütit ad (bent marad)
+      const updated = await db.collection('users').findOneAndUpdate({ _id: user._id }, { $set: { password: hashedPassword }, ...bumpSessionVersion }, { returnDocument: 'after' });
       await addLog(db, session.username, 'SAJÁT JELSZÓ CSERE', 'Megváltoztatta a saját jelszavát.');
-      return NextResponse.json({ success: true });
+      return attachSession(NextResponse.json({ success: true }), updated);
     }
 
     // --- NAPI TELÍTETTSÉG (lib/occupancy.js) ---

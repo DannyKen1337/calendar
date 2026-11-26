@@ -2,32 +2,27 @@ import { NextResponse } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
-import { encrypt } from '@/lib/auth';
+import { attachSession, bumpSessionVersion } from '@/lib/auth';
+import { isRateLimited, recordAttempt } from '@/lib/rateLimit';
 import { consumeRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
-// Belépési süti beállítása a NextResponse-on keresztül (egy helyen, hogy a belépés és a jelszóbeállítás ugyanazt használja)
+// Belépési süti (lib/auth.js: attachSession, a munkamenet-verzióval)
 async function sessionResponse(user) {
-  const sessionToken = await encrypt({
-    id: user._id.toString(),
-    username: user.username,
-    email: user.email,
-    role: user.role
-  });
-
   const response = NextResponse.json({ success: true, user: { username: user.username, role: user.role } });
-
-  response.cookies.set('tavern_session', sessionToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 14 // 14 napig érvényes
-  });
-
-  return response;
+  return attachSession(response, user);
 }
+
+// Nem létező felhasználónál is lefut egy bcrypt-összehasonlítás, így a válaszidőből nem derül ki, létezik-e a fiók
+const DUMMY_HASH = '$2b$10$QWj414nYgVTFljhEykHJf.n0emBKZ85B1F5P610IAUW3YTykomhfi';
+const passwordMatches = (password, user) => bcrypt.compare(password, user?.password || DUMMY_HASH).then(ok => ok && !!user);
+
+// Fiókonként a sikertelen próbálkozások száma is korlátos (sok IP-címről indított jelszópróbálgatás ellen).
+// Csak a hibás jelszó számít, a sikeres belépés nem.
+const FAIL_LIMIT = 10;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+const failKey = (loginId) => `login-fail:${loginId.trim().toLowerCase()}`;
 
 const isTempPasswordExpired = (user) =>
   !!user.tempPasswordExpires && new Date(user.tempPasswordExpires) < new Date();
@@ -92,14 +87,18 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Túl sok belépési kísérlet. Próbáld újra 15 perc múlva.' }, { status: 429 });
       }
 
+      if (await isRateLimited(db, failKey(loginId), FAIL_LIMIT, FAIL_WINDOW_MS)) {
+        return NextResponse.json({ error: 'Ezzel a fiókkal túl sok hibás belépés történt. Próbáld újra 15 perc múlva.' }, { status: 429 });
+      }
+
       const user = await db.collection('users').findOne({ 
         $or: [{ email: loginId.toLowerCase() }, { username: loginId }] 
       });
 
-      if (!user) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
+      if (!(await passwordMatches(password, user))) {
+        await recordAttempt(db, failKey(loginId));
+        return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
+      }
       if (user.disabled) return NextResponse.json({ error: "Ez a fiók fel van függesztve. Keresd a tulajdonost." }, { status: 403 });
 
       // Ideiglenes jelszóval NEM lehet belépni: csak jelszóbeállításra jogosít (nem készül munkamenet / süti)
@@ -128,10 +127,8 @@ export async function POST(request) {
       const user = await db.collection('users').findOne({
         $or: [{ email: loginId.toLowerCase() }, { username: loginId }]
       });
-      if (!user || !user.mustChangePassword) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
-
-      const isMatch = await bcrypt.compare(tempPassword, user.password);
-      if (!isMatch) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
+      const isMatch = await passwordMatches(tempPassword, user);
+      if (!isMatch || !user.mustChangePassword) return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
 
       if (isTempPasswordExpired(user)) {
         return NextResponse.json({ error: "Az ideiglenes jelszó lejárt. Kérj újat a tulajdonostól." }, { status: 401 });
@@ -146,18 +143,20 @@ export async function POST(request) {
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       // A feltétel (mustChangePassword + régi hash) miatt az ideiglenes jelszó pontosan egyszer használható fel, párhuzamos kérésnél is
-      const result = await db.collection('users').updateOne(
+      const result = await db.collection('users').findOneAndUpdate(
         { _id: user._id, mustChangePassword: true, password: user.password },
         {
           $set: { password: hashedPassword, passwordChangedAt: new Date() },
-          $unset: { mustChangePassword: '', tempPasswordExpires: '' }
-        }
+          $unset: { mustChangePassword: '', tempPasswordExpires: '' },
+          ...bumpSessionVersion,
+        },
+        { returnDocument: 'after' }
       );
-      if (result.modifiedCount !== 1) {
+      if (!result) {
         return NextResponse.json({ error: "Az ideiglenes jelszó már fel lett használva." }, { status: 409 });
       }
 
-      return await sessionResponse(user);
+      return await sessionResponse(result);
     }
 
     return NextResponse.json({ error: "Érvénytelen művelet" }, { status: 400 });

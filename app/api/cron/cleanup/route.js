@@ -62,6 +62,7 @@ export async function GET(request) {
     });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // A hiba részletei a tulajdonosi Rendszer oldalon látszanak (recordRun), a válaszba nem kerülnek
+    return NextResponse.json({ error: 'A futás nem sikerült.' }, { status: 500 });
   }
 }

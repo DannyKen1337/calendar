@@ -40,6 +40,16 @@ export async function page(b, cookie, w = 1280, h = 900, { intro = false } = {})
   if (cookie) await b.setCookie({ name: 'tavern_session', value: cookie, domain: 'localhost', path: '/' });
   return p;
 }
+// Frissen indult fejlesztői szervernél a Next az első fordítás után egyszer újratöltheti az oldalt: megvárjuk, amíg
+// quietMs ideig nincs újabb betöltés (különben a közben elindított feltöltés az újratöltéssel elveszne)
+export async function settle(p, quietMs = 2500, maxMs = 60000) {
+  let last = Date.now();
+  const onNav = (f) => { if (f === p.mainFrame()) last = Date.now(); };
+  p.on('framenavigated', onNav);
+  const start = Date.now();
+  while (Date.now() - last < quietMs && Date.now() - start < maxMs) await wait(200);
+  p.off('framenavigated', onNav);
+}
 export const bodyText = (p) => p.evaluate(() => document.body.innerText);
 export const clickText = (p, sel, text) => p.evaluate((s, t) => { const el = [...document.querySelectorAll(s)].find(e => e.textContent.includes(t)); if (!el) throw new Error('nincs: ' + t); el.click(); }, sel, text);
 export { assert };

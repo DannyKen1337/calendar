@@ -10,7 +10,7 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const URL_ = 'http://localhost:3179/api/auth/session';
 const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fut
 const ROUNDS = [
-  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep'] },
+  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'biztonsag'] },
   { fake: true, tests: ['weblap-javitasok', 'weblap-galeria', 'weblap-kepek'] },
 ];
 const only = process.argv.slice(2);

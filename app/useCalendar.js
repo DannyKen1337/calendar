@@ -226,8 +226,9 @@ export const useCalendar = ({ eager = false } = {}) => {
   const isStaffUser = userRole === 'admin' || userRole === 'owner';
   useLiveRefresh(() => fetchData(true), isStaffUser ? 10000 : 30000, !loading);
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+  // everywhere: a többi eszközön (telefon, másik gép) is kijelentkeztet
+  const handleLogout = async (everywhere = false) => {
+    await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ everywhere: everywhere === true }) });
     setUserRole(null); setUserName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setAllowedStores(null); setFeatures([]);
     fetchPublicData(false);
   };
@@ -366,8 +367,11 @@ export const useCalendar = ({ eager = false } = {}) => {
   const handleImageUpload = async (info, targetForm) => {
     const file = info.file.originFileObj || info.file; if (!file) return;
     setIsUploading(true);
-    const formData = new FormData(); formData.append('image', file);
     try {
+      // A böngésző tömöríti (a telefonos fotó is 4 MB alá kerül, a HEIC JPEG lesz), mint a weboldal képfeltöltéseinél
+      let image = file;
+      try { const { compressImage } = await import('@/weblap/lib/compressImage'); image = await compressImage(file); } catch (err) { messageApi.error(err.message); setIsUploading(false); return; }
+      const formData = new FormData(); formData.append('image', image);
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) { targetForm.setFieldsValue({ imageUrl: data.url }); messageApi.success('Kép feltöltve!'); } 

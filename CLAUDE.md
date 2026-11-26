@@ -73,6 +73,16 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - Fájlfeltöltésnél (TDF és CSV) az előnézetben játékosonként átírható a számolt pont (`components/ImportPointsInput.jsx`); a szerver csak ezt veszi át a klienstől, és naplózza „számolt → beírt” formában.
 - A pontok kézzel is átírhatók az alkalom szerkesztésével (a TDF-es és CSV-s fájladatok megmaradnak). Minden pontváltozás naplózódik játékosonként (`LIGA PONTOK`, `LIGA TDF` az `audit_logs`-ban); a liga Napló fülét a külön `leagueLog` jog („Liga napló” csoport) mutatja.
 
+## Biztonság (élesítés előtti átnézés, 2026-11-26)
+- **CSRF:** `proxy.js` (Next 16: a middleware neve proxy) az `/api/*` írási kéréseit (POST/PUT/PATCH/DELETE) idegen `Origin`-nel 403-mal elutasítja (`lib/requestGuard.js`; a tavern.hu aldomainje, pl. a webshop is idegen). Origin nélküli (szerver–szerver) kérés átmegy: a webhook / időzítő saját ellenőrzése véd.
+- **Munkamenet-verzió:** a süti a felhasználó `sessionVersion` értékét viszi (`sv`, `lib/auth.js`: `attachSession`, `bumpSessionVersion`); jelszóbeállításnál, új ideiglenes jelszónál, tulajdonosi jelszócserénél és a „Kijelentkezés minden eszközről” gombnál (Továbbiak › Fiók, `POST /api/auth/logout { everywhere: true }`) nő, így a régi sütik azonnal érvénytelenek. Saját jelszó cseréjekor az adott eszköz új sütit kap. A mező nélküli régi fiókok/sütik verziója 0.
+- **Belépés:** IP-nként 20 / 15 perc, és fiókonként 10 hibás jelszó / 15 perc (`login-fail:`; csak a hibás számít, `isRateLimited` + `recordAttempt`). Nem létező fióknál is lefut egy bcrypt-összehasonlítás (`DUMMY_HASH`).
+- **Beágyazás:** a naptár (`/`, `/embed`) bárhová; az esemény, jelentkezés, előrendelés, asztalfoglalás, liga és a weboldal csak a saját cím, `https://tavern.hu`, `https://*.tavern.hu`, a `WEBSHOP_URL` címe és a `FRAME_ANCESTORS` env (szóközzel elválasztott https címek) alól; az admin és a leiratkozás sehová (`next.config.ts`). Ha a naptár más domainen lévő oldalba is be van ágyazva, azt a `FRAME_ANCESTORS`-ba kell felvenni, különben a jelentkezés az ablakban nem nyílik meg.
+- **Képfeltöltés (naptár, `/api/upload`):** csak JPG/PNG/WebP/GIF/HEIC/AVIF (SVG nem), legfeljebb 4 MB; a kliens előtte tömörít (`compressImage`, dinamikus importtal). Az esemény mezői típusellenőrzöttek (`typedTournamentField` az `app/api/actions/route.js`-ben).
+- A belső hibaüzenet nem kerül a válaszba (upload, cron); a részletek a Rendszer oldalon.
+- **Next verzió:** legalább 16.4.5 (a 16.4.4-ig terjedő sebezhetőségek miatt; most 16.4.6). **Next-frissítés után töröld a `.next` mappát:** a régi verzió Turbopack-gyorsítótárával a fejlesztői szerver minden oldalt másodpercenként sokszor újratölt (hibaüzenet nélkül, a HMR `reloadPage` / `turbopack-message` után), és az e2e tesztek időtúllépéssel elakadnak.
+- Teszt: `biztonsag`. Hátra van (a felhasználóval egyeztetve, sorban): 2. szigorú CSP nonce-szal (`proxy.js`), 3. rejtett admin cím, 4. belépés / 2FA, 5. élesítési ellenőrzőlista.
+
 ## Szabályok
 - **A weboldalról és a csak tulajdonosnak szóló változásokról ne kerüljön bejegyzés az Újdonságok közé** (`lib/changelog.js`); csak a szervezőket érintő változásokról.
 - Játékképek: `public/jatekok/*.png` (arányosan kicsinyített helyi másolatok, max. 320×320); a naptár, a jelentkezési oldal és a weboldal is ezeket használja (`lib/gameConfig.js`).

@@ -510,6 +510,9 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         <button type="button" className={s.tool} onClick={onShowChangelog} data-eszkoz><span className={s.toolIcon} aria-hidden="true"><StarOutlined /></span><span className={s.toolText}><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
         {isOwner && buttonRow(LockOutlined, 'Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
         {buttonRow(LogoutOutlined, 'Kijelentkezés', null, () => app.handleLogout(), true)}
+        <Popconfirm title="Kijelentkezel minden eszközről?" description="A telefonodon és a többi gépen is újra be kell majd lépned." onConfirm={() => app.handleLogout(true)} okText="Kijelentkezés" cancelText="Mégse" okButtonProps={{ danger: true }}>
+          {buttonRow(LogoutOutlined, 'Kijelentkezés minden eszközről', 'Ha elveszett a telefonod, vagy más gépen bent maradtál', undefined, true)}
+        </Popconfirm>
       </div>
       {!isOwner && <p className={s.tip}>Kezelt játékok: {scope(app.allowedCategories, c => c)}. Kezelt boltok: {scope(app.allowedStores, id => STORE_NAMES[id] || id)}.</p>}
       {!standalone && <p className={s.tip}>Tipp: telepítsd web appként. Safariban: Megosztás → Főképernyőhöz adás.</p>}

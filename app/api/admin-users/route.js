@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { getTavernDb } from '@/lib/mongodb';
-import { verifyAdmin } from '@/lib/auth';
+import { verifyAdmin, bumpSessionVersion } from '@/lib/auth';
 import { canManageUsers } from '@/lib/permissions';
 import { isValidEmail } from '@/lib/rateLimit';
 import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, PROTECTED_FEATURES, seedDefaultGroups, isLevelGroup, grantLevel1, level1GroupId, ensureLevel1ForAll } from '@/lib/userAccess';
@@ -220,7 +220,7 @@ export async function POST(request) {
       if (res) return res;
       const tempPassword = newTempPassword();
       const expiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
-      await users.updateOne({ _id: target._id }, { $set: { password: await bcrypt.hash(tempPassword, 10), mustChangePassword: true, tempPasswordExpires: expiresAt } });
+      await users.updateOne({ _id: target._id }, { $set: { password: await bcrypt.hash(tempPassword, 10), mustChangePassword: true, tempPasswordExpires: expiresAt }, ...bumpSessionVersion });
       await addLog(db, session.username, 'JELSZÓ', `${target.username}: új ideiglenes jelszó`);
       return NextResponse.json({ success: true, username: target.username, email: target.email, tempPassword, expiresAt });
     }

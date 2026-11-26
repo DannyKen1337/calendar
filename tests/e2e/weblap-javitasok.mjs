@@ -1,5 +1,5 @@
 // A végső átnézés javításai (FAKE_IMGBB=1 szerverrel: a feltöltés 1,5 mp után sikerül).
-import { openDb, token, get, browser, page, clickText, ok, summary, wait, BASE } from './lib.mjs';
+import { openDb, token, get, browser, page, clickText, ok, summary, wait, settle, BASE } from './lib.mjs';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,6 +38,8 @@ try {
   const p = await page(b, editor);
   await p.goto(`${BASE}/weblapteszt/admin?lap=gallery`, { waitUntil: 'networkidle2', timeout: 240000 });
   await p.waitForSelector('input[type=file][multiple]', { timeout: 120000 }); // friss szervernél az oldal még fordulhat
+  await settle(p); // és egyszer újra is töltődhet
+  await p.waitForSelector('input[type=file][multiple]', { timeout: 120000 });
 
   // #10: a fájlválasztó billentyűzettel elérhető
   ok(await p.$eval('input[type=file][multiple]', el => { el.focus(); return document.activeElement === el; }), '#10 a képfeltöltés fókuszálható');
