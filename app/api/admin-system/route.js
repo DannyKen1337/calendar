@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyOwner } from '@/lib/auth';
+import { adminPath } from '@/lib/adminGate';
 import { logSystemError } from '@/lib/systemLog';
 import { rgnEventId } from '@/lib/rgn';
 import { budapestDateTime } from '@/lib/eventDates';
@@ -112,6 +113,7 @@ export async function GET() {
       { key: 'appUrl', label: 'Oldal címe (APP_URL)', ok: set('APP_URL'), optional: true, detail: set('APP_URL') ? 'Beállítva' : 'Nincs megadva – a kérésből számolja' },
       { key: 'imgbb', label: 'Képfeltöltés (ImgBB)', ok: set('IMGBB_API_KEY'), optional: true, detail: set('IMGBB_API_KEY') ? 'Beállítva' : 'Nincs beállítva' },
       { key: 'privacy', label: 'Adatkezelési tájékoztató linkje', ok: set('NEXT_PUBLIC_PRIVACY_URL'), optional: true, detail: set('NEXT_PUBLIC_PRIVACY_URL') ? 'Beállítva' : 'Nincs megadva' },
+      { key: 'adminPath', label: 'Rejtett admin cím (ADMIN_PATH)', ok: !!adminPath(), optional: true, detail: adminPath() ? 'Bekapcsolva: az admin és a belépés csak a titkos címről (vagy belépve) érhető el' : set('ADMIN_PATH') ? 'Hibás érték: legalább 8 karakter, csak betű, szám, kötőjel, és nem kezdődhet /admin-nal' : 'Nincs beállítva: az admin belépő oldala a /admin címen bárkinek megjelenik' },
       { key: 'register', label: 'Nyilvános regisztráció (ALLOW_PUBLIC_REGISTER)', ok: true, optional: true, info: true, state: process.env.ALLOW_PUBLIC_REGISTER === 'true' ? 'Engedélyezve' : 'Kikapcsolva', detail: 'Új fiók létrehozása meghívás nélkül' },
     ];
 

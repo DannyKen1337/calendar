@@ -12,6 +12,8 @@ const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fu
 const ROUNDS = [
   { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'biztonsag', 'csp'] },
   { fake: true, tests: ['weblap-javitasok', 'weblap-galeria', 'weblap-kepek'] },
+  // rejtett admin: a szerver a titkos belépő címmel (ADMIN_PATH) fut
+  { fake: false, env: { ADMIN_PATH: '/kapu-teszt-2026' }, tests: ['admin-kapu'] },
 ];
 const only = process.argv.slice(2);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -21,10 +23,10 @@ const listening = async () => { try { await fetch(URL_); return true; } catch { 
 process.on('uncaughtException', (err) => { if (err?.syscall === 'setTypeOfService') return; throw err; });
 
 // A tesztszerver indítása: a kimenetének utolsó sorai hiba esetén látszanak; ha a szerver kilép, nem várunk tovább
-function startServer(fake) {
+function startServer(fake, extraEnv = {}) {
   const tail = [];
   const keep = (d) => { tail.push(...String(d).split('\n')); tail.splice(0, Math.max(0, tail.length - 30)); };
-  const proc = spawn(process.execPath, [`${HERE}server.mjs`], { env: { ...process.env, FAKE_IMGBB: fake ? '1' : '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(process.execPath, [`${HERE}server.mjs`], { env: { ...process.env, ...extraEnv, FAKE_IMGBB: fake ? '1' : '' }, stdio: ['ignore', 'pipe', 'pipe'] });
   proc.stdout.on('data', keep);
   proc.stderr.on('data', keep);
   let exited = false;
@@ -95,12 +97,12 @@ const failed = [];
 for (const round of ROUNDS) {
   const tests = round.tests.filter(t => existsSync(`${HERE}${t}.mjs`) && (!only.length || only.includes(t)));
   if (!tests.length) continue;
-  const server = startServer(round.fake);
+  const server = startServer(round.fake, round.env);
   try {
     await server.ready();
     await warmUp();
     for (const t of tests) {
-      console.log(`\n== ${t}${round.fake ? ' (ál-ImgBB)' : ''}`);
+      console.log(`\n== ${t}${round.fake ? ' (ál-ImgBB)' : ''}${round.env?.ADMIN_PATH ? ' (rejtett admin)' : ''}`);
       if (!server.isAlive()) { console.log(`  A tesztszerver közben leállt:\n${server.tail.join('\n')}`); failed.push(t); continue; }
       if (!(await run(t, round))) failed.push(t);
     }

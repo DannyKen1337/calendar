@@ -267,7 +267,8 @@ export default async function HomePage({ content, feed, previewBar = null, base 
             {stores.map(st => <span key={st.id}>{st.name}: {st.address}</span>)}
           </div>
           <div className={s.footLast}>
-            <span>{contact.imprint}{contact.imprint && ' · '}<Link href={withBase('/admin')}>Szerkesztés</Link></span>
+            {/* a szerkesztőfelületre nem mutat nyilvános link (a szerkesztők a naptár adminjának „Weboldal” gombjával érik el) */}
+            {contact.imprint && <span>{contact.imprint}</span>}
           </div>
         </div>
       </footer>
