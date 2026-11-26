@@ -1,4 +1,4 @@
-// Beérkezett levelek (/admin/levelek): a rendszer postafiókjába érkezett levelek, csak olvasásra, a „Beérkezett levelek”
+// Beérkezett levelek (/admin/levelek): a rendszer postafiókjába érkezett levelek (a válasz: admin-levelek-valasz), a „Beérkezett levelek”
 // joggal (és a tulajdonosnak). A jog nélkül sem az API, sem a menüpont nem érhető el; a jogot csak a tulajdonos adhatja
 // (a felhasználókezelő sem). A leveleket a teszt közvetlenül az adatbázisba írja (mintha a postafiókból jöttek volna).
 import { openDb, token, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
@@ -60,7 +60,9 @@ try {
   // (az oldal kérésenként renderelődik: a cím a szerver válasza után frissül)
   await p.waitForFunction(() => location.search.includes('level='), { timeout: 15000 }).catch(() => {});
   ok(p.url().includes('level='), 'a megnyitott levélnek saját linkje van');
-  ok(!(await p.$('textarea')) && !(await p.$eval('[data-levelnezet]', el => [...el.querySelectorAll('button')].some(x => /Válasz|Küldés|Törlés/.test(x.textContent)))), 'csak olvasás: nincs válasz, küldés, törlés');
+  ok(!(await p.$eval('[data-levelnezet]', el => [...el.querySelectorAll('button')].some(x => /Törlés/.test(x.textContent)))), 'törölni innen nem lehet');
+  await p.waitForSelector('[data-valasz]', { timeout: 15000 }).catch(() => {});
+  ok(!!(await p.$('#valasz-szoveg')) && await p.$eval('#valasz-szoveg', el => el.disabled) && /nincs beállítva/.test(await p.$eval('[data-valasz]', el => el.textContent)), 'válaszmező van, de e-mail beállítás nélkül nem küldhető (a válasz tesztje: admin-levelek-valasz)');
   await p.type('[data-level-kereso] input', 'anna');
   await wait(300);
   ok((await p.$$('[data-level]')).length === 1, 'keresés a feladóra');

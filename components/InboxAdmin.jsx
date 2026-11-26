@@ -2,10 +2,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button, Input, Tag, Alert, Empty } from 'antd';
-import { LeftOutlined, PaperClipOutlined } from '@ant-design/icons';
+import { LeftOutlined, PaperClipOutlined, SendOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { signatureFor, REPLY_MAX } from '@/lib/inboxReply';
 import useLiveRefresh from '@/lib/useLiveRefresh';
 
-// Beérkezett levelek: a rendszer postafiókjába érkezett összes levél, csak olvasásra (app/api/inbox, lib/mailboxSync.js).
+// Beérkezett levelek: a rendszer postafiókjába érkezett összes levél (app/api/inbox, lib/mailboxSync.js). A levél alatt
+// válaszolni is lehet: a rendszer postafiókjából megy, a belépett felhasználó aláírásával (lib/inboxReply.js).
 // Gépen bal oldalt a lista, jobbra a levél; telefonon a lista, onnan nyílik a levél (vissza gombbal). ?level=<id>: egy levél.
 const panel = 'bg-[#191314] rounded-xl border border-[#2a2022]';
 const when = (d) => new Date(d).toLocaleString('hu-HU', { timeZone: 'Europe/Budapest', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -20,6 +22,9 @@ export default function InboxAdmin() {
   const [openId, setOpenId] = useState(params.get('level'));
   const [mail, setMail] = useState(null);
   const [q, setQ] = useState('');
+  const [replyText, setReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
+  const [replyError, setReplyError] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -47,7 +52,21 @@ export default function InboxAdmin() {
     return () => { alive = false; };
   }, [openId]);
 
-  const open = (id) => { setMail(null); setOpenId(id); router.replace(id ? `/admin/levelek?level=${encodeURIComponent(id)}` : '/admin/levelek', { scroll: false }); };
+  const open = (id) => { setMail(null); setReplyText(''); setReplyError(''); setOpenId(id); router.replace(id ? `/admin/levelek?level=${encodeURIComponent(id)}` : '/admin/levelek', { scroll: false }); };
+
+  const sendReply = async () => {
+    if (replying || !replyText.trim()) return;
+    setReplying(true);
+    setReplyError('');
+    try {
+      const res = await fetch('/api/inbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionType: 'REPLY', id: openId, text: replyText }) });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) { setReplyError(json?.error || 'A válasz most nem ment el.'); return; }
+      setMail(m => ({ ...m, replies: [...(m?.replies || []), json.reply] }));
+      setReplyText('');
+      load();
+    } catch { setReplyError('Hálózati hiba. Próbáld újra.'); } finally { setReplying(false); }
+  };
 
   if (error && !data) return <div className={`${panel} p-4`} style={{ color: '#ff7875' }}>{error}</div>;
   if (!data) return <div className={`${panel} p-4`} style={{ color: '#baaaac' }}>Betöltés...</div>;
@@ -73,6 +92,7 @@ export default function InboxAdmin() {
             </span>
             <span className="flex items-center gap-2" style={{ color: '#baaaac', fontSize: 13, minWidth: 0 }}>
               {m.reply && <Tag color="gold" style={{ margin: 0, fontSize: 11 }}>Válasz szervezőnek</Tag>}
+              {m.answered && <Tag color="green" style={{ margin: 0, fontSize: 11 }} data-megvalaszolva>Megválaszolva</Tag>}
               {m.attachments.length > 0 && <PaperClipOutlined aria-label="Mellékletes" />}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{m.subject || '(nincs tárgy)'}</span>
             </span>
@@ -102,6 +122,28 @@ export default function InboxAdmin() {
           <PaperClipOutlined aria-hidden="true" /> {mail.attachments.map(a => `${a.filename} (${kb(a.size)})`).join(', ')} – a mellékletek a postafiókban nyithatók meg.
         </div>
       )}
+      {mail && !mail.error && (
+        <div className="px-4 pb-4 flex flex-col gap-3 border-t border-[#2a2022] pt-4" data-valasz>
+          {mail.replies?.map((r, i) => (
+            <div key={i} className="rounded-lg p-3" style={{ background: '#211a1b', border: '1px solid #2f4d2a' }} data-elkuldott-valasz>
+              <div style={{ color: '#7fc96b', fontSize: 12, marginBottom: 4 }}><CheckCircleOutlined /> {r.by} válaszolt · {when(r.at)} · {r.to}</div>
+              <div style={{ color: '#E0D6C8', whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>{r.text}</div>
+            </div>
+          ))}
+          {!mail.replyToAddress ? (
+            <div style={{ color: '#9a8a8c', fontSize: 13 }}>Erre a levélre innen nem lehet válaszolni (nincs külső feladója).</div>
+          ) : (
+            <>
+              <label htmlFor="valasz-szoveg" style={{ color: '#baaaac', fontSize: 13, fontWeight: 700 }}>Válasz neki: <span style={{ color: '#E5B15D' }}>{mail.replyToAddress}</span></label>
+              <Input.TextArea id="valasz-szoveg" value={replyText} onChange={(e) => setReplyText(e.target.value)} maxLength={REPLY_MAX} autoSize={{ minRows: 4, maxRows: 14 }} placeholder="Írd ide a válaszod…" disabled={!mail.canSend} />
+              <div style={{ color: '#9a8a8c', fontSize: 12, whiteSpace: 'pre-line' }} data-alairas>Aláírás:{'\n'}<span style={{ color: '#E0D6C8' }}>{signatureFor(data.me)}</span>{'\n'}Alá kerül az eredeti levél is. A feladó: „{data.me} – Tavern”, a rendszer címéről.</div>
+              {!mail.canSend && <Alert type="warning" showIcon title="Az e-mail küldés nincs beállítva, ezért innen most nem lehet válaszolni." />}
+              {replyError && <Alert type="error" showIcon title={replyError} />}
+              <Button type="primary" icon={<SendOutlined />} loading={replying} disabled={!mail.canSend || !replyText.trim()} onClick={sendReply} style={{ color: '#000', fontWeight: 'bold', alignSelf: 'flex-start', minHeight: 44 }} data-valasz-kuld>Válasz küldése</Button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -109,7 +151,7 @@ export default function InboxAdmin() {
     <>
       {!data.status.on && <Alert type="info" showIcon className="mb-4" title="A postafiók olvasása nincs beállítva" description="Az SMTP-s (Gmail) e-mail beállítás kell hozzá. Más postafióknál az IMAP_HOST is." />}
       {data.status.on && data.status.error && <Alert type="warning" showIcon className="mb-4" title="A postafiókot most nem sikerült megnézni" description={data.status.error} />}
-      <p style={{ color: '#9a8a8c', marginTop: 0 }}>A rendszer postafiókjába érkezett levelek, csak olvasásra{data.status.at ? ` · utoljára megnézve: ${when(data.status.at)}` : ''}.</p>
+      <p style={{ color: '#9a8a8c', marginTop: 0 }}>A rendszer postafiókjába érkezett levelek. Egy levelet megnyitva válaszolni is tudsz rá{data.status.at ? ` · utoljára megnézve: ${when(data.status.at)}` : ''}.</p>
       <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className={openId ? 'hidden lg:block' : ''}>{list}</div>
         <div className={openId ? '' : 'hidden lg:block'}>{view || <div className={`${panel} p-6`} style={{ color: '#9a8a8c' }}>Válassz egy levelet.</div>}</div>

@@ -33,10 +33,10 @@ export async function startSmtp(port = SMTP_PORT) {
   });
   await new Promise((res, rej) => { server.once('error', rej); server.listen(port, '127.0.0.1', res); });
   return {
-    // A beérkezett levelek feldolgozva: { to, replyTo, subject, html, text }
+    // A beérkezett levelek feldolgozva: { to, from, replyTo, inReplyTo, references, subject, html, text }
     mails: () => Promise.all(raw.map(async ({ rcpt, body }) => {
       const m = await simpleParser(body);
-      return { to: rcpt, replyTo: m.replyTo?.value?.map(v => v.address) || [], subject: m.subject || '', html: m.html || '', text: m.text || '' };
+      return { to: rcpt, from: m.from?.value?.[0] || null, replyTo: m.replyTo?.value?.map(v => v.address) || [], inReplyTo: m.inReplyTo || '', references: m.references || '', subject: m.subject || '', html: m.html || '', text: m.text || '' };
     })),
     close: () => new Promise(res => server.close(res)),
   };
