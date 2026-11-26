@@ -84,7 +84,7 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 - **Képfeltöltés (naptár, `/api/upload`):** csak JPG/PNG/WebP/GIF/HEIC/AVIF (SVG nem), legfeljebb 4 MB; a kliens előtte tömörít (`compressImage`, dinamikus importtal). Az esemény mezői típusellenőrzöttek (`typedTournamentField` az `app/api/actions/route.js`-ben).
 - A belső hibaüzenet nem kerül a válaszba (upload, cron); a részletek a Rendszer oldalon.
 - **Next verzió:** legalább 16.4.5 (a 16.4.4-ig terjedő sebezhetőségek miatt; most 16.4.6). **Ha a fejlesztői szerver minden oldalt újra és újra betölt** (hibaüzenet nélkül; Next-frissítés, a `proxy.js` vagy a layoutok változása után előfordul): állítsd le, töröld a `.next` mappát. Ez a Turbopack lemezes gyorsítótárának hibája; az e2e tesztszerver ezért gyorsítótár nélkül fut (`E2E_NO_DEV_CACHE=1` → `turbopackFileSystemCacheForDev: false`), és a futtató indulás után bemelegíti a fő oldalakat (`warmUp` a `run.mjs`-ben).
-- Teszt: `biztonsag`, `csp`, `admin-kapu`. Hátra van: 5. élesítési ellenőrzőlista (`docs/elesites.md`); a 2FA a felhasználó döntésére vár.
+- Teszt: `biztonsag`, `csp`, `admin-kapu`. Élesítési ellenőrzőlista: `docs/elesites.md` (a Vercel / Atlas / domain teendők a felhasználónál). A 2FA a felhasználó döntésére vár.
 
 ## Szabályok
 - **A weboldalról és a csak tulajdonosnak szóló változásokról ne kerüljön bejegyzés az Újdonságok közé** (`lib/changelog.js`); csak a szervezőket érintő változásokról.

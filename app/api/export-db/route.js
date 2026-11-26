@@ -39,7 +39,8 @@ export async function GET() {
       users,
       logs,
       blacklist,
-      settings,
+      // a titkos kulcsok (pl. a telefonos értesítések VAPID-kulcsa) nem kerülnek a letöltött fájlba
+      settings: settings.map(({ privateKey, ...doc }) => (privateKey ? { ...doc, privateKey: '(kihagyva)' } : doc)),
       preorderProducts,
       preorders,
       leagues,

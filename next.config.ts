@@ -5,6 +5,8 @@ import type { NextConfig } from "next";
 const noFraming = [{ key: "X-Frame-Options", value: "DENY" }];
 
 const nextConfig: NextConfig = {
+  // ne árulja el a válasz fejléce, milyen keretrendszer fut
+  poweredByHeader: false,
   // A weboldal (app/(weblap)/weblapteszt) hírszerkesztőjében a feltöltött kép (legfeljebb 4 MB) az űrlappal megy fel
   experimental: {
     serverActions: { bodySizeLimit: "5mb" },

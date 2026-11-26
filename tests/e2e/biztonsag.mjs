@@ -94,6 +94,12 @@ try {
   const ghost = await login('nincsilyen', 'akarmi', '10.2.0.3');
   ok(ghost.status === 401, 'nem létező fiók: ugyanaz a „Hibás adatok” válasz');
 
+  // --- Adatbázis-mentés: jelszó-hash és titkos kulcs nélkül ---
+  await db.collection('settings').updateOne({ _id: 'push_vapid' }, { $set: { publicKey: 'nyilvanos-kulcs', privateKey: 'titkos-kulcs-123' } }, { upsert: true });
+  const dump = await (await fetch(`${BASE}/api/export-db`, { headers: { Cookie: `tavern_session=${o1new}` } })).text();
+  ok(dump.includes('nyilvanos-kulcs') && !dump.includes('titkos-kulcs-123'), 'a mentésben nincs benne a titkos (VAPID) kulcs');
+  ok(dump.includes('"username": "Tulaj"') && !dump.includes('$2b$') && !dump.includes('"password"'), 'a mentésben nincs jelszó-hash');
+
   // --- Képfeltöltés: csak kép (a tulajdonos a jelszócsere után kapott új sütivel) ---
   const fd = new FormData();
   fd.append('image', new Blob(['<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'], { type: 'image/svg+xml' }), 'x.svg');
