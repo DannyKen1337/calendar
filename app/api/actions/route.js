@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { randomInt, randomBytes } from 'crypto';
 import { verifyAdmin, verifyOwner, attachSession, bumpSessionVersion } from '@/lib/auth';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
+import { passwordProblem } from '@/lib/passwordPolicy';
 import { canManageEvent, canManageStore, hasFeature, sanitizeCategories, sanitizeStores, sanitizeFeatures, FEATURES, STORE_NAMES } from '@/lib/permissions';
 import { DECISIONS, tableBookingWhen } from '@/lib/tableBookings';
 import { normalizeOccupancy, sanitizeBooking, STORE_IDS } from '@/lib/occupancy';
@@ -794,13 +795,11 @@ export async function POST(request) {
     if (actionType === 'CHANGE_USER_PASSWORD') {
       const ownerSession = await verifyOwner();
       if (!ownerSession) return NextResponse.json({ error: 'Csak Tulajdonos cserélhet jelszót!' }, { status: 403 });
-      if (typeof payload.newPassword !== 'string' || payload.newPassword.length < 6 || payload.newPassword.length > 72) {
-        return NextResponse.json({ error: 'Az új jelszó 6 és 72 karakter közötti legyen.' }, { status: 400 });
-      }
-
       const target = await db.collection('users').findOne(getQuery(payload.userId));
       if (!target) return NextResponse.json({ error: 'Felhasználó nem található.' }, { status: 404 });
       if (target.role === 'owner') return NextResponse.json({ error: 'Tulajdonosi fiók jelszava itt nem módosítható.' }, { status: 403 });
+      const weakNew = passwordProblem(payload.newPassword, { username: target.username, email: target.email });
+      if (weakNew) return NextResponse.json({ error: weakNew }, { status: 400 });
 
       const hashedPassword = await bcrypt.hash(payload.newPassword, 10);
       await db.collection('users').updateOne(getQuery(payload.userId), { $set: { password: hashedPassword }, $unset: { mustChangePassword: '', tempPasswordExpires: '' }, ...bumpSessionVersion }); // a régi belépései érvénytelenek
@@ -818,12 +817,10 @@ export async function POST(request) {
       if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
         return NextResponse.json({ error: 'A jelenlegi és az új jelszó megadása kötelező.' }, { status: 400 });
       }
-      if (newPassword.length < 6 || newPassword.length > 72) {
-        return NextResponse.json({ error: 'Az új jelszó 6 és 72 karakter közötti legyen.' }, { status: 400 });
-      }
-
       const user = await db.collection('users').findOne(getQuery(ownerSession.id));
       if (!user) return NextResponse.json({ error: 'Felhasználó nem található.' }, { status: 404 });
+      const weakOwn = passwordProblem(newPassword, { username: user.username, email: user.email });
+      if (weakOwn) return NextResponse.json({ error: weakOwn }, { status: 400 });
 
       const isMatch = await bcrypt.compare(currentPassword, user.password);
       if (!isMatch) return NextResponse.json({ error: 'A jelenlegi jelszó hibás.' }, { status: 400 });

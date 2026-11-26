@@ -114,7 +114,7 @@ export default function AdminPage() {
             <div className="bg-[#1a1012] p-8 rounded-2xl border border-[#4A2E33] shadow-xl w-full max-w-md">
               <h1 className="text-3xl font-bold text-[#E5B15D] font-serif mb-2 text-center">Jelszó beállítása</h1>
               <p className="text-[#baaaac] text-center mb-6 border-b border-[#4A2E33] pb-4">
-                Első belépés: az ideiglenes jelszó egyszer használható. Válassz saját jelszót (8-72 karakter)!
+                Első belépés: az ideiglenes jelszó egyszer használható. Válassz saját jelszót: legalább 8 karakter, jó választás három-négy szó egymás után!
               </p>
               <Form form={setupForm} layout="vertical" onFinish={handleSetup}>
                 <Form.Item name="newPassword" rules={[{ required: true, message: 'Adj meg új jelszót!' }, { min: 8, message: 'Legalább 8 karakter!' }, { max: 72, message: 'Legfeljebb 72 karakter!' }]}>

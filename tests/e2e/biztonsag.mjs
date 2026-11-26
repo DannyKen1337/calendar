@@ -46,6 +46,15 @@ try {
   const reset = await post('/api/admin-users', { actionType: 'RESET_PASSWORD', payload: { userId: String(victim) } }, { cookie: ownerTok });
   ok(reset.status === 200, 'új ideiglenes jelszó kiadva');
   ok(await whoAmI(victimOld) === null, 'új ideiglenes jelszó után a régi belépés érvénytelen');
+  // első jelszóbeállítás: a jelszószabály (lib/passwordPolicy.js)
+  const { tempPassword } = await reset.json();
+  const setup = (newPassword) => post('/api/auth', { action: 'complete_setup', loginId: 'Celpont', tempPassword, newPassword }, { ip: '10.4.0.1' });
+  const withName = await setup('Celpont-2026-ok');
+  ok(withName.status === 400 && /felhasználónevet/.test((await withName.json()).error), 'a felhasználónevet tartalmazó jelszó elutasítva');
+  const common = await setup('jelszo123');
+  ok(common.status === 400 && /gyakori/.test((await common.json()).error), 'a túl gyakori jelszó elutasítva');
+  const good = await setup('kek-alma-zongora');
+  ok(good.status === 200 && await whoAmI(cookieFrom(good)) === 'Celpont', 'jó jelszóval az első belépés sikerül');
 
   // valódi belépés két „eszközről”, majd kijelentkezés mindenhol
   const r1 = await login('Szervezo', 'Jelszo-12345', '10.0.0.2');
@@ -72,6 +81,9 @@ try {
   ok(await whoAmI(o2) === null && await whoAmI(o1) === null, 'jelszócsere után a régi sütik érvénytelenek');
   const weird = await post('/api/actions', { actionType: 'CHANGE_OWN_PASSWORD', payload: { currentPassword: 'Uj-Jelszo-678', newPassword: { length: 10 } } }, { cookie: o1new });
   ok(weird.status === 400, 'nem szöveges új jelszó: 400');
+  const weakOwn = await post('/api/actions', { actionType: 'CHANGE_OWN_PASSWORD', payload: { currentPassword: 'Uj-Jelszo-678', newPassword: '12345678' } }, { cookie: o1new });
+  ok(weakOwn.status === 400 && /gyakori/.test((await weakOwn.json()).error), 'saját jelszó cseréjénél is: a túl gyakori jelszó elutasítva');
+  ok(await whoAmI(o1new) === 'Tulaj', 'az elutasított csere nem léptet ki');
 
   // --- Hibás belépések fiókonként (más-más IP-ről is) ---
   for (let i = 0; i < 10; i++) await login('Szervezo', 'rossz-jelszo', `10.1.0.${i}`);

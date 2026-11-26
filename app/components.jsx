@@ -720,8 +720,8 @@ export const AdminModals = ({ app: v }) => {
           <Form.Item name="currentPassword" label="Jelenlegi jelszó" rules={[{ required: true, message: 'Kötelező megadni!' }]}>
             <Input.Password placeholder="Jelenlegi jelszó" />
           </Form.Item>
-          <Form.Item name="newPassword" label="Új jelszó" rules={[{ required: true, message: 'Kötelező megadni!', min: 6 }]}>
-            <Input.Password placeholder="Legalább 6 karakter" />
+          <Form.Item name="newPassword" label="Új jelszó" extra="Legalább 8 karakter. Jó választás három-négy szó egymás után." rules={[{ required: true, message: 'Kötelező megadni!' }, { min: 8, message: 'Legalább 8 karakter legyen!' }, { max: 72, message: 'Legfeljebb 72 karakter lehet!' }]}>
+            <Input.Password placeholder="Legalább 8 karakter" />
           </Form.Item>
           <Form.Item
             name="confirmPassword"

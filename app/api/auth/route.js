@@ -4,6 +4,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import { attachSession, bumpSessionVersion } from '@/lib/auth';
 import { isRateLimited, recordAttempt } from '@/lib/rateLimit';
+import { passwordProblem } from '@/lib/passwordPolicy';
 import { consumeRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
@@ -46,9 +47,11 @@ export async function POST(request) {
 
     // --- REGISZTRÁCIÓ ---
     if (action === 'register') {
-      if (typeof username !== 'string' || !username.trim() || typeof email !== 'string' || typeof password !== 'string' || password.length < 8) {
-        return NextResponse.json({ error: "Adj meg felhasználónevet, e-mail címet és legalább 8 karakteres jelszót!" }, { status: 400 });
+      if (typeof username !== 'string' || !username.trim() || typeof email !== 'string' || typeof password !== 'string') {
+        return NextResponse.json({ error: "Adj meg felhasználónevet, e-mail címet és jelszót!" }, { status: 400 });
       }
+      const weak = passwordProblem(password, { username, email });
+      if (weak) return NextResponse.json({ error: weak }, { status: 400 });
       const userCount = await db.collection('users').countDocuments();
       const isFirstUser = userCount === 0;
       if (!isFirstUser && process.env.ALLOW_PUBLIC_REGISTER !== 'true') {
@@ -133,9 +136,8 @@ export async function POST(request) {
       if (isTempPasswordExpired(user)) {
         return NextResponse.json({ error: "Az ideiglenes jelszó lejárt. Kérj újat a tulajdonostól." }, { status: 401 });
       }
-      if (newPassword.length < 8 || newPassword.length > 72) {
-        return NextResponse.json({ error: "Az új jelszó 8 és 72 karakter közötti legyen." }, { status: 400 });
-      }
+      const weak = passwordProblem(newPassword, { username: user.username, email: user.email });
+      if (weak) return NextResponse.json({ error: weak }, { status: 400 });
       if (newPassword === tempPassword) {
         return NextResponse.json({ error: "Az új jelszó nem egyezhet meg az ideiglenessel." }, { status: 400 });
       }

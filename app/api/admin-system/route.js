@@ -105,9 +105,10 @@ export async function GET() {
     });
 
     const mailReady = set('RESEND_API_KEY') && set('MAIL_FROM');
+    const jwtStrong = set('JWT_SECRET') && String(process.env.JWT_SECRET).trim().length >= 32;
     const integrations = [
       { key: 'db', label: 'Adatbázis (MongoDB)', ok: dbOk, detail: dbOk ? `Válaszidő: ${dbLatencyMs} ms` : dbError },
-      { key: 'jwt', label: 'Bejelentkezési titok (JWT_SECRET)', ok: set('JWT_SECRET'), detail: set('JWT_SECRET') ? 'Beállítva' : 'Hiányzik – a bejelentkezés nem biztonságos' },
+      { key: 'jwt', label: 'Bejelentkezési titok (JWT_SECRET)', ok: jwtStrong, detail: !set('JWT_SECRET') ? 'Hiányzik – a bejelentkezés nem biztonságos' : jwtStrong ? 'Beállítva' : 'Túl rövid: legalább 32 véletlen karakter legyen (cseréjekor mindenki kijelentkezik)' },
       { key: 'cron', label: 'Időzített feladatok kulcsa (CRON_SECRET)', ok: set('CRON_SECRET'), detail: set('CRON_SECRET') ? 'Beállítva' : 'Hiányzik – a takarítás és a napi szinkron nem fut le' },
       { key: 'mail', label: 'E-mail küldés (Resend)', ok: mailReady, optional: true, detail: mailReady ? 'Beállítva' : 'Még nincs beállítva (RESEND_API_KEY, MAIL_FROM)' },
       { key: 'appUrl', label: 'Oldal címe (APP_URL)', ok: set('APP_URL'), optional: true, detail: set('APP_URL') ? 'Beállítva' : 'Nincs megadva – a kérésből számolja' },
