@@ -1,7 +1,8 @@
 import { GalleryAlbum, getAlbum } from '@/weblap/components/GalleryPages';
 import { getContent } from '@/weblap/lib/content';
 
-export const revalidate = 300;
+// Kérésenként renderelődik (a CSP nonce-a miatt, lásd app/(weblap)/layout.js)
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
   const [{ id }, content] = await Promise.all([params, getContent()]);

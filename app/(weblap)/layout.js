@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import '@/weblap/globals.css';
 
 // A Tavern weboldal saját gyökér-layoutja (a naptárétól külön: más betűk, más alapstílus). A naptár oldalai az
@@ -14,10 +15,13 @@ export const metadata = {
 // elrejti (html[data-tolto-kesz]). JavaScript nélkül nincs töltőképernyő.
 const INTRO = `try{var d=document.documentElement,k='tavern-tolto';if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');d.dataset.tolto='fut';var done=function(){d.dataset.toltoKesz='1'};setTimeout(done,2200);addEventListener('pointerdown',done,{once:true});addEventListener('keydown',done,{once:true})}}catch(e){}`;
 
-export default function WebsiteLayout({ children }) {
+// A CSP (proxy.js) csak a kéréshez kapott nonce-szal megjelölt scriptet engedi: a töltőképernyő szkriptje is ezt kapja.
+// A headers() miatt az oldalak kérésenként renderelődnek (a nonce minden kérésnél új).
+export default async function WebsiteLayout({ children }) {
+  const nonce = (await headers()).get('x-nonce') || undefined;
   return (
     <html lang="hu" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: INTRO }} /></head>
+      <head><script nonce={nonce} dangerouslySetInnerHTML={{ __html: INTRO }} /></head>
       <body>{children}</body>
     </html>
   );

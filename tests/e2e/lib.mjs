@@ -15,7 +15,14 @@ export const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.ap
 export const wait = (ms) => new Promise(r => setTimeout(r, ms));
 let passed = 0, failed = 0;
 export const ok = (c, name) => { if (c) { passed++; console.log('  ok -', name); } else { failed++; console.log('  NOT OK -', name); } };
-export const summary = () => { console.log(`\n${passed} ok, ${failed} hiba`); if (failed) process.exitCode = 1; };
+// A Content-Security-Policy (proxy.js) sértései: minden teszt minden oldalán figyeljük, és a teszt végén hibának számítanak
+// (ha egy oldal saját scriptjét, stílusát, képét vagy keretét letiltaná a szabály). A szándékos próbáknál (csp.mjs) kikapcsolható.
+const cspViolations = [];
+const CSP_MESSAGE = /Content Security Policy|Refused to (load|execute|apply|frame|connect|evaluate|create)/i;
+export const summary = () => {
+  for (const v of [...new Set(cspViolations)].slice(0, 10)) { failed++; console.log('  NOT OK - CSP letiltotta:', v); }
+  console.log(`\n${passed} ok, ${failed} hiba`); if (failed) process.exitCode = 1;
+};
 
 export async function openDb() {
   const client = await new MongoClient(readFileSync(new URL('./.uri', import.meta.url), 'utf8')).connect();
@@ -31,8 +38,10 @@ export async function browser() {
   return puppeteer.launch({ executablePath: CHROME, headless: VISIBLE ? false : 'new', ...(VISIBLE && { slowMo: Number(process.env.LASSIT) || 60, args: ['--window-size=1320,980'] }) });
 }
 // intro: true esetén a weboldal töltőképernyője is látszik (alapból kimarad, mintha már látta volna a munkamenetben)
-export async function page(b, cookie, w = 1280, h = 900, { intro = false } = {}) {
+export async function page(b, cookie, w = 1280, h = 900, { intro = false, cspProbe = false } = {}) {
   const p = await b.newPage();
+  p.csp = [];
+  p.on('console', m => { const t = m.text(); if (CSP_MESSAGE.test(t)) { p.csp.push(t); if (!cspProbe) cspViolations.push(`${p.url()} – ${t.slice(0, 300)}`); } });
   if (!intro) await p.evaluateOnNewDocument(() => { try { sessionStorage.setItem('tavern-tolto', '1'); } catch { /* nincs tárhely */ } });
   await p.setViewport({ width: w, height: h, isMobile: w < 500, hasTouch: w < 500 });
   p.on('dialog', d => d.accept());

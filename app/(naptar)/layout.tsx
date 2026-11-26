@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Geist, Geist_Mono, Cinzel, Manrope } from "next/font/google";
 import "../globals.css";
 
@@ -26,7 +27,10 @@ export const metadata: Metadata = {
   description: "A Tavern Debrecen, a Tavern Miskolc és a JátékCéh kártyajáték-eseményei egy helyen: Pokémon, Magic, Lorcana, One Piece és más versenyek. Nézd meg a naptárat és jelentkezz online!",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+// Az oldalak kérésenként renderelődnek: a CSP nonce-a (proxy.js) minden kérésnél új, és a Next csak így tudja
+// ráírni a scriptjeire (egy előre legyártott oldal scriptjei nonce nélkül maradnának, és a böngésző letiltaná őket)
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  await connection();
   return (
     <html
       lang="hu"

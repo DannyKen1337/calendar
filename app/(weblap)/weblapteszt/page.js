@@ -12,8 +12,9 @@ export async function generateMetadata() {
 // Sötét oldal: a böngésző sávja és az oldal szélén túlgörgetés is a korom fekete
 export const viewport = { themeColor: '#0f0f0f', colorScheme: 'dark' };
 
-// A program, a nyitvatartás és a hírek 5 percenként frissülnek (kirakáskor azonnal)
-export const revalidate = 300;
+// Kérésenként renderelődik (a CSP nonce-a miatt, lásd app/(weblap)/layout.js); a naptár programja és a Facebook-posztok
+// adat-gyorsítótára 5 perces marad (weblap/lib/calendar.js, social.js)
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const [content, feed] = await Promise.all([getContent(), getFeed(8)]);

@@ -2,7 +2,8 @@ import { NewsPost } from '@/weblap/components/NewsPages';
 import { getManualPost, postExcerpt } from '@/weblap/lib/posts';
 import { getContent } from '@/weblap/lib/content';
 
-export const revalidate = 300;
+// Kérésenként renderelődik (a CSP nonce-a miatt, lásd app/(weblap)/layout.js)
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
