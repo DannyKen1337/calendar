@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, Select, message, Empty, Alert } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TeamOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, CopyOutlined, SwapOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TeamOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, CopyOutlined, SwapOutlined, UnlockOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
 import { FEATURES, STORE_NAMES } from '@/lib/permissions';
@@ -272,7 +272,7 @@ export default function UserAdmin({ currentUserId }) {
   const users = [...data.users]
     .filter(u => !q || `${u.username} ${u.email} ${permHaystack(u)}`.toLowerCase().includes(q))
     .filter(u => !perm || hasPerm(u, perm))
-    .filter(u => filter === 'all' || (filter === 'staff' ? (u.role === 'admin' || u.role === 'owner') : filter === 'players' ? (u.role !== 'admin' && u.role !== 'owner') : filter === 'disabled' ? u.disabled : filter === 'legacy' ? (u.role === 'admin' && !u.usesGroups) : true))
+    .filter(u => filter === 'all' || (filter === 'staff' ? (u.role === 'admin' || u.role === 'owner') : filter === 'players' ? (u.role !== 'admin' && u.role !== 'owner') : filter === 'disabled' ? u.disabled : filter === 'locked' ? u.locked : filter === 'legacy' ? (u.role === 'admin' && !u.usesGroups) : true))
     .sort((a, b) => (ROLE_ORDER[a.role] ?? 2) - (ROLE_ORDER[b.role] ?? 2) || a.username.localeCompare(b.username, 'hu'));
   const legacyCount = data.users.filter(u => u.role === 'admin' && !u.usesGroups).length;
   const counts = {
@@ -280,6 +280,7 @@ export default function UserAdmin({ currentUserId }) {
     staff: data.users.filter(u => u.role === 'admin' || u.role === 'owner').length,
     players: data.users.filter(u => u.role !== 'admin' && u.role !== 'owner').length,
     disabled: data.users.filter(u => u.disabled).length,
+    locked: data.users.filter(u => u.locked).length,
   };
 
   const roleTag = (role) => (role === 'owner' ? <Tag color="purple" style={{ margin: 0 }}>Tulajdonos</Tag> : role === 'admin' ? <Tag color="orange" style={{ margin: 0 }}>Szervező</Tag> : <Tag color="green" style={{ margin: 0 }}>Játékos</Tag>);
@@ -302,6 +303,7 @@ export default function UserAdmin({ currentUserId }) {
           <div className="flex flex-col items-end gap-1 shrink-0">
             {roleTag(u.role)}
             {u.disabled && <Tag color="red" style={{ margin: 0 }}>Felfüggesztve</Tag>}
+            {u.locked && <Tag color="volcano" style={{ margin: 0 }} title="Túl sok hibás jelszó: 15 percig nem tud belépni, hacsak fel nem oldod" data-kizarva>Kizárva</Tag>}
             {u.mustChangePassword && <Tag color="blue" style={{ margin: 0 }}>Ideiglenes jelszó</Tag>}
           </div>
         </div>
@@ -340,6 +342,9 @@ export default function UserAdmin({ currentUserId }) {
             {u.role === 'admin'
               ? <Popconfirm title="Visszafokozod játékossá?" description="Elveszíti a szervezői hozzáférést." onConfirm={() => simple('SET_ROLE', { userId: u.id, role: 'customer' }, 'Visszafokozva játékossá.')} okText="Igen" cancelText="Mégse"><Button size="small" style={sideBtn}>Visszafokozás</Button></Popconfirm>
               : <Popconfirm title="Szervezővé teszed?" description="A csoportjai alapján kap jogokat (csoport nélkül semmit nem kezelhet)." onConfirm={() => simple('SET_ROLE', { userId: u.id, role: 'admin' }, 'Szervezővé téve.')} okText="Igen" cancelText="Mégse"><Button size="small" style={sideBtn}>Szervezővé tétel</Button></Popconfirm>}
+            {u.locked && data.isOwner && (
+              <Button size="small" icon={<UnlockOutlined />} style={{ ...sideBtn, color: '#E5B15D', borderColor: '#5c4520' }} onClick={() => simple('UNLOCK_LOGIN', { userId: u.id }, `${u.username} újra próbálkozhat.`)} data-feloldas>Kizárás feloldása</Button>
+            )}
             {u.disabled
               ? <Button size="small" icon={<CheckCircleOutlined />} style={{ ...sideBtn, color: '#8fd18f' }} onClick={() => simple('SET_DISABLED', { userId: u.id, disabled: false }, 'Visszaengedve.')}>Visszaengedés</Button>
               : <Popconfirm title="Felfüggeszted a fiókot?" description="Nem tud belépni, és ha most be van lépve, azonnal kijelentkezik. Bármikor visszaengedhető." onConfirm={() => simple('SET_DISABLED', { userId: u.id, disabled: true }, 'Felfüggesztve.')} okText="Felfüggesztés" cancelText="Mégse" okButtonProps={{ danger: true }}><Button size="small" icon={<StopOutlined />} style={sideBtn}>Felfüggesztés</Button></Popconfirm>}
@@ -399,6 +404,12 @@ export default function UserAdmin({ currentUserId }) {
               label: `Felhasználók (${data.users.length})`,
               children: (
                 <div className="flex flex-col gap-3">
+                  {data.isOwner && (data.lockedIps > 0 || data.users.some(u => u.locked)) && (
+                    <Alert type="error" showIcon data-kizarasok
+                      title={[data.users.filter(u => u.locked).length && `${data.users.filter(u => u.locked).length} fiók kizárva (túl sok hibás jelszó)`, data.lockedIps && `${data.lockedIps} gépről most nem lehet belépni (túl sok kísérlet)`].filter(Boolean).join(' · ')}
+                      description="15 perc után magától feloldódik. Ha valaki addig is újra próbálkozna, oldd fel a fiókjánál, vagy itt mindet egyszerre."
+                      action={<Popconfirm title="Feloldod az összes belépési zárolást?" onConfirm={() => simple('UNLOCK_ALL_LOGINS', {}, 'Minden zárolás feloldva.')} okText="Feloldás" cancelText="Mégse"><Button size="small" icon={<UnlockOutlined />} data-feloldas-mind>Összes feloldása</Button></Popconfirm>} />
+                  )}
                   {legacyCount > 0 && (
                     <Alert type="warning" showIcon title={`${legacyCount} szervezőnek még egyéni (régi) jogai vannak.`} description="Ezek változatlanul működnek. A „Csoporttá alakítás” gombbal egy kattintással csoportra válthatod őket, vagy a „Csoportok” gombbal meglévő csoportba teheted." />
                   )}
@@ -412,6 +423,7 @@ export default function UserAdmin({ currentUserId }) {
                       { value: 'staff', label: `Szervezők (${counts.staff})` },
                       { value: 'players', label: `Játékosok (${counts.players})` },
                       ...(counts.disabled ? [{ value: 'disabled', label: `Felfüggesztett (${counts.disabled})` }] : []),
+                      ...(counts.locked ? [{ value: 'locked', label: `Kizárt (${counts.locked})` }] : []),
                       ...(legacyCount ? [{ value: 'legacy', label: `Régi jogok (${legacyCount})` }] : []),
                     ]} />
                     </div>

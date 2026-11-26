@@ -7,6 +7,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin, bumpSessionVersion } from '@/lib/auth';
 import { canManageUsers } from '@/lib/permissions';
 import { isValidEmail } from '@/lib/rateLimit';
+import { currentLocks, isUserLocked, unlockUser, unlockAll } from '@/lib/loginLocks';
 import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, PROTECTED_FEATURES, seedDefaultGroups, isLevelGroup, grantLevel1, level1GroupId, ensureLevel1ForAll } from '@/lib/userAccess';
 
 export const dynamic = 'force-dynamic';
@@ -55,6 +56,8 @@ export async function GET() {
       db.collection('users').find({}, { projection: { password: 0 } }).sort({ username: 1 }).toArray(),
       getGroupsMap(db),
     ]);
+    // Belépési zárolások: csak a tulajdonos látja és oldhatja fel
+    const locks = session.role === 'owner' ? await currentLocks(db) : null;
     const members = new Map();
     users.forEach(u => (u.groupIds || []).forEach(gid => members.set(String(gid), (members.get(String(gid)) || 0) + 1)));
     return NextResponse.json({
@@ -64,13 +67,14 @@ export async function GET() {
         // Régi, egyénileg beállított jogok (csak amíg a felhasználó nem kap csoportot)
         legacy: usesGroups(u) ? null : { allowedCategories: Array.isArray(u.allowedCategories) ? u.allowedCategories : null, allowedStores: Array.isArray(u.allowedStores) ? u.allowedStores : null, features: u.features || [] },
         access: effectiveAccess(u, groupsById),
-        disabled: !!u.disabled, mustChangePassword: !!u.mustChangePassword,
+        disabled: !!u.disabled, mustChangePassword: !!u.mustChangePassword, ...(locks && { locked: isUserLocked(locks, u) }),
         lastLoginAt: u.lastLoginAt || null, createdAt: u.createdAt || null, createdBy: u.createdBy || '',
       })),
       groups: [...groupsById.values()]
         .sort((a, b) => (GROUP_KIND_ORDER[groupKind(a)] - GROUP_KIND_ORDER[groupKind(b)]) || a.name.localeCompare(b.name, 'hu'))
         .map(g => groupOut(g, members.get(String(g._id)) || 0)),
       isOwner: session.role === 'owner',
+      ...(locks && { lockedIps: locks.ips.length }), // ennyi gépről nem lehet most belépni (túl sok kísérlet)
     });
   } catch (error) {
     console.error('admin-users GET error:', error);
@@ -211,6 +215,22 @@ export async function POST(request) {
       const disabled = payload.disabled === true;
       await users.updateOne({ _id: target._id }, disabled ? { $set: { disabled: true, disabledAt: new Date(), disabledBy: session.username } } : { $unset: { disabled: '', disabledAt: '', disabledBy: '' } });
       await addLog(db, session.username, 'FIÓK', `${target.username} ${disabled ? 'felfüggesztve' : 'visszaengedve'}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // Belépési zárolás feloldása (csak a tulajdonos): a fiók hibás próbálkozásai és az érintett gépek kísérletei törlődnek
+    if (actionType === 'UNLOCK_LOGIN' || actionType === 'UNLOCK_ALL_LOGINS') {
+      if (!isOwner) return bad('Belépési zárolást csak a tulajdonos oldhat fel.', 403);
+      if (actionType === 'UNLOCK_ALL_LOGINS') {
+        const n = await unlockAll(db);
+        await addLog(db, session.username, 'BELÉPÉS FELOLDÁS', `Minden belépési zárolás feloldva (${n} próbálkozás törölve)`);
+        return NextResponse.json({ success: true });
+      }
+      const o = oid(payload.userId);
+      const target = o ? await users.findOne({ _id: o }) : null;
+      if (!target) return bad('A felhasználó nem található.', 404);
+      const n = await unlockUser(db, target);
+      await addLog(db, session.username, 'BELÉPÉS FELOLDÁS', `${target.username}: zárolás feloldva (${n} próbálkozás törölve)`);
       return NextResponse.json({ success: true });
     }
 

@@ -4,6 +4,7 @@ import { getTavernDb } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import { attachSession, bumpSessionVersion } from '@/lib/auth';
 import { isRateLimited, recordAttempt } from '@/lib/rateLimit';
+import { FAIL_LIMIT, IP_LIMIT, LOGIN_WINDOW_MS, failKey, ipKey } from '@/lib/loginLocks';
 import { passwordProblem } from '@/lib/passwordPolicy';
 import { consumeRateLimit } from '@/lib/rateLimit';
 
@@ -21,9 +22,6 @@ const passwordMatches = (password, user) => bcrypt.compare(password, user?.passw
 
 // Fiókonként a sikertelen próbálkozások száma is korlátos (sok IP-címről indított jelszópróbálgatás ellen).
 // Csak a hibás jelszó számít, a sikeres belépés nem.
-const FAIL_LIMIT = 10;
-const FAIL_WINDOW_MS = 15 * 60 * 1000;
-const failKey = (loginId) => `login-fail:${loginId.trim().toLowerCase()}`;
 
 const isTempPasswordExpired = (user) =>
   !!user.tempPasswordExpires && new Date(user.tempPasswordExpires) < new Date();
@@ -85,13 +83,13 @@ export async function POST(request) {
       }
       // Jelszópróbálgatás ellen: IP-címenként korlátozzuk a belépési kísérleteket
       const ip = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
-      const allowed = await consumeRateLimit(db, `login:${ip}`, 20, 15 * 60 * 1000);
+      const allowed = await consumeRateLimit(db, ipKey(ip), IP_LIMIT, LOGIN_WINDOW_MS);
       if (!allowed) {
-        return NextResponse.json({ error: 'Túl sok belépési kísérlet. Próbáld újra 15 perc múlva.' }, { status: 429 });
+        return NextResponse.json({ error: 'Túl sok belépési kísérlet erről a gépről. Próbáld újra 15 perc múlva, vagy kérd meg a tulajdonost, hogy oldja fel.' }, { status: 429 });
       }
 
-      if (await isRateLimited(db, failKey(loginId), FAIL_LIMIT, FAIL_WINDOW_MS)) {
-        return NextResponse.json({ error: 'Ezzel a fiókkal túl sok hibás belépés történt. Próbáld újra 15 perc múlva.' }, { status: 429 });
+      if (await isRateLimited(db, failKey(loginId), FAIL_LIMIT, LOGIN_WINDOW_MS)) {
+        return NextResponse.json({ error: 'Ezzel a fiókkal túl sok hibás belépés történt. Próbáld újra 15 perc múlva, vagy kérd meg a tulajdonost, hogy oldja fel.' }, { status: 429 });
       }
 
       const user = await db.collection('users').findOne({ 
@@ -99,7 +97,7 @@ export async function POST(request) {
       });
 
       if (!(await passwordMatches(password, user))) {
-        await recordAttempt(db, failKey(loginId));
+        await recordAttempt(db, failKey(loginId), { ip }); // az IP-vel: a feloldás a gép zárolását is megszünteti
         return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
       }
       if (user.disabled) return NextResponse.json({ error: "Ez a fiók fel van függesztve. Keresd a tulajdonost." }, { status: 403 });
