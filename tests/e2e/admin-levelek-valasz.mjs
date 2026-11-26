@@ -2,7 +2,7 @@
 // felhasználó aláírásával és nevével („Kata – Tavern”), az eredeti levél idézve, az eredeti szálában (In-Reply-To).
 // Ha a levélnek Reply-To címe van (pl. az előrendelő oldal kérdései), oda megy; a rendszer saját címére nem.
 // Hamis SMTP-szerverrel (levelezős kör: SMTP_USER = bolt@teszt.hu).
-import { openDb, token, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
+import { openDb, token, browser, page, ok, summary, SHOTS, BASE } from './lib.mjs';
 import { startSmtp } from './fake-smtp.mjs';
 
 const { client, db } = await openDb();
