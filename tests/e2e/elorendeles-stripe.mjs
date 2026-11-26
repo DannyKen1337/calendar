@@ -2,6 +2,7 @@
 // a gombra kattintva a jelentkezés fizetés nélkül is bekerül a listába (checkoutAt), utána a Stripe oldala nyílik meg
 // (előre kitöltött e-mail, client_reference_id = a jelentkezés azonosítója). A link csak a jelentkezés után megy ki.
 import { openDb, token, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
+import { startSmtp } from './fake-smtp.mjs';
 
 const { client, db } = await openDb();
 const owner = (await db.collection('users').insertOne({ username: 'StripeTulaj', email: 'st@x.hu', password: 'x', role: 'owner', lastSeenChangelog: '9999' })).insertedId;
@@ -19,6 +20,7 @@ const [A, B] = Object.values((await db.collection('preorder_products').insertMan
 const LINK = 'https://buy.stripe.com/test_e2e123';
 const base = { name: 'Stripe Booster Box', category: 'Pokémon TCG', perPersonLimit: 0, price: 52990 };
 
+const smtp = await startSmtp();
 const b = await browser();
 try {
   // --- Admin: utólag hozzáadható, rossz linkkel hiba ---
@@ -58,6 +60,10 @@ try {
   const su = stripeUrl ? new URL(stripeUrl) : null;
   ok(su && su.origin + su.pathname === LINK, `átirányít a Stripe linkre (${stripeUrl})`);
   ok(su?.searchParams.get('prefilled_email') === person.email && su?.searchParams.get('client_reference_id') === String(row?._id), 'az e-mail előre kitöltve, a jelentkezés azonosítója átadva');
+  let mail = null;
+  for (let i = 0; i < 50 && !mail; i++) { mail = (await smtp.mails()).find(m => m.to.includes(person.email)); if (!mail) await wait(200); }
+  ok(!!mail && /Köszönjük, hogy feliratkoztál/.test(mail.subject), `kiment a „Köszönjük, hogy feliratkoztál” levél (${mail?.subject})`);
+  ok(!!mail && mail.html.includes(LINK) && /client_reference_id=/.test(mail.html) && /Stripe Booster Box/.test(mail.html), 'a levélben ott a termék és a fizetési link');
 
   // --- Több termék: nincs gomb, csak tipp ---
   const m = await page(b, null);
@@ -110,6 +116,7 @@ try {
   console.log('  böngészőhibák:', [...p.errs, ...e.errs, ...ad.errs].join(' | ') || 'nincs');
 } finally {
   await b.close();
+  await smtp.close();
   await client.close();
 }
 summary();

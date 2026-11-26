@@ -25,6 +25,8 @@ const RATE_LIMITS = [
   { prefix: 'unsub-ip:', label: 'Leiratkozás (IP)', limit: '30 / óra / IP' },
   { prefix: 'preorder-ip:', label: 'Előrendelés (IP)', limit: '40 / óra / IP' },
   { prefix: 'preorder:', label: 'Előrendelés (e-mail)', limit: '10 / óra / e-mail' },
+  { prefix: 'contact-ip:', label: 'Kérdés az előrendelő oldalról (IP)', limit: '10 / óra / IP' },
+  { prefix: 'contact:', label: 'Kérdés az előrendelő oldalról (e-mail)', limit: '5 / óra / e-mail' },
   { prefix: 'setup:', label: 'Jelszóbeállítás', limit: '10 / óra / fiók' },
   { prefix: 'csp-ip:', label: 'Letiltott script / tartalom jelentése (CSP)', limit: '30 / óra / IP' },
 ];

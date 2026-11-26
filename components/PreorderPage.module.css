@@ -114,3 +114,23 @@
 .privacyBox summary::after { content: '›'; margin-left: 8px; transition: transform 180ms ease; }
 .privacyBox[open] summary::after { transform: rotate(90deg); }
 .embed .bottom { margin: 0 -12px; padding: 10px 12px max(12px, env(safe-area-inset-bottom)); }
+
+/* „Kérdésed van? Írj nekünk” (components/PreorderContact.jsx) */
+.contactBtn { align-self: center; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 18px; border: 1px solid rgba(229, 177, 93, 0.45); border-radius: 999px; background: rgba(229, 177, 93, 0.06); color: #f3ece3; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 160ms ease, border-color 160ms ease; }
+.contactBtn:hover { background: rgba(229, 177, 93, 0.14); border-color: var(--accent); }
+.contactBtn:focus-visible, .contactClose:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+.contactIcon { display: inline-flex; width: 20px; height: 20px; color: var(--accent); }
+.contactIcon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.contact { display: flex; flex-direction: column; gap: 12px; }
+.contactHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.contactHead .h2 { margin: 0; }
+.contactClose { display: grid; place-items: center; width: 44px; height: 44px; margin: -6px -8px -6px 0; border: 0; border-radius: 50%; background: transparent; color: #cfc6b8; font-size: 28px; line-height: 1; cursor: pointer; }
+.contactClose:hover { background: rgba(255, 255, 255, 0.08); color: #ffffff; }
+.contactSent { display: flex; flex-direction: column; gap: 10px; }
+.msgField { display: flex; flex-direction: column; gap: 6px; }
+.msgLabel { padding: 0 4px; color: #b9b0a4; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+.msgInput { width: 100%; min-height: 120px; padding: 14px 16px; border: 0; border-radius: 14px; background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.16); color: #ffffff; font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; outline: none; }
+.msgInput:focus { background: rgba(0, 0, 0, 0.5); box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px rgba(229, 177, 93, 0.18); }
+.msgField[data-allapot='hiba'] .msgInput { box-shadow: inset 0 0 0 2px #ff6b6b; }
+.msgError { margin: 0; padding: 0 4px; color: #ff8f8f; font-size: 14px; font-weight: 600; }
+.embed .contactBtn { align-self: stretch; justify-content: center; }

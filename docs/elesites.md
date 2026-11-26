@@ -36,6 +36,7 @@ Levelezés (ami most él):
 
 Egyéb:
 
+- [ ] `CONTACT_EMAIL` (nem kötelező): ide mennek az előrendelő oldal „Írj nekünk” üzenetei. Ha nincs megadva, a küldő postafiókba (`SMTP_USER`). A válaszcím a kérdezőé, így a „Válasz” gombbal közvetlenül neki írsz.
 - [ ] `APP_URL`: az éles cím (`https://…`), hogy a levelek linkjei arra mutassanak.
 - [ ] `IMGBB_API_KEY`: a képfeltöltéshez.
 - [ ] `WEBSHOP_URL`: a webshop címe (a weboldal gombja, és ez a cím beágyazhatja a jelentkezést).

@@ -10,10 +10,12 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const URL_ = 'http://localhost:3179/api/auth/session';
 const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fut
 const ROUNDS = [
-  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'elorendeles-stripe', 'biztonsag', 'csp'] },
+  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'biztonsag', 'csp'] },
   { fake: true, tests: ['weblap-javitasok', 'weblap-galeria', 'weblap-kepek'] },
   // rejtett admin: a szerver a titkos belépő címmel (ADMIN_PATH) fut
   { fake: false, env: { ADMIN_PATH: '/kapu-teszt-2026' }, tests: ['admin-kapu'] },
+  // levelezéssel: a tesztszerver a hamis SMTP-szervernek küld (tests/e2e/fake-smtp.mjs, a tesztfájl indítja)
+  { fake: false, env: { SMTP_HOST: '127.0.0.1', SMTP_PORT: '25871', SMTP_USER: 'bolt@teszt.hu', SMTP_PASS: 'x', SMTP_INSECURE_TEST: '1' }, tests: ['elorendeles-stripe', 'elorendeles-kerdes'] },
 ];
 const only = process.argv.slice(2);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -102,7 +104,7 @@ for (const round of ROUNDS) {
     await server.ready();
     await warmUp();
     for (const t of tests) {
-      console.log(`\n== ${t}${round.fake ? ' (ál-ImgBB)' : ''}${round.env?.ADMIN_PATH ? ' (rejtett admin)' : ''}`);
+      console.log(`\n== ${t}${round.fake ? ' (ál-ImgBB)' : ''}${round.env?.ADMIN_PATH ? ' (rejtett admin)' : ''}${round.env?.SMTP_HOST ? ' (levelezéssel)' : ''}`);
       if (!server.isAlive()) { console.log(`  A tesztszerver közben leállt:\n${server.tail.join('\n')}`); failed.push(t); continue; }
       if (!(await run(t, round))) failed.push(t);
     }

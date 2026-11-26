@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getGameConfig, getGameColor } from '@/lib/gameConfig';
 import { groupByGame, maxSelectable, formatPrice } from '@/lib/preorders';
 import { Field, Progress, ErrorSummary, SubmitButton, Success, ICONS } from '@/components/FormKit';
+import PreorderContact from '@/components/PreorderContact';
 import s from './PreorderPage.module.css';
 
 // Nyilvános előrendelő (feliratkozási) oldal. focusId: a megosztott linkben megadott termék (?termek=...),
@@ -42,15 +43,22 @@ const privacyText = (
 );
 
 const Shell = ({ children, embed }) => <main className={`${s.page} ${embed ? s.embed : ''}`}><div className={s.wrap}>{children}</div></main>;
-const Header = ({ subtitle, game, showAll, embed }) => (embed ? (
-  showAll ? <nav className={s.embedTop}><a className={s.allLink} href="/elorendeles?embed=1">Összes előrendelés ›</a></nav> : null
+// contact: a „Kérdésed van? Írj nekünk” gomb (és lenyitva az üzenetküldő), a fejléc alján
+const Header = ({ subtitle, game, showAll, embed, contact }) => (embed ? (
+  <>
+    {showAll && <nav className={s.embedTop}><a className={s.allLink} href="/elorendeles?embed=1">Összes előrendelés ›</a></nav>}
+    {contact}
+  </>
 ) : (
-  <header className={s.head}>
-    <p className={s.kicker}>Tavern{game ? ` · ${game}` : ''}</p>
-    <h1 className={s.title}>Előrendelés</h1>
-    {subtitle && <p className={s.sub}>{subtitle}</p>}
-    {showAll && <a className={s.allLink} href="/elorendeles">Összes előrendelés ›</a>}
-  </header>
+  <>
+    <header className={s.head}>
+      <p className={s.kicker}>Tavern{game ? ` · ${game}` : ''}</p>
+      <h1 className={s.title}>Előrendelés</h1>
+      {subtitle && <p className={s.sub}>{subtitle}</p>}
+      {showAll && <a className={s.allLink} href="/elorendeles">Összes előrendelés ›</a>}
+    </header>
+    {contact}
+  </>
 ));
 
 // game: játék-link (?jatek=) esetén a játék neve; ilyenkor és termék-linknél „Összes előrendelés” link az összesítőre
@@ -65,6 +73,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const contact = <PreorderContact productId={focused?.id || null} initial={{ name: values.name.trim(), email: values.email.trim() }} />;
 
   if (maintenance) return <Shell embed={embed}><Header embed={embed} /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az előrendelés átmenetileg nem elérhető. Kérjük, nézz vissza később!</p></div></Shell>;
   if (loadError) return <Shell embed={embed}><Header embed={embed} /><div className={`${s.panel} ${s.center}`}><p className={s.p}>Az oldal most nem tölthető be. Kérjük, próbáld újra pár perc múlva.</p></div></Shell>;
@@ -74,7 +83,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
   );
 
   if (products.length === 0) {
-    return <Shell embed={embed}><Header embed={embed} />{notFoundNotice}<div className={`${s.panel} ${s.center}`}><p className={s.p}>Jelenleg nincs nyitott előrendelés.</p></div></Shell>;
+    return <Shell embed={embed}><Header embed={embed} contact={contact} />{notFoundNotice}<div className={`${s.panel} ${s.center}`}><p className={s.p}>Jelenleg nincs nyitott előrendelés.</p></div></Shell>;
   }
 
   const chosen = shown.filter(p => selected[p.id]);
@@ -151,7 +160,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
   if (result) {
     return (
       <Shell embed={embed}>
-        <Header embed={embed} />
+        <Header embed={embed} contact={contact} />
         <div className={s.panel}>
           <Success title={result.checkoutUrl ? 'Köszönjük, hogy feliratkoztál!' : 'Köszönjük, megkaptuk az előrendelésed!'}>
             <ul className={s.summaryList}>
@@ -180,7 +189,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
 
   return (
     <Shell embed={embed}>
-      <Header embed={embed} game={game} showAll={!!(focused || game)} subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : game ? `A(z) ${game} előrendelései. Válaszd ki, mire szeretnél feliratkozni.` : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
+      <Header embed={embed} game={game} showAll={!!(focused || game)} contact={contact} subtitle={focused ? 'Add meg az adataidat, és jelezd, hány darabot kérsz.' : game ? `A(z) ${game} előrendelései. Válaszd ki, mire szeretnél feliratkozni.` : 'Válaszd ki, mire szeretnél feliratkozni, és add meg az elérhetőségeidet.'} />
       {notFoundNotice}
       <form onSubmit={submit} noValidate className={s.form}>
         {!embed && <Progress done={done} total={1 + FIELDS.length} />}
