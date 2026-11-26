@@ -64,6 +64,14 @@
 
 /* Alsó sáv: végösszeg és beküldés (telefonon a képernyő alján ragad) */
 .bottom { position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 10px; margin: 0 -16px; padding: 12px 16px max(14px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(15, 11, 12, 0) 0%, rgba(15, 11, 12, 0.92) 22%, #0f0b0c 100%); }
+.secondary { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; padding: 0 20px; border: 1px solid rgba(229, 177, 93, 0.45); border-radius: 999px; background: transparent; color: var(--accent); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.secondary:hover:not(:disabled) { background: rgba(229, 177, 93, 0.1); }
+.secondary:disabled { cursor: progress; opacity: 0.6; }
+.secondary:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+.buyHint { margin: 0; padding: 0 6px; color: #cfc6b8; font-size: 13px; text-align: center; }
+.payBox { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 12px 0; }
+.payLink { display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border-radius: 999px; background: var(--accent); color: var(--accent-text, #1a1210); font-weight: 800; text-decoration: none; }
+.payLink:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
 .total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 0 6px; color: #cfc6b8; font-size: 14px; }
 .total b { color: var(--accent); font-size: 22px; font-variant-numeric: tabular-nums; animation: bump 320ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes bump { 0% { transform: scale(1.18); } 100% { transform: scale(1); } }

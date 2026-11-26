@@ -1,12 +1,12 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, InputNumber, Select, Segmented, Table, Tag, Popconfirm, Typography, message, Empty } from 'antd';
-import { PlusOutlined, MailOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons';
+import { PlusOutlined, MailOutlined, DownOutlined, RightOutlined, SearchOutlined, LinkOutlined, FileExcelOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined, EyeOutlined, CloseOutlined, CheckOutlined, UndoOutlined, WalletOutlined, CreditCardOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
 import MessageModal from '@/components/MessageModal';
 import { getGameColor } from '@/lib/gameConfig';
 import useLiveRefresh from '@/lib/useLiveRefresh';
-import { preorderLink, preorderGameLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX } from '@/lib/preorders';
+import { preorderLink, preorderGameLink, formatPrice, PRODUCT_NAME_MAX, PRODUCT_DESC_MAX, PRODUCT_RELEASE_MAX, PRODUCT_STOCK_MAX, PRODUCT_LIMIT_MAX, PRODUCT_PRICE_MAX, STRIPE_URL_MAX, normalizeStripeUrl } from '@/lib/preorders';
 
 const { Title, Text } = Typography;
 
@@ -78,7 +78,7 @@ export default function PreorderAdmin() {
 
   const openEditor = (product) => {
     setEditing(product);
-    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '', stock: product.stock ?? null, perPersonLimit: product.perPersonLimit ?? null, price: product.price ?? null });
+    form.setFieldsValue({ category: product.category, name: product.name || '', releaseDate: product.releaseDate || '', description: product.description || '', stock: product.stock ?? null, perPersonLimit: product.perPersonLimit ?? null, price: product.price ?? null, stripeUrl: product.stripeUrl || '' });
   };
 
   const save = async (values) => {
@@ -156,7 +156,10 @@ export default function PreorderAdmin() {
         {o.paidBy && <span style={{ color: '#7d6e70', fontSize: 12 }}>{o.paidBy}</span>}
       </div>
     ) : (
-      <Button size="small" icon={<WalletOutlined />} onClick={() => setPaid(o, true)} style={{ ...sideBtn, color: '#E5B15D', borderColor: '#5c4520' }}>Fizetve</Button>
+      <div className="flex flex-col items-start gap-1">
+        <Button size="small" icon={<WalletOutlined />} onClick={() => setPaid(o, true)} style={{ ...sideBtn, color: '#E5B15D', borderColor: '#5c4520' }}>Fizetve</Button>
+        {o.checkoutAt && <Tag color="purple" icon={<CreditCardOutlined />} style={{ margin: 0 }} title={`A „Megveszem most” gombra kattintott: ${formatHu(o.checkoutAt)}. Hogy fizetett-e, a Stripe-ban látszik.`} data-stripe-kattintott>Stripe-ra ment</Tag>}
+      </div>
     )) },
     { title: 'Átadás', key: 'handover', width: 170, render: (_, o) => (o.handedOverAt ? (
       <div className="flex flex-col items-start gap-1">
@@ -213,6 +216,7 @@ export default function PreorderAdmin() {
               <Tag color={p.isOpen ? 'green' : 'default'} style={{ margin: 0 }}>{p.isOpen ? 'Nyitott' : 'Lezárva'}</Tag>
               {soldOut && <Tag color="red" style={{ margin: 0 }}>{total > p.stock ? `Túlfoglalva (+${total - p.stock} db)` : 'Elfogyott'}</Tag>}
               {p.price !== null && <span style={{ color: '#E5B15D', fontWeight: 'bold' }}>{formatPrice(p.price)}</span>}
+              {p.stripeUrl && <Tag color="purple" icon={<CreditCardOutlined />} style={{ margin: 0 }} title={p.stripeUrl} data-stripe-cimke>Megveszem most gomb</Tag>}
             </div>
             <div style={{ color: '#9a8a8c', fontSize: 13, marginTop: 2 }}>
               {p.releaseDate ? `Megjelenés: ${p.releaseDate} · ` : ''}Felvette: {p.createdBy || '—'}, {formatHu(p.createdAt)}
@@ -362,6 +366,11 @@ export default function PreorderAdmin() {
           </div>
           <Form.Item name="price" label="Ár (nem kötelező)" extra="Darabonkénti ár forintban. A vásárló a termék mellett és a végösszegnél is látja.">
             <InputNumber min={0} max={PRODUCT_PRICE_MAX} precision={0} step={500} suffix="Ft" placeholder="Pl.: 25000" style={{ width: '100%' }} formatter={(val) => (val === undefined || val === null || val === '' ? '' : String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ' '))} parser={(val) => String(val || '').replace(/\D/g, '')} />
+          </Form.Item>
+          <Form.Item name="stripeUrl" label="Stripe fizetési link (nem kötelező)"
+            extra="Ha megadod, a vásárló a „Megveszem most” gombbal rögtön fizethet. A gombra kattintva bekerül a jelentkezők közé akkor is, ha végül nem fizet. Később is hozzáadható, átírható, vagy üresre törölve kivehető."
+            rules={[{ validator: (_, v) => { const r = normalizeStripeUrl(v); return r.error ? Promise.reject(new Error(r.error)) : Promise.resolve(); } }]}>
+            <Input maxLength={STRIPE_URL_MAX} placeholder="https://buy.stripe.com/…" inputMode="url" autoCapitalize="none" allowClear />
           </Form.Item>
           <Form.Item name="releaseDate" label="Megjelenés (nem kötelező)">
             <Input maxLength={PRODUCT_RELEASE_MAX} placeholder="Pl.: 2026. november 14." />

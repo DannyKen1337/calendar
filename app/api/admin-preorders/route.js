@@ -31,10 +31,10 @@ export async function GET() {
       : [];
 
     return NextResponse.json({
-      products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), price: productPrice(p), perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
+      products: products.map(p => ({ id: String(p._id), name: p.name, category: p.category, description: p.description || '', releaseDate: p.releaseDate || '', stock: productStock(p), price: productPrice(p), stripeUrl: p.stripeUrl || '', perPersonLimit: Number.isInteger(p.perPersonLimit) ? p.perPersonLimit : null, isOpen: !!p.isOpen, createdAt: p.createdAt, createdBy: p.createdBy || '' })),
       // 1. szint: e-mail és telefon nélkül (a rendszeren keresztül írhat nekik: hasEmail); 2. szint: minden adat
       messaging: { personalData: seesPersonalData(session), canMessage: canMessage(session), ...messagingStatus() },
-      preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, ...(seesPersonalData(session) ? { email: o.email, phone: o.phone } : { hasEmail: !!o.email }), quantity: o.quantity, date: o.date, updatedAt: o.updatedAt, handedOverAt: o.handedOverAt || null, handedOverBy: o.handedOverBy || '', paidAt: o.paidAt || null, paidBy: o.paidBy || '' })),
+      preorders: preorders.map(o => ({ id: String(o._id), productId: o.productId, name: o.name, ...(seesPersonalData(session) ? { email: o.email, phone: o.phone } : { hasEmail: !!o.email }), quantity: o.quantity, date: o.date, updatedAt: o.updatedAt, checkoutAt: o.checkoutAt || null, handedOverAt: o.handedOverAt || null, handedOverBy: o.handedOverBy || '', paidAt: o.paidAt || null, paidBy: o.paidBy || '' })),
       games: PREORDER_GAMES.filter(g => canManageCategory(session, g)),
     });
   } catch (error) {
@@ -69,7 +69,8 @@ export async function POST(request) {
         if (!existing) return NextResponse.json({ error: 'A termék nem található.' }, { status: 404 });
         if (!canManageCategory(session, existing.category)) return noPermission();
         await products.updateOne({ _id: existing._id }, { $set: { ...product, updatedAt: new Date() } });
-        await addLog(db, session.username, 'ELŐRENDELÉS TERMÉK SZERKESZTÉSE', `${product.name} (${product.category})`);
+        const stripeNote = (existing.stripeUrl || null) === product.stripeUrl ? '' : product.stripeUrl ? (existing.stripeUrl ? ', Stripe link módosítva' : ', Stripe link hozzáadva') : ', Stripe link törölve';
+        await addLog(db, session.username, 'ELŐRENDELÉS TERMÉK SZERKESZTÉSE', `${product.name} (${product.category})${stripeNote}`);
         return NextResponse.json({ success: true, id: String(existing._id) });
       }
 

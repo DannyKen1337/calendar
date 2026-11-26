@@ -98,11 +98,19 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
   const okOf = (f) => !!values[f].trim() && !check(f, values[f]) && !serverErrors[f];
   const done = (chosen.length > 0 ? 1 : 0) + FIELDS.filter(okOf).length;
 
-  const submit = async (e) => {
-    e.preventDefault();
+  // „Megveszem most”: egy kiválasztott termék, amelynek van Stripe linkje. Előbb bekerül a listába (fizetés nélkül is),
+  // utána a Stripe fizetési oldala nyílik meg (a weboldal ablakában új lapon, mert a Stripe nem nyílik meg beágyazva).
+  const buyable = chosen.length === 1 && chosen[0].buyNow;
+  const buyHint = chosen.length > 1 && chosen.some(p => p.buyNow);
+  const submit = async (e, buyNow = false) => {
+    e?.preventDefault();
     if (submitting) return;
     setTries(n => n + 1);
     if (chosen.length === 0 || FIELDS.some(f => check(f, values[f]))) return;
+    if (buyNow && !buyable) return;
+    // A lapot még a kattintásra kell megnyitni, különben a böngésző letiltja (a cím a mentés után kerül bele)
+    let tab = null;
+    if (buyNow && embed) { try { tab = window.open('', '_blank'); if (tab) tab.opener = null; } catch { tab = null; } }
     setSubmitting(true);
     setFormError('');
     try {
@@ -115,17 +123,25 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
           phone: values.phone.trim(),
           website: values.website,
           items: chosen.map(p => ({ productId: p.id, quantity: selected[p.id] })),
+          ...(buyNow ? { buyNow: true } : {}),
         }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.error) {
+        tab?.close();
         const msg = (data && data.error) || 'Az előrendelés most nem sikerült. Próbáld újra később.';
         if (data?.field) setServerErrors(err => ({ ...err, [data.field]: msg }));
         else setFormError(msg);
         return;
       }
-      setResult({ items: chosen.map(p => ({ name: p.name, quantity: selected[p.id], price: p.price })), total: totalPrice, updated: data.updated, mailSent: data.mailSent });
+      const checkoutUrl = typeof data.checkoutUrl === 'string' && data.checkoutUrl.startsWith('https://') ? data.checkoutUrl : null;
+      setResult({ items: chosen.map(p => ({ name: p.name, quantity: selected[p.id], price: p.price })), total: totalPrice, updated: data.updated, mailSent: data.mailSent, checkoutUrl, tabOpened: !!(tab && checkoutUrl) });
+      if (checkoutUrl) {
+        if (tab) tab.location.href = checkoutUrl;
+        else if (!embed) window.location.assign(checkoutUrl);
+      } else tab?.close();
     } catch {
+      tab?.close();
       setFormError('Hálózati hiba történt. Ellenőrizd az internetkapcsolatot, és próbáld újra.');
     } finally {
       setSubmitting(false);
@@ -137,13 +153,19 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
       <Shell embed={embed}>
         <Header embed={embed} />
         <div className={s.panel}>
-          <Success title="Köszönjük, megkaptuk az előrendelésed!">
+          <Success title={result.checkoutUrl ? 'Köszönjük, hogy feliratkoztál!' : 'Köszönjük, megkaptuk az előrendelésed!'}>
             <ul className={s.summaryList}>
               {result.items.map(i => <li key={i.name}><b>{i.name}</b> – {i.quantity} db{i.price !== null && i.price !== undefined ? ` × ${formatPrice(i.price)}` : ''}</li>)}
             </ul>
             {result.total !== null && <p className={s.p}>Végösszeg: <b>{formatPrice(result.total)}</b></p>}
             {result.updated > 0 && <p className={s.muted}>Erre a termékre ezzel az e-mail címmel már volt előrendelésed, azt frissítettük.</p>}
-            <p className={s.muted}>Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? ' A visszaigazolást elküldtük e-mailben.' : ''}</p>
+            {result.checkoutUrl && (
+              <div className={s.payBox} data-fizetes>
+                <p className={s.muted}>{result.tabOpened ? 'A fizetés új lapon nyílt meg, a Stripe biztonságos oldalán.' : 'A fizetés a Stripe biztonságos oldalán történik.'} Ha nem nyílt meg, vagy félbehagytad:</p>
+                <a className={s.payLink} href={result.checkoutUrl} {...(embed ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>Tovább a fizetéshez</a>
+              </div>
+            )}
+            <p className={s.muted}>Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? (result.checkoutUrl ? ' A visszaigazolást és a fizetési linket elküldtük e-mailben.' : ' A visszaigazolást elküldtük e-mailben.') : ''}</p>
           </Success>
         </div>
         {!embed && <nav className={s.back}><Link href="/">Eseménynaptár</Link></nav>}
@@ -190,6 +212,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
                           {!soldOut && (p.perPersonLimit > 0 || p.remaining !== null) && (
                             <span className={s.meta}>{[p.perPersonLimit > 0 && `Személyenként legfeljebb ${p.perPersonLimit} db`, p.remaining !== null && `Még ${p.remaining} db foglalható`].filter(Boolean).join(' · ')}</span>
                           )}
+                          {p.buyNow && !soldOut && <span className={s.meta}>Most azonnal ki is fizetheted</span>}
                           {p.description && <span className={s.desc}>{p.description}</span>}
                         </span>
                         {isOn && <QuantityStepper value={selected[p.id]} onChange={(q) => setQty(p.id, q)} label={p.name} max={max} />}
@@ -230,7 +253,15 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
               <b key={totalPrice} data-osszeg>{formatPrice(totalPrice)}</b>
             </div>
           )}
-          <SubmitButton busy={submitting} busyText="Küldés…">{chosen.length > 1 ? `Előrendelés leadása (${chosen.length} termék)` : 'Előrendelés leadása'}</SubmitButton>
+          {buyable ? (
+            <>
+              <SubmitButton type="button" busy={submitting} busyText="Küldés…" onClick={(e) => submit(e, true)} data-megveszem>Megveszem most</SubmitButton>
+              <button type="submit" className={s.secondary} disabled={submitting}>Csak előrendelem, később fizetek</button>
+            </>
+          ) : (
+            <SubmitButton busy={submitting} busyText="Küldés…">{chosen.length > 1 ? `Előrendelés leadása (${chosen.length} termék)` : 'Előrendelés leadása'}</SubmitButton>
+          )}
+          {buyHint && <p className={s.buyHint}>A „Megveszem most” egyszerre egy termékre megy: ha most fizetnél, csak azt az egyet jelöld be.</p>}
         </div>
       </form>
     </Shell>

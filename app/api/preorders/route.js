@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
-import { normalizePhone, normalizeQuantity, phoneKey, productStock, productLimit, PREORDER_MAX_ITEMS } from '@/lib/preorders';
+import { normalizePhone, normalizeQuantity, phoneKey, productStock, productLimit, stripeCheckoutUrl, PREORDER_MAX_ITEMS } from '@/lib/preorders';
 import { toObjectId } from '@/lib/preorderData';
-import { isMailConfigured, sendMail, escapeHtml, mailLayout } from '@/lib/mailer';
+import { isMailConfigured, sendMail } from '@/lib/mailer';
+import { preorderMail } from '@/lib/preorderMail';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +61,9 @@ export async function POST(request) {
       items.set(String(oid), qty);
     }
     if (items.size === 0) return NextResponse.json({ error: 'Válassz legalább egy terméket.', field: 'items' }, { status: 400 });
+    // „Megveszem most”: egyszerre egy termék, amelynek van Stripe linkje. A jelentkezés fizetés nélkül is bekerül a listába.
+    const buyNow = body.buyNow === true;
+    if (buyNow && items.size !== 1) return NextResponse.json({ error: 'A „Megveszem most” egyszerre egy termékre használható.', field: 'items' }, { status: 400 });
 
     const db = await getTavernDb();
 
@@ -76,6 +80,10 @@ export async function POST(request) {
       .toArray();
     if (products.length !== items.size) {
       return NextResponse.json({ error: 'Valamelyik kiválasztott termék előrendelése közben lezárult. Frissítsd az oldalt, és próbáld újra.' }, { status: 409 });
+    }
+
+    if (buyNow && !products[0].stripeUrl) {
+      return NextResponse.json({ error: 'Ennél a terméknél most nem lehet azonnal fizetni. Frissítsd az oldalt, és próbáld újra.', field: 'items' }, { status: 409 });
     }
 
     const pKey = phoneKey(phone);
@@ -95,7 +103,7 @@ export async function POST(request) {
     for (const p of products) {
       const upsert = () => orders.findOneAndUpdate(
         { productId: String(p._id), email },
-        { $set: { name, phone, phoneKey: pKey, quantity: items.get(String(p._id)), updatedAt: now }, $setOnInsert: { productId: String(p._id), email, date: now } },
+        { $set: { name, phone, phoneKey: pKey, quantity: items.get(String(p._id)), updatedAt: now, ...(buyNow ? { checkoutAt: now } : {}) }, $setOnInsert: { productId: String(p._id), email, date: now } },
         { upsert: true, returnDocument: 'before' }
       );
       // Két párhuzamos beküldésnél (dupla kattintás) az egyedi index miatt az egyik upsert ütközhet: ilyenkor még egyszer próbáljuk, akkor már frissít
@@ -116,20 +124,17 @@ export async function POST(request) {
       }
     }
 
+    // A fizetési cím a szerveren készül a termék elmentett linkjéből (a böngészőből nem jöhet idegen cím)
+    let checkoutUrl = null;
+    if (buyNow) {
+      const row = await orders.findOne({ productId: String(products[0]._id), email }, { projection: { _id: 1 } });
+      checkoutUrl = stripeCheckoutUrl(products[0].stripeUrl, { email, ref: row ? String(row._id) : '' });
+    }
+
     let mailSent = false;
     if (isMailConfigured()) {
       try {
-        const list = products.map(p => `<li><b>${escapeHtml(p.name)}</b> (${escapeHtml(p.category)}) – ${items.get(String(p._id))} db</li>`).join('');
-        await sendMail({
-          to: email,
-          subject: 'Előrendelésed visszaigazolása – Tavern',
-          html: mailLayout('Előrendelés visszaigazolása', `
-            <p>Kedves ${escapeHtml(name)}!</p>
-            <p>Megkaptuk az előrendelésedet az alábbi termékekre:</p>
-            <ul>${list}</ul>
-            <p>Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.</p>
-          `),
-        });
+        await sendMail({ to: email, ...preorderMail({ name, items: products.map(p => ({ name: p.name, category: p.category, quantity: items.get(String(p._id)) })), checkoutUrl }) });
         mailSent = true;
       } catch (mailErr) {
         console.error('preorder mail error:', mailErr);
@@ -137,7 +142,7 @@ export async function POST(request) {
       }
     }
 
-    return NextResponse.json({ success: true, count: products.length, updated, mailSent });
+    return NextResponse.json({ success: true, count: products.length, updated, mailSent, ...(checkoutUrl ? { checkoutUrl } : {}) });
   } catch (error) {
     console.error('preorder error:', error);
     await logSystemError('preorder', error);
