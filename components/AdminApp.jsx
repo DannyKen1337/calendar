@@ -8,7 +8,7 @@ import {
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
   CalendarOutlined, PieChartOutlined, AppstoreOutlined, ScheduleOutlined, PlusOutlined, BarChartOutlined, GlobalOutlined,
   ShoppingOutlined, TrophyOutlined, ReadOutlined, TeamOutlined, ProfileOutlined, StopOutlined, ToolOutlined, DownloadOutlined,
-  StarOutlined, LogoutOutlined, MailOutlined, InboxOutlined, SafetyOutlined } from '@ant-design/icons';
+  StarOutlined, LogoutOutlined, MailOutlined, InboxOutlined } from '@ant-design/icons';
 import { STORES, AdminModals, AttendeeNames, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
@@ -22,7 +22,6 @@ import QuickActions, { quickActionsFor } from '@/components/QuickActions';
 import { Fab, PullToRefresh } from '@/components/PhoneApp';
 import s from './AdminApp.module.css';
 import PushToggle from './PushToggle';
-import TwoFactorModal from './TwoFactorModal';
 
 // Az admin felület (tulajdonos és szervezők): egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
 // Fülek: Események (hónaponként, ez a kezdőoldal), Telítettség (napi telítettség, kézi helyfoglalás; a tulajdonosnak a modul
@@ -103,11 +102,6 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   const [pastDays, setPastDays] = useState(PAST_DAYS_STEP);
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
   const [standalone, setStandalone] = useState(true);
-  // Kétlépcsős belépés (Továbbiak › Fiók): állapot és a beállító ablak
-  const [twoFactor, setTwoFactor] = useState(null);
-  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
-  const loadTwoFactor = () => fetch('/api/auth/2fa').then(r => (r.ok ? r.json() : null)).then(setTwoFactor).catch(() => {});
-  useEffect(() => { loadTwoFactor(); }, []);
 
   useEffect(() => { window.sessionStorage.setItem(TAB_STORAGE, tab); }, [tab]);
   // Web appként (főképernyőről) indítva nem kell a telepítési tipp
@@ -514,7 +508,6 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       <div className={s.group}>
         <PushToggle />
         <button type="button" className={s.tool} onClick={onShowChangelog} data-eszkoz><span className={s.toolIcon} aria-hidden="true"><StarOutlined /></span><span className={s.toolText}><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
-        {buttonRow(SafetyOutlined, 'Kétlépcsős belépés', twoFactor?.enabled ? 'Bekapcsolva' : twoFactor?.recommended ? 'Kikapcsolva – a te fiókodnál erősen ajánlott' : 'Kikapcsolva – jelszó mellé egy kód a telefonodról', () => setTwoFactorOpen(true))}
         {isOwner && buttonRow(LockOutlined, 'Saját jelszó', null, () => { app.ownPasswordForm.resetFields(); app.setIsOwnPasswordModalOpen(true); })}
         {buttonRow(LogoutOutlined, 'Kijelentkezés', null, () => app.handleLogout(), true)}
         <Popconfirm title="Kijelentkezel minden eszközről?" description="A telefonodon és a többi gépen is újra be kell majd lépned." onConfirm={() => app.handleLogout(true)} okText="Kijelentkezés" cancelText="Mégse" okButtonProps={{ danger: true }}>
@@ -571,7 +564,6 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       <PullToRefresh onRefresh={refresh} />
       <EventSheet app={app} evt={selectedEvent} onClose={() => setSelected(null)} />
       <AdminModals app={app} />
-      {twoFactorOpen && <TwoFactorModal onClose={() => { setTwoFactorOpen(false); loadTwoFactor(); }} />}
     </ConfigProvider>
   );
 }

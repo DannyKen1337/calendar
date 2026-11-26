@@ -26,7 +26,6 @@ const RATE_LIMITS = [
   { prefix: 'preorder-ip:', label: 'Előrendelés (IP)', limit: '40 / óra / IP' },
   { prefix: 'preorder:', label: 'Előrendelés (e-mail)', limit: '10 / óra / e-mail' },
   { prefix: 'setup:', label: 'Jelszóbeállítás', limit: '10 / óra / fiók' },
-  { prefix: '2fa:', label: 'Kétlépcsős kód beállítása / kikapcsolása', limit: '10 / 15 perc / fiók' },
   { prefix: 'csp-ip:', label: 'Letiltott script / tartalom jelentése (CSP)', limit: '30 / óra / IP' },
 ];
 const set = (name) => Boolean(process.env[name] && String(process.env[name]).trim());

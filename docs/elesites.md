@@ -10,7 +10,6 @@ Utoljára átnézve: 2026. november 26. A kódban ellenőrizhető tételek kipip
 - [x] Az admin, az űrlapos oldalak és a weboldal nem ágyazható idegen oldalba; a naptár (`/`, `/embed`) bárhová.
 - [x] Belépés: bcrypt, HttpOnly + Secure süti, IP-nként és fiókonként korlátozott próbálkozás, „Kijelentkezés minden eszközről”, jelszócsere után a régi belépések érvénytelenek.
 - [x] Egységes jelszószabály (legalább 8 karakter, nem lehet túl gyakori jelszó).
-- [x] Kétlépcsős belépés (hitelesítő alkalmazás kódja + 10 tartalék kód), bárki bekapcsolhatja; lásd 7. pont.
 - [x] A hibaüzenetek nem árulnak el belső részleteket; a részletek a Rendszer oldalon látszanak.
 - [x] A válasz fejléce nem árulja el a keretrendszert (`X-Powered-By` ki).
 - [x] Az adatbázis-mentésben (Továbbiak › Teljes adatbázis mentés) nincs jelszó-hash, és a titkos kulcsok sincsenek benne.
@@ -71,9 +70,3 @@ Egyéb:
 - [ ] Nyisd meg a fő oldalakat telefonon és gépen (naptár, esemény, jelentkezés, előrendelés, asztalfoglalás, weboldal, admin), és nézd meg a Rendszer oldalt: van-e „csp” hiba. Ha egy oldal saját tartalmát tiltja le a szabály, ott látszik.
 - [ ] Próbáld ki a titkos admin linket egy privát (inkognitó) ablakban, és azt, hogy a sima `/admin` ott 404-et ad.
 - [ ] Időnként: `npm audit`, és a Next frissítése (frissítés után a fejlesztői gépen töröld a `.next` mappát).
-
-## 7. Kétlépcsős belépés
-
-- [ ] A tulajdonos kapcsolja be (Továbbiak › Fiók › Kétlépcsős belépés), és a tartalék kódokat tegye biztonságos helyre (nem a telefonra).
-- [ ] Kérd meg azokat is, akik személyes adatokat (2. szint), a postafiókot vagy a felhasználókat kezelik: náluk a felület „erősen ajánlott”-nak jelzi. A Felhasználók oldalon a zöld „Kétlépcsős” címke mutatja, kinél van bekapcsolva.
-- [ ] Elveszett telefon: a tulajdonos a Felhasználók oldalon a „Kétlépcsős ki” gombbal kikapcsolhatja; a tulajdonos saját fiókjánál erre csak a tartalék kódok jók, ezért azokat mindenképp őrizd meg.
