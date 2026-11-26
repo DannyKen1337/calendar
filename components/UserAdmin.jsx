@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Button, Modal, Form, Input, Tag, Popconfirm, Typography, Checkbox, Tabs, Segmented, Select, message, Empty, Alert } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TeamOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, CopyOutlined, SwapOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CloseOutlined, SearchOutlined, UserAddOutlined, TeamOutlined, KeyOutlined, StopOutlined, CheckCircleOutlined, CopyOutlined, SwapOutlined, SafetyOutlined } from '@ant-design/icons';
 import { adminTheme } from '@/components/AdminPage';
 import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
 import { FEATURES, STORE_NAMES } from '@/lib/permissions';
@@ -303,6 +303,7 @@ export default function UserAdmin({ currentUserId }) {
             {roleTag(u.role)}
             {u.disabled && <Tag color="red" style={{ margin: 0 }}>Felfüggesztve</Tag>}
             {u.mustChangePassword && <Tag color="blue" style={{ margin: 0 }}>Ideiglenes jelszó</Tag>}
+            {u.twoFactor && <Tag color="green" icon={<SafetyOutlined />} style={{ margin: 0 }} data-ketlepcsos>Kétlépcsős</Tag>}
           </div>
         </div>
 
@@ -332,6 +333,11 @@ export default function UserAdmin({ currentUserId }) {
             {u.role === 'admin' && !u.usesGroups && (
               <Popconfirm title="Egyéni jogok átalakítása csoporttá?" description="Azonos beállítású csoportot használ, ha van ilyen, különben újat hoz létre. A jogai nem változnak." onConfirm={() => simple('CONVERT_TO_GROUP', { userId: u.id }, 'Átalakítva csoporttá.')} okText="Átalakítás" cancelText="Mégse">
                 <Button size="small" icon={<SwapOutlined />} style={sideBtn}>Csoporttá alakítás</Button>
+              </Popconfirm>
+            )}
+            {data.isOwner && u.twoFactor && (
+              <Popconfirm title="Kikapcsolod a kétlépcsős azonosítást?" description="Ha elvesztette a telefonját: ezután a jelszavával léphet be, és újra bekapcsolhatja. A régi belépései megszűnnek." onConfirm={() => simple('RESET_2FA', { userId: u.id }, 'Kétlépcsős azonosítás kikapcsolva.')} okText="Kikapcsolás" cancelText="Mégse" okButtonProps={{ danger: true }}>
+                <Button size="small" icon={<SafetyOutlined />} style={sideBtn} data-ketlepcsos-ki>Kétlépcsős ki</Button>
               </Popconfirm>
             )}
             <Popconfirm title="Új ideiglenes jelszót generálsz?" description="A régi jelszó azonnal érvényét veszti. Az új jelszóval belépve saját jelszót kell beállítania." onConfirm={() => resetPassword(u)} okText="Generálás" cancelText="Mégse">

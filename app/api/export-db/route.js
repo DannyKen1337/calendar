@@ -20,7 +20,7 @@ export async function GET() {
     const [tournaments, registrations, users, logs, blacklist, settings, preorderProducts, preorders, leagues, leaguePlayers, leagueSessions, leagueSeasons] = await Promise.all([
       db.collection('tournaments').find({}).toArray(),
       db.collection('registrations').find({}).toArray(),
-      db.collection('users').find({}, { projection: { password: 0 } }).toArray(), // Jelszavakat sosem exportálunk!
+      db.collection('users').find({}, { projection: { password: 0, totp: 0, totpPending: 0, recoveryCodes: 0 } }).toArray(), // Jelszavakat és a kétlépcsős titkokat sosem exportálunk!
       db.collection('audit_logs').find({}).sort({ date: -1 }).toArray(),
       db.collection('blacklist').find({}).toArray(),
       db.collection('settings').find({}).toArray(),

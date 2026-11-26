@@ -4,7 +4,7 @@ import { useCalendar } from '@/app/useCalendar';
 import { ChangelogModal } from '@/app/components';
 import AdminApp from '@/components/AdminApp';
 import { CHANGELOG, LATEST_CHANGELOG_ID, unseenReleases } from '@/lib/changelog';
-import { LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
+import { LockOutlined, UserOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons';
 import { Form, Input, Button, ConfigProvider, theme, message } from 'antd';
 
 const tavernTheme = {
@@ -29,6 +29,9 @@ export default function AdminPage() {
   const [localForm] = Form.useForm();
   const [setup, setSetup] = useState(null); // { loginId, tempPassword } ideiglenes jelszóval való első belépéskor
   const [setupForm] = Form.useForm();
+  // Kétlépcsős belépés: a jelszó után a hitelesítő app kódja (a megadott belépési adatokkal együtt küldjük újra)
+  const [codeFor, setCodeFor] = useState(null); // { loginId, password }
+  const [codeForm] = Form.useForm();
   const [showAllChangelog, setShowAllChangelog] = useState(false);
   // Olvasatlan újdonságok: csak bejelentkezett szervezőnek, a munkamenet betöltése után
   const isStaff = app.userRole === 'admin' || app.userRole === 'owner';
@@ -60,6 +63,10 @@ export default function AdminPage() {
       });
       const data = await res.json();
 
+      if (!isRegistering && data.needCode) {
+        setCodeFor({ loginId: values.loginId, password: values.password });
+        return;
+      }
       if (!res.ok) {
         message.error(data.error || 'Hiba történt!');
         return;
@@ -84,15 +91,45 @@ export default function AdminPage() {
     }
   };
 
+  // A kód beküldése (a jelszóval együtt). Tartalék kóddal belépve szól, hány maradt.
+  const handleCode = async (values) => {
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', ...codeFor, code: values.code })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        message.error(data.error || 'Hiba történt!');
+        codeForm.resetFields();
+        return;
+      }
+      if (data.recoveryLeft != null) {
+        message.warning(`Tartalék kóddal léptél be. ${data.recoveryLeft} tartalék kód maradt${data.recoveryLeft <= 3 ? ': kérj újakat a Továbbiak › Fiók részben' : ''}.`, 4);
+        setTimeout(() => window.location.reload(), 2500);
+        return;
+      }
+      window.location.reload();
+    } catch {
+      message.error('Szerverhiba történt.');
+    }
+  };
+
   // Első belépés: az ideiglenes jelszó lecserélése saját jelszóra
   const handleSetup = async (values) => {
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'complete_setup', loginId: setup.loginId, tempPassword: setup.tempPassword, newPassword: values.newPassword })
+        body: JSON.stringify({ action: 'complete_setup', loginId: setup.loginId, tempPassword: setup.tempPassword, newPassword: values.newPassword, code: values.code })
       });
       const data = await res.json();
+      if (data.needCode && !setup.needCode) {
+        // kétlépcsős fiók: a jelszó mellé a kód is kell
+        setSetup({ ...setup, needCode: true });
+        return;
+      }
       if (!res.ok) {
         message.error(data.error || 'Hiba történt!');
         return;
@@ -135,12 +172,46 @@ export default function AdminPage() {
                 >
                   <Input.Password prefix={<LockOutlined className="text-gray-500 mr-2" />} placeholder="Új jelszó megerősítése" size="large" />
                 </Form.Item>
+                {setup.needCode && (
+                  <Form.Item name="code" extra="A fiókodnál be van kapcsolva a kétlépcsős belépés: írd be a hitelesítő alkalmazás kódját (vagy egy tartalék kódot)." rules={[{ required: true, message: 'Add meg a kódot!' }]}>
+                    <Input prefix={<SafetyOutlined className="text-gray-500 mr-2" />} placeholder="6 jegyű kód" size="large" inputMode="numeric" autoComplete="one-time-code" autoFocus />
+                  </Form.Item>
+                )}
                 <Button type="primary" htmlType="submit" className="w-full h-12 text-black font-bold text-lg rounded-xl mt-2" style={{ background: '#E5B15D', borderColor: '#E5B15D' }}>
                   Jelszó mentése és belépés
                 </Button>
               </Form>
               <div className="text-center mt-6">
                 <Button type="link" onClick={() => { setSetup(null); setupForm.resetFields(); }} style={{ color: '#baaaac' }}>
+                  Mégse
+                </Button>
+              </div>
+            </div>
+          </main>
+        </ConfigProvider>
+      );
+    }
+
+    if (codeFor) {
+      return (
+        <ConfigProvider theme={tavernTheme}>
+          {app.contextHolder}
+          <main className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+            <div className="bg-[#1a1012] p-8 rounded-2xl border border-[#4A2E33] shadow-xl w-full max-w-md" data-kod-lepes>
+              <h1 className="text-3xl font-bold text-[#E5B15D] font-serif mb-2 text-center">Kétlépcsős belépés</h1>
+              <p className="text-[#baaaac] text-center mb-6 border-b border-[#4A2E33] pb-4">
+                Nyisd meg a hitelesítő alkalmazást (pl. Google Authenticator), és írd be a Tavern Admin 6 jegyű kódját.
+              </p>
+              <Form form={codeForm} layout="vertical" onFinish={handleCode}>
+                <Form.Item name="code" rules={[{ required: true, message: 'Add meg a kódot!' }]} extra="Elvesztetted a telefonodat? Írj be egy tartalék kódot, vagy kérd meg a tulajdonost, hogy kapcsolja ki.">
+                  <Input prefix={<SafetyOutlined className="text-gray-500 mr-2" />} placeholder="123456" size="large" inputMode="numeric" autoComplete="one-time-code" autoFocus style={{ letterSpacing: 4 }} />
+                </Form.Item>
+                <Button type="primary" htmlType="submit" className="w-full h-12 text-black font-bold text-lg rounded-xl mt-2" style={{ background: '#E5B15D', borderColor: '#E5B15D' }}>
+                  Belépés
+                </Button>
+              </Form>
+              <div className="text-center mt-6">
+                <Button type="link" onClick={() => { setCodeFor(null); codeForm.resetFields(); }} style={{ color: '#baaaac' }}>
                   Mégse
                 </Button>
               </div>

@@ -5,13 +5,14 @@ import bcrypt from 'bcryptjs';
 import { attachSession, bumpSessionVersion } from '@/lib/auth';
 import { isRateLimited, recordAttempt } from '@/lib/rateLimit';
 import { passwordProblem } from '@/lib/passwordPolicy';
+import { checkSecondFactor } from '@/lib/secondFactor';
 import { consumeRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 // Belépési süti (lib/auth.js: attachSession, a munkamenet-verzióval)
-async function sessionResponse(user) {
-  const response = NextResponse.json({ success: true, user: { username: user.username, role: user.role } });
+async function sessionResponse(user, extra = {}) {
+  const response = NextResponse.json({ success: true, user: { username: user.username, role: user.role }, ...extra });
   return attachSession(response, user);
 }
 
@@ -42,7 +43,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { action, loginId, password, email, username, tempPassword, newPassword } = await request.json();
+    const { action, loginId, password, email, username, tempPassword, newPassword, code } = await request.json();
     const db = await getTavernDb();
 
     // --- REGISZTRÁCIÓ ---
@@ -112,8 +113,19 @@ export async function POST(request) {
         return NextResponse.json({ success: true, mustChangePassword: true });
       }
 
+      // Kétlépcsős azonosítás: a jelszó után a hitelesítő app kódja (vagy egy tartalék kód) is kell
+      const second = await checkSecondFactor(db, user, code);
+      if (second.needCode) return NextResponse.json({ needCode: true, error: 'Add meg a hitelesítő alkalmazásod 6 jegyű kódját.' }, { status: 401 });
+      if (!second.ok) {
+        await recordAttempt(db, failKey(loginId));
+        return NextResponse.json({ needCode: true, error: 'Hibás vagy már felhasznált kód.' }, { status: 401 });
+      }
+
       await db.collection('users').updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
-      return await sessionResponse(user);
+      if (!second.usedRecovery) return await sessionResponse(user);
+      // tartalék kóddal: a felület figyelmeztet, ha kevés maradt
+      await db.collection('audit_logs').insertOne({ adminName: user.username, action: 'KÉTLÉPCSŐS', details: `Tartalék kóddal lépett be (${second.recoveryLeft} maradt).`, date: new Date() });
+      return await sessionResponse(user, { recoveryLeft: second.recoveryLeft });
     }
 
     // --- ELSŐ BELÉPÉS: az ideiglenes jelszó lecserélése saját jelszóra (egyszer használatos) ---
@@ -141,7 +153,10 @@ export async function POST(request) {
       if (newPassword === tempPassword) {
         return NextResponse.json({ error: "Az új jelszó nem egyezhet meg az ideiglenessel." }, { status: 400 });
       }
-
+      // ha a fióknál be van kapcsolva a kétlépcsős azonosítás, itt is kell a kód (az új ideiglenes jelszó azt nem kapcsolja ki)
+      const second = await checkSecondFactor(db, user, code);
+      if (second.needCode) return NextResponse.json({ needCode: true, error: 'Add meg a hitelesítő alkalmazásod 6 jegyű kódját.' }, { status: 401 });
+      if (!second.ok) return NextResponse.json({ needCode: true, error: 'Hibás vagy már felhasznált kód.' }, { status: 401 });
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       // A feltétel (mustChangePassword + régi hash) miatt az ideiglenes jelszó pontosan egyszer használható fel, párhuzamos kérésnél is

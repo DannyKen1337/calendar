@@ -52,7 +52,7 @@ export async function GET() {
     await ensureLevel1ForAll(db).catch(err => console.error('1. szint:', err));
     if (seeded) await addLog(db, session.username, 'CSOPORT', `Alapcsoportok létrehozva: ${seeded} db (játékok, boltok, modulok)`);
     const [users, groupsById] = await Promise.all([
-      db.collection('users').find({}, { projection: { password: 0 } }).sort({ username: 1 }).toArray(),
+      db.collection('users').find({}, { projection: { password: 0, recoveryCodes: 0, totpPending: 0, 'totp.secret': 0, 'totp.lastStep': 0 } }).sort({ username: 1 }).toArray(),
       getGroupsMap(db),
     ]);
     const members = new Map();
@@ -64,7 +64,7 @@ export async function GET() {
         // Régi, egyénileg beállított jogok (csak amíg a felhasználó nem kap csoportot)
         legacy: usesGroups(u) ? null : { allowedCategories: Array.isArray(u.allowedCategories) ? u.allowedCategories : null, allowedStores: Array.isArray(u.allowedStores) ? u.allowedStores : null, features: u.features || [] },
         access: effectiveAccess(u, groupsById),
-        disabled: !!u.disabled, mustChangePassword: !!u.mustChangePassword,
+        disabled: !!u.disabled, mustChangePassword: !!u.mustChangePassword, twoFactor: !!u.totp?.enabledAt,
         lastLoginAt: u.lastLoginAt || null, createdAt: u.createdAt || null, createdBy: u.createdBy || '',
       })),
       groups: [...groupsById.values()]
@@ -223,6 +223,17 @@ export async function POST(request) {
       await users.updateOne({ _id: target._id }, { $set: { password: await bcrypt.hash(tempPassword, 10), mustChangePassword: true, tempPasswordExpires: expiresAt }, ...bumpSessionVersion });
       await addLog(db, session.username, 'JELSZÓ', `${target.username}: új ideiglenes jelszó`);
       return NextResponse.json({ success: true, username: target.username, email: target.email, tempPassword, expiresAt });
+    }
+
+    // Elveszett telefon: a kétlépcsős azonosítás kikapcsolása (csak a tulajdonos). A felhasználó a jelszavával léphet be, és
+    // újra bekapcsolhatja; a régi belépései megszűnnek.
+    if (actionType === 'RESET_2FA') {
+      if (!isOwner) return bad('A kétlépcsős azonosítást csak a tulajdonos kapcsolhatja ki.', 403);
+      const { target, res } = await loadTarget(payload.userId);
+      if (res) return res;
+      await users.updateOne({ _id: target._id }, { $unset: { totp: '', recoveryCodes: '', totpPending: '' }, ...bumpSessionVersion });
+      await addLog(db, session.username, 'KÉTLÉPCSŐS', `${target.username}: kétlépcsős azonosítás kikapcsolva (tulajdonos)`);
+      return NextResponse.json({ success: true });
     }
 
     if (actionType === 'CREATE_USER') {
