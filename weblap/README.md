@@ -1,6 +1,6 @@
 # Tavern weboldal – tesztváltozat (/weblapteszt)
 
-A Tavern közös weboldala a naptár alkalmazásán belül fut: taverncalendar.vercel.app/weblapteszt. A forrás a `tavern-web` repó, ide másolva. Az eltérések itt vannak leírva.
+A Tavern közös weboldala a naptár alkalmazásán belül fut: a `www.tavern.hu` főoldala (2026-11-27 óta; előtte taverncalendar.vercel.app/weblapteszt), a naptár a `/naptar` címen. A forrás a `tavern-web` repó, ide másolva. Az eltérések itt vannak leírva.
 
 ## Felépítés
 
@@ -61,4 +61,4 @@ A `MONGODB_URI`, a `JWT_SECRET` és az `IMGBB_API_KEY` közös a naptárral. Eze
 - `WEBSHOP_URL`: a Freewebstore-webshop címe;
 - `META_PAGES`: a három bolt Facebook-oldala, mindegyik a saját oldal-tokenjével (`pages_read_engagement` jog), JSON-ben: `[{"store":"debrecen","id":"…","token":"…"},{"store":"jatekceh",…},{"store":"miskolc",…}]`. A posztok a bolt nevével jelennek meg, boltonként szűrhetők;
 - `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`: a régi, egyoldalas beállítás (ilyenkor az oldal a debreceni bolté), az Instagramhoz továbbra is ez kell;
-- `CALENDAR_URL`: alapból `https://taverncalendar.vercel.app`, innen jön a program.
+- `CALENDAR_URL`: a naptár címe (élesben `https://www.tavern.hu`); beállítás nélkül az `APP_URL`, végül `https://www.tavern.hu`. A régi `taverncalendar.vercel.app` linkeket a mentett tartalomban és a hírekben automatikusan az új címre fordítja (`fromOldOrigin` a `lib/content.js`-ben).

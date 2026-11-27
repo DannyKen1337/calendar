@@ -42,7 +42,7 @@ Egyéb:
 - [ ] `IMGBB_API_KEY`: a képfeltöltéshez.
 - [ ] `WEBSHOP_URL`: a webshop címe (a weboldal gombja, és ez a cím beágyazhatja a jelentkezést).
 - [ ] `FRAME_ANCESTORS`: ha a naptár a tavern.hu-n és a webshopon kívül más oldalba is be van ágyazva (pl. `https://pelda.hu`), különben ott a jelentkezés nem nyílik meg az ablakban.
-- [ ] `CALENDAR_URL`: a weboldal innen tölti a programot (alapból `https://taverncalendar.vercel.app`).
+- [x] `CALENDAR_URL`, `APP_URL`, `NEXT_PUBLIC_SITE_URL`: `https://www.tavern.hu` (beállítva 2026-11-27; beállítás nélkül is az új címre esik vissza, nem a régi vercel.app-ra).
 - [ ] `NEXT_PUBLIC_PRIVACY_URL`: az adatkezelési tájékoztató linkje.
 - [ ] A `NEXT_PUBLIC_` kezdetű változókba soha ne kerüljön titok: ezek a böngészőben is láthatók.
 

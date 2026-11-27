@@ -125,13 +125,21 @@ function isCalendarRoot(href) {
   try { const u = new URL(href); return OLD_CALENDAR_ORIGINS.has(u.origin) && (u.pathname === '/' || u.pathname === '') && !u.search; } catch { return false; }
 }
 
+const OLD_ORIGIN = 'https://taverncalendar.vercel.app';
+export function fromOldOrigin(href) {
+  if (typeof href !== 'string' || !href.startsWith(OLD_ORIGIN)) return href;
+  const rest = href.slice(OLD_ORIGIN.length);
+  return (!rest || rest === '/') ? CALENDAR_PAGE_URL : `${CALENDAR_URL}${rest}`;
+}
+
 // A mentett fülek összefésülése az alapértékekkel (a hibás vagy hiányzó mezők helyén az alapérték marad)
 // A boltok neve mindig a hivatalos forma: Tavern Debrecen, JátékCéh, Tavern Miskolc
 function merge(doc) {
   const content = Object.fromEntries(CONTENT_TABS.map(t => [t.key, doc?.[t.key] ? sanitizeField(t.schema, doc[t.key], DEFAULT_CONTENT[t.key]) : DEFAULT_CONTENT[t.key]]));
   content.stores = { ...content.stores, ...Object.fromEntries(STORE_IDS.map(id => [id, { ...content.stores[id], name: STORE_LABELS[id] }])) };
-  // a régebben elmentett „naptár” linkek a naptár gyökerére mutattak; a gyökérben most a weboldal van → /naptar
-  const fixCal = (href) => (isCalendarRoot(href) ? CALENDAR_PAGE_URL : href);
+  // a régebben elmentett „naptár” linkek a naptár gyökerére mutattak; a gyökérben most a weboldal van → /naptar;
+  // a régi vercel.app címre mutató többi link az új címre (ugyanazzal az úttal)
+  const fixCal = (href) => (isCalendarRoot(href) ? CALENDAR_PAGE_URL : fromOldOrigin(href));
   if (content.general?.cta) content.general = { ...content.general, cta: { ...content.general.cta, href: fixCal(content.general.cta.href) } };
   if (Array.isArray(content.contact?.links)) content.contact = { ...content.contact, links: content.contact.links.map(l => ({ ...l, href: fixCal(l.href) })) };
   return content;

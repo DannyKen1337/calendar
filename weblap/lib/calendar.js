@@ -1,10 +1,11 @@
-// A Tavern naptár (taverncalendar.vercel.app) nyilvános adatai: a debreceni bolt közelgő eseményei.
+// A Tavern naptár (www.tavern.hu/naptar, ugyanebben az alkalmazásban) nyilvános adatai: a debreceni bolt közelgő eseményei.
 // A lekérést a szerver 5 percig gyorsítótárazza, így a naptárba felvett új esemény néhány percen belül itt is megjelenik.
 // Minden időpont magyar helyi idő ("2026-10-28T16:00", időzóna nélkül), a "most" Europe/Budapest szerint értendő.
 
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 
-export const CALENDAR_URL = process.env.CALENDAR_URL || 'https://taverncalendar.vercel.app';
+// a naptár címe; beállítás nélkül az oldal saját címe (APP_URL), végül az éles cím – soha nem a régi vercel.app cím
+export const CALENDAR_URL = (process.env.CALENDAR_URL || process.env.APP_URL || 'https://www.tavern.hu').replace(/\/$/, '');
 
 // A naptár játékai rövid névvel és színnel (a naptár saját színei)
 export const GAMES = {

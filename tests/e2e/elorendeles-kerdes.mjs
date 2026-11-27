@@ -77,6 +77,12 @@ try {
   await w.click('[data-weboldal-kerdes] [data-kerdes-gomb]');
   await w.waitForSelector('[data-weboldal-kerdes] #kerdes-name', { timeout: 10000 });
   ok(/versenyről/.test(await w.$eval('[data-weboldal-kerdes]', el => el.innerText)), 'a weboldalon általános bevezető szöveg');
+  // fókusznál csak a mező saját, lekerekített kerete látszik (nem a weboldal szögletes fókuszkerete a beviteli részen)
+  await wait(300); // kinyitáskor az űrlap magától a név mezőre ugrik: utána fókuszálunk
+  await w.focus('#kerdes-email');
+  await wait(400);
+  const focus = await w.evaluate(() => { const i = document.getElementById('kerdes-email'); const box = i.parentElement; return { outline: getComputedStyle(i).outlineStyle, ring: getComputedStyle(box).boxShadow }; });
+  ok(focus.outline === 'none' && /229, 177, 93/.test(focus.ring), `fókusznál a mező kerete öleli körbe, nincs külön szögletes keret (${JSON.stringify(focus)})`);
   await w.type('#kerdes-name', 'Weboldal Vera');
   await w.type('#kerdes-email', 'vera@pelda.hu');
   await w.type('#kerdes-message', 'Szia! Lesz szombaton Commander?');

@@ -7,6 +7,7 @@
 //
 // website_posts: { title, text, image, link, date, published, pinned, createdBy, createdAt, updatedBy, updatedAt }
 import 'server-only';
+import { fromOldOrigin } from '@/weblap/lib/content';
 import { ObjectId } from 'mongodb';
 import { getTavernDb, hasDatabase } from '@/weblap/lib/db';
 import { getFacebookPosts, getInstagramPosts } from '@/weblap/lib/social';
@@ -20,7 +21,7 @@ const manualPost = (p) => ({
   title: p.title || '',
   text: p.text || '',
   image: p.image || null,
-  url: p.link || null,
+  url: fromOldOrigin(p.link) || null, // a régi vercel.app címre mutató link az új címre
   date: new Date(p.date).toISOString(),
   published: !!p.published,
   pinned: !!p.pinned,

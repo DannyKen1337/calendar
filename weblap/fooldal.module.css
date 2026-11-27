@@ -371,6 +371,8 @@ a.socialGo:hover { color: var(--ink) !important; }
 .contactForm { --accent: #e5b15d; --accent-text: #160f0b; --panel: #191314; display: flex; flex-direction: column; align-items: flex-start; margin: 0 0 2rem; max-width: 560px; color: #e8e2d6; font-family: var(--font-manrope, var(--text)), system-ui, sans-serif; }
 .contactForm > section { width: 100%; }
 .contact .contactForm h2 { font-size: 1.35rem; text-transform: none; color: #ffffff; }
+/* a mezőknél a fókuszt a mező saját, lekerekített kerete mutatja (az ikont is körbeöleli): a weboldal általános fókuszkerete itt nem kell */
+.page .contactForm input:focus-visible, .page .contactForm textarea:focus-visible { outline: none; }
 .fb a { display: grid; grid-template-columns: 1fr auto 52px; align-items: center; gap: 2rem; padding: 1.6rem 0; text-decoration: none; }
 .fb b { font-family: var(--display); font-weight: 700; text-transform: uppercase; font-size: clamp(1.35rem, 0.9rem + 1.7vw, 2.4rem); line-height: 1.1; }
 .fb span { font-size: var(--step-lead); text-align: right; }
