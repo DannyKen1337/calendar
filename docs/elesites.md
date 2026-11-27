@@ -21,7 +21,7 @@ Kötelező:
 
 - [ ] `MONGODB_URI`: az Atlas címe (lásd 3. pont).
 - [ ] `JWT_SECRET`: legalább 32 véletlen karakter (pl. `openssl rand -base64 48`). A Rendszer oldal jelzi, ha rövid. Ha valaha kiadtad valakinek, cseréld le (ekkor mindenki kijelentkezik).
-- [ ] `CRON_SECRET`: hosszú véletlen szöveg; ezzel fut a heti takarítás és a napi szinkron. A cron-job.org (postafiók, pár percenként) is ezt küldje: `Authorization: Bearer <CRON_SECRET>` → `/api/cron/mailbox`.
+- [ ] `CRON_SECRET`: hosszú véletlen szöveg; ezzel fut a heti takarítás és a napi szinkron. A postafiókot a Vercel időzítője nézi kétpercenként (`/api/cron/mailbox`, Pro csomag); külső időzítő nem kell.
 - [ ] `ADMIN_PATH`: a rejtett admin címe, pl. `/ajto-` + 8–12 véletlen betű/szám. Beállítás után:
   - a szervezőknek egyszer el kell küldeni a teljes linket (`https://<domain>/ajto-…`); aki már be van lépve, annak nem kell;
   - a linket ne tedd ki nyilvános helyre; ha kiszivárog, cseréld le (a régi linkkel nyitott kapuk érvénytelenné válnak, a belépett szervezők bent maradnak);

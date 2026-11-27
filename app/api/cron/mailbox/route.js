@@ -7,8 +7,8 @@ import { syncMailbox } from '@/lib/mailboxSync';
 export const dynamic = 'force-dynamic';
 
 // A rendszer postafiókjának megnézése (új válaszok → szál + telefonos értesítés, Beérkezett levelek) akkor is, ha senkinél
-// nincs nyitva az admin. A Vercel ingyenes csomagja csak napi időzítést enged, ezért egy külső időzítő hívja pár percenként
-// (pl. cron-job.org), ezzel a fejléccel: Authorization: Bearer <CRON_SECRET>. Egyszerre csak egy fut, legfeljebb félpercenként.
+// nincs nyitva az admin. A Vercel időzítője hívja kétpercenként (vercel.json, Pro csomag; a Vercel magától küldi az
+// Authorization: Bearer <CRON_SECRET> fejlécet). Egyszerre csak egy fut, legfeljebb félpercenként.
 export async function GET(request) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });

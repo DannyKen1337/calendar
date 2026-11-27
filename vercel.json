@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/rgn-sync",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/mailbox",
+      "schedule": "*/2 * * * *"
     }
   ]
 }
