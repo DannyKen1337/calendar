@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkEmailDomain } from '@/lib/emailDomain';
 import { logSystemError } from '@/lib/systemLog';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
@@ -274,6 +275,7 @@ export async function POST(request) {
       if (fullName === null) return bad(`A teljes név legfeljebb ${FULL_NAME_MAX} karakter lehet.`, 400, { field: 'fullName' });
       if (!/^[\p{L}\p{N}._-]{3,32}$/u.test(username)) return bad('A felhasználónév 3-32 karakter lehet (betű, szám, pont, aláhúzás, kötőjel).', 400, { field: 'username' });
       if (!isValidEmail(email)) return bad('Érvényes e-mail címet adj meg.', 400, { field: 'email' });
+      { const mail = await checkEmailDomain(email); if (!mail.ok) return bad(mail.error, 400, { field: 'email' }); }
       if (await users.findOne({ email })) return bad('Ezzel az e-mail címmel már van fiók.', 400, { field: 'email' });
       if (await users.findOne({ username }, { collation: { locale: 'en', strength: 2 } })) return bad('Ez a felhasználónév már foglalt.', 400, { field: 'username' });
       const found = role === 'admin' ? await validGroupIds(payload.groupIds) : [];

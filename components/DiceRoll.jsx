@@ -9,16 +9,21 @@ import s from './DiceRoll.module.css';
 // szikraeső és „Natural 20!” felirat (easter egg). delay: csak ennyi ms után jelenik meg és dob (rövid betöltésnél
 // így fel sem villan). Ha a dobás elkezdődött, a betöltő megvárja a végét (lib/loaderGate.js). Csökkentett mozgásnál
 // álló kép. A teszthez a dobás eredménye rögzíthető: window.__D20_FORCE__.
-export default function DiceRoll({ delay = 0, className = '' }) {
+// enabled: dobhat-e (az adminban csak belépéskor: lib/loaderGate.js); onShown: megjelent a kocka
+export default function DiceRoll({ delay = 0, className = '', enabled = true, onShown }) {
   const ref = useRef(null);
-  const [shown, setShown] = useState(delay <= 0);
+  const [shown, setShown] = useState(enabled && delay <= 0);
   const [crit, setCrit] = useState(false);
 
   useEffect(() => {
-    if (shown) return undefined;
+    if (shown || !enabled) return undefined;
     const t = setTimeout(() => setShown(true), delay);
     return () => clearTimeout(t);
-  }, [shown, delay]);
+  }, [shown, delay, enabled]);
+
+  const shownCb = useRef(onShown);
+  useEffect(() => { shownCb.current = onShown; });
+  useEffect(() => { if (shown) shownCb.current?.(); }, [shown]);
 
   useEffect(() => {
     if (!shown || !ref.current) return undefined;

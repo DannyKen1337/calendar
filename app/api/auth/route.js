@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkEmailDomain } from '@/lib/emailDomain';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
@@ -55,6 +56,7 @@ export async function POST(request) {
       if (!isFirstUser && process.env.ALLOW_PUBLIC_REGISTER !== 'true') {
         return NextResponse.json({ error: 'A regisztráció le van tiltva.' }, { status: 403 });
       }
+      { const mail = await checkEmailDomain(email); if (!mail.ok) return NextResponse.json({ error: mail.error }, { status: 400 }); }
 
       const existingUser = await db.collection('users').findOne({ 
         $or: [{ email: email.toLowerCase() }, { username: username }] 

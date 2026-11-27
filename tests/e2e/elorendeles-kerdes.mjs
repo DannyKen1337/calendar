@@ -16,6 +16,10 @@ try {
   ok((await post({ name: 'Anna', email: 'rossz', message: 'Mikor jön?' })).data.field === 'email', 'hibás e-mail címmel nem megy');
   ok((await post({ name: 'Anna', email: 'a@b.hu', message: '' })).data.field === 'message', 'üzenet nélkül nem megy');
   ok((await post({ name: 'Robot', email: 'r@b.hu', message: 'spam spam', website: 'x' })).status === 200 && (await smtp.mails()).length === 0, 'a robotcsapdába esett üzenet nem megy ki');
+  const typo = await post({ name: 'Anna', email: 'anna@freemial.hu', message: 'Mikor jön?' });
+  ok(typo.status === 400 && typo.data.field === 'email' && /anna@freemail\.hu/.test(typo.data.error) && (await smtp.mails()).length === 0, 'elírt e-mail címnél javaslat, nem megy ki (MX-ellenőrzés)');
+  const nx = await post({ name: 'Anna', email: 'anna@nincs-level.hu', message: 'Mikor jön?' });
+  ok(nx.status === 400 && /nem létezik/.test(nx.data.error), 'nem létező domainre nem fogad kérdést (a válasz nem érne célba)');
 
   // --- Telefonon: a gomb az oldal tetején ---
   const p = await page(b, null, 402, 874);

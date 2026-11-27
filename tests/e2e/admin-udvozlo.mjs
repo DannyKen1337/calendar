@@ -45,6 +45,26 @@ try {
   ok(!(await p.$('[data-udvozlo]')), 'betöltés után eltűnik');
   ok(await p.evaluate(() => localStorage.getItem('tavern-admin-nev')) === 'Kovács Kata', 'a név megjegyezve a következő betöltéshez');
 
+  // üdvözlés és kocka csak belépéskor: ugyanebben a lapban a következő (lassú) betöltésnél csak egy egyszerű töltő
+  await p.goto(`${BASE}/admin/elorendeles`, { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('[data-tolto]', { timeout: 30000 }).catch(() => {});
+  await wait(1600);
+  const plain = await p.evaluate(() => { const el = document.querySelector('[data-tolto]'); return el ? { text: el.innerText.trim(), spin: getComputedStyle(el.querySelector('span')).animationName } : null; });
+  ok(plain && plain.text === '' && /spin/.test(plain.spin) && !(await p.$('[data-udvozlo]')) && !(await p.$('[data-kocka]')), `a következő betöltésnél csak egy egyszerű töltőanimáció, üdvözlés és kocka nélkül (${JSON.stringify(plain)})`);
+  await p.screenshot({ path: `${SHOTS}admin-tolto.jpg`, quality: 60 });
+  await p.waitForFunction(() => !document.querySelector('[data-tolto]'), { timeout: 40000 }).catch(() => {});
+  // kijelentkezés után (új belépésnél) újra dob
+  await p.goto(`${BASE}/admin?lap=tovabbiak`, { waitUntil: 'domcontentloaded' });
+  await p.waitForFunction(() => [...document.querySelectorAll('button, a')].some(x => x.textContent.trim() === 'Kijelentkezés'), { timeout: 40000 }).catch(() => {});
+  await p.evaluate(() => [...document.querySelectorAll('button, a')].find(x => x.textContent.trim() === 'Kijelentkezés')?.click());
+  await wait(1200);
+  ok(await p.evaluate(() => sessionStorage.getItem('tavern-kocka-volt')) === null, 'kijelentkezéskor a kocka újra dobhat');
+  await b.setCookie({ name: 'tavern_session', value: kata, domain: 'localhost', path: '/' });
+  await p.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('[data-kocka]', { timeout: 15000 }).catch(() => {});
+  ok(!!(await p.$('[data-kocka]')), 'újra belépve a kocka megint dob');
+  await p.waitForFunction(() => !document.querySelector('[data-udvozlo]'), { timeout: 40000 }).catch(() => {});
+
   // a dobás eredménye: rögzített 7-esnél a kocka a 7-esen áll meg, nincs ünneplés; 20-asnál „Natural 20!”
   const seven = await slowPage(b, kata, { dataDelay: 6000 });
   await seven.evaluateOnNewDocument(() => { window.__D20_FORCE__ = 7; });

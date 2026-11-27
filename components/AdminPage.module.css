@@ -17,10 +17,15 @@
 .welcomeKicker { margin: 0; color: #e5b15d; font-size: 12px; font-weight: 800; letter-spacing: 0.28em; text-transform: uppercase; }
 .welcomeTitle { margin: 0; color: #f3ece3; font-family: var(--font-cinzel), Georgia, serif; font-size: clamp(24px, 5.5vw, 36px); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .welcomeSub { margin: 0; color: #9a8d89; font-size: 14px; font-weight: 600; }
+/* egyszerű töltőanimáció (nem belépéskor): forgó arany kör, rövid betöltésnél fel sem villan */
+.spinner { width: 40px; height: 40px; border-radius: 50%; border: 3px solid #2a2022; border-top-color: #e5b15d; opacity: 0; animation: spin 0.9s linear infinite, spinnerIn 300ms ease-out 250ms forwards; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spinnerIn { to { opacity: 1; } }
 @keyframes welcomeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .welcome { animation: none; opacity: 1; }
+  .spinner { animation: none; opacity: 1; }
 }
 
 

@@ -49,8 +49,9 @@ try {
     new MutationObserver(() => {
       if (document.querySelector('[data-booster="tear"]') && !window.__tear) window.__tear = performance.now();
     }).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-booster'] });
-    window.__natural = [];
-    new MutationObserver(() => { if (document.querySelector('[data-natural20]')) window.__natural.push(performance.now()); }).observe(document, { childList: true, subtree: true, attributes: true });
+    // a „Natural 20!” felirat megjelenései (dobásonként egyszer: hiányzó → meglévő)
+    window.__natural = []; let had = false;
+    new MutationObserver(() => { const has = !!document.querySelector('[data-natural20]'); if (has && !had) window.__natural.push(performance.now()); had = has; }).observe(document, { childList: true, subtree: true, attributes: true });
   });
   await k.setRequestInterception(true);
   k.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 6000); else req.continue().catch(() => {}); });
@@ -61,8 +62,8 @@ try {
   ok(/Natural 20/.test(await k.$eval('[data-natural20]', el => el.textContent).catch(() => '')), '20-as dobásnál „Natural 20! Kritikus siker!”');
   await k.screenshot({ path: `${SHOTS}naptar-kocka.jpg`, quality: 60 });
   await k.waitForFunction(() => !document.querySelector('[data-booster]'), { timeout: 15000 }).catch(() => {});
-  const kt = await k.evaluate(() => ({ tear: window.__tear, lastCrit: window.__natural.at(-1), firstCrit: window.__natural[0] }));
-  ok(kt.tear && kt.lastCrit && kt.tear >= kt.lastCrit, 'a kocka a megkezdett dobást (és a 20-as ünneplést) befejezi, csak utána tűnik el');
+  const kt = await k.evaluate(() => ({ tear: window.__tear, crit: window.__natural.filter(t => t < window.__tear).at(-1) }));
+  ok(kt.tear && kt.crit && kt.tear - kt.crit >= 1500, `a kocka a megkezdett dobást (és a 20-as ünneplést) befejezi, csak utána tűnik el (az ünneplés ${Math.round(kt.tear - kt.crit)} ms-ig látszott)`);
   ok(!(await k.$('[data-booster]')) && await k.evaluate(() => /Pokémon klubnap/.test(document.body.innerText)), 'adat érkezésekor a kocka eltűnik, előjön a naptár');
   await k.close();
 

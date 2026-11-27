@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkEmailDomain } from '@/lib/emailDomain';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -416,6 +417,8 @@ export async function POST(request) {
       if (!allowed) {
         return NextResponse.json({ error: 'Túl sok jelentkezési kísérlet. Próbáld újra később.' }, { status: 429 });
       }
+      // fogad-e levelet a cím (MX-rekord; elírásnál javaslat): a visszaigazolás így célba ér
+      { const mail = await checkEmailDomain(normalizedEmail); if (!mail.ok) return NextResponse.json({ error: mail.error, field: 'email', ...(mail.suggestion && { suggestion: mail.suggestion }) }, { status: 400 }); }
 
       const isBanned = await db.collection('blacklist').findOne({ email: normalizedEmail });
       if (isBanned) {
@@ -582,6 +585,7 @@ export async function POST(request) {
       }
       if (!username && !fullName) return NextResponse.json({ error: 'Adj meg legalább felhasználónevet vagy teljes nevet.', field: 'username' }, { status: 400 });
       if (email && !isValidEmail(email)) return NextResponse.json({ error: 'Érvénytelen e-mail cím.', field: 'email' }, { status: 400 });
+      if (email) { const mail = await checkEmailDomain(email); if (!mail.ok) return NextResponse.json({ error: mail.error, field: 'email', ...(mail.suggestion && { suggestion: mail.suggestion }) }, { status: 400 }); }
 
       if (email && await db.collection('registrations').findOne({ tournamentId: tId, email })) {
         return NextResponse.json({ error: 'Erről az e-mail címről már van jelentkezés erre az eseményre.', field: 'email' }, { status: 400 });
@@ -736,6 +740,7 @@ export async function POST(request) {
       if (!isValidEmail(newEmail)) {
         return NextResponse.json({ error: 'Érvényes e-mail címet adj meg.' }, { status: 400 });
       }
+      { const mail = await checkEmailDomain(newEmail); if (!mail.ok) return NextResponse.json({ error: mail.error, field: 'email', ...(mail.suggestion && { suggestion: mail.suggestion }) }, { status: 400 }); }
 
       const usersColl = db.collection('users');
       const dupEmail = await usersColl.findOne({ email: newEmail });

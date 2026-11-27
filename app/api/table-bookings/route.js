@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkEmailDomain } from '@/lib/emailDomain';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { consumeRateLimit } from '@/lib/rateLimit';
@@ -28,6 +29,8 @@ export async function POST(request) {
     const allowed = await consumeRateLimit(db, `table-booking-ip:${ip}`, 20, 60 * 60 * 1000)
       && await consumeRateLimit(db, `table-booking:${booking.email}`, 5, 60 * 60 * 1000);
     if (!allowed) return NextResponse.json({ error: 'Túl sok próbálkozás. Próbáld újra később.' }, { status: 429 });
+    // fogad-e levelet a cím (MX-rekord; elírásnál javaslat)
+    { const mail = await checkEmailDomain(booking.email); if (!mail.ok) return NextResponse.json({ error: mail.error, field: 'email', ...(mail.suggestion && { suggestion: mail.suggestion }) }, { status: 400 }); }
 
     await db.collection('table_bookings').insertOne({ ...booking, status: 'pending', createdAt: new Date() });
 

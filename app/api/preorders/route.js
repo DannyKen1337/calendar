@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkEmailDomain } from '@/lib/emailDomain';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { consumeRateLimit, isValidEmail } from '@/lib/rateLimit';
@@ -74,6 +75,8 @@ export async function POST(request) {
     const allowed = await consumeRateLimit(db, `preorder-ip:${ip}`, 40, 60 * 60 * 1000)
       && await consumeRateLimit(db, `preorder:${email}`, 10, 60 * 60 * 1000);
     if (!allowed) return NextResponse.json({ error: 'Túl sok próbálkozás. Próbáld újra később.' }, { status: 429 });
+    // fogad-e levelet a cím (MX-rekord; elírásnál javaslat)
+    { const mail = await checkEmailDomain(email); if (!mail.ok) return NextResponse.json({ error: mail.error, field: 'email', ...(mail.suggestion && { suggestion: mail.suggestion }) }, { status: 400 }); }
 
     const products = await db.collection('preorder_products')
       .find({ _id: { $in: [...items.keys()].map(id => toObjectId(id)) }, isOpen: true })

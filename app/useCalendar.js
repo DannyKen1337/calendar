@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { rememberWelcomeName } from '@/lib/displayName';
+import { resetLoginDice } from '@/lib/loaderGate';
 import { message, Form, Modal } from "antd";
 import { getGameColor } from "@/lib/gameConfig";
 import { resolveAttendance } from "@/lib/attendance";
@@ -234,7 +235,7 @@ export const useCalendar = ({ eager = false } = {}) => {
   // everywhere: a többi eszközön (telefon, másik gép) is kijelentkeztet
   const handleLogout = async (everywhere = false) => {
     await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ everywhere: everywhere === true }) });
-    rememberWelcomeName(""); setUserRole(null); setUserName(""); setUserDisplayName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setAllowedStores(null); setFeatures([]);
+    rememberWelcomeName(""); resetLoginDice(); setUserRole(null); setUserName(""); setUserDisplayName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setAllowedStores(null); setFeatures([]);
     fetchPublicData(false);
   };
 

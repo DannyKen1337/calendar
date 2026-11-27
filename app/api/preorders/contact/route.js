@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkEmailDomain } from '@/lib/emailDomain';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { consumeRateLimit } from '@/lib/rateLimit';
@@ -27,6 +28,8 @@ export async function POST(request) {
     const allowed = await consumeRateLimit(db, `contact-ip:${ip}`, 10, 60 * 60 * 1000)
       && await consumeRateLimit(db, `contact:${question.email}`, 5, 60 * 60 * 1000);
     if (!allowed) return NextResponse.json({ error: 'Túl sok üzenet rövid idő alatt. Próbáld újra később.' }, { status: 429 });
+    // a válasz erre a címre megy: fogad-e levelet (MX-rekord; elírásnál javaslat)
+    { const mail = await checkEmailDomain(question.email); if (!mail.ok) return NextResponse.json({ error: mail.error, field: 'email', ...(mail.suggestion && { suggestion: mail.suggestion }) }, { status: 400 }); }
 
     const oid = toObjectId(body.productId);
     const product = oid ? await db.collection('preorder_products').findOne({ _id: oid }, { projection: { name: 1 } }) : null;

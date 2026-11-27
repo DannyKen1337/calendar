@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
-import { useLoaderGate } from '@/lib/loaderGate';
+import { useLoaderGate, resetLoginDice } from '@/lib/loaderGate';
 import { ChangelogModal } from '@/app/components';
 import AdminApp from '@/components/AdminApp';
 import { AdminLoading } from '@/components/AdminPage';
@@ -81,6 +81,7 @@ export default function AdminPage() {
         localForm.resetFields();
       } else {
         message.success('Sikeres bejelentkezés!');
+        resetLoginDice(); // belépéskor dobhat a kocka
         window.location.reload(); // Frissíti az oldalt, így a useCalendar hook betölti a munkamenetet!
       }
     } catch {
@@ -102,6 +103,7 @@ export default function AdminPage() {
         return;
       }
       message.success('Jelszó beállítva, üdv a Tavernben!');
+      resetLoginDice();
       window.location.reload();
     } catch {
       message.error('Szerverhiba történt.');
