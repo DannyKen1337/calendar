@@ -1,4 +1,4 @@
-// Admin betöltés: amíg az adatok töltődnek, üdvözlő képernyő a teljes névvel („Üdvözöllek, Kovács Kata!”), alatta
+// Admin betöltés: amíg az adatok töltődnek, üdvözlő képernyő a teljes névvel („Üdvözöllek,” és alatta „Kovács Kata!”), alatta
 // eldobott 3D dobókocka (lib/d20.js). A név a következő betöltéskor rögtön látszik (a böngésző megjegyzi), kijelentkezéskor törlődik.
 // Teljes név nélkül a felhasználónév. Gyors betöltésnél fel sem villan.
 import { openDb, token, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
@@ -29,10 +29,13 @@ const b = await browser();
 try {
   const p = await slowPage(b, kata);
   await p.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded', timeout: 240000 });
-  await p.waitForFunction(() => /Üdvözöllek, Kovács Kata!/.test(document.querySelector('[data-udvozlo]')?.innerText || ''), { timeout: 30000 }).catch(() => {});
+  await p.waitForFunction(() => /Üdvözöllek,\s+Kovács Kata!/.test(document.querySelector('[data-udvozlo]')?.innerText || ''), { timeout: 30000 }).catch(() => {});
   const t = await welcome(p);
-  ok(/Üdvözöllek, Kovács Kata!/.test(t) && /Betöltjük az adatokat/.test(t), `betöltés közben üdvözlés a teljes névvel (${t.replace(/\n/g, ' / ').slice(0, 80)})`);
+  ok(/Üdvözöllek,\s+Kovács Kata!/.test(t) && /Betöltjük az adatokat/.test(t), `betöltés közben üdvözlés a teljes névvel (${t.replace(/\n/g, ' / ').slice(0, 80)})`);
   ok(!(await p.$('[data-kocka]')), 'rövid ideig csak az üdvözlés, a kocka hosszabb betöltésnél jön');
+  // a név külön sorban, a köszöntés alatt
+  const lines = await p.evaluate(() => { const h = document.querySelector('[data-udvozlo-nev]'); const n = h?.querySelector('span'); if (!h || !n) return null; const hr = h.getBoundingClientRect(), nr = n.getBoundingClientRect(); return { nameTop: Math.round(nr.top - hr.top), block: getComputedStyle(n).display }; });
+  ok(lines && lines.block === 'block' && lines.nameTop > 10, `telefonon a név külön sorban, az „Üdvözöllek,” alatt (${JSON.stringify(lines)})`);
   await p.waitForSelector('[data-kocka]', { timeout: 5000 }).catch(() => {});
   await wait(200);
   const frame = () => p.$eval('[data-kocka]', c => c.toDataURL()).catch(() => '');
@@ -104,7 +107,7 @@ try {
   const q = await slowPage(b, kata, { sessionDelay: 2500, dataDelay: 2500 });
   await q.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
   await wait(1200);
-  ok(/Üdvözöllek, Kovács Kata!/.test(await welcome(q)), 'a következő betöltéskor rögtön a név (a szerver válasza előtt)');
+  ok(/Üdvözöllek,\s+Kovács Kata!/.test(await welcome(q)), 'a következő betöltéskor rögtön a név (a szerver válasza előtt)');
   await q.waitForFunction(() => !document.querySelector('[data-udvozlo]'), { timeout: 40000 }).catch(() => {});
 
   // teljes név nélkül a felhasználónév
@@ -113,8 +116,8 @@ try {
   await n.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
   await n.evaluate(() => localStorage.removeItem('tavern-admin-nev'));
   await n.reload({ waitUntil: 'domcontentloaded' });
-  await n.waitForFunction(() => /Üdvözöllek, Nevtelen!/.test(document.querySelector('[data-udvozlo]')?.innerText || ''), { timeout: 30000 }).catch(() => {});
-  ok(/Üdvözöllek, Nevtelen!/.test(await welcome(n)), 'teljes név nélkül a felhasználónév');
+  await n.waitForFunction(() => /Üdvözöllek,\s+Nevtelen!/.test(document.querySelector('[data-udvozlo]')?.innerText || ''), { timeout: 30000 }).catch(() => {});
+  ok(/Üdvözöllek,\s+Nevtelen!/.test(await welcome(n)), 'teljes név nélkül a felhasználónév');
   await n.waitForFunction(() => !document.querySelector('[data-udvozlo]'), { timeout: 40000 }).catch(() => {});
 
   // kijelentkezés: a megjegyzett név törlődik
@@ -129,8 +132,8 @@ try {
   await b.setCookie({ name: 'tavern_session', value: kata, domain: 'localhost', path: '/' });
   const e = await slowPage(b, kata, { w: 1280, h: 900 });
   await e.goto(`${BASE}/admin/elorendeles`, { waitUntil: 'domcontentloaded' });
-  await e.waitForFunction(() => /Üdvözöllek, Kovács Kata!/.test(document.querySelector('[data-udvozlo]')?.innerText || ''), { timeout: 30000 }).catch(() => {});
-  ok(/Üdvözöllek, Kovács Kata!/.test(await welcome(e)), 'az admin aloldalain is üdvözöl');
+  await e.waitForFunction(() => /Üdvözöllek,\s+Kovács Kata!/.test(document.querySelector('[data-udvozlo]')?.innerText || ''), { timeout: 30000 }).catch(() => {});
+  ok(/Üdvözöllek,\s+Kovács Kata!/.test(await welcome(e)), 'az admin aloldalain is üdvözöl');
   await e.screenshot({ path: `${SHOTS}admin-udvozlo-gep.jpg`, quality: 70 });
 
   // csökkentett mozgás: nincs animáció, de az üdvözlés ott van

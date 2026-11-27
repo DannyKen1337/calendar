@@ -76,7 +76,7 @@ export function AdminLoading({ name = '' }) {
     <div className={s.loading} role="status" aria-live="polite" data-udvozlo>
       <div className={s.welcome}>
         <p className={s.welcomeKicker}>Tavern naptár</p>
-        <h1 className={s.welcomeTitle} data-udvozlo-nev={shown || undefined}>{shown ? `Üdvözöllek, ${shown}!` : 'Üdvözöllek!'}</h1>
+        <h1 className={s.welcomeTitle} data-udvozlo-nev={shown || undefined}>{shown ? <>Üdvözöllek,<span className={s.welcomeName}>{shown}!</span></> : 'Üdvözöllek!'}</h1>
         <DiceRoll delay={900} enabled={diceOk} onShown={claimLoginDice} />
         <p className={s.welcomeSub}>Betöltjük az adatokat…</p>
       </div>
