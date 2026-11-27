@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
+import { useLoaderGate } from '@/lib/loaderGate';
 import { ChangelogModal } from '@/app/components';
 import AdminApp from '@/components/AdminApp';
 import { AdminLoading } from '@/components/AdminPage';
@@ -25,6 +26,8 @@ const tavernTheme = {
 
 export default function AdminPage() {
   const app = useCalendar(); 
+  // a betöltő megvárja a már elkezdett kockadobás végét (lib/loaderGate.js)
+  const waiting = useLoaderGate(app.loading);
   const [isRegistering, setIsRegistering] = useState(false);
   const [canRegister, setCanRegister] = useState(false);
   const [localForm] = Form.useForm();
@@ -43,7 +46,7 @@ export default function AdminPage() {
   }, []);
 
   // Amíg a React ellenőrzi a böngésző memóriáját (ne villanjon be a login)
-  if (app.loading) {
+  if (waiting) {
     return <AdminLoading name={app.userDisplayName} />;
   }
 

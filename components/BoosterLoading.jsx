@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import DiceRoll from '@/components/DiceRoll';
+import { useDiceBusy } from '@/lib/loaderGate';
 import s from './BoosterLoading.module.css';
 
 // A nyilvános naptár betöltése (pl. hidegindításnál): egy Tavern booster lebeg, csillog, alatta váltakozó, élénkítő
@@ -27,6 +28,7 @@ export default function BoosterLoading({ loading }) {
   const [variant, setVariant] = useState('booster'); // 'booster' | 'kocka' (megjelenéskor sorsolva)
   const [slow, setSlow] = useState(false); // hosszabb hidegindítás: külön mondat
   const shownAt = useRef(0);
+  const diceBusy = useDiceBusy(); // a kocka épp dob: a végét megvárjuk (lib/loaderGate.js)
 
   // megjelenés csak akkor, ha a betöltés nem azonnali
   useEffect(() => {
@@ -49,11 +51,11 @@ export default function BoosterLoading({ loading }) {
 
   // kész az adat: tépés (ha látszott a booster)…
   useEffect(() => {
-    if (loading || phase !== 'pack') return undefined;
+    if (loading || phase !== 'pack' || (variant === 'kocka' && diceBusy)) return undefined;
     const wait = Math.max(0, shownAt.current + MIN_VISIBLE - Date.now());
     const t = setTimeout(() => { document.documentElement.dataset.boosterNyit = '1'; setPhase('tear'); }, wait);
     return () => clearTimeout(t);
-  }, [loading, phase]);
+  }, [loading, phase, variant, diceBusy]);
   // …utána eltűnik (külön effekt, hogy a fázisváltás ne törölje az időzítőt)
   useEffect(() => {
     if (phase !== 'tear') return undefined;

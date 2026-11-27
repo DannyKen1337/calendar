@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import { createDice } from '@/lib/d20';
+import { setDiceBusy } from '@/lib/loaderGate';
 import s from './DiceRoll.module.css';
 
 // Eldobott 3D dobókocka (lib/d20.js) a betöltő képernyőkhöz: az admin üdvözlő képernyője (AdminLoading) és a nyilvános
 // naptár betöltése (BoosterLoading, véletlenszerűen a booster helyett). Minden dobás véletlen 1–20; ha 20-ast dob,
 // szikraeső és „Natural 20!” felirat (easter egg). delay: csak ennyi ms után jelenik meg és dob (rövid betöltésnél
-// így fel sem villan). Csökkentett mozgásnál álló kép. A teszthez a dobás eredménye rögzíthető: window.__D20_FORCE__.
+// így fel sem villan). Ha a dobás elkezdődött, a betöltő megvárja a végét (lib/loaderGate.js). Csökkentett mozgásnál
+// álló kép. A teszthez a dobás eredménye rögzíthető: window.__D20_FORCE__.
 export default function DiceRoll({ delay = 0, className = '' }) {
   const ref = useRef(null);
   const [shown, setShown] = useState(delay <= 0);
@@ -23,13 +25,16 @@ export default function DiceRoll({ delay = 0, className = '' }) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const cinzel = getComputedStyle(ref.current).getPropertyValue('--font-cinzel').trim();
     const forced = () => { const n = Number(window.__D20_FORCE__); return n >= 1 && n <= 20 ? n : 1 + Math.floor(Math.random() * 20); };
-    return createDice(ref.current, {
+    const stop = createDice(ref.current, {
       reduced,
       font: cinzel ? `${cinzel}, Georgia, serif` : 'Georgia, serif',
       pick: forced,
       onResult: (n) => { if (ref.current) ref.current.dataset.dobas = String(n); setCrit(n === 20); },
-      onThrow: () => setCrit(false),
+      // amíg dob, a betöltő nem tűnik el (lib/loaderGate.js); a dobás végén elengedi
+      onThrow: () => { setCrit(false); setDiceBusy(true); },
+      onSettled: () => setDiceBusy(false),
     });
+    return () => { stop(); setDiceBusy(false); };
   }, [shown]);
 
   if (!shown) return <div className={`${s.wrap} ${className}`} aria-hidden="true" />;

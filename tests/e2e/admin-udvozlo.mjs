@@ -61,6 +61,25 @@ try {
   await crit.screenshot({ path: `${SHOTS}admin-udvozlo-natural20.jpg`, quality: 70 });
   await crit.close();
 
+  // ha az adat a dobás közben jön meg, a képernyő megvárja, amíg a kocka megáll (nem vágja félbe)
+  const mid = await slowPage(b, kata, { dataDelay: 1700 });
+  await mid.evaluateOnNewDocument(() => {
+    window.__ts = {};
+    new MutationObserver(() => {
+      const c = document.querySelector('[data-kocka]');
+      if (c?.dataset.dobas && !window.__ts.landed) window.__ts.landed = performance.now();
+      if (document.querySelector('[data-kocka]') && !window.__ts.dice) window.__ts.dice = performance.now();
+      if (window.__ts.dice && !document.querySelector('[data-udvozlo]') && !window.__ts.gone) window.__ts.gone = performance.now();
+      if (document.querySelector('[data-booster="tear"]') && !window.__ts.tear) window.__ts.tear = performance.now();
+    }).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-dobas', 'data-booster'] });
+  });
+  await mid.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
+  await mid.waitForFunction(() => window.__ts?.gone, { timeout: 30000 }).catch(() => {});
+  const ts = await mid.evaluate(() => window.__ts);
+  ok(ts.dice && ts.landed && ts.gone && ts.gone >= ts.landed + 300, `a megkezdett dobás végéig marad (megállt: ${Math.round(ts.landed - ts.dice)} ms, eltűnt: ${Math.round(ts.gone - ts.dice)} ms a kocka megjelenése után)`);
+  ok(ts.landed - ts.dice < 1700, `a dobás gyors (${Math.round(ts.landed - ts.dice)} ms alatt áll meg)`);
+  await mid.close();
+
   // következő betöltés: a név rögtön látszik, még a munkamenet-ellenőrzés előtt
   const q = await slowPage(b, kata, { sessionDelay: 2500, dataDelay: 2500 });
   await q.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });

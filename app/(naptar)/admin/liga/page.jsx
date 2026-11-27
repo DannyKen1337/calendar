@@ -2,11 +2,14 @@
 import LeagueAdmin from '@/components/LeagueAdmin';
 import AdminPage, { AdminLoading } from '@/components/AdminPage';
 import { useCalendar } from '@/app/useCalendar';
+import { useLoaderGate } from '@/lib/loaderGate';
 import { redirect } from 'next/navigation';
 
 export default function LeagueAdminPage() {
   const app = useCalendar();
-  if (app.loading) return <AdminLoading name={app.userDisplayName} />;
+  // a betöltő megvárja a már elkezdett kockadobás végét (lib/loaderGate.js)
+  const waiting = useLoaderGate(app.loading);
+  if (waiting) return <AdminLoading name={app.userDisplayName} />;
   // Csak bejelentkezett szervezőknek, akiknek a tulajdonos engedélyezte ezt a modult
   if ((app.userRole !== 'admin' && app.userRole !== 'owner') || !app.hasFeature('leagues')) redirect('/admin');
   // Korlátozott szervezőnek: mely játékok adatai látszanak
