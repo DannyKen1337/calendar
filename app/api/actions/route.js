@@ -354,7 +354,9 @@ export async function POST(request) {
 
     if (actionType === 'DELETE_TOURNAMENT') {
       const event = await db.collection('tournaments').findOne(getQuery(payload.tournamentId || payload.id));
-      if (event && !canManageEvent(session, event)) return noPermission();
+      // nem létező eseménynél nem törlünk (különben a jelentkezések jogosultság-ellenőrzés nélkül törlődnének)
+      if (!event) return NextResponse.json({ error: 'Az esemény nem található.' }, { status: 404 });
+      if (!canManageEvent(session, event)) return noPermission();
       await db.collection('tournaments').deleteMany(getQuery(payload.tournamentId || payload.id));
       await db.collection('registrations').deleteMany({ tournamentId: String(payload.tournamentId || payload.id) });
       if (event) {
@@ -562,7 +564,8 @@ export async function POST(request) {
       const reg = await db.collection('registrations').findOne(getQuery(payload.registrationId));
       if (!reg) return NextResponse.json({ error: "Nem található" }, { status: 404 });
       const event = await db.collection('tournaments').findOne(getQuery(reg.tournamentId));
-      if (event && !canManageEvent(session, event)) return noPermission();
+      // törölt esemény jelentkezőjét csak a tulajdonos törölheti (nincs esemény, amely alapján a jogot ellenőrizni lehetne)
+      if (event ? !canManageEvent(session, event) : session.role !== 'owner') return noPermission();
       await removeRegistration(db, reg);
       await addLog(db, session.username, 'JELENTKEZŐ TÖRLÉSE', `Törölte ${reg.name} jelentkezését (${reg.tournamentName})`);
       return NextResponse.json({ success: true });
@@ -945,7 +948,7 @@ export async function POST(request) {
       const ownerSession = await verifyOwner();
       if (!ownerSession) return NextResponse.json({ error: 'Csak Tulajdonos válthat karbantartási módot!' }, { status: 403 });
 
-      await db.collection('settings').updateOne({ _id: 'global_settings' }, { $set: { isMaintenance: payload.isMaintenance } }, { upsert: true });
+      await db.collection('settings').updateOne({ _id: 'global_settings' }, { $set: { isMaintenance: payload.isMaintenance === true } }, { upsert: true });
       await addLog(db, session.username, 'RENDSZER', `Karbantartás mód: ${payload.isMaintenance ? 'BEKAPCSOLVA' : 'KIKAPCSOLVA'}`);
       return NextResponse.json({ success: true });
     }

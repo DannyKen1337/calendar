@@ -7,7 +7,7 @@ import { sanitizeProductInput, productStock, productPrice, productStores, PREORD
 import { toObjectId } from '@/lib/preorderData';
 import { messagingStatus } from '@/lib/messages';
 import { isMailConfigured, sendMail } from '@/lib/mailer';
-import { sanitizeArrival, arrivalMail, arrivalRecipients } from '@/lib/arrivalMail';
+import { sanitizeArrival, arrivalMail, arrivalRecipients, ARRIVAL_DAILY_MAX } from '@/lib/arrivalMail';
 
 export const dynamic = 'force-dynamic';
 // A „Megérkezett” értesítő sok levelet küldhet egyszerre
@@ -150,14 +150,20 @@ export async function POST(request) {
       const orders = await db.collection('preorders').find({ productId: String(existing._id) }).sort({ date: 1 }).toArray();
       const recipients = arrivalRecipients(orders, { skipHanded: payload.skipHanded !== false, skipNotified: payload.skipNotified !== false });
       if (!recipients.length) return NextResponse.json({ error: 'Nincs kinek kiküldeni (mindenki megkapta már, vagy átvette).' }, { status: 400 });
+      // Napi felső határ (a postafiók küldési korlátja miatt): ami ma már nem fér bele, holnap folytatható
+      const sentToday = await db.collection('rate_limits').countDocuments({ key: 'arrival-mail', at: { $gte: new Date(Date.now() - 24 * 3600 * 1000) } });
+      const room = Math.max(0, ARRIVAL_DAILY_MAX - sentToday);
+      if (!room) return NextResponse.json({ error: `Ma már ${sentToday} értesítő ment ki; naponta legfeljebb ${ARRIVAL_DAILY_MAX} mehet, hogy a többi levél (pl. a visszaigazolások) is kimenjen. Holnap folytathatod: aki már megkapta, nem kapja meg újra.` }, { status: 429 });
+      const batch = recipients.slice(0, room);
 
       let sent = 0;
       const failed = [];
-      for (let i = 0; i < recipients.length; i += 3) {
-        await Promise.all(recipients.slice(i, i + 3).map(async (o) => {
+      for (let i = 0; i < batch.length; i += 3) {
+        await Promise.all(batch.slice(i, i + 3).map(async (o) => {
           try {
             await sendMail({ to: o.email, ...arrivalMail(mail, { name: o.name, quantity: o.quantity }) });
             await db.collection('preorders').updateOne({ _id: o._id }, { $set: { arrivalMailAt: new Date() } });
+            await db.collection('rate_limits').insertOne({ key: 'arrival-mail', at: new Date() });
             sent++;
           } catch (err) {
             failed.push(o.name);
@@ -166,8 +172,9 @@ export async function POST(request) {
         }));
       }
       if (sent) await products.updateOne({ _id: existing._id }, { $set: { arrivalNotice: { at: new Date(), by: session.username, count: sent + (existing.arrivalNotice?.count || 0) } } });
-      await addLog(db, session.username, 'ELŐRENDELÉS ÉRTESÍTÉS', `Megérkezett: ${existing.name} – ${sent} levél kiment${failed.length ? `, ${failed.length} nem (${failed.join(', ')})` : ''}`);
-      return NextResponse.json({ success: true, sent, failed });
+      const later = recipients.length - batch.length;
+      await addLog(db, session.username, 'ELŐRENDELÉS ÉRTESÍTÉS', `Megérkezett: ${existing.name} – ${sent} levél kiment${failed.length ? `, ${failed.length} nem (${failed.join(', ')})` : ''}${later ? `, ${later} a napi korlát miatt holnapra maradt` : ''}`);
+      return NextResponse.json({ success: true, sent, failed, later });
     }
 
     // Egy jelentkezés törlése

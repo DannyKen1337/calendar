@@ -79,6 +79,13 @@ try {
   ok((await api(tok, { actionType: 'SEND_ARRIVAL_NOTICE', payload: { productId: prod, subject: 'x', body: 'y' } })).status === 400, 'a szerver sem küld újra annak, aki már megkapta');
   const again = await api(tok, { actionType: 'SEND_ARRIVAL_NOTICE', payload: { productId: prod, subject: 'Emlékeztető', body: 'Szia {név}!', skipNotified: false, skipHanded: false } });
   ok(again.data.sent === 3, `kérésre mindenkinek újra (${again.data.sent})`);
+
+  // napi felső határ (a postafiók küldési korlátja miatt): a maradék holnapra marad
+  await db.collection('rate_limits').insertMany(Array.from({ length: 294 }, () => ({ key: 'arrival-mail', at: new Date() })));
+  const capped = await api(tok, { actionType: 'SEND_ARRIVAL_NOTICE', payload: { productId: prod, subject: 'Még egyszer', body: 'Szia {név}!', skipNotified: false, skipHanded: false } });
+  ok(capped.data.sent === 1 && capped.data.later === 2, `napi 300 fölött nem küld, a maradékot jelzi (${capped.data.sent} kiment, ${capped.data.later} holnapra)`);
+  const full = await api(tok, { actionType: 'SEND_ARRIVAL_NOTICE', payload: { productId: prod, subject: 'Még egyszer', body: 'Szia {név}!', skipNotified: false, skipHanded: false } });
+  ok(full.status === 429 && /holnap/i.test(full.data.error || ''), 'ha betelt a napi keret, érthető hibát ad');
   console.log('  böngészőhibák:', p.errs.join(' | ') || 'nincs');
 } finally {
   await b.close(); await smtp.close(); await client.close(); summary();

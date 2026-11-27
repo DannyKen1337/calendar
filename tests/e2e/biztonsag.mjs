@@ -94,6 +94,22 @@ try {
   const ghost = await login('nincsilyen', 'akarmi', '10.2.0.3');
   ok(ghost.status === 401, 'nem létező fiók: ugyanaz a „Hibás adatok” válasz');
 
+  // --- Törlés nem létező / törölt eseménynél: nincs jogosultság-megkerülés ---
+  const szId = (await db.collection('users').insertOne({ username: 'Torlo', email: 't@x.hu', password: hash, role: 'admin', allowedCategories: ['Pokémon TCG'], lastSeenChangelog: '9999' })).insertedId;
+  const szTok = await token(szId, 'Torlo', 'admin');
+  await db.collection('registrations').insertMany([
+    { tournamentId: '000000000000000000000abc', tournamentName: 'Törölt esemény', name: 'Árva Anna', email: 'arva@x.hu', status: 'Aktív', date: new Date() },
+  ]);
+  const delGhost = await post('/api/actions', { actionType: 'DELETE_TOURNAMENT', payload: { tournamentId: '000000000000000000000abc' } }, { cookie: szTok });
+  ok(delGhost.status === 404 && (await db.collection('registrations').countDocuments({ tournamentId: '000000000000000000000abc' })) === 1, `nem létező esemény törlése: 404, a jelentkezések megmaradnak (${delGhost.status})`);
+  const orphan = await db.collection('registrations').findOne({ name: 'Árva Anna' });
+  const remOrphan = await post('/api/actions', { actionType: 'REMOVE_REGISTRATION', payload: { registrationId: String(orphan._id) } }, { cookie: szTok });
+  ok(remOrphan.status === 403 && !!(await db.collection('registrations').findOne({ _id: orphan._id })), `törölt esemény jelentkezőjét szervező nem törölheti (${remOrphan.status})`);
+  const remOwner = await post('/api/actions', { actionType: 'REMOVE_REGISTRATION', payload: { registrationId: String(orphan._id) } }, { cookie: o1new });
+  ok(remOwner.status === 200 && !(await db.collection('registrations').findOne({ _id: orphan._id })), 'a tulajdonos törölheti');
+  await post('/api/actions', { actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: { $gt: '' } } }, { cookie: o1new });
+  ok((await db.collection('settings').findOne({ _id: 'global_settings' }))?.isMaintenance === false, 'a karbantartás kapcsoló csak igen/nem értéket fogad');
+
   // --- Adatbázis-mentés: jelszó-hash és titkos kulcs nélkül ---
   await db.collection('settings').updateOne({ _id: 'push_vapid' }, { $set: { publicKey: 'nyilvanos-kulcs', privateKey: 'titkos-kulcs-123' } }, { upsert: true });
   const dump = await (await fetch(`${BASE}/api/export-db`, { headers: { Cookie: `tavern_session=${o1new}` } })).text();

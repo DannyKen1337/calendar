@@ -362,6 +362,7 @@ export default function PreorderAdmin() {
           onSent={(res) => {
             setArrival(null);
             if (res.sent) messageApi.success(`Kiment ${res.sent} levél.`);
+            if (res.later) messageApi.warning({ content: `${res.later} levél a napi korlát miatt ma nem ment ki. Holnap a „Megérkezett” gombbal folytathatod: aki már megkapta, nem kapja meg újra.`, duration: 12 });
             if (res.failed?.length) messageApi.warning({ content: `${res.failed.length} levél nem ment ki: ${res.failed.join(', ')}. Később újra megpróbálhatod: aki már megkapta, az nem kapja meg újra.`, duration: 10 });
             load();
           }}
