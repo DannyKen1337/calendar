@@ -37,6 +37,7 @@ Levelezés (ami most él):
 Egyéb:
 
 - [ ] `CONTACT_EMAIL` (nem kötelező): ide mennek az előrendelő oldal „Írj nekünk” üzenetei. Ha nincs megadva, a küldő postafiókba (`SMTP_USER`). A válaszcím a kérdezőé, így a „Válasz” gombbal közvetlenül neki írsz.
+- [ ] `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REFRESH_TOKEN` (nem kötelező, de ajánlott): a heti takarítás előbb a Google Drive-ra menti, amit töröl. Beállítás: `docs/google-drive.md`.
 - [ ] `APP_URL`: az éles cím (`https://…`), hogy a levelek linkjei arra mutassanak.
 - [ ] `IMGBB_API_KEY`: a képfeltöltéshez.
 - [ ] `WEBSHOP_URL`: a webshop címe (a weboldal gombja, és ez a cím beágyazhatja a jelentkezést).
@@ -49,7 +50,7 @@ Egyéb:
 
 - [ ] Az alkalmazás adatbázis-felhasználója csak a `Tavern` adatbázist írhassa/olvashassa (`readWrite@Tavern`), ne legyen admin; erős, véletlen jelszóval.
 - [ ] Network Access: a Vercel változó IP-címei miatt általában `0.0.0.0/0` kell. Ilyenkor csak az erős jelszó véd: ne legyen egyszerű, és ne szerepeljen máshol.
-- [ ] Mentés: az ingyenes (M0) fürtön nincs automatikus mentés. Hetente töltsd le a Továbbiak › Teljes adatbázis mentés fájlt, és tárold biztonságos helyen (személyes adatok vannak benne).
+- [ ] Mentés: az ingyenes (M0) fürtön nincs automatikus mentés. Állítsd be a Google Drive-mentést (`docs/google-drive.md`), és időnként nyomd meg a Rendszer oldalon a „Mentés most a Google Drive-ra” gombot; vagy töltsd le a Továbbiak › Teljes adatbázis mentés fájlt, és tárold biztonságos helyen (személyes adatok vannak benne).
 - [ ] Az Atlas-fiókon legyen kétlépcsős azonosítás.
 
 ## 4. Vercel-fiók és -projekt

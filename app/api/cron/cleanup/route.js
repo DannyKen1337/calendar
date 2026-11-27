@@ -2,64 +2,24 @@ import { NextResponse } from 'next/server';
 import { isCronAuthorized } from '@/lib/cronAuth';
 import { getTavernDb } from '@/lib/mongodb';
 import { recordRun } from '@/lib/systemLog';
-import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
-import { deleteOldTableBookings } from '@/lib/tableBookings';
-import { deleteExpiredPreorders, deleteInactiveLeaguePlayers, PREORDER_RETENTION_MONTHS, LEAGUE_PLAYER_RETENTION_MONTHS } from '@/lib/retention';
+import { runCleanup } from '@/lib/cleanup';
 
 export const dynamic = 'force-dynamic';
+// a Drive-mentés (nagyobb fájl feltöltése) időbe telhet
+export const maxDuration = 300;
 
+// Heti takarítás (Vercel Cron, hétfőnként): előbb a Google Drive-ra menti, amit töröl, utána töröl (lib/cleanup.js).
+// Ha a mentés nem sikerül, nem töröl semmit; a hiba a Rendszer oldalon látszik.
 export async function GET(request) {
   // Kulcs nélkül (hiányzó CRON_SECRET) nem enged át; állandó idejű összehasonlítás
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
-
   try {
     // A futás eredménye (és hibája) a tulajdonosi Rendszer oldalon látszik
-    const result = await recordRun('cleanup', async () => {
-    const db = await getTavernDb();
-
-    const twoMonthsAgo = new Date();
-    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-
-    const allEvents = await db.collection('tournaments').find({}).toArray();
-    const oldEventIds = allEvents
-      .filter(evt => new Date(evt.date) < twoMonthsAgo)
-      .map(evt => evt._id);
-
-    if (oldEventIds.length > 0) {
-      await db.collection('tournaments').deleteMany({ _id: { $in: oldEventIds } });
-      const stringIds = oldEventIds.map(id => String(id));
-      await db.collection('registrations').deleteMany({ tournamentId: { $in: stringIds } });
-      await db.collection('external_registrations').deleteMany({ tournamentId: { $in: stringIds } });
-      await db.collection('external_registration_events').deleteMany({ tournamentId: { $in: stringIds } });
-      
-      await db.collection('audit_logs').insertOne({
-        adminName: 'Vercel Automata',
-        action: 'AUTOMATA TAKARÍTÁS',
-        details: `${oldEventIds.length} db 2 hónapnál régebbi esemény törölve.`,
-        date: new Date()
-      });
-    }
-
-    await deleteOldAttendanceHistory(db);
-
-    // Előrendelések és inaktív ligajátékosok személyes adatainak törlése
-    const preorders = await deleteExpiredPreorders(db);
-    if (preorders.products > 0) {
-      await db.collection('audit_logs').insertOne({ adminName: 'Vercel Automata', action: 'AUTOMATA TAKARÍTÁS', details: `${preorders.products} db, ${PREORDER_RETENTION_MONTHS} hónapja lezárt előrendelési termék törölve ${preorders.preorders} jelentkezéssel (${preorders.names.join(', ')}).`, date: new Date() });
-    }
-    const players = await deleteInactiveLeaguePlayers(db);
-    if (players > 0) {
-      await db.collection('audit_logs').insertOne({ adminName: 'Vercel Automata', action: 'AUTOMATA TAKARÍTÁS', details: `${players} ligajátékos törölve (${LEAGUE_PLAYER_RETENTION_MONTHS} hónapja nem jelent meg).`, date: new Date() });
-    }
-
-    const tableBookings = await deleteOldTableBookings(db);
-
-    return { deletedCount: oldEventIds.length, preorderProducts: preorders.products, leaguePlayers: players, tableBookings };
-    });
+    const result = await recordRun('cleanup', async () => runCleanup(await getTavernDb()));
     return NextResponse.json({ success: true, ...result });
-  } catch (error) {
+  } catch {
     // A hiba részletei a tulajdonosi Rendszer oldalon látszanak (recordRun), a válaszba nem kerülnek
     return NextResponse.json({ error: 'A futás nem sikerült.' }, { status: 500 });
   }

@@ -11,7 +11,7 @@ import { canManageEvent, canManageStore, hasFeature, sanitizeCategories, sanitiz
 import { DECISIONS, tableBookingWhen } from '@/lib/tableBookings';
 import { normalizeOccupancy, sanitizeBooking, STORE_IDS } from '@/lib/occupancy';
 import { isMailConfigured, sendMail, appUrl, escapeHtml, mailLayout, mailButton } from '@/lib/mailer';
-import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
+import { runCleanup } from '@/lib/cleanup';
 import { normalizeUsername } from '@/lib/attendance';
 import { isValidChangelogId } from '@/lib/changelog';
 import { sanitizeEventType, sanitizeReservedSeats, RESERVED_SEATS_MAX } from '@/lib/eventTypes';
@@ -376,28 +376,19 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // Kézi takarítás (tulajdonos): ugyanaz, mint a heti (lib/cleanup.js), a Google Drive-mentéssel együtt
     if (actionType === 'CLEANUP_OLD_EVENTS') {
       const ownerSession = await verifyOwner();
       if (!ownerSession) {
         return NextResponse.json({ error: 'Csak Admin2 futtathatja a takarítást!' }, { status: 403 });
       }
-
-      const twoMonthsAgo = new Date();
-      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-      
-      const allEvents = await db.collection('tournaments').find({}).toArray();
-      const oldEventIds = allEvents
-        .filter(evt => new Date(evt.date) < twoMonthsAgo)
-        .map(evt => evt._id);
-
-      if (oldEventIds.length > 0) {
-        await db.collection('tournaments').deleteMany({ _id: { $in: oldEventIds } });
-        const stringIds = oldEventIds.map(id => String(id));
-        await db.collection('registrations').deleteMany({ tournamentId: { $in: stringIds } });
-        await addLog(db, session.username, 'TAKARÍTÁS', `${oldEventIds.length} db 2 hónapnál régebbi esemény törölve.`);
+      try {
+        const result = await runCleanup(db, { by: session.username });
+        return NextResponse.json({ success: true, count: result.deletedCount, ...result });
+      } catch (err) {
+        await logSystemError('kézi takarítás', err);
+        return NextResponse.json({ error: `A takarítás nem futott le, semmi nem törlődött: ${String(err?.message || 'ismeretlen hiba').slice(0, 200)}` }, { status: 502 });
       }
-      await deleteOldAttendanceHistory(db);
-      return NextResponse.json({ success: true, count: oldEventIds.length });
     }
 
     // --- PUBLIKUS AKCIÓK (JELENTKEZŐKNEK) ---

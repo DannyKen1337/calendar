@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { driveStatus } from '@/lib/googleDrive';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyOwner } from '@/lib/auth';
 import { adminPath } from '@/lib/adminGate';
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 const DAY = 24 * 3600 * 1000;
 // Az időzített feladatok (vercel.json) és hogy mennyi idő után számít késésnek, ha nem futott
 const JOBS = [
-  { job: 'cleanup', label: 'Heti takarítás', schedule: 'Hétfőnként 03:00 (UTC)', maxGapMs: 8 * DAY, description: 'Régi események, lejárt előrendelések, inaktív ligajátékosok törlése' },
+  { job: 'cleanup', label: 'Heti takarítás', schedule: 'Hétfőnként 03:00 (UTC)', maxGapMs: 8 * DAY, description: 'Régi események, lejárt előrendelések, inaktív ligajátékosok, egy évnél régebbi levelek, üzenetszálak és naplóbejegyzések törlése (előtte mentés a Google Drive-ra, ha be van állítva)' },
   { job: 'rgn-sync', label: 'Riftbound szinkron (napi)', schedule: 'Naponta 05:00 (UTC)', maxGapMs: 26 * 3600 * 1000, description: 'A külső oldalas események jelentkezőinek frissítése, új játékosok beemelése a ligákba' },
 ];
 const RATE_LIMITS = [
@@ -107,6 +108,7 @@ export async function GET() {
     });
 
     const mailReady = set('RESEND_API_KEY') && set('MAIL_FROM');
+    const drive = await driveStatus(db);
     const jwtStrong = set('JWT_SECRET') && String(process.env.JWT_SECRET).trim().length >= 32;
     const integrations = [
       { key: 'db', label: 'Adatbázis (MongoDB)', ok: dbOk, detail: dbOk ? `Válaszidő: ${dbLatencyMs} ms` : dbError },
@@ -114,6 +116,7 @@ export async function GET() {
       { key: 'cron', label: 'Időzített feladatok kulcsa (CRON_SECRET)', ok: set('CRON_SECRET'), detail: set('CRON_SECRET') ? 'Beállítva' : 'Hiányzik – a takarítás és a napi szinkron nem fut le' },
       { key: 'mail', label: 'E-mail küldés (Resend)', ok: mailReady, optional: true, detail: mailReady ? 'Beállítva' : 'Még nincs beállítva (RESEND_API_KEY, MAIL_FROM)' },
       { key: 'appUrl', label: 'Oldal címe (APP_URL)', ok: set('APP_URL'), optional: true, detail: set('APP_URL') ? 'Beállítva' : 'Nincs megadva – a kérésből számolja' },
+      { key: 'drive', label: 'Mentés a Google Drive-ra', ok: drive.configured && !drive.error, optional: true, detail: !drive.configured ? 'Nincs beállítva: a heti takarítás mentés nélkül töröl (beállítás: docs/google-drive.md)' : drive.error ? `Hiba: ${drive.error.message}` : 'Beállítva: a heti takarítás előbb ide menti, amit töröl' },
       { key: 'imgbb', label: 'Képfeltöltés (ImgBB)', ok: set('IMGBB_API_KEY'), optional: true, detail: set('IMGBB_API_KEY') ? 'Beállítva' : 'Nincs beállítva' },
       { key: 'privacy', label: 'Adatkezelési tájékoztató linkje', ok: set('NEXT_PUBLIC_PRIVACY_URL'), optional: true, detail: set('NEXT_PUBLIC_PRIVACY_URL') ? 'Beállítva' : 'Nincs megadva' },
       { key: 'adminPath', label: 'Rejtett admin cím (ADMIN_PATH)', ok: !!adminPath(), optional: true, detail: adminPath() ? 'Bekapcsolva: az admin és a belépés csak a titkos címről (vagy belépve) érhető el' : set('ADMIN_PATH') ? 'Hibás érték: legalább 8 karakter, csak betű, szám, kötőjel, és nem kezdődhet /admin-nal' : 'Nincs beállítva: az admin belépő oldala a /admin címen bárkinek megjelenik' },
@@ -132,6 +135,7 @@ export async function GET() {
         region: process.env.VERCEL_REGION || null,
       },
       maintenance: settings?.isMaintenance || false,
+      drive,
       db: { ok: dbOk, latencyMs: dbLatencyMs, error: dbError },
       integrations,
       jobs,

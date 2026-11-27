@@ -96,8 +96,53 @@ const runDetails = (details) => {
   if (details.deletedCount != null) parts.push(`${details.deletedCount} régi esemény törölve`);
   if (details.preorderProducts) parts.push(`${details.preorderProducts} lejárt előrendelés`);
   if (details.leaguePlayers) parts.push(`${details.leaguePlayers} inaktív ligajátékos`);
+  if (details.inboxMails) parts.push(`${details.inboxMails} régi levél`);
+  if (details.messageThreads) parts.push(`${details.messageThreads} régi üzenetszál`);
+  if (details.auditLogs) parts.push(`${details.auditLogs} régi naplóbejegyzés`);
+  if (details.backup) parts.push(`előtte mentve: ${details.backup.name}`);
+  else if (details.backupSkipped) parts.push('Drive-mentés nélkül (nincs beállítva)');
   return parts.join(' · ');
 };
+
+// Mentés a Google Drive-ra: állapot, az utolsó mentés linkje, és „Mentés most” (teljes adatbázis, /api/admin-backup)
+function DriveBackupPanel({ drive, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const [messageApi, holder] = message.useMessage();
+  if (!drive) return null;
+  const run = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin-backup', { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) messageApi.error({ content: json.error || 'A mentés nem sikerült.', duration: 8 });
+      else messageApi.success(`Elmentve a Google Drive-ra: ${json.name}`);
+      onDone?.();
+    } catch { messageApi.error('Hálózati hiba.'); } finally { setBusy(false); }
+  };
+  return (
+    <div className={panel} data-drive-mentes>
+      {holder}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 style={{ ...panelTitle, margin: 0 }}>Mentés a Google Drive-ra</h3>
+        <StatusBadge status={!drive.configured ? 'off' : drive.error ? 'error' : 'ok'} label={!drive.configured ? 'Nincs beállítva' : drive.error ? 'Hiba' : 'Rendben'} />
+      </div>
+      <div style={{ ...muted, marginTop: 6 }}>
+        A heti takarítás a törlés előtt a „Tavern naptár – mentések” mappába menti, amit töröl. Ha a mentés nem sikerül, nem töröl semmit.
+        {!drive.configured && ' Most nincs beállítva, ezért a takarítás mentés nélkül töröl. A beállítás lépései: docs/google-drive.md.'}
+      </div>
+      {drive.last && (
+        <div style={{ color: '#E0D6C8', fontSize: 13, marginTop: 8 }}>
+          Utolsó mentés: {fmt(drive.last.at)} · {drive.last.link ? <a href={drive.last.link} target="_blank" rel="noopener noreferrer" style={{ color: '#E5B15D' }}>{drive.last.name}</a> : drive.last.name}
+          {drive.last.bytes ? ` · ${drive.last.bytes >= 1048576 ? `${(drive.last.bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(drive.last.bytes / 1024))} KB`}` : ''}
+        </div>
+      )}
+      {drive.error && <div style={{ color: '#e5534b', fontSize: 13, marginTop: 6 }}>Hiba ({fmt(drive.error.at)}): {drive.error.message}</div>}
+      {drive.configured && (
+        <Button icon={<DownloadOutlined />} loading={busy} onClick={run} style={{ marginTop: 10 }} data-drive-most>Mentés most a Google Drive-ra (teljes adatbázis)</Button>
+      )}
+    </div>
+  );
+}
 
 function Overview({ data, onRefresh, refreshing }) {
   const now = data.serverTime;
@@ -174,6 +219,8 @@ function Overview({ data, onRefresh, refreshing }) {
           <div style={{ ...muted, marginTop: 8 }}>A titkos kulcsok értéke soha nem jelenik meg, csak az, hogy be vannak-e állítva.</div>
         </div>
       </div>
+
+      <DriveBackupPanel drive={data.drive} onDone={onRefresh} />
 
       <div className={panel}>
         <h3 style={panelTitle}>Riftbound jelentkezők szinkronja</h3>
