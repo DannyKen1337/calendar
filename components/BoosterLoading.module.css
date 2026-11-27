@@ -43,13 +43,20 @@
 @keyframes fadeOut { to { opacity: 0; } }
 @keyframes overlayOut { to { opacity: 0; visibility: hidden; } }
 
+/* --- kocka változat: adat érkezésekor a kocka felugrik és elhalványul, a háttér eltűnik --- */
+.dice { min-height: 190px; }
+.diceLeaving .dice { animation: diceUp 520ms cubic-bezier(0.5, 0, 0.75, 0) forwards; }
+.diceLeaving .line { animation: fadeOut 200ms ease forwards; }
+.diceLeaving { animation: overlayOut 380ms ease 420ms forwards; }
+@keyframes diceUp { 30% { transform: translateY(8px); } 100% { transform: translateY(-60px) scale(1.15); opacity: 0; } }
+
 /* a naptár „kijön” a csomagból: alulról, kicsit kicsinyítve emelkedik a helyére */
 :global(html[data-booster-nyit] main) { animation: calRise 700ms cubic-bezier(0.16, 1, 0.3, 1) 720ms both; }
 @keyframes calRise { from { opacity: 0; transform: translateY(56px) scale(0.94); } }
 
 @media (prefers-reduced-motion: reduce) {
   .pack, .sheen, .line { animation: none; }
-  .tearing .top, .tearing .body, .tearing .cards i, .tearing .burst { animation: none; }
-  .tearing { animation: overlayOut 300ms ease forwards; }
+  .tearing .top, .tearing .body, .tearing .cards i, .tearing .burst, .diceLeaving .dice { animation: none; }
+  .tearing, .diceLeaving { animation: overlayOut 300ms ease forwards; }
   :global(html[data-booster-nyit] main) { animation: none; }
 }

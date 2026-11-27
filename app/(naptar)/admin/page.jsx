@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useCalendar } from '@/app/useCalendar';
 import { ChangelogModal } from '@/app/components';
 import AdminApp from '@/components/AdminApp';
+import { AdminLoading } from '@/components/AdminPage';
 import { CHANGELOG, LATEST_CHANGELOG_ID, unseenReleases } from '@/lib/changelog';
 import { LockOutlined, UserOutlined, MailOutlined } from '@ant-design/icons';
 import { Form, Input, Button, ConfigProvider, theme, message } from 'antd';
@@ -43,7 +44,7 @@ export default function AdminPage() {
 
   // Amíg a React ellenőrzi a böngésző memóriáját (ne villanjon be a login)
   if (app.loading) {
-    return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-[#E5B15D] font-bold">Betöltés...</div>;
+    return <AdminLoading name={app.userDisplayName} />;
   }
 
   // Saját hitelesítési kezelő, ami tökéletesen kezeli a regisztrációt és a belépést is az új API-val

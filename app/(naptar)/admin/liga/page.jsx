@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 export default function LeagueAdminPage() {
   const app = useCalendar();
-  if (app.loading) return <AdminLoading />;
+  if (app.loading) return <AdminLoading name={app.userDisplayName} />;
   // Csak bejelentkezett szervezőknek, akiknek a tulajdonos engedélyezte ezt a modult
   if ((app.userRole !== 'admin' && app.userRole !== 'owner') || !app.hasFeature('leagues')) redirect('/admin');
   // Korlátozott szervezőnek: mely játékok adatai látszanak

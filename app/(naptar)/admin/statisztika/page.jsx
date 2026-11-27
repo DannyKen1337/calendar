@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 export default function StatsPage() {
   const app = useCalendar();
-  if (app.loading) return <AdminLoading />;
+  if (app.loading) return <AdminLoading name={app.userDisplayName} />;
   // Csak bejelentkezett szervezőknek
   if (app.userRole !== 'admin' && app.userRole !== 'owner') redirect('/admin');
   // Korlátozott szervezőnek: mely játékok adatai látszanak

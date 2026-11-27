@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
+import DiceRoll from '@/components/DiceRoll';
 import s from './BoosterLoading.module.css';
 
 // A nyilvános naptár betöltése (pl. hidegindításnál): egy Tavern booster lebeg, csillog, alatta váltakozó, élénkítő
@@ -7,6 +8,8 @@ import s from './BoosterLoading.module.css';
 // Csak lassú betöltésnél (hidegindítás) jelenik meg: ha 1,5 mp alatt megjön az adat, semmi nem látszik. Ha megjelent,
 // és utána megjön az adat, rögtön letépődik (legfeljebb egy pillanatig tartjuk vissza, hogy ne villanjon).
 // Csökkentett mozgásnál nincs tépés, csak elhalványul. loading: tölt-e még a naptár
+// Megjelenéskor véletlenszerűen a booster vagy egy eldobott dobókocka (components/DiceRoll.jsx) jön; a kocka az adat
+// érkezésekor felugrik és elhalványul, utána ugyanúgy előjön a naptár. (A teszthez rögzíthető: window.__TAVERN_BETOLTO__.)
 const LINES = [
   'Keverjük a paklit…',
   'Felállítjuk az asztalokat…',
@@ -21,13 +24,18 @@ const TEAR_MS = 1150;
 export default function BoosterLoading({ loading }) {
   const [phase, setPhase] = useState('idle'); // idle → pack → tear → done
   const [line, setLine] = useState(0);
+  const [variant, setVariant] = useState('booster'); // 'booster' | 'kocka' (megjelenéskor sorsolva)
   const [slow, setSlow] = useState(false); // hosszabb hidegindítás: külön mondat
   const shownAt = useRef(0);
 
   // megjelenés csak akkor, ha a betöltés nem azonnali
   useEffect(() => {
     if (!loading) return undefined;
-    const t = setTimeout(() => setPhase(p => { if (p !== 'idle') return p; shownAt.current = Date.now(); return 'pack'; }), SHOW_AFTER);
+    const t = setTimeout(() => {
+      const forced = window.__TAVERN_BETOLTO__;
+      setVariant(forced === 'kocka' || forced === 'booster' ? forced : Math.random() < 0.5 ? 'kocka' : 'booster');
+      setPhase(p => { if (p !== 'idle') return p; shownAt.current = Date.now(); return 'pack'; });
+    }, SHOW_AFTER);
     const slowT = setTimeout(() => setSlow(true), 6000);
     return () => { clearTimeout(t); clearTimeout(slowT); };
   }, [loading]);
@@ -56,8 +64,18 @@ export default function BoosterLoading({ loading }) {
   useEffect(() => () => { delete document.documentElement.dataset.boosterNyit; }, []);
 
   if (phase === 'idle' || phase === 'done') return null;
+  const text = <p className={s.line} key={slow ? 'lassu' : line}>{slow ? 'Az első betöltés kicsit tovább tart, ébresztjük a szervert…' : LINES[line]}</p>;
+  if (variant === 'kocka') {
+    return (
+      <div className={`${s.overlay} ${phase === 'tear' ? s.diceLeaving : ''}`} role="status" aria-live="polite" data-booster={phase} data-betolto="kocka">
+        <DiceRoll className={s.dice} />
+        {text}
+        <span className={s.sr}>A naptár betöltése folyamatban</span>
+      </div>
+    );
+  }
   return (
-    <div className={`${s.overlay} ${phase === 'tear' ? s.tearing : ''}`} role="status" aria-live="polite" data-booster={phase}>
+    <div className={`${s.overlay} ${phase === 'tear' ? s.tearing : ''}`} role="status" aria-live="polite" data-booster={phase} data-betolto="booster">
       <div className={s.pack} aria-hidden="true">
         <div className={s.top}><span className={s.crimp} /></div>
         {/* a kiugró lapok a csomag teste mögött: tépéskor a nyíláson emelkednek ki */}
@@ -72,7 +90,7 @@ export default function BoosterLoading({ loading }) {
         </div>
         <span className={s.burst} />
       </div>
-      <p className={s.line} key={slow ? 'lassu' : line}>{slow ? 'Az első betöltés kicsit tovább tart, ébresztjük a szervert…' : LINES[line]}</p>
+      {text}
       <span className={s.sr}>A naptár betöltése folyamatban</span>
     </div>
   );

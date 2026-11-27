@@ -9,7 +9,7 @@ function CheckinContent() {
   const app = useCalendar();
   const eventId = useSearchParams().get('event');
 
-  if (app.loading) return <AdminLoading />;
+  if (app.loading) return <AdminLoading name={app.userDisplayName} />;
   // Csak bejelentkezett szervezőknek
   if (app.userRole !== 'admin' && app.userRole !== 'owner') redirect('/admin');
 

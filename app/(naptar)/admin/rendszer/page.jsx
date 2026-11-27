@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 export default function SystemPage() {
   const app = useCalendar();
-  if (app.loading) return <AdminLoading />;
+  if (app.loading) return <AdminLoading name={app.userDisplayName} />;
   // Csak a tulajdonos
   if (app.userRole !== 'owner') redirect('/admin');
 

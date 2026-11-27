@@ -1,7 +1,10 @@
 "use client";
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { ConfigProvider, theme } from 'antd';
 import s from './AdminPage.module.css';
+import { WELCOME_KEY } from '@/lib/displayName';
+import DiceRoll from '@/components/DiceRoll';
 
 // Az admin aloldalainak közös kerete (Generátor, Check-in, Előrendelés, Ligák, Statisztika, Felhasználók, Rendszer,
 // Telítettség), az admin felület (AdminApp) kinézetével: egyszerű, sötét, gyors. Felül sáv a visszalépéssel,
@@ -41,8 +44,26 @@ export const adminTheme = {
 
 const WIDTHS = { narrow: s.narrow, normal: s.normal, wide: s.wide };
 
-export function AdminLoading() {
-  return <div className={s.loading}>Betöltés…</div>;
+// Betöltés közben üdvözlő képernyő: „Üdvözöllek, <teljes név>!”, és hosszabb betöltésnél (0,9 mp után) alatta egy
+// eldobott 3D dobókocka (components/DiceRoll.jsx: véletlen 1–20, 20-asnál kis ünneplés). A név a munkamenetből jön
+// (name); amíg az nincs meg, a böngészőben az utoljára belépett név (WELCOME_KEY, csak kényelmi: kijelentkezéskor
+// törlődik), így a köszöntés rögtön látszik. Gyors betöltésnél (0,25 mp alatt) fel sem villan.
+const readWelcomeName = () => { try { return localStorage.getItem(WELCOME_KEY) || ''; } catch { return ''; } };
+const noSubscribe = () => () => {};
+
+export function AdminLoading({ name = '' }) {
+  const cached = useSyncExternalStore(noSubscribe, readWelcomeName, () => '');
+  const shown = String(name || cached || '').trim();
+  return (
+    <div className={s.loading} role="status" aria-live="polite" data-udvozlo>
+      <div className={s.welcome}>
+        <p className={s.welcomeKicker}>Tavern naptár</p>
+        <h1 className={s.welcomeTitle} data-udvozlo-nev={shown || undefined}>{shown ? `Üdvözöllek, ${shown}!` : 'Üdvözöllek!'}</h1>
+        <DiceRoll delay={900} />
+        <p className={s.welcomeSub}>Betöltjük az adatokat…</p>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminPage({ title, sub, actions, width = 'normal', back = '/admin', backLabel = 'Admin', children }) {

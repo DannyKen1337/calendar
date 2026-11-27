@@ -1,5 +1,6 @@
 // Nyilvános naptár, lassú (hideg)indítás: betöltés közben Tavern booster lebeg váltakozó szöveggel; amikor megjön az
 // adat, letépődik a teteje és kijön belőle a naptár. Gyors betöltésnél nem jelenik meg; a réteg nem fogja el a kattintást.
+// A booster helyett véletlenszerűen eldobott dobókocka is jöhet (window.__TAVERN_BETOLTO__ rögzíti a teszthez).
 import { openDb, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
 
 const { client, db } = await openDb();
@@ -12,7 +13,7 @@ const b = await browser();
 try {
   // lassú adat: a nyilvános adat 4 mp múlva érkezik
   const p = await page(b, null, 402, 874);
-  await p.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } });
+  await p.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } window.__TAVERN_BETOLTO__ = 'booster'; });
   await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 }); // első fordítás
   await p.setRequestInterception(true);
   p.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 4000); else req.continue().catch(() => {}); });
@@ -39,6 +40,21 @@ try {
   ok(!(await p.$('[data-booster]')) && !(await p.evaluate(() => document.documentElement.dataset.boosterNyit)), 'utána eltűnik');
   ok(await p.evaluate(() => /Pokémon klubnap/.test(document.body.innerText)), 'a naptár látszik az eseménnyel');
   await p.screenshot({ path: `${SHOTS}naptar-booster-utana.jpg`, quality: 60 });
+
+  // kockás változat: lassú betöltésnél eldobott kocka, a 20-as dobásnál „Natural 20!”; adat érkezésekor eltűnik
+  const k = await page(b, null, 402, 874);
+  await k.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } window.__TAVERN_BETOLTO__ = 'kocka'; window.__D20_FORCE__ = 20; });
+  await k.setRequestInterception(true);
+  k.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 6000); else req.continue().catch(() => {}); });
+  await k.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await k.waitForSelector('[data-betolto="kocka"] [data-kocka]', { timeout: 15000 }).catch(() => {});
+  ok(!!(await k.$('[data-betolto="kocka"] [data-kocka]')) && /Keverjük|asztal|lapokat|program|kezdünk/.test(await k.$eval('[data-booster]', el => el.innerText).catch(() => '')), 'a booster helyett eldobott kocka is jöhet, ugyanazzal a szöveggel');
+  await k.waitForSelector('[data-natural20]', { timeout: 8000 }).catch(() => {});
+  ok(/Natural 20/.test(await k.$eval('[data-natural20]', el => el.textContent).catch(() => '')), '20-as dobásnál „Natural 20! Kritikus siker!”');
+  await k.screenshot({ path: `${SHOTS}naptar-kocka.jpg`, quality: 60 });
+  await k.waitForFunction(() => !document.querySelector('[data-booster]'), { timeout: 15000 }).catch(() => {});
+  ok(!(await k.$('[data-booster]')) && await k.evaluate(() => /Pokémon klubnap/.test(document.body.innerText)), 'adat érkezésekor a kocka eltűnik, előjön a naptár');
+  await k.close();
 
   // közepesen lassú betöltés (1 mp): még nincs booster
   const m = await page(b, null, 402, 874);

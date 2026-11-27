@@ -7,7 +7,7 @@ import OccupancyManager from '@/components/OccupancyManager';
 // Napi telítettség és kézi helyfoglalás. A tulajdonos mindig eléri; a szervezők akkor, ha a modul be van kapcsolva.
 export default function OccupancyPage() {
   const app = useCalendar();
-  if (app.loading) return <AdminLoading />;
+  if (app.loading) return <AdminLoading name={app.userDisplayName} />;
   if (app.userRole !== 'admin' && app.userRole !== 'owner') redirect('/admin');
 
   return (
