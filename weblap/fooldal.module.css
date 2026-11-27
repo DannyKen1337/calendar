@@ -59,6 +59,14 @@
 .navLinks a:hover, .navLinks a[aria-current] { color: var(--gold); }
 .navMenu { display: none; }
 .navCta { composes: btn; }
+/* a Discord-szerver: feltűnő, Discord-kék gomb a Naptár gombtól jobbra (telefonon kerek, csak a jellel) */
+.navDiscord { display: inline-flex; align-items: center; gap: 0.55rem; flex: none; min-height: 52px; padding: 0 1.1rem; margin-left: -0.75rem; border-radius: 999px; background: #5865f2; color: #ffffff; font-weight: 800; text-decoration: none; box-shadow: 0 6px 18px rgba(88, 101, 242, 0.45); transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
+.navDiscord:hover { background: #4752c4; transform: translateY(-1px); box-shadow: 0 10px 24px rgba(88, 101, 242, 0.55); }
+.navDiscord svg { width: 22px; height: 22px; fill: currentColor; }
+@media (max-width: 600px) {
+  .navDiscord { width: 44px; min-height: 44px; height: 44px; padding: 0; justify-content: center; margin-left: -0.5rem; }
+  .navDiscord span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 /* Külön oldalak (Galéria): minden méretben látszik, a Naptár gomb előtt */
 .navPages { display: flex; gap: 1.25rem; align-items: center; font-size: var(--step-small); }
 .navPages a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; font-weight: 600; }

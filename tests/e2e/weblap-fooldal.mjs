@@ -60,6 +60,10 @@ try {
   await wait(400);
   await p.screenshot({ path: `${SHOTS}fooldal-naptar-gomb.jpg`, quality: 60 });
 
+  // A fejlécben a Naptár gombtól jobbra a feltűnő Discord gomb (a Tavern szervere, új lapon)
+  const dc = await p.evaluate(() => { const d = document.querySelector('[data-discord]'); const c = document.querySelector('header [data-cal]'); if (!d || !c) return null; const dr = d.getBoundingClientRect(), cr = c.getBoundingClientRect(); return { right: dr.left >= cr.right, href: d.getAttribute('href'), target: d.target, rel: d.rel, bg: getComputedStyle(d).backgroundColor, label: d.getAttribute('aria-label'), h: dr.height }; });
+  ok(dc && dc.right && dc.href === 'https://discord.com/invite/zQDWS2FXpP' && dc.target === '_blank' && /noopener/.test(dc.rel) && dc.bg === 'rgb(88, 101, 242)' && /Discord/.test(dc.label) && dc.h >= 44, `a Naptár gombtól jobbra a Discord gomb, a szerver linkjével, új lapon (${JSON.stringify(dc)})`);
+
   // Hírek: amíg nincs behúzott Facebook-poszt (nincs API-kulcs), nincs kitalált poszt, csak a három bolt Facebook-linkje
   const posts = await p.$$eval('#hirek [data-poszt]', els => els.length);
   const fb = await p.$$eval('[data-facebook-linkek] a', els => els.map(a => ({ text: a.textContent, href: a.href })));
