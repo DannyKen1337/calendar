@@ -24,6 +24,7 @@ import QuickActions, { quickActionsFor } from '@/components/QuickActions';
 import { Fab, PullToRefresh } from '@/components/PhoneApp';
 import s from './AdminApp.module.css';
 import PushToggle from './PushToggle';
+import StaffMailModal from './StaffMailModal';
 
 // Az admin felület (tulajdonos és szervezők): egyszerű és gyors, telefonra (iPhone, Safari web app) és gépre.
 // Fülek: Események (hónaponként, ez a kezdőoldal), Telítettség (napi telítettség, kézi helyfoglalás; a tulajdonosnak a modul
@@ -92,6 +93,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
   });
   const tab = tabs.some(t => t[0] === savedTab) ? savedTab : 'esemenyek';
   const [selected, setSelected] = useState(null); // a megnyitott esemény azonosítója (teendőlap)
+  const [staffMailOpen, setStaffMailOpen] = useState(false); // levél a szervezőknek (tulajdonos)
   const [stores, setStores] = useState([]); // üres = minden bolt, több is választható
   const [games, setGames] = useState([]); // üres = minden játék (szervezői szűrő)
   const [onlyMine, setOnlyMine] = useState(false); // csak az általa tartott események (szervezői szűrő)
@@ -460,6 +462,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         {linkRow(MailOutlined, 'Üzenetek', unreadMessages > 0 ? `${unreadMessages} új válasz` : 'Jelentkezőknek és előrendelőknek', '/admin/uzenetek')}
         {Object.keys(GAME_CONFIG).some(g => app.canManageGame(g)) && linkRow(TeamOutlined, 'Játékosok', 'Játékos bázis játékonként', '/admin/jatekosok')}
         {has('mailbox') && linkRow(InboxOutlined, 'Beérkezett levelek', 'A rendszer postafiókja', '/admin/levelek')}
+        {has('mailbox') && buttonRow(MailOutlined, 'Levél a szervezőknek', 'Körlevél minden szervezőnek, a te aláírásoddal', () => setStaffMailOpen(true))}
         {linkRow(MobileOutlined, 'Check-in', null, '/admin/checkin')}
         {linkRow(BarChartOutlined, 'Statisztika', null, '/admin/statisztika')}
         {linkRow(GlobalOutlined, 'Nyilvános naptár', null, '/naptar', true)}
@@ -566,6 +569,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
 
       <PullToRefresh onRefresh={refresh} />
       <EventDialog app={app} evt={selectedEvent} onClose={() => setSelected(null)} />
+      {has('mailbox') && <StaffMailModal open={staffMailOpen} onClose={() => setStaffMailOpen(false)} messageApi={app.messageApi} />}
       <AdminModals app={app} />
     </ConfigProvider>
   );

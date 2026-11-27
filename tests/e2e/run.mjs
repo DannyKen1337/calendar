@@ -15,7 +15,7 @@ const ROUNDS = [
   // rejtett admin: a szerver a titkos belépő címmel (ADMIN_PATH) fut
   { fake: false, env: { ADMIN_PATH: '/kapu-teszt-2026' }, tests: ['admin-kapu'] },
   // levelezéssel és Drive-mentéssel: a tesztszerver a hamis SMTP- és Google-szervernek küld (tests/e2e/fake-smtp.mjs, fake-gdrive.mjs; a tesztfájl indítja)
-  { fake: false, env: { SMTP_HOST: '127.0.0.1', SMTP_PORT: '25871', SMTP_USER: 'bolt@teszt.hu', SMTP_PASS: 'x', SMTP_INSECURE_TEST: '1', CRON_SECRET: 'e2e-cron-titok', GOOGLE_DRIVE_TEST_BASE: 'http://127.0.0.1:25872', GOOGLE_DRIVE_CLIENT_ID: 'teszt-ugyfel', GOOGLE_DRIVE_CLIENT_SECRET: 'teszt-titok', GOOGLE_DRIVE_REFRESH_TOKEN: 'teszt-frissito' }, tests: ['elorendeles-stripe', 'elorendeles-kerdes', 'elorendeles-ertesites', 'admin-levelek-valasz', 'teljes-nev', 'takaritas-mentes'] },
+  { fake: false, env: { SMTP_HOST: '127.0.0.1', SMTP_PORT: '25871', SMTP_USER: 'bolt@teszt.hu', SMTP_PASS: 'x', SMTP_INSECURE_TEST: '1', CRON_SECRET: 'e2e-cron-titok', GOOGLE_DRIVE_TEST_BASE: 'http://127.0.0.1:25872', GOOGLE_DRIVE_CLIENT_ID: 'teszt-ugyfel', GOOGLE_DRIVE_CLIENT_SECRET: 'teszt-titok', GOOGLE_DRIVE_REFRESH_TOKEN: 'teszt-frissito' }, tests: ['elorendeles-stripe', 'elorendeles-kerdes', 'elorendeles-ertesites', 'admin-levelek-valasz', 'teljes-nev', 'takaritas-mentes', 'korlevel'] },
 ];
 const only = process.argv.slice(2);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
