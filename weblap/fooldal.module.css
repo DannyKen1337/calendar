@@ -31,7 +31,8 @@
 .page h1, .page h2, .page h3, .page p, .page figure, .page ul, .page ol { margin: 0; }
 .page ul, .page ol { padding: 0; list-style: none; }
 .page img { max-width: 100%; }
-.page button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+/* a gombok alaphelyzete; az „Írj nekünk” űrlapra (components/PreorderContact.jsx, saját stílusú gombok) nem vonatkozik */
+.page button:not(.contactForm *) { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .page :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .page ::selection { background: var(--gold); color: var(--on-gold); }
 

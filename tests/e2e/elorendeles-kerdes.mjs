@@ -71,6 +71,9 @@ try {
   await w.$eval('[data-weboldal-kerdes]', el => el.scrollIntoView({ block: 'center' }));
   await wait(400);
   ok(!!(await w.$('[data-weboldal-kerdes] [data-kerdes-gomb]')), 'a weboldal „Írj nekünk” részében ott a gomb');
+  const wbtn = await w.$eval('[data-weboldal-kerdes] [data-kerdes-gomb]', el => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); const box = el.parentElement.getBoundingClientRect(); return { bg: cs.backgroundColor, h: r.height, left: r.left - box.left, icon: getComputedStyle(el.querySelector('svg')).stroke }; });
+  ok(wbtn.bg === 'rgb(15, 11, 12)' && wbtn.h >= 44 && wbtn.left < 2, `a gomb látszik: sötét háttér az arany sávban, legalább 44 px, balra igazítva (${JSON.stringify(wbtn)})`);
+  await w.screenshot({ path: `${SHOTS}weboldal-irj-nekunk-gomb.jpg`, quality: 60 });
   await w.click('[data-weboldal-kerdes] [data-kerdes-gomb]');
   await w.waitForSelector('[data-weboldal-kerdes] #kerdes-name', { timeout: 10000 });
   ok(/versenyről/.test(await w.$eval('[data-weboldal-kerdes]', el => el.innerText)), 'a weboldalon általános bevezető szöveg');
