@@ -64,6 +64,10 @@ try {
   const dc = await p.evaluate(() => { const d = document.querySelector('[data-discord]'); const c = document.querySelector('header [data-cal]'); if (!d || !c) return null; const dr = d.getBoundingClientRect(), cr = c.getBoundingClientRect(); return { right: dr.left >= cr.right, href: d.getAttribute('href'), target: d.target, rel: d.rel, bg: getComputedStyle(d).backgroundColor, label: d.getAttribute('aria-label'), h: dr.height }; });
   ok(dc && dc.right && dc.href === 'https://discord.com/invite/zQDWS2FXpP' && dc.target === '_blank' && /noopener/.test(dc.rel) && dc.bg === 'rgb(88, 101, 242)' && /Discord/.test(dc.label) && dc.h >= 44, `a Naptár gombtól jobbra a Discord gomb, a szerver linkjével, új lapon (${JSON.stringify(dc)})`);
 
+  // gépen minden menüpont kifér: nincs „Több” gomb
+  const deskNav = await p.evaluate(() => ({ links: [...document.querySelectorAll('header nav a')].filter(a => a.offsetParent).map(a => a.textContent), more: !!document.querySelector('[data-tobb]') }));
+  ok(!deskNav.more && ['Program', 'Hírek', 'Boltok', 'Kapcsolat', 'Galéria'].every(t => deskNav.links.includes(t)), `gépen minden menüpont kint van, „Több” nélkül (${deskNav.links.join(', ')})`);
+
   // Hírek: amíg nincs behúzott Facebook-poszt (nincs API-kulcs), nincs kitalált poszt, csak a három bolt Facebook-linkje
   const posts = await p.$$eval('#hirek [data-poszt]', els => els.length);
   const fb = await p.$$eval('[data-facebook-linkek] a', els => els.map(a => ({ text: a.textContent, href: a.href })));
@@ -99,6 +103,41 @@ try {
   const ph = await page(b, null, 402, 874);
   await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   ok((await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
+  // Telefonon a fejlécben annyi menüpont, amennyi kifér (a Hírek és a Galéria), a többi a „Több” listában
+  const bar = async (pg) => pg.evaluate(() => {
+    const els = [...document.querySelectorAll('header a, header button')].filter(e => e.offsetParent && !e.closest('[data-tobb-lista]'));
+    const rs = els.map(e => ({ t: (e.textContent || '').trim(), l: e.getBoundingClientRect().left, r: e.getBoundingClientRect().right, h: e.getBoundingClientRect().height }));
+    const gaps = rs.slice(1).map((x, i) => x.l - rs[i].r);
+    return { items: rs.map(x => x.t), minGap: Math.min(...gaps), minH: Math.min(...rs.map(x => x.h)), inside: rs.every(x => x.l >= 0 && x.r <= innerWidth) };
+  });
+  const tb = await bar(ph);
+  ok(tb.items.includes('Hírek') && tb.items.includes('Galéria') && tb.items.includes('Több') && tb.items.includes('Naptár'), `telefonon a fejlécben: ${tb.items.join(' · ')}`);
+  ok(tb.minGap >= 7.5 && tb.minH >= 44 && tb.inside, `a fejléc gombjai legalább 44 px magasak, köztük legalább 8 px, mind a képernyőn (${JSON.stringify(tb)})`);
+  await ph.click('[data-tobb]');
+  await wait(300);
+  const drop = await ph.evaluate(() => { const l = document.querySelector('[data-tobb-lista]'); const r = l.getBoundingClientRect(); return { open: !l.hidden, exp: document.querySelector('[data-tobb]').getAttribute('aria-expanded'), items: [...l.querySelectorAll('a')].map(a => a.textContent), minH: Math.min(...[...l.querySelectorAll('a')].map(a => a.getBoundingClientRect().height)), inside: r.left >= 0 && r.right <= innerWidth }; });
+  ok(drop.open && drop.exp === 'true' && ['Program', 'Boltok', 'Kapcsolat'].every(t => drop.items.includes(t)) && !drop.items.includes('Galéria') && drop.minH >= 44 && drop.inside, `a „Több” lista: ${drop.items.join(', ')} (legalább 44 px-es sorok, a képernyőn belül)`);
+  await ph.screenshot({ path: `${SHOTS}fooldal-fejlec-tobb.jpg`, quality: 60, clip: { x: 0, y: 0, width: 402, height: 360 } });
+  await ph.keyboard.press('Escape');
+  await wait(150);
+  ok(await ph.evaluate(() => document.querySelector('[data-tobb-lista]').hidden && document.activeElement === document.querySelector('[data-tobb]')), 'Esc-re bezárul, a fókusz visszakerül a gombra');
+  await ph.click('[data-tobb]');
+  await ph.mouse.click(200, 600);
+  await wait(150);
+  ok(await ph.evaluate(() => document.querySelector('[data-tobb-lista]').hidden), 'mellékattintásra bezárul');
+  await ph.click('[data-tobb]');
+  await wait(200);
+  await ph.evaluate(() => [...document.querySelectorAll('[data-tobb-lista] a')].find(a => a.textContent === 'Kapcsolat').click());
+  await wait(600);
+  ok(await ph.evaluate(() => location.hash === '#kapcsolat' && document.querySelector('[data-tobb-lista]').hidden), 'a listából a részhez ugrik, és a lista bezárul');
+  await ph.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await wait(600);
+  const small = await page(b, null, 320, 640);
+  await small.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  const sb = await bar(small);
+  ok(sb.inside && sb.minGap >= 7.5 && (await small.evaluate(() => document.documentElement.scrollWidth)) === 320, `a legkisebb telefonon (320 px) is elfér, nincs vízszintes görgetés (${sb.items.join(' · ')})`);
+  await small.close();
+
   const phPre = await ph.evaluate(() => { const r = document.querySelector('[data-elorendeles-sav]').getBoundingClientRect(); return r.bottom <= innerHeight; });
   ok(phPre, 'telefonon is az első képernyőn az Előrendelés sáv');
   await wait(1900);

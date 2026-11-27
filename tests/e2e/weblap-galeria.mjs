@@ -131,7 +131,9 @@ try {
   // telefon
   const ph = await page(b, null, 402, 874);
   await ph.goto(`${BASE}/galeria`, { waitUntil: 'networkidle2' });
-  ok(await ph.$eval('[data-menu="galeria"]', el => !!el.offsetParent && el.getBoundingClientRect().height >= 44), 'telefonon is látszik a Galéria menüpont (44 px)');
+  // a cégér mellett a fejlécben kevesebb hely van: a Galéria (az aktuális oldal, kiemelve) kint vagy a „Több” listában
+  if (await ph.$('[data-tobb]')) { await ph.click('[data-tobb]'); await wait(300); }
+  ok(await ph.evaluate(() => [...document.querySelectorAll('header [data-menu="galeria"]')].some(el => !!el.offsetParent && el.getBoundingClientRect().height >= 44 && el.getAttribute('aria-current') === 'page')), 'telefonon is elérhető a Galéria menüpont, kiemelve (44 px)');
   ok((await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
   await ph.screenshot({ path: `${SHOTS}galeria-telefon.jpg`, quality: 60 });
   await ph.evaluate(() => [...document.querySelectorAll('[data-album]')].find(x => /Pokeween/.test(x.textContent)).click());
