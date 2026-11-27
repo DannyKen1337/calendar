@@ -110,6 +110,12 @@ try {
   await post('/api/actions', { actionType: 'TOGGLE_MAINTENANCE', payload: { isMaintenance: { $gt: '' } } }, { cookie: o1new });
   ok((await db.collection('settings').findOne({ _id: 'global_settings' }))?.isMaintenance === false, 'a karbantartás kapcsoló csak igen/nem értéket fogad');
 
+  // --- A nyilvános adatban nincs a létrehozó szervező fiókneve (belépési név) ---
+  const evId = (await db.collection('tournaments').insertOne({ name: 'Nyilvános teszt', date: '2030-01-01T18:00', category: 'Pokémon TCG', store: 'debrecen', max_players: 8, current_players: 0, is_open: true, adminName: 'titkos.fioknev', userRole: 'Admin Generator' })).insertedId;
+  const pub = await (await fetch(`${BASE}/api/public-data`)).text();
+  const evPage = await (await fetch(`${BASE}/esemeny/${evId}`)).text();
+  ok(pub.includes('Nyilvános teszt') && !pub.includes('titkos.fioknev') && !pub.includes('Admin Generator') && !evPage.includes('titkos.fioknev'), 'a nyilvános adatban és az eseményoldalon nincs a szervező fiókneve');
+
   // --- Adatbázis-mentés: jelszó-hash és titkos kulcs nélkül ---
   await db.collection('settings').updateOne({ _id: 'push_vapid' }, { $set: { publicKey: 'nyilvanos-kulcs', privateKey: 'titkos-kulcs-123' } }, { upsert: true });
   const dump = await (await fetch(`${BASE}/api/export-db`, { headers: { Cookie: `tavern_session=${o1new}` } })).text();

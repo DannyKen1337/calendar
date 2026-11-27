@@ -3,6 +3,7 @@ import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
 import { verifyAdmin } from '@/lib/auth';
 import { hasFeature } from '@/lib/permissions';
+import { consumeRateLimit } from '@/lib/rateLimit';
 import { appUrl, isMailConfigured, sendMail } from '@/lib/mailer';
 import { contactRecipient } from '@/lib/contactMail';
 import { replyRecipient, buildReply, fromNameFor, REPLY_MAX } from '@/lib/inboxReply';
@@ -53,6 +54,8 @@ export async function POST(request) {
     if (!isMailConfigured()) return NextResponse.json({ error: 'Az e-mail küldés nincs beállítva, ezért a válasz most nem küldhető el.' }, { status: 400 });
 
     const db = await getTavernDb();
+    // közös keret az Üzenetekkel (lib/messages.js): óránként legfeljebb 40 kimenő levél felhasználónként
+    if (!(await consumeRateLimit(db, `message:${session.id}`, 40, 60 * 60 * 1000))) return NextResponse.json({ error: 'Túl sok levél egy órán belül. Próbáld újra később.' }, { status: 429 });
     const col = db.collection(INBOX);
     const m = await col.findOne({ _id: String(body.id ?? '') });
     if (!m) return NextResponse.json({ error: 'A levél nem található.' }, { status: 404 });

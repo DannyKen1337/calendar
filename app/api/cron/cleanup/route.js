@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isCronAuthorized } from '@/lib/cronAuth';
 import { getTavernDb } from '@/lib/mongodb';
 import { recordRun } from '@/lib/systemLog';
 import { deleteOldAttendanceHistory } from '@/lib/attendanceHistory';
@@ -8,11 +9,8 @@ import { deleteExpiredPreorders, deleteInactiveLeaguePlayers, PREORDER_RETENTION
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-  const authHeader = request.headers.get('authorization');
-  
-  // Szigorúbb feltétel, ami nem engedi át, ha hiányzik a környezeti változó
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  // Kulcs nélkül (hiányzó CRON_SECRET) nem enged át; állandó idejű összehasonlítás
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
 

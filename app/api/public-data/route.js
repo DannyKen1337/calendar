@@ -16,7 +16,7 @@ export async function GET() {
 
     const [tournaments, registrations, settings] = await Promise.all([
       // Az eseményt tartó szervezők (hosts) csak az adminoknak látszanak
-      db.collection('tournaments').find({}, { projection: { hosts: 0, 'rgn.lockUntil': 0, 'rgn.error': 0 } }).toArray(),
+      db.collection('tournaments').find({}, { projection: { hosts: 0, adminName: 0, userRole: 0, 'rgn.lockUntil': 0, 'rgn.error': 0 } } /* a létrehozó szervező fiókneve nem nyilvános (belépési név) */).toArray(),
       // Csak a megjelenítéshez szükséges mezők: e-mail cím nem kerül ki a nyilvános oldalra
       db.collection('registrations').find({}, { projection: { _id: 0, tournamentId: 1, name: 1, username: 1, status: 1, date: 1 } }).toArray(),
       db.collection('settings').findOne({ _id: 'global_settings' })

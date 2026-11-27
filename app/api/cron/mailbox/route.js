@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isCronAuthorized } from '@/lib/cronAuth';
 import { getTavernDb } from '@/lib/mongodb';
 import { appUrl } from '@/lib/mailer';
 import { syncMailbox } from '@/lib/mailboxSync';
@@ -9,8 +10,7 @@ export const dynamic = 'force-dynamic';
 // nincs nyitva az admin. A Vercel ingyenes csomagja csak napi időzítést enged, ezért egy külső időzítő hívja pár percenként
 // (pl. cron-job.org), ezzel a fejléccel: Authorization: Bearer <CRON_SECRET>. Egyszerre csak egy fut, legfeljebb félpercenként.
 export async function GET(request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
   const db = await getTavernDb();

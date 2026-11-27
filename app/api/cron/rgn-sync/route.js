@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isCronAuthorized } from '@/lib/cronAuth';
 import { getTavernDb } from '@/lib/mongodb';
 import { syncDueRgnEvents } from '@/lib/rgnSync';
 import { recordRun } from '@/lib/systemLog';
@@ -11,8 +12,7 @@ export const maxDuration = 60;
 // ha napközben senki nem nyitja meg az admin felületet. Napközben az admin felület és a naptár betöltése is frissít.
 // Utána a ligákba is beemeli az eseményekre jelentkezett új játékosokat.
 export async function GET(request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
   }
   try {
