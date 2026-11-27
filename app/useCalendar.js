@@ -19,6 +19,7 @@ export const useCalendar = ({ eager = false } = {}) => {
   const [userRole, setUserRole] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false); // lefutott-e már a munkamenet-ellenőrzés (eager módban kell)
   const [userName, setUserName] = useState("");
+  const [userDisplayName, setUserDisplayName] = useState(""); // a teljes név, ha meg van adva (különben a felhasználónév)
   const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState(null);
   const [allowedCategories, setAllowedCategories] = useState(null); // null = minden játék (lásd lib/permissions.js)
@@ -104,6 +105,7 @@ export const useCalendar = ({ eager = false } = {}) => {
       setSessionChecked(true);
       if (data.user) {
         setUserName(data.user.username);
+        setUserDisplayName(data.user.displayName || data.user.username);
         setUserId(data.user.id ? String(data.user.id) : null);
         setUserEmail(data.user.email);
         setUserRole(data.user.role);
@@ -229,7 +231,7 @@ export const useCalendar = ({ eager = false } = {}) => {
   // everywhere: a többi eszközön (telefon, másik gép) is kijelentkeztet
   const handleLogout = async (everywhere = false) => {
     await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ everywhere: everywhere === true }) });
-    setUserRole(null); setUserName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setAllowedStores(null); setFeatures([]);
+    setUserRole(null); setUserName(""); setUserDisplayName(""); setUserEmail(""); setUserId(null); setAllowedCategories(null); setAllowedStores(null); setFeatures([]);
     fetchPublicData(false);
   };
 
@@ -432,7 +434,7 @@ export const useCalendar = ({ eager = false } = {}) => {
                   <p>Szervezői ütközés, ebben az időpontban már másik eseményt is tart:</p>
                   <ul style={{ paddingLeft: 18 }}>
                     {conflicts.map(({ hostId, event }) => (
-                      <li key={`${hostId}-${event._id || event.id}`}><b>{staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'}</b>: {event.name} ({formatEventDate(event.date)})</li>
+                      <li key={`${hostId}-${event._id || event.id}`}><b>{(staffList.find(u => u.id === hostId)?.name || staffList.find(u => u.id === hostId)?.username) || 'Ismeretlen'}</b>: {event.name} ({formatEventDate(event.date)})</li>
                     ))}
                   </ul>
                 </>
@@ -679,7 +681,7 @@ export const useCalendar = ({ eager = false } = {}) => {
   // Azok a szervezők, akik az adott játékú (és boltú) eseményt kezelhetik
   const eligibleHosts = (category, store) => staffList.filter(u => canManageEvent(u, { category, store }));
   // Az eseményt tartó szervezők neve (a közben törölt fiókok kimaradnak)
-  const hostNames = (evt) => (Array.isArray(evt?.hosts) ? evt.hosts : []).map(id => staffList.find(u => u.id === String(id))?.username).filter(Boolean);
+  const hostNames = (evt) => (Array.isArray(evt?.hosts) ? evt.hosts : []).map(id => (staffList.find(u => u.id === String(id))?.name || staffList.find(u => u.id === String(id))?.username)).filter(Boolean);
 
   // Újdonságok ablak bezárásakor: azonnal elrejtjük, és elmentjük, hogy ez a verzió már olvasott
   const markChangelogSeen = async (id) => {
@@ -701,7 +703,7 @@ export const useCalendar = ({ eager = false } = {}) => {
   };
 
   return {
-    tournaments, setTournaments, loading, userRole, userName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
+    tournaments, setTournaments, loading, userRole, userName, userDisplayName, userEmail, userId, usersList, staffList, openEditEvent, openCopyEvent,
     allowedCategories, allowedStores, canManageStore, defaultStoreFor, serverNow, rgnData, selectedRgnEventId, setSelectedRgnEventId, rgnSyncing, syncRgn, features, hasFeature, canManage, canManageGame, eligibleHosts, hostNames, setAdminCategories, lastSeenChangelog, markChangelogSeen, sessionChecked,
     selectedStore, handleSelectStore, 
     isMaintenance, toggleMaintenance, occupancy, bookings, publicOccupancy, saveOccupancy, saveBooking, deleteBooking, tableBookings, decideTableBooking, publicTableBookings, messaging, setMessaging, logs, blacklist, isBlacklistModalOpen, setIsBlacklistModalOpen, handleBanEmail, handleUnbanEmail, blacklistForm, handleExportDB, handleCleanupOldEvents,

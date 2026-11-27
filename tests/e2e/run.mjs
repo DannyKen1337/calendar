@@ -15,7 +15,7 @@ const ROUNDS = [
   // rejtett admin: a szerver a titkos belépő címmel (ADMIN_PATH) fut
   { fake: false, env: { ADMIN_PATH: '/kapu-teszt-2026' }, tests: ['admin-kapu'] },
   // levelezéssel: a tesztszerver a hamis SMTP-szervernek küld (tests/e2e/fake-smtp.mjs, a tesztfájl indítja)
-  { fake: false, env: { SMTP_HOST: '127.0.0.1', SMTP_PORT: '25871', SMTP_USER: 'bolt@teszt.hu', SMTP_PASS: 'x', SMTP_INSECURE_TEST: '1' }, tests: ['elorendeles-stripe', 'elorendeles-kerdes', 'elorendeles-ertesites', 'admin-levelek-valasz'] },
+  { fake: false, env: { SMTP_HOST: '127.0.0.1', SMTP_PORT: '25871', SMTP_USER: 'bolt@teszt.hu', SMTP_PASS: 'x', SMTP_INSECURE_TEST: '1' }, tests: ['elorendeles-stripe', 'elorendeles-kerdes', 'elorendeles-ertesites', 'admin-levelek-valasz', 'teljes-nev'] },
 ];
 const only = process.argv.slice(2);
 const wait = (ms) => new Promise(r => setTimeout(r, ms));

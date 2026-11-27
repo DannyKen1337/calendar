@@ -504,7 +504,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       </div>
       </>
       )}
-      <h2 className={s.groupTitle}>Fiók · {app.userName}</h2>
+      <h2 className={s.groupTitle}>Fiók · {app.userDisplayName || app.userName}</h2>
       <div className={s.group}>
         <PushToggle />
         <button type="button" className={s.tool} onClick={onShowChangelog} data-eszkoz><span className={s.toolIcon} aria-hidden="true"><StarOutlined /></span><span className={s.toolText}><b>Újdonságok</b></span>{unseenCount > 0 ? <span className={s.badge}>{unseenCount}</span> : <RightOutlined className={s.chev} />}</button>
@@ -550,7 +550,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
                 : <Link key={href} href={href} className={s.sideLink}>{body}</Link>;
             })}
           </div>
-          <span className={s.sideUser}>{app.userName} · {isOwner ? 'tulajdonos' : 'szervező'}</span>
+          <span className={s.sideUser}>{app.userDisplayName || app.userName} · {isOwner ? 'tulajdonos' : 'szervező'}</span>
         </nav>
 
         <main key={tab} className={`${s.main} admin-screen-in`}>

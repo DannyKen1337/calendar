@@ -168,6 +168,7 @@ export default function UserAdmin({ currentUserId }) {
   const [membershipUser, setMembershipUser] = useState(null);
   const [membershipIds, setMembershipIds] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
+  const [nameEdit, setNameEdit] = useState(null); // { id, username, fullName }: a teljes név szerkesztése
   const [credentials, setCredentials] = useState(null); // { username, email, tempPassword, expiresAt, title }
   const [groupForm] = Form.useForm();
   const [createForm] = Form.useForm();
@@ -270,7 +271,7 @@ export default function UserAdmin({ currentUserId }) {
   const q = query.trim().toLowerCase();
   const permHaystack = (u) => [...u.access.features.map(f => FEATURES[f] || ''), ...u.groupIds.map(id => groupsById.get(id)?.name || '')].join(' ');
   const users = [...data.users]
-    .filter(u => !q || `${u.username} ${u.email} ${permHaystack(u)}`.toLowerCase().includes(q))
+    .filter(u => !q || `${u.username} ${u.fullName || ''} ${u.email} ${permHaystack(u)}`.toLowerCase().includes(q))
     .filter(u => !perm || hasPerm(u, perm))
     .filter(u => filter === 'all' || (filter === 'staff' ? (u.role === 'admin' || u.role === 'owner') : filter === 'players' ? (u.role !== 'admin' && u.role !== 'owner') : filter === 'disabled' ? u.disabled : filter === 'locked' ? u.locked : filter === 'legacy' ? (u.role === 'admin' && !u.usesGroups) : true))
     .sort((a, b) => (ROLE_ORDER[a.role] ?? 2) - (ROLE_ORDER[b.role] ?? 2) || a.username.localeCompare(b.username, 'hu'));
@@ -294,7 +295,13 @@ export default function UserAdmin({ currentUserId }) {
       <div key={u.id} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: isOwner ? '#722ed1' : u.disabled ? '#a8071a' : '#2a2022', background: '#191314', opacity: u.disabled ? 0.75 : 1 }}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div style={{ color: '#E0D6C8', fontWeight: 'bold', fontSize: 16, overflowWrap: 'anywhere' }}>{u.username}</div>
+            <div className="flex items-center gap-1" style={{ color: '#E0D6C8', fontWeight: 'bold', fontSize: 16, overflowWrap: 'anywhere' }}>
+              <span data-teljes-nev>{u.fullName || u.username}</span>
+              {(data.isOwner || canEdit) && (
+                <Button type="text" size="small" icon={<EditOutlined />} aria-label={`${u.username}: teljes név`} title="Teljes név megadása" onClick={() => setNameEdit({ id: u.id, username: u.username, fullName: u.fullName || '' })} style={{ color: '#9a8a8c' }} data-nev-szerk />
+              )}
+            </div>
+            {u.fullName && <div style={{ color: '#9a8a8c', fontSize: 12 }}>Felhasználónév: {u.username}</div>}
             <div style={{ color: '#baaaac', fontSize: 13, overflowWrap: 'anywhere' }}>{u.email}</div>
             <div style={{ color: '#7d6e70', fontSize: 12, marginTop: 2 }}>
               {u.lastLoginAt ? `Utolsó belépés: ${fmt(u.lastLoginAt)}` : 'Még nem lépett be'}
@@ -360,7 +367,7 @@ export default function UserAdmin({ currentUserId }) {
   };
 
   const groupCard = (g) => {
-    const memberNames = data.users.filter(u => u.groupIds.includes(g.id)).map(u => u.username);
+    const memberNames = data.users.filter(u => u.groupIds.includes(g.id)).map(u => u.fullName || u.username);
     return (
       <div key={g.id} className="rounded-xl border p-4 flex flex-col gap-3" style={{ borderColor: '#2a2022', borderLeft: `5px solid ${g.color}`, background: '#191314' }}>
         <div className="flex items-start justify-between gap-2">
@@ -435,7 +442,7 @@ export default function UserAdmin({ currentUserId }) {
                       <div className="rounded-xl border border-[#5c4520] p-3" style={{ background: '#21180f' }} data-jog-talalat>
                         <div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{label}: {who.length} ember</div>
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {who.length ? who.map(u => <Tag key={u.id} style={{ margin: 0 }} color={u.role === 'owner' ? 'purple' : undefined}>{u.username}{u.role === 'owner' ? ' (tulajdonos)' : ''}</Tag>) : <Text style={{ color: '#9a8a8c' }}>Senkinek nincs megadva.</Text>}
+                          {who.length ? who.map(u => <Tag key={u.id} style={{ margin: 0 }} color={u.role === 'owner' ? 'purple' : undefined}>{u.fullName || u.username}{u.role === 'owner' ? ' (tulajdonos)' : ''}</Tag>) : <Text style={{ color: '#9a8a8c' }}>Senkinek nincs megadva.</Text>}
                         </div>
                       </div>
                     );
@@ -528,6 +535,9 @@ export default function UserAdmin({ currentUserId }) {
           <Form.Item name="email" label="E-mail cím" rules={[{ required: true, type: 'email', message: 'Érvényes e-mail címet adj meg!' }]}>
             <Input type="email" autoComplete="off" />
           </Form.Item>
+          <Form.Item name="fullName" label="Teljes név (nem kötelező)" extra="Ha megadod, az admin felületen és a levelek aláírásában ez látszik a felhasználónév helyett.">
+            <Input maxLength={80} autoComplete="off" placeholder="Pl. Kovács Kata" />
+          </Form.Item>
           <Form.Item name="role" label="Szerep">
             <Segmented options={[{ value: 'admin', label: 'Szervező' }, { value: 'customer', label: 'Játékos' }]} />
           </Form.Item>
@@ -538,6 +548,15 @@ export default function UserAdmin({ currentUserId }) {
           )}
           <Text style={{ color: '#7d6e70', fontSize: 12 }}>A rendszer ideiglenes jelszót generál (7 napig érvényes). Első belépéskor saját jelszót kell beállítani.</Text>
         </Form>
+      </Modal>
+
+      {/* Teljes név (nem kötelező) */}
+      <Modal title={modalTitle(`Teljes név: ${nameEdit?.username || ''}`)} open={!!nameEdit} onCancel={() => setNameEdit(null)} okText="Mentés" cancelText="Mégse" confirmLoading={busy} okButtonProps={{ style: { color: '#000', fontWeight: 'bold' }, 'data-nev-mentes': true }} closeIcon={closeIcon}
+        onOk={async () => { const res = await simple('SET_FULL_NAME', { userId: nameEdit.id, fullName: nameEdit.fullName }, nameEdit.fullName.trim() ? 'Teljes név mentve.' : 'Teljes név törölve.'); if (res) setNameEdit(null); }}>
+        <div className="flex flex-col gap-2 mt-3">
+          <Input value={nameEdit?.fullName || ''} onChange={(e) => setNameEdit(n => ({ ...n, fullName: e.target.value }))} maxLength={80} placeholder="Pl. Kovács Kata" aria-label="Teljes név" data-nev-mezo />
+          <Text style={{ color: '#9a8a8c', fontSize: 12 }}>Nem kötelező. Ha megadod, az admin felületen és a levelek aláírásában ez látszik a felhasználónév helyett. A belépés továbbra is a felhasználónévvel megy. Üresen hagyva a felhasználónév látszik.</Text>
+        </div>
       </Modal>
 
       {/* Ideiglenes jelszó megjelenítése */}

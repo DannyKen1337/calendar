@@ -25,11 +25,11 @@ export async function GET(request) {
     if (id) {
       const m = await col.findOne({ _id: id });
       if (!m) return NextResponse.json({ error: 'A levél nem található.' }, { status: 404 });
-      return NextResponse.json({ mail: { ...publicMail(m, true), replyTo: m.replyTo || null, replyToAddress: replyRecipient(m, ownAddresses())?.address || null, canSend: isMailConfigured(), replies: (m.replies || []).map(r => ({ at: r.at, by: r.by, to: r.to, text: r.text })) } });
+      return NextResponse.json({ mail: { ...publicMail(m, true), replyTo: m.replyTo || null, replyToAddress: replyRecipient(m, ownAddresses())?.address || null, canSend: isMailConfigured(), replies: (m.replies || []).map(r => ({ at: r.at, by: r.byName || r.by, to: r.to, text: r.text })) } });
     }
     after(() => syncMailbox(db, appUrl(request), { minGapMs: 30000 }).catch(() => {}));
     const mails = await col.find({}, { projection: { text: { $substrCP: ['$text', 0, 160] }, from: 1, to: 1, subject: 1, date: 1, attachments: 1, tooBig: 1, threadId: 1, replies: { $size: { $ifNull: ['$replies', []] } } } }).sort({ date: -1 }).limit(200).toArray();
-    return NextResponse.json({ mails: mails.map(m => publicMail(m, false)), status: await mailboxStatus(db), me: session.username });
+    return NextResponse.json({ mails: mails.map(m => publicMail(m, false)), status: await mailboxStatus(db), me: session.displayName || session.username });
   } catch (error) {
     console.error('inbox GET error:', error);
     await logSystemError('inbox GET', error);
@@ -62,12 +62,13 @@ export async function POST(request) {
     const to = replyRecipient(m, ownAddresses());
     if (!to) return NextResponse.json({ error: 'Erre a levélre nem lehet válaszolni (nincs külső feladója).' }, { status: 400 });
 
-    const reply = buildReply({ text, username: session.username, original: m });
-    await sendMail({ to: to.address, subject: reply.subject, html: reply.html, text: reply.text, fromName: fromNameFor(session.username), ...(m.messageId && { inReplyTo: m.messageId, references: m.messageId }) });
-    const entry = { at: new Date(), by: session.username, to: to.address, text };
+    const signer = session.displayName || session.username; // a teljes név, ha meg van adva
+    const reply = buildReply({ text, username: signer, original: m });
+    await sendMail({ to: to.address, subject: reply.subject, html: reply.html, text: reply.text, fromName: fromNameFor(signer), ...(m.messageId && { inReplyTo: m.messageId, references: m.messageId }) });
+    const entry = { at: new Date(), by: session.username, byName: signer, to: to.address, text };
     await col.updateOne({ _id: m._id }, { $push: { replies: entry } });
     await db.collection('audit_logs').insertOne({ adminName: session.username, action: 'LEVÉL VÁLASZ', details: `Válasz: ${to.address} – ${reply.subject}`, date: new Date() });
-    return NextResponse.json({ success: true, reply: entry });
+    return NextResponse.json({ success: true, reply: { ...entry, by: signer } });
   } catch (error) {
     console.error('inbox POST error:', error);
     await logSystemError('inbox POST', error);

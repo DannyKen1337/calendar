@@ -658,11 +658,11 @@ export const AdminModals = ({ app: v }) => {
               return (
                 <>
                   <Form.Item name="hosts" label="Ki tartja az eseményt? (Opcionális)" extra={category ? 'Csak az adminok látják. Azok közül választhatsz, akik ezt a játékot és boltot kezelhetik.' : 'Előbb válassz játékot.'} style={conflicts.length > 0 ? { marginBottom: 8 } : undefined}>
-                    <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category, getFieldValue('store')).map(u => ({ value: u.id, label: u.username })) : []} />
+                    <Select mode="multiple" allowClear disabled={!category} placeholder="Válassz szervezőt..." optionFilterProp="label" options={category ? v.eligibleHosts(category, getFieldValue('store')).map(u => ({ value: u.id, label: u.name || u.username })) : []} />
                   </Form.Item>
                   {conflicts.length > 0 && (
                     <div style={{ color: '#faad14', background: '#2b2111', border: '1px solid #594214', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13 }}>
-                      <WarningOutlined /> Ütközés: {conflicts.map(({ hostId, event }) => `${v.staffList.find(u => u.id === hostId)?.username || 'Ismeretlen'} ekkor már tartja: ${event.name} (${v.formatEventDate(event.date)})`).join('; ')}
+                      <WarningOutlined /> Ütközés: {conflicts.map(({ hostId, event }) => `${(v.staffList.find(u => u.id === hostId)?.name || v.staffList.find(u => u.id === hostId)?.username) || 'Ismeretlen'} ekkor már tartja: ${event.name} (${v.formatEventDate(event.date)})`).join('; ')}
                     </div>
                   )}
                 </>

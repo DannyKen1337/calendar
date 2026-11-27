@@ -44,7 +44,7 @@ export async function GET(request) {
       isOwner ? db.collection('blacklist').find({}).toArray() : [],
       db.collection('settings').findOne({ _id: 'global_settings' }),
       // Az esemény szervezőjének választható adminok (név + játék-jogosultság): minden adminnak kell az űrlaphoz
-      db.collection('users').find({ role: { $in: ['admin', 'owner'] } }, { projection: { username: 1, role: 1, allowedCategories: 1, allowedStores: 1, features: 1, groupIds: 1, accessMode: 1, disabled: 1 } }).sort({ username: 1 }).toArray(),
+      db.collection('users').find({ role: { $in: ['admin', 'owner'] } }, { projection: { username: 1, fullName: 1, role: 1, allowedCategories: 1, allowedStores: 1, features: 1, groupIds: 1, accessMode: 1, disabled: 1 } }).sort({ username: 1 }).toArray(),
     ]);
 
     const groupsById = await getGroupsMap(db);
@@ -92,7 +92,7 @@ export async function GET(request) {
         attendanceStats,
         rgn,
         users,
-        staff: staff.filter(u => !u.disabled).map(u => ({ id: String(u._id), username: u.username, role: u.role, ...pickAccess(effectiveAccess(u, groupsById)) })),
+        staff: staff.filter(u => !u.disabled).map(u => ({ id: String(u._id), username: u.username, name: String(u.fullName || '').trim() || u.username, role: u.role, ...pickAccess(effectiveAccess(u, groupsById)) })),
         logs,
         blacklist,
         isMaintenance: settings?.isMaintenance || false,

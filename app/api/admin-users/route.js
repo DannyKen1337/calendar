@@ -8,6 +8,7 @@ import { verifyAdmin, bumpSessionVersion } from '@/lib/auth';
 import { canManageUsers } from '@/lib/permissions';
 import { isValidEmail } from '@/lib/rateLimit';
 import { currentLocks, isUserLocked, unlockUser, unlockAll } from '@/lib/loginLocks';
+import { cleanFullName, FULL_NAME_MAX } from '@/lib/displayName';
 import { effectiveAccess, getGroupsMap, sanitizeGroupInput, usesGroups, groupKind, GROUP_KIND_ORDER, isProtectedGroup, PROTECTED_FEATURES, seedDefaultGroups, isLevelGroup, grantLevel1, level1GroupId, ensureLevel1ForAll } from '@/lib/userAccess';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +63,7 @@ export async function GET() {
     users.forEach(u => (u.groupIds || []).forEach(gid => members.set(String(gid), (members.get(String(gid)) || 0) + 1)));
     return NextResponse.json({
       users: users.map(u => ({
-        id: String(u._id), username: u.username, email: u.email, role: u.role,
+        id: String(u._id), username: u.username, fullName: u.fullName || '', email: u.email, role: u.role,
         groupIds: (u.groupIds || []).map(String), usesGroups: usesGroups(u),
         // Régi, egyénileg beállított jogok (csak amíg a felhasználó nem kap csoportot)
         legacy: usesGroups(u) ? null : { allowedCategories: Array.isArray(u.allowedCategories) ? u.allowedCategories : null, allowedStores: Array.isArray(u.allowedStores) ? u.allowedStores : null, features: u.features || [] },
@@ -218,6 +219,26 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // Teljes név (nem kötelező): az admin felületen és a levelek aláírásában ez látszik a felhasználónév helyett.
+    // A tulajdonos mindenkinek (a sajátját is) beírhatja, a felhasználókezelő a szokásos szabályok szerint.
+    if (actionType === 'SET_FULL_NAME') {
+      const fullName = cleanFullName(payload.fullName);
+      if (fullName === null) return bad(`A teljes név legfeljebb ${FULL_NAME_MAX} karakter lehet.`);
+      let target;
+      if (isOwner) {
+        const o = oid(payload.userId);
+        target = o ? await users.findOne({ _id: o }) : null;
+        if (!target) return bad('A felhasználó nem található.', 404);
+      } else {
+        const r = await loadTarget(payload.userId);
+        if (r.res) return r.res;
+        target = r.target;
+      }
+      await users.updateOne({ _id: target._id }, fullName ? { $set: { fullName } } : { $unset: { fullName: '' } });
+      await addLog(db, session.username, 'FIÓK', `${target.username} teljes neve: ${fullName || '(törölve)'}`);
+      return NextResponse.json({ success: true });
+    }
+
     // Belépési zárolás feloldása (csak a tulajdonos): a fiók hibás próbálkozásai és az érintett gépek kísérletei törlődnek
     if (actionType === 'UNLOCK_LOGIN' || actionType === 'UNLOCK_ALL_LOGINS') {
       if (!isOwner) return bad('Belépési zárolást csak a tulajdonos oldhat fel.', 403);
@@ -249,6 +270,8 @@ export async function POST(request) {
       const username = String(payload.username ?? '').trim();
       const email = String(payload.email ?? '').trim().toLowerCase();
       const role = payload.role === 'customer' ? 'customer' : 'admin';
+      const fullName = cleanFullName(payload.fullName);
+      if (fullName === null) return bad(`A teljes név legfeljebb ${FULL_NAME_MAX} karakter lehet.`, 400, { field: 'fullName' });
       if (!/^[\p{L}\p{N}._-]{3,32}$/u.test(username)) return bad('A felhasználónév 3-32 karakter lehet (betű, szám, pont, aláhúzás, kötőjel).', 400, { field: 'username' });
       if (!isValidEmail(email)) return bad('Érvényes e-mail címet adj meg.', 400, { field: 'email' });
       if (await users.findOne({ email })) return bad('Ezzel az e-mail címmel már van fiók.', 400, { field: 'email' });
@@ -263,7 +286,7 @@ export async function POST(request) {
       const tempPassword = newTempPassword();
       const expiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
       await users.insertOne({
-        username, email, role, password: await bcrypt.hash(tempPassword, 10), mustChangePassword: true, tempPasswordExpires: expiresAt,
+        username, email, role, ...(fullName && { fullName }), password: await bcrypt.hash(tempPassword, 10), mustChangePassword: true, tempPasswordExpires: expiresAt,
         groupIds: found.map(g => String(g._id)), accessMode: 'groups', createdAt: new Date(), createdBy: session.username,
       });
       await addLog(db, session.username, 'ÚJ FELHASZNÁLÓ', `${username} (${role === 'admin' ? 'szervező' : 'játékos'})${found.length ? `, csoportok: ${found.map(g => g.name).join(', ')}` : ''}`);
