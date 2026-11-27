@@ -189,10 +189,11 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     const note = e.eventType === 'community' ? `${c.reserved} hely lefoglalva` : !manage ? 'csak megtekintés' : e.isOpenAttendance ? 'kötetlen létszám'
       : c.counted && !c.full && c.max && e.is_open ? `${Math.max(0, c.max - c.cur)} hely szabad` : '';
     return (
-      <div key={eid(e)} className={s.card} data-kartya>
-        <button type="button" className={s.cardHead} onClick={() => setSelected(eid(e))}>
+      // az egész kártya megnyitja a teendőket (a gombjai és linkjei kivételével); billentyűzettel a címsor gombja
+      <div key={eid(e)} className={`${s.card} ${s.cardTap}`} data-kartya onClick={(ev) => { if (!ev.target.closest('button, a')) setSelected(eid(e)); }}>
+        <button type="button" className={s.cardHead} onClick={() => setSelected(eid(e))} aria-label={`${e.name}: teendők`}>
           <span className={s.cardTitle}><b className={s.num}>{timeOf(e)}</b> <b>{e.name}</b></span>
-          <span className={pillClass(st)}>{st.label}</span>
+          <span className={s.cardHeadEnd}><span className={pillClass(st)}>{st.label}</span><RightOutlined className={s.cardChevron} aria-hidden="true" /></span>
         </button>
         <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']}{note ? ` · ${note}` : ''}</span>
         {c.counted && (
@@ -405,8 +406,8 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
           </div>
           <button type="button" className={`${s.primary} ${s.deskOnly}`} onClick={openNewEvent}>+ Új esemény</button>
         </div>
-        <button type="button" className={s.pastBtn} aria-pressed={showPast} onClick={() => { setShowPast(p => !p); setPastDays(PAST_DAYS_STEP); }}>
-          {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események betöltése ({pastCount})</>}
+        <button type="button" className={`${s.pastBtn} ${!showPast && !pastCount ? s.pastBtnQuiet : ''}`} aria-pressed={showPast} onClick={() => { setShowPast(p => !p); setPastDays(PAST_DAYS_STEP); }}>
+          {showPast ? <><LeftOutlined /> Vissza a mai és közelgő eseményekhez</> : <><HistoryOutlined /> Előző események{pastCount > 0 ? ` (${pastCount})` : ''}</>}
         </button>
         {/* Gyors gombok (a Továbbiak fül leggyakoribb pontjai) */}
         <QuickActions app={app} />

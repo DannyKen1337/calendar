@@ -49,6 +49,7 @@
 .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
 .primary { flex: none; height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--ink); color: #120d0e; font: inherit; font-size: 15px; font-weight: 800; cursor: pointer; }
 .pastBtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; padding: 8px 16px; border: 0; border-radius: 10px; background: var(--gold); color: #120d0e; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+.pastBtnQuiet { background: var(--surface); color: var(--muted); font-weight: 700; }
 .segment { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface); }
 .segment button { flex: 1; height: 38px; border: 0; border-radius: 8px; background: transparent; color: #d9cdc8; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .segment button[aria-pressed="true"] { background: var(--ink); color: #120d0e; font-weight: 800; }
@@ -86,6 +87,11 @@
 .card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 10px; background: var(--surface); }
 .cardHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .cardTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* az egész kártya koppintható (teendők); a „›” jelzi, hogy van mögötte több */
+.cardTap { cursor: pointer; transition: background 120ms ease; }
+.cardTap:active { background: var(--raised); }
+.cardHeadEnd { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.cardChevron { color: var(--faint); font-size: 12px; }
 .cardSub { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .dot { width: 8px; height: 8px; border-radius: 999px; flex: none; display: inline-block; }
 .dotBooking { box-shadow: inset 0 0 0 2px #d9cdc8; }
@@ -134,7 +140,7 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
 
 /* Teendőlap (antd Drawer alulról) */
 .sheetRoot :global(.ant-drawer-section), .sheetRoot :global(.ant-drawer-content) { max-height: 88dvh; border-radius: 18px 18px 0 0; background: #1d1517; color: #f3ece3; }
-.sheetRoot :global(.ant-drawer-body) { padding: 0; }
+.sheetRoot :global(.ant-drawer-body) { padding: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .sheetRoot :global(.ant-drawer-mask) { background: rgba(0, 0, 0, 0.55); }
 .sheetBody { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 10px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 16px) max(16px, env(safe-area-inset-left)); font-family: var(--font-manrope), system-ui, sans-serif; }
 .sheetDrag { display: flex; justify-content: center; margin: -10px 0 -4px; padding: 10px 40px; align-self: center; touch-action: none; }

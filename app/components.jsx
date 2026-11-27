@@ -11,6 +11,7 @@ import { findHostConflicts } from '@/lib/hostConflicts';
 import { rgnEventId } from '@/lib/rgn';
 import RgnAttendeesModal from '@/components/RgnAttendeesModal';
 import MessageModal from '@/components/MessageModal';
+import useIsPhone from '@/lib/useIsPhone';
 import { getOpeningHoursWarning } from '@/lib/storeHours';
 
 const { Title, Text, Paragraph } = Typography;
@@ -477,6 +478,9 @@ export const SearchResults = ({ app, query }) => {
 export const AddParticipantForm = ({ event, app }) => {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  // telefonon alapból csukva (a jelentkezők listája a fontosabb), gépen nyitva; kinyitáskor a felhasználónévre ugrik
+  const phone = useIsPhone();
+  const [open, setOpen] = useState(false);
   const isFull = event.current_players >= event.max_players;
 
   const submit = async (values) => {
@@ -495,9 +499,20 @@ export const AddParticipantForm = ({ event, app }) => {
     }
   };
 
+  if (phone && !open) {
+    return (
+      <Button block size="large" icon={<UserAddOutlined />} onClick={() => setOpen(true)} style={{ marginBottom: 16, minHeight: 48, color: '#E5B15D', borderColor: '#5c4520', fontWeight: 700 }} data-hozzaadas-nyit>
+        Versenyző hozzáadása
+      </Button>
+    );
+  }
+
   return (
-    <div className="bg-[#2B1A1C] rounded-xl border border-[#4A2E33] p-4 mb-4">
-      <div style={{ color: '#E5B15D', fontWeight: 'bold', marginBottom: 10 }}><UserAddOutlined /> Versenyző hozzáadása</div>
+    <div className="bg-[#2B1A1C] rounded-xl border border-[#4A2E33] p-4 mb-4" data-hozzaadas>
+      <div className="flex items-center justify-between" style={{ color: '#E5B15D', fontWeight: 'bold', marginBottom: 10 }}>
+        <span><UserAddOutlined /> Versenyző hozzáadása</span>
+        {phone && <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setOpen(false)} aria-label="Hozzáadás bezárása" style={{ color: '#9a8a8c', minWidth: 44, minHeight: 44 }} />}
+      </div>
       <Form form={form} layout="vertical" onFinish={submit} requiredMark={false} initialValues={{ attended: false, overCapacity: false }}>
         <div className="grid gap-x-3 sm:grid-cols-3">
           <Form.Item
@@ -514,7 +529,7 @@ export const AddParticipantForm = ({ event, app }) => {
               },
             })]}
           >
-            <Input placeholder="Nyilvánosan ez látszik" maxLength={24} autoFocus />
+            <Input placeholder="Nyilvánosan ez látszik" maxLength={24} autoFocus={!phone || open} />
           </Form.Item>
           <Form.Item name="name" label="Teljes név" style={{ marginBottom: 8 }}>
             <Input placeholder="Csak a szervezők látják" maxLength={120} />
@@ -597,6 +612,65 @@ export const AdminModals = ({ app: v }) => {
   const decklistCount = currentAttendees.filter(r => r.decklist === true).length;
   const attendeesEvent = (v.tournaments || []).find(t => String(t._id || t.id) === String(v.selectedEventIdForAttendees));
   const showDecklist = showsDecklist(attendeesEvent, currentAttendees);
+  const phone = useIsPhone();
+  const regId = (record) => record._id || record.id;
+  const isActive = (s) => s === 'Aktív' || s === 'Active';
+
+  // A jelentkező adatai és műveletei: ugyanazok a táblázatban (gépen) és a kártyákon (telefonon)
+  const nameBlock = (record) => (
+    <div>
+      {record.username
+        ? <><div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{record.username}</div><div style={{ color: '#E0D6C8' }}>{record.name}</div></>
+        : <div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{record.name}</div>}
+      <ReliabilityTag stats={v.attendanceStats?.[String(regId(record))]} />
+    </div>
+  );
+  const statusTag = (s) => <Tag color={isActive(s) ? 'green' : 'warning'} style={{ margin: 0 }}>{s}</Tag>;
+  // igen / nem kapcsoló (megjelent, decklist); telefonon nagy, feliratos gombok
+  const toggle = (value, onYes, onNo, { yes, no, yesLabel, noLabel }) => (
+    <Space.Compact block={phone}>
+      <Button
+        icon={<CheckOutlined />}
+        type={value === true ? 'primary' : 'default'}
+        style={{ ...(value === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : {}), ...(phone ? { flex: 1, minHeight: 44 } : {}) }}
+        onClick={onYes}
+        aria-label={yesLabel}
+        title={yesLabel}
+      >{phone ? yes : null}</Button>
+      <Button
+        icon={<CloseOutlined />}
+        type={value === false ? 'primary' : 'default'}
+        danger={value === false}
+        style={phone ? { flex: 1, minHeight: 44 } : undefined}
+        onClick={onNo}
+        aria-label={noLabel}
+        title={noLabel}
+      >{phone ? no : null}</Button>
+    </Space.Compact>
+  );
+  const attendedToggle = (record) => toggle(record.attended,
+    () => v.setAttendance(regId(record), record.attended === true ? null : true),
+    () => v.setAttendance(regId(record), record.attended === false ? null : false),
+    { yes: 'Megjelent', no: 'Nem jött', yesLabel: 'Megjelent', noLabel: 'Nem jelent meg' });
+  const decklistToggle = (record) => toggle(record.decklist,
+    () => v.setDecklist(regId(record), record.decklist === true ? null : true),
+    () => v.setDecklist(regId(record), record.decklist === false ? null : false),
+    { yes: 'Decklist leadva', no: 'Nincs', yesLabel: 'Leadta a decklistet', noLabel: 'Nem adta le a decklistet' });
+  const actionButtons = (record) => {
+    const stats = v.attendanceStats?.[String(regId(record))];
+    const isBanned = (v.blacklist || []).some(b => b.email === record.email);
+    return (
+      <Space size={0} wrap>
+        {v.messaging?.canMessage && (record.email || record.hasEmail) && <Button type="link" icon={<MailOutlined />} data-uzenet onClick={() => setMessageTo({ kind: 'registration', refId: String(regId(record)), name: [record.username, record.name !== record.username ? record.name : null].filter(Boolean).join(' · '), context: attendeesEvent?.name || '' })}>Üzenet</Button>}
+        <Popconfirm title="Törlöd a jelentkezést?" onConfirm={() => v.handleRemoveRegistration(regId(record))} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>
+        {v.userRole === 'owner' && record.email && (isBanned
+          ? <Tag color="red" style={{ margin: 0 }}>Tiltva</Tag>
+          : <Popconfirm title="Feketelistára teszed ezt az e-mail címet?" onConfirm={() => v.handleBanEmail({ email: record.email, reason: stats?.noShow ? `Nem jelent meg: ${stats.noShow} / ${stats.attended + stats.noShow} alkalom` : 'Admin tiltás' })} okText="Igen" cancelText="Mégse">
+              <Button type="link" danger icon={<StopOutlined />}>Tiltás</Button>
+            </Popconfirm>)}
+      </Space>
+    );
+  };
 
   return (
     <div>
@@ -763,78 +837,37 @@ export const AdminModals = ({ app: v }) => {
           </>
         )}
         <p style={{ color: '#9a8a8c', marginTop: 0 }}>Check-in: jelöld, ki jelent meg (✓) és ki nem (✗){showDecklist ? ', illetve ki adta le a decklistet' : ''}. Újrakattintással a jelölés visszavonható. A megbízhatóság az összes eddigi eseményből számolódik.</p>
-        <Table dataSource={currentAttendees} rowKey={(record) => record._id || record.id} pagination={false} scroll={{ x: 880 }} columns={[
-          { title: 'Felhasználónév / Teljes név', dataIndex: 'name', key: 'name', render: (text, record) => (
-              <div>
-                {record.username
-                  ? <><div style={{ color: '#E5B15D', fontWeight: 'bold' }}>{record.username}</div><div style={{ color: '#E0D6C8' }}>{text}</div></>
-                  : <div style={{ color: '#E0D6C8', fontWeight: 'bold' }}>{text}</div>}
-                <ReliabilityTag stats={v.attendanceStats?.[String(record._id || record.id)]} />
+        {phone ? (
+          <div className="flex flex-col gap-3" data-jelentkezo-kartyak>
+            {currentAttendees.length === 0 && <Text style={{ color: '#9a8a8c' }}>Még nincs jelentkező.</Text>}
+            {currentAttendees.map((record, i) => (
+              <div key={regId(record)} className="rounded-xl border p-3 flex flex-col gap-3" style={{ background: '#211819', borderColor: record.attended === true ? '#2f5d1f' : '#2c2124' }} data-jelentkezo>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0" style={{ overflowWrap: 'anywhere' }}>
+                    <span style={{ color: '#7d6e70', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{i + 1}.</span>
+                    {nameBlock(record)}
+                    {fullData && record.email && <div style={{ color: '#9a8a8c', fontSize: 13 }}>{record.email}</div>}
+                    {record.addedBy && <div style={{ color: '#6b7280', fontSize: 12 }}>Felvette: {record.addedBy}</div>}
+                  </div>
+                  {statusTag(record.status)}
+                </div>
+                {attendedToggle(record)}
+                {showDecklist && decklistToggle(record)}
+                <div style={{ marginLeft: -8 }}>{actionButtons(record)}</div>
               </div>
-          ) },
+            ))}
+          </div>
+        ) : (
+        <Table dataSource={currentAttendees} rowKey={regId} pagination={false} scroll={{ x: 880 }} columns={[
+          { title: 'Felhasználónév / Teljes név', dataIndex: 'name', key: 'name', render: (_, record) => nameBlock(record) },
           // Az e-mail cím csak 2. szinten (személyes adatok joga); 1. szinten a szerver el sem küldi
           ...(fullData ? [{ title: 'E-mail', dataIndex: 'email', key: 'email', render: (text, record) => <div><span style={{ color: '#baaaac' }}>{text || '—'}</span>{record.addedBy && <div style={{ color: '#6b7280', fontSize: 12 }}>Felvette: {record.addedBy}</div>}</div> }] : []),
-          { title: 'Státusz', dataIndex: 'status', key: 'status', render: (s) => <Tag color={s === 'Aktív' || s === 'Active' ? 'green' : 'warning'}>{s}</Tag> },
-          { title: 'Megjelent?', key: 'attended', render: (_, record) => {
-              const id = record._id || record.id;
-              return (
-                <Space.Compact>
-                  <Button
-                    icon={<CheckOutlined />}
-                    type={record.attended === true ? 'primary' : 'default'}
-                    style={record.attended === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
-                    onClick={() => v.setAttendance(id, record.attended === true ? null : true)}
-                    aria-label="Megjelent"
-                  />
-                  <Button
-                    icon={<CloseOutlined />}
-                    type={record.attended === false ? 'primary' : 'default'}
-                    danger={record.attended === false}
-                    onClick={() => v.setAttendance(id, record.attended === false ? null : false)}
-                    aria-label="Nem jelent meg"
-                  />
-                </Space.Compact>
-              );
-          }},
-          ...(showDecklist ? [{ title: 'Decklist?', key: 'decklist', render: (_, record) => {
-              const id = record._id || record.id;
-              return (
-                <Space.Compact>
-                  <Button
-                    icon={<CheckOutlined />}
-                    type={record.decklist === true ? 'primary' : 'default'}
-                    style={record.decklist === true ? { background: '#389e0d', borderColor: '#389e0d', color: '#fff' } : undefined}
-                    onClick={() => v.setDecklist(id, record.decklist === true ? null : true)}
-                    aria-label="Leadta a decklistet"
-                    title="Leadta a decklistet"
-                  />
-                  <Button
-                    icon={<CloseOutlined />}
-                    type={record.decklist === false ? 'primary' : 'default'}
-                    danger={record.decklist === false}
-                    onClick={() => v.setDecklist(id, record.decklist === false ? null : false)}
-                    aria-label="Nem adta le a decklistet"
-                    title="Nem adta le a decklistet"
-                  />
-                </Space.Compact>
-              );
-          }}] : []),
-          { title: 'Művelet', key: 'action', render: (_, record) => {
-              const stats = v.attendanceStats?.[String(record._id || record.id)];
-              const isBanned = (v.blacklist || []).some(b => b.email === record.email);
-              return (
-                <Space size={0} wrap>
-                  {v.messaging?.canMessage && (record.email || record.hasEmail) && <Button type="link" icon={<MailOutlined />} data-uzenet onClick={() => setMessageTo({ kind: 'registration', refId: String(record._id || record.id), name: [record.username, record.name !== record.username ? record.name : null].filter(Boolean).join(' · '), context: attendeesEvent?.name || '' })}>Üzenet</Button>}
-                  <Popconfirm title="Törlöd a jelentkezést?" onConfirm={() => v.handleRemoveRegistration(record._id || record.id)} okText="Igen" cancelText="Mégse"><Button type="link" danger icon={<DeleteOutlined />}>Törlés</Button></Popconfirm>
-                  {v.userRole === 'owner' && record.email && (isBanned
-                    ? <Tag color="red" style={{ margin: 0 }}>Tiltva</Tag>
-                    : <Popconfirm title="Feketelistára teszed ezt az e-mail címet?" onConfirm={() => v.handleBanEmail({ email: record.email, reason: stats?.noShow ? `Nem jelent meg: ${stats.noShow} / ${stats.attended + stats.noShow} alkalom` : 'Admin tiltás' })} okText="Igen" cancelText="Mégse">
-                        <Button type="link" danger icon={<StopOutlined />}>Tiltás</Button>
-                      </Popconfirm>)}
-                </Space>
-              );
-          }}
+          { title: 'Státusz', dataIndex: 'status', key: 'status', render: (st) => statusTag(st) },
+          { title: 'Megjelent?', key: 'attended', render: (_, record) => attendedToggle(record) },
+          ...(showDecklist ? [{ title: 'Decklist?', key: 'decklist', render: (_, record) => decklistToggle(record) }] : []),
+          { title: 'Művelet', key: 'action', render: (_, record) => actionButtons(record) },
         ]} />
+        )}
       </Modal>
       <MessageModal target={messageTo} status={v.messaging} onClose={() => setMessageTo(null)} />
       <RgnAttendeesModal

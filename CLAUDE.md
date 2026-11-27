@@ -65,6 +65,8 @@ A naptárhoz és a Tavern weboldalhoz kapcsolódó döntések és állapot, hogy
 
 ## Telefonos app nézet (admin, 960 px alatt)
 - Felső sáv és alsó fülsáv: `components/AdminApp.jsx`; lebegő „+” gomb és lehúzásos frissítés: `components/PhoneApp.jsx`; viselkedés és teljes képernyős ablakok: `app/(naptar)/admin/app.css` (csak az /admin oldalakon töltődik be).
+- **Ablakok telefonon (2026-11-27, a felhasználó jelezte, hogy egyes ablakok alja levágódik / nem görgethető):** a teljes képernyős ablak app-képernyő felépítésű (`app.css`): a keret nem görget (`.ant-modal-wrap` overflow hidden), felül fix cím, középen a `.ant-modal-body` görget saját maga (`min-height: 0`, `overscroll-behavior: contain`), alul fix gombsor a biztonsági sávval (nincs ragadós, negatív margós lábléc). Az esemény alsó lapjának törzse is saját maga görget. Teszt: `telefon-ablakok` (402×874, 375×667, 375×560: minden görgethető részt a végére görget, és megnézi, hogy az utolsó tartalom a gombsor fölött van-e).
+- **Intuitívabb telefonos admin (2026-11-27, a UI UX Pro Max szerint):** az eseménykártya egésze koppintható (a gombjai kivételével), a címsorban „›” jelzi a teendőket; a Jelentkezők ablak telefonon kártyalista (`useIsPhone`, `lib/useIsPhone.js`; név, állapot, nagy „Megjelent / Nem jött” és decklist gombok, alatta Üzenet / Törlés / Tiltás), a „Versenyző hozzáadása” telefonon egy gomb mögött (kinyitáskor kap fókuszt, addig nem ugrik fel a billentyűzet); az „Előző események” gomb üresen („(0)” helyett) halvány.
 - Nincs service worker: offline nem működik, és nincs push értesítés.
 
 ## Asztalfoglalás (lib/tableBookings.js)
