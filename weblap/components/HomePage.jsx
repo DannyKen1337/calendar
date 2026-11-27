@@ -17,13 +17,13 @@ import { visibleAlbums } from '@/weblap/lib/albums';
 import { getHomeData } from '@/weblap/lib/home';
 import { postHeading, postDate, postHref, SOURCE_NAMES } from '@/weblap/lib/posts';
 import { moodAt } from '@/weblap/lib/moods';
-import { samplePosts } from '@/weblap/lib/samplePosts';
 import SocialPost from '@/weblap/components/SocialPost';
 import AlbumsLink from '@/weblap/components/AlbumsLink';
 import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl } from '@/weblap/lib/calendar';
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
 import { withBase, CALENDAR_PATHS } from '@/weblap/lib/basePath';
+import PreorderContact from '@/components/PreorderContact';
 import s from '@/weblap/fooldal.module.css';
 
 const SHORT_DAYS = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
@@ -85,12 +85,13 @@ export default async function HomePage({ content, feed, previewBar = null, base 
   const games = [...new Set(week.map(e => e.category))].map(c => ({ category: c, label: gameShort(c) }));
 
   // A hírek: a kirakott hírek (a saját oldalukra visznek) a listában; a Facebookról / Instagramról behúzott posztok
-  // alatta, a közösségi oldalak formájában (SocialPost). Amíg nincs behúzott poszt, minta posztok mutatják, hogy fognak kinézni.
+  // alatta, a közösségi oldalak formájában (SocialPost). Amíg nincs behúzott poszt (nincs API-kulcs), csak a három bolt
+  // Facebook-oldalának linkje látszik (a minta posztok a felhasználó kérésére 2026-11-27-én kikerültek).
   const storeName = (id) => stores.find(st => st.id === id)?.name;
   const storeOf = (id) => stores.find(st => st.id === id);
   const socialFeed = feed.filter(p => p.source === 'facebook' || p.source === 'instagram');
-  const social = (socialFeed.length ? socialFeed : samplePosts().map(p => ({ ...p, sample: true, images: p.images.map(withBase), url: p.source === 'instagram' ? general.instagram : storeOf(p.store)?.facebook })))
-    .map(p => ({ key: p.key, source: p.source, who: storeName(p.store) || storeName('debrecen'), date: p.date, text: p.text || '', images: p.images || (p.image ? [p.image] : []), url: p.url || null, sample: !!p.sample }));
+  const social = socialFeed
+    .map(p => ({ key: p.key, source: p.source, who: storeName(p.store) || storeName('debrecen'), date: p.date, text: p.text || '', images: p.images || (p.image ? [p.image] : []), url: p.url || storeOf(p.store)?.facebook || null }));
   const posts = feed.filter(p => p.source === 'manual').map(p => ({
     key: p.key,
     store: p.store || null,
@@ -197,11 +198,15 @@ export default async function HomePage({ content, feed, previewBar = null, base 
             </>
           )}
           <div className={s.socialBlock} data-kozossegi>
-            <h3 className={s.socialTitle}>{social.some(p => p.sample) ? 'Minta: így jelennek meg a Facebook- és Instagram-posztok' : 'A boltok oldalairól'}</h3>
-            <div className={s.socialGrid}>
-              {social.map(p => <SocialPost key={p.key} post={p} />)}
-            </div>
-            <p className={s.newsLinks}>{facebookPages.map(st => <a key={st.id} className={s.textlink} href={st.facebook} target="_blank" rel="noopener noreferrer">{st.name} ↗</a>)}</p>
+            {social.length > 0 && (
+              <>
+                <h3 className={s.socialTitle}>A boltok oldalairól</h3>
+                <div className={s.socialGrid}>
+                  {social.map(p => <SocialPost key={p.key} post={p} />)}
+                </div>
+              </>
+            )}
+            <p className={s.newsLinks} data-facebook-linkek>{facebookPages.map(st => <a key={st.id} className={s.textlink} href={st.facebook} target="_blank" rel="noopener noreferrer">{st.name} ↗</a>)}</p>
           </div>
         </section>
 
@@ -244,6 +249,10 @@ export default async function HomePage({ content, feed, previewBar = null, base 
         <section className={s.contact} id="kapcsolat" aria-labelledby="kapcsolat-cim">
           <h2 id="kapcsolat-cim">{contact.title}</h2>
           {contact.text && <p>{contact.text}</p>}
+          {/* ugyanaz az „Írj nekünk” gomb, mint az előrendelő oldalon: a levél a bolt postafiókjába megy */}
+          <div className={s.contactForm} data-weboldal-kerdes>
+            <PreorderContact source="weboldal" onGold intro="Kérdésed van egy versenyről, egy előrendelésről, egy termékről vagy bármi másról? Írd meg, és a megadott e-mail címre válaszolunk." />
+          </div>
           <div className={s.fb}>
             {facebookPages.map(st => (
               <a key={st.id} href={st.facebook} target="_blank" rel="noopener noreferrer">

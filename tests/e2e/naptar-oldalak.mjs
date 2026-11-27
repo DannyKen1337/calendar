@@ -20,7 +20,7 @@ const b = await browser();
 try {
   // Heti nézet (telefon)
   let p = await page(b, null, 402, 874);
-  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2', timeout: 240000 });
   await p.waitForFunction(() => [...document.querySelectorAll('button')].some(e => e.textContent.includes('Megnyitom')), { timeout: 240000 });
   await p.evaluate(() => [...document.querySelectorAll('button')].find(e => e.textContent.includes('Tavern Debrecen')).click());
   await p.waitForSelector('[aria-label="Nézet"] button');

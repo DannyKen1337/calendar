@@ -122,7 +122,7 @@ try {
   const post = await db.collection('website_posts').findOne({ title: 'Képes hír' });
   ok(!!post?.image && sentSize(post.image) <= 3.5 * 1024 * 1024, `Hírek: mentve, a kép tömörítve ment fel (${post?.image || 'nincs'})`);
   await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}), p.click('[data-kirak-most]')]);
-  const news = await (await page(b, null)).goto(`${BASE}/weblapteszt/hirek`, { waitUntil: 'networkidle2' }).then(r => r.text());
+  const news = await (await page(b, null)).goto(`${BASE}/hirek`, { waitUntil: 'networkidle2' }).then(r => r.text());
   ok(/Kirakva/.test(await p.evaluate(() => document.body.innerText)) && /Képes hír/.test(news), 'Hírek: az „Elmentve” mellől rögtön kirakható, élesben látszik');
   console.log('  böngészőhibák:', p.errs.join(' | ') || 'nincs');
 } finally {

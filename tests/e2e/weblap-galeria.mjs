@@ -25,10 +25,10 @@ const b = await browser();
 try {
   // üres Galéria, menüpont
   const p = await page(b, null);
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
   const menu = await p.$eval('[data-menu="galeria"]', a => ({ href: a.getAttribute('href'), text: a.textContent, visible: !!a.offsetParent }));
-  ok(menu.visible && menu.text === 'Galéria' && menu.href === '/weblapteszt/galeria', `a fenti menüben a Galéria (${menu.href})`);
-  await p.goto(`${BASE}/weblapteszt/galeria`, { waitUntil: 'networkidle2' });
+  ok(menu.visible && menu.text === 'Galéria' && menu.href === '/galeria', `a fenti menüben a Galéria (${menu.href})`);
+  await p.goto(`${BASE}/galeria`, { waitUntil: 'networkidle2' });
   ok(/Hamarosan itt lesznek/.test(await p.evaluate(() => document.body.innerText)), 'album nélkül: „hamarosan” szöveg');
 
   // feltöltés mappából a szerkesztőfelületen
@@ -61,12 +61,12 @@ try {
   ok((await a.$$('[data-album]')).length === 2, 'az előnézetben a 2 album');
   const adminErrs = a.errs;
   await a.close();
-  await p.goto(`${BASE}/weblapteszt/galeria`, { waitUntil: 'networkidle2' });
+  await p.goto(`${BASE}/galeria`, { waitUntil: 'networkidle2' });
   ok((await p.$$('[data-album]')).length === 0, 'élesben még nincs kint');
 
   // kirakás (mint az előnézet Kirakás gombja), éles oldal
   await db.collection('website_content').updateOne({ _id: 'site' }, { $set: { albums: draft.albums } }, { upsert: true });
-  await p.goto(`${BASE}/weblapteszt/galeria`, { waitUntil: 'networkidle2' });
+  await p.goto(`${BASE}/galeria`, { waitUntil: 'networkidle2' });
   const cards = await p.$$eval('[data-album]', els => els.map(e => e.textContent));
   ok(cards.length === 2 && /Riftbound Skirmish/.test(cards[0]) && /2026\. november 8\./.test(cards[0]), `a legfrissebb esemény elöl, magyar dátummal (${cards[0]})`);
   ok(await p.$eval('[data-menu="galeria"]', el => el.getAttribute('aria-current') === 'page'), 'a menüpont kiemelve a Galéria oldalon');
@@ -76,12 +76,12 @@ try {
   await p.screenshot({ path: `${SHOTS}galeria.jpg`, quality: 60 });
   await p.click('[data-album]');
   await p.waitForSelector('[data-kep]', { timeout: 30000 });
-  ok(p.url().endsWith('/weblapteszt/galeria/pokeween') && (await p.$$('[data-kep]')).length === 2, `az album oldalán a képek, a link az esemény nevéből (${p.url().replace(BASE, '')})`);
+  ok(p.url().endsWith('/galeria/pokeween') && (await p.$$('[data-kep]')).length === 2, `az album oldalán a képek, a link az esemény nevéből (${p.url().replace(BASE, '')})`);
   // a régi, azonosítós link átirányít az újra
   const oldId = draft.albums.albums.find(x => x.title === 'Pokeween').id;
   const p2 = await page(b, null);
-  await p2.goto(`${BASE}/weblapteszt/galeria/${oldId}`, { waitUntil: 'networkidle2' });
-  ok(p2.url().endsWith('/weblapteszt/galeria/pokeween'), `a régi link (${oldId}) átirányít: ${p2.url().replace(BASE, '')}`);
+  await p2.goto(`${BASE}/galeria/${oldId}`, { waitUntil: 'networkidle2' });
+  ok(p2.url().endsWith('/galeria/pokeween'), `a régi link (${oldId}) átirányít: ${p2.url().replace(BASE, '')}`);
   await p2.close();
   await p.click('[data-kep]');
   await wait(300);
@@ -92,28 +92,28 @@ try {
   await p.keyboard.press('Escape');
   await wait(150);
   ok(!(await p.$('[data-nagyito]')), 'Esc-re bezárul');
-  const res = await p.goto(`${BASE}/weblapteszt/galeria/nincs-ilyen`, { waitUntil: 'networkidle2' });
+  const res = await p.goto(`${BASE}/galeria/nincs-ilyen`, { waitUntil: 'networkidle2' });
   ok(res.status() === 404, 'ismeretlen album: 404');
 
   // főoldal: „Az összes album” nagy gomb a Galéria bal alsó sarkában; kattintásra a fotók a gombba repülnek, arany borító
   // nyílik ki, utána a Galéria oldal, ahol a borító felhúzódik és az albumok beúsznak
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   await p.$eval('#galeria', el => el.scrollIntoView({ block: 'center' }));
   await wait(900);
   const btn = await p.$eval('[data-osszes-album]', a => { const r = a.getBoundingClientRect(), sec = a.closest('section').getBoundingClientRect(); return { h: r.height, w: r.width, left: r.left - sec.left, bottom: sec.bottom - r.bottom, text: a.textContent, href: a.getAttribute('href') }; });
-  ok(btn.h >= 64 && btn.w >= 280 && btn.left < 60 && btn.bottom < 60 && /Az összes album/.test(btn.text) && /2 album/.test(btn.text) && btn.href === '/weblapteszt/galeria', `nagy gomb a bal alsó sarokban (${Math.round(btn.w)}×${Math.round(btn.h)}, ${btn.text})`);
+  ok(btn.h >= 64 && btn.w >= 280 && btn.left < 60 && btn.bottom < 60 && /Az összes album/.test(btn.text) && /2 album/.test(btn.text) && btn.href === '/galeria', `nagy gomb a bal alsó sarokban (${Math.round(btn.w)}×${Math.round(btn.h)}, ${btn.text})`);
   await p.screenshot({ path: `${SHOTS}galeria-gomb.jpg`, quality: 60 });
   const bb = await (await p.$('[data-osszes-album]')).boundingBox();
   await p.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
   await wait(450);
   const fly = await p.evaluate(() => ({ albumba: document.querySelector('#galeria').hasAttribute('data-albumba'), cover: !!document.querySelector('[data-album-borito]'), still: location.pathname }));
-  ok(fly.albumba && fly.cover && fly.still === '/weblapteszt', 'kattintásra animáció: a fotók a gombba repülnek, nyílik a borító (még a főoldalon)');
+  ok(fly.albumba && fly.cover && fly.still === '/', 'kattintásra animáció: a fotók a gombba repülnek, nyílik a borító (még a főoldalon)');
   await p.screenshot({ path: `${SHOTS}galeria-gomb-repul.jpg`, quality: 60 });
   await wait(500);
   await p.screenshot({ path: `${SHOTS}galeria-gomb-borito.jpg`, quality: 60 });
-  await p.waitForFunction(() => location.pathname === '/weblapteszt/galeria', { timeout: 15000 }).catch(() => {});
+  await p.waitForFunction(() => location.pathname === '/galeria', { timeout: 15000 }).catch(() => {});
   await p.waitForSelector('[data-album-fuggony]', { timeout: 5000 }).catch(() => {});
-  ok(p.url().endsWith('/weblapteszt/galeria') && !!(await p.$('[data-album-fuggony]')) && !!(await p.$('ul[data-belep]')), 'utána a Galéria oldal: a borító felhúzódik, az albumok beúsznak');
+  ok(p.url().endsWith('/galeria') && !!(await p.$('[data-album-fuggony]')) && !!(await p.$('ul[data-belep]')), 'utána a Galéria oldal: a borító felhúzódik, az albumok beúsznak');
   await wait(300);
   await p.screenshot({ path: `${SHOTS}galeria-belepo.jpg`, quality: 60 });
   await wait(1800);
@@ -121,16 +121,16 @@ try {
   // új lapon nyitva (Cmd/Ctrl) és csökkentett mozgásnál nincs animáció
   const r = await page(b, null);
   await r.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await r.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await r.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   await r.$eval('[data-osszes-album]', el => el.scrollIntoView({ block: 'center' }));
   await r.click('[data-osszes-album]');
-  await r.waitForFunction(() => location.pathname === '/weblapteszt/galeria', { timeout: 15000 }).catch(() => {});
-  ok(r.url().endsWith('/weblapteszt/galeria') && !(await r.$('[data-album-fuggony]')), 'csökkentett mozgásnál rögtön nyílik, borító nélkül');
+  await r.waitForFunction(() => location.pathname === '/galeria', { timeout: 15000 }).catch(() => {});
+  ok(r.url().endsWith('/galeria') && !(await r.$('[data-album-fuggony]')), 'csökkentett mozgásnál rögtön nyílik, borító nélkül');
   await r.close();
 
   // telefon
   const ph = await page(b, null, 402, 874);
-  await ph.goto(`${BASE}/weblapteszt/galeria`, { waitUntil: 'networkidle2' });
+  await ph.goto(`${BASE}/galeria`, { waitUntil: 'networkidle2' });
   ok(await ph.$eval('[data-menu="galeria"]', el => !!el.offsetParent && el.getBoundingClientRect().height >= 44), 'telefonon is látszik a Galéria menüpont (44 px)');
   ok((await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
   await ph.screenshot({ path: `${SHOTS}galeria-telefon.jpg`, quality: 60 });
@@ -142,8 +142,8 @@ try {
   ok(nav.length === 3 && nav.every(h => h >= 44), `telefonon a nagyító gombjai legalább 44 px (${nav.join(', ')})`);
   await ph.screenshot({ path: `${SHOTS}galeria-nagyito-telefon.jpg`, quality: 60 });
   // főoldal: link a Galériára a fotók mellett
-  await ph.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
-  ok(await ph.evaluate(() => [...document.querySelectorAll('#galeria a')].some(el => el.getAttribute('href') === '/weblapteszt/galeria')), 'a főoldal fotóinál link a Galériára');
+  await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  ok(await ph.evaluate(() => [...document.querySelectorAll('#galeria a')].some(el => el.getAttribute('href') === '/galeria')), 'a főoldal fotóinál link a Galériára');
   console.log('  böngészőhibák:', [...p.errs, ...adminErrs, ...ph.errs].join(' | ') || 'nincs');
 } finally {
   await b.close(); await client.close(); summary();

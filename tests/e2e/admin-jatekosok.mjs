@@ -64,7 +64,7 @@ try {
   // bal oldali sáv: gyors elérés saját linkekkel; a fülek is linkek, saját címmel
   const side = await p.$eval('[data-oldalsav]', el => ({ visible: !!el.offsetParent, links: [...el.querySelectorAll('a')].map(a => [a.textContent.trim(), a.getAttribute('href')]) }));
   const hrefOf = (label) => side.links.find(([t]) => t.startsWith(label))?.[1];
-  ok(side.visible && hrefOf('Játékosok') === '/admin/jatekosok' && hrefOf('Üzenetek') === '/admin/uzenetek' && hrefOf('Check-in') === '/admin/checkin' && hrefOf('Generátor') === '/admin/generator' && hrefOf('Statisztika') === '/admin/statisztika' && hrefOf('Naptár') === '/', `a bal oldali sávban gyors elérés, saját linkekkel (${side.links.map(([t]) => t).join(', ')})`);
+  ok(side.visible && hrefOf('Játékosok') === '/admin/jatekosok' && hrefOf('Üzenetek') === '/admin/uzenetek' && hrefOf('Check-in') === '/admin/checkin' && hrefOf('Generátor') === '/admin/generator' && hrefOf('Statisztika') === '/admin/statisztika' && hrefOf('Naptár') === '/naptar', `a bal oldali sávban gyors elérés, saját linkekkel (${side.links.map(([t]) => t).join(', ')})`);
   ok(!hrefOf('Előrendelés') && !hrefOf('Rendszer'), 'csak az látszik, amihez joga van');
   const tabs = await p.$$eval('nav[aria-label="Admin"] [data-ful]', els => els.map(a => [a.tagName, a.getAttribute('href')]));
   ok(tabs.every(([tag]) => tag === 'A') && tabs.some(([, h]) => h === '/admin?lap=tovabbiak'), `a fülek linkek saját címmel (${tabs.map(([, h]) => h).join(', ')})`);

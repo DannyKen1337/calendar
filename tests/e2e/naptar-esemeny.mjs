@@ -46,13 +46,13 @@ try {
   await p.setRequestInterception(true);
   p.on('request', r => { if (r.url().includes('/api/auth/session')) setTimeout(() => r.continue().catch(() => {}), 3000); else r.continue().catch(() => {}); });
   const t0 = Date.now();
-  await p.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await p.goto(`${BASE}/naptar`, { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('[aria-label="Előző hónap"]', { timeout: 15000 }).catch(() => {});
   const shown = Date.now() - t0;
   ok(shown < 2900, `gyors betöltés: a naptár nem vár a munkamenetre (${shown} ms)`);
   const dsk = await page(b, null, 1440, 900);
   await dsk.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'jatekceh'); } catch { /* */ } });
-  await dsk.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await dsk.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2' });
   await dsk.waitForSelector('[aria-label="Előző hónap"]', { timeout: 30000 });
   const strips = await dsk.evaluate(() => [...document.querySelectorAll('[data-day] button')].map(x => x.textContent).join(' | '));
   ok(!EMOJI.test(strips) && !/Megjelenés|Különleges/.test(strips), `naptár: a különleges esemény sávján nincs kiírva a típus (${strips.slice(0, 60)})`);
@@ -61,7 +61,7 @@ try {
   // a nap listájában (telefon) is világító keret, felirat nélkül
   const ph = await page(b, null, 402, 874);
   await ph.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'jatekceh'); } catch { /* */ } });
-  await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await ph.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2' });
   await ph.waitForSelector('[aria-label="Előző hónap"]', { timeout: 30000 });
   const tomorrow = await ph.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
   await ph.click(`[data-day="${tomorrow}"]`).catch(() => {});
@@ -80,7 +80,7 @@ try {
   await mp.evaluateOnNewDocument(() => { window.__latottKarbantartas = false; new MutationObserver(() => { if (document.body?.innerText.includes('Karbantartás alatt')) window.__latottKarbantartas = true; }).observe(document, { subtree: true, childList: true, characterData: true }); });
   await mp.setRequestInterception(true);
   mp.on('request', r => { if (r.url().includes('/api/auth/session')) setTimeout(() => r.continue().catch(() => {}), 1500); else r.continue().catch(() => {}); });
-  await mp.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await mp.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2' });
   await wait(800);
   ok(!(await mp.evaluate(() => window.__latottKarbantartas)), 'karbantartás: a szervező nem látja a karbantartás képernyőt');
   await ctx.close();

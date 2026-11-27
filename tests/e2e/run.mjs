@@ -46,7 +46,7 @@ function startServer(fake, extraEnv = {}) {
 
 // Bemelegítés: a fő oldalak első (hideg) fordítása itt történik meg, ne az első teszt időkeretében
 async function warmUp() {
-  for (const path of ['/', '/admin', '/weblapteszt', '/weblapteszt/admin', '/esemeny/x', '/asztalfoglalas', '/elorendeles']) {
+  for (const path of ['/', '/admin', '/naptar', '/weblapteszt/admin', '/esemeny/x', '/asztalfoglalas', '/elorendeles']) {
     try { await fetch(`http://localhost:3179${path}`, { signal: AbortSignal.timeout(5 * 60 * 1000) }); } catch { /* a teszt majd jelzi */ }
   }
 }

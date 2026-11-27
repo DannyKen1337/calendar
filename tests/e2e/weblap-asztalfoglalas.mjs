@@ -7,7 +7,7 @@ const DLG = '[data-asztal-ablak]';
 const b = await browser();
 try {
   const p = await page(b, null);
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
   const order = await p.evaluate(() => ['liga', 'asztalfoglalas', 'hirek', 'boltok'].map(id => document.getElementById(id)).map(el => el ? [...document.querySelectorAll('section')].indexOf(el) : -1));
   ok(order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1])), `az Asztalfoglalás a Ligák után, a Hírek előtt; a boltok lejjebb (${order.join(', ')})`);
   ok((await p.$eval('#asztalfoglalas-cim', h => h.textContent)) === 'Foglalj asztalt' && (await p.$eval('#boltok-cim', h => h.textContent)) === 'Itt találsz minket', 'címek: Foglalj asztalt, Itt találsz minket');
@@ -59,14 +59,14 @@ try {
   // csökkentett mozgás: nincs tábla, rögtön nyílik
   const r = await page(b, null);
   await r.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await r.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await r.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   await r.$eval('[data-asztalfoglalas] a[data-table]', a => a.click());
   await wait(200);
   ok(await r.$eval(DLG, d => !d.hidden && getComputedStyle(d.querySelector('[class*="tentFly"]')).display === 'none' && getComputedStyle(d.querySelector('[class*="tableSheet"]')).opacity === '1'), 'csökkentett mozgásnál a tábla nélkül, rögtön nyílik');
 
   // telefon
   const ph = await page(b, null, 402, 874);
-  await ph.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   ok((await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
   const small = await ph.$$eval('[data-asztalfoglalas] a', as => as.filter(a => a.getBoundingClientRect().height < 44).length);
   ok(small === 0, 'telefonon a gombok legalább 44 px');
@@ -81,7 +81,7 @@ try {
   // a mentett tartalom sem írhatja át a bolt nevét
   await db.collection('website_content').replaceOne({ _id: 'site' }, { stores: { debrecen: { name: 'Debreceni bolt' } } }, { upsert: true });
   const nm = await page(b, null);
-  await nm.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await nm.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   ok((await nm.$eval('#boltok a[data-map] h3', h => h.textContent)) === 'Tavern Debrecen', 'mentett más név helyett is Tavern Debrecen');
   await db.collection('website_content').deleteOne({ _id: 'site' });
   await nm.screenshot({ path: `${SHOTS}boltok-nyitvatartas.jpg`, quality: 60, clip: await nm.$eval('#boltok', el => { const r = el.getBoundingClientRect(); return { x: 0, y: r.top + scrollY, width: r.width, height: Math.min(r.height, 1100) }; }) });

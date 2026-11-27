@@ -30,7 +30,7 @@ await db.collection('website_content').insertOne({ _id: 'site', albums: { title:
 const b = await browser();
 try {
   const p = await page(b, null);
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
 
   // telítettség-sáv: amíg a program nem látszik, üres; a képernyőre érve feltöltődik
   const scaleOf = (sel) => p.$eval(sel, el => { const m = getComputedStyle(el).transform; return m === 'none' ? 1 : Number(m.match(/matrix\(([^,]+)/)?.[1]); });
@@ -116,7 +116,7 @@ try {
     const orig = document.startViewTransition?.bind(document);
     if (orig) document.startViewTransition = (...args) => { window.__vt++; return orig(...args); };
   });
-  await g.goto(`${BASE}/weblapteszt/galeria`, { waitUntil: 'networkidle2' });
+  await g.goto(`${BASE}/galeria`, { waitUntil: 'networkidle2' });
   await g.click('[data-album]');
   await g.waitForSelector('[data-album-hero]', { timeout: 20000 });
   await wait(600);
@@ -126,7 +126,7 @@ try {
   // csökkentett mozgás: a szűrés nem animál
   const r = await page(b, null);
   await r.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await r.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await r.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   await r.evaluate(() => [...document.querySelectorAll('#program [role="group"] button')].find(x => x.textContent === 'Magic').click());
   await wait(60);
   ok(await r.$$eval('[data-esemeny]', els => els.length === 1 && els.every(e => e.getAnimations().length === 0)), 'csökkentett mozgásnál a szűrés azonnali, animáció nélkül');

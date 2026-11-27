@@ -30,7 +30,7 @@ try {
   const ev1 = (await cspOf(`/esemeny/${ev}`)).csp;
   ok(/frame-ancestors 'self' https:\/\/tavern\.hu/.test(ev1), 'eseményoldal: csak a saját oldalaink ágyazhatják be');
   ok(!/frame-ancestors/.test((await cspOf('/embed')).csp), 'a naptár (embed) bárhová beágyazható');
-  const web = await cspOf('/weblapteszt');
+  const web = await cspOf('/');
   const webNonce = scriptSrc(web.csp).match(/'nonce-([^']+)'/)?.[1];
   ok(!!webNonce && web.html.includes(`<script nonce="${webNonce}">try{var d=document`), 'a weboldal töltőképernyő-szkriptje a kérés nonce-át kapja');
   const api = await fetch(`${BASE}/api/public-data`);
@@ -71,7 +71,7 @@ try {
 
     // a weboldal töltőképernyője (saját inline script, nonce-szal) lefut
     const w = await page(b, null, 1280, 900, { intro: true });
-    await w.goto(`${BASE}/weblapteszt`, { waitUntil: 'domcontentloaded', timeout: 240000 });
+    await w.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 240000 });
     ok(await w.evaluate(() => document.documentElement.dataset.tolto === 'fut'), 'a weboldal saját inline scriptje (töltőképernyő) lefut');
     ok(w.csp.length === 0, 'a weboldalon nincs letiltott tartalom');
   } finally {

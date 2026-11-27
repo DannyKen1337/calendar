@@ -14,7 +14,7 @@ try {
   // lassú adat: a nyilvános adat 4 mp múlva érkezik
   const p = await page(b, null, 402, 874);
   await p.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } window.__TAVERN_BETOLTO__ = 'booster'; });
-  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 }); // első fordítás
+  await p.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2', timeout: 240000 }); // első fordítás
   await p.setRequestInterception(true);
   p.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 4000); else req.continue().catch(() => {}); });
   await p.reload({ waitUntil: 'domcontentloaded' });
@@ -55,7 +55,7 @@ try {
   });
   await k.setRequestInterception(true);
   k.on('request', (req) => { if (req.url().includes('/api/public-data')) setTimeout(() => req.continue().catch(() => {}), 6000); else req.continue().catch(() => {}); });
-  await k.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await k.goto(`${BASE}/naptar`, { waitUntil: 'domcontentloaded' });
   await k.waitForSelector('[data-betolto="kocka"] [data-kocka]', { timeout: 15000 }).catch(() => {});
   ok(!!(await k.$('[data-betolto="kocka"] [data-kocka]')) && /Keverjük|asztal|lapokat|program|kezdünk/.test(await k.$eval('[data-booster]', el => el.innerText).catch(() => '')), 'a booster helyett eldobott kocka is jöhet, ugyanazzal a szöveggel');
   await k.waitForSelector('[data-natural20]', { timeout: 8000 }).catch(() => {});
@@ -75,7 +75,7 @@ try {
   let mid = false;
   await m.exposeFunction('__booster', () => { mid = true; });
   await m.evaluateOnNewDocument(() => { new MutationObserver(() => { if (document.querySelector('[data-booster]')) window.__booster?.(); }).observe(document, { childList: true, subtree: true }); });
-  await m.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await m.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2' });
   await wait(800);
   ok(!mid, 'egy átlagos (1 mp-es) betöltésnél sem jelenik meg a booster');
   await m.close();
@@ -86,7 +86,7 @@ try {
   let seen = false;
   await f.exposeFunction('__booster', () => { seen = true; });
   await f.evaluateOnNewDocument(() => { new MutationObserver(() => { if (document.querySelector('[data-booster]')) window.__booster?.(); }).observe(document, { childList: true, subtree: true }); });
-  await f.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await f.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2' });
   await wait(500);
   ok(!seen, 'gyors betöltésnél nem villan fel a booster');
   console.log('  böngészőhibák:', [...p.errs, ...f.errs].join(' | ') || 'nincs');

@@ -31,7 +31,7 @@ try {
   let p = await page(b, null, 402, 874);
   await p.setRequestInterception(true);
   p.on('request', r => { if (r.url().includes('/api/public-data')) setTimeout(() => r.continue(), 2500); else r.continue(); });
-  await p.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 240000 });
+  await p.goto(`${BASE}/naptar`, { waitUntil: 'domcontentloaded', timeout: 240000 });
   await p.waitForSelector('[aria-busy="true"]', { timeout: 60000 }).catch(() => {});
   ok(await p.evaluate(() => !!document.querySelector('[aria-busy="true"] [data-vaz]') && document.querySelectorAll('[data-vaz]').length >= 28), 'betöltés közben a hónap váza (aria-busy)');
   await p.screenshot({ path: `${SHOTS}t6-vaz.jpg`, quality: 60 });
@@ -46,7 +46,7 @@ try {
   // tulajdonos, telefon
   const ctx = await b.createBrowserContext();
   p = await page(ctx, tok, 402, 874);
-  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2', timeout: 240000 });
   await pickStore(p);
   ok(!!(await p.$('[data-uj-naptar]')), 'tulajdonos: új kinézet');
   const small = await smallOnes(p);
@@ -86,7 +86,7 @@ try {
 
   // tulajdonos, gép: a rács napjai is gombok, 44 px felett
   const d = await page(ctx, tok, 1440, 900);
-  await d.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await d.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2' });
   await d.waitForSelector('[aria-label="Előző hónap"]', { timeout: 30000 });
   await wait(500);
   // gépen: a rács napjain belüli csíkokra a WCAG 24 px-es szabálya, minden másra 44 px

@@ -6,7 +6,7 @@ const SEL = '[data-elorendelesek]';
 const b = await browser();
 try {
   let p = await page(b, null);
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
   ok(!(await p.$(SEL)) && !!(await p.$('[data-elorendeles-sav] a[data-cal]')), 'nyitott előrendelés nélkül nincs kártyasor, csak az Előrendelés link');
 
   const ids = (await db.collection('preorder_products').insertMany([
@@ -14,7 +14,7 @@ try {
     { name: 'OP-14 Booster Display', category: 'One Piece Card Game', price: 44990, releaseDate: '2026. november 28.', stock: 3, isOpen: true, createdAt: new Date(Date.now() - 1000) },
     { name: 'Régi, lezárt termék', category: 'Disney Lorcana', price: 1000, isOpen: false, createdAt: new Date() },
   ])).insertedIds;
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   const cards = await p.$$eval(`${SEL} [data-elorendeles]`, els => els.map(e => ({ text: e.textContent, href: e.getAttribute('href') })));
   const head = await p.$eval('[data-elorendeles-sav]', el => ({ text: el.textContent, dot: getComputedStyle(el.querySelector('[data-elo]')).animationName }));
   ok(cards.length === 2, `a két nyitott előrendelés kártyája (${cards.length})`);
@@ -40,7 +40,7 @@ try {
   // csökkentett mozgás: nincs animáció, rögtön nyílik
   const r = await page(b, null);
   await r.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await r.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await r.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   await r.$eval(SEL, el => el.scrollIntoView({ block: 'center' }));
   await wait(300);
   const rb = await (await r.$(`${SEL} [data-elorendeles]`)).boundingBox();
@@ -52,7 +52,7 @@ try {
 
   // telefon
   const ph = await page(b, null, 402, 874);
-  await ph.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   ok((await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
   await ph.$eval(SEL, el => el.scrollIntoView({ block: 'center' }));
   await wait(800);

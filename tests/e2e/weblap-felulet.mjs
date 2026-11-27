@@ -61,13 +61,13 @@ try {
   ok(!draft?.hero, 'a nyitókép nem változott');
 
   // előnézet és kirakás
-  let live = await (await get('/weblapteszt')).text();
+  let live = await (await get('/')).text();
   ok(!live.includes('galeria-cim'), 'élesben még nincsenek fotók');
   await p.goto(`${BASE}/weblapteszt/admin`, { waitUntil: 'networkidle2' });
   await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2' }), clickText(p, 'a', 'Előbb megnézem')]);
   ok(!!(await p.$('section[aria-labelledby="galeria-cim"]')), 'az előnézetben látszanak a fotók');
   await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2' }), clickText(p, '[aria-label="Előnézet"] button', 'Kirakás az éles oldalra')]);
-  live = await (await get('/weblapteszt')).text();
+  live = await (await get('/')).text();
   ok(live.includes('galeria-cim') && live.includes('Péntek este') && live.includes('kep2.jpg'), 'kirakás után élesben is');
 
   // telefon: minden fül, nincs vízszintes görgetés, alsó fülsáv

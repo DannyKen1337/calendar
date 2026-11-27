@@ -15,7 +15,9 @@ function check(field, value) {
   return v.length > 3000 ? 'Az üzenet legfeljebb 3000 karakter lehet.' : '';
 }
 
-export default function PreorderContact({ productId = null, initial = {} }) {
+// source: 'weboldal' a weboldal „Írj nekünk” részében (a levél tárgya más); intro: a kinyíló űrlap első mondata;
+// onGold: arany háttéren (a weboldal Kapcsolat sávja) sötét gomb
+export default function PreorderContact({ productId = null, initial = {}, source = '', intro = '', onGold = false }) {
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState({ name: '', email: '', message: '', website: '' });
   const [touched, setTouched] = useState({});
@@ -48,7 +50,7 @@ export default function PreorderContact({ productId = null, initial = {} }) {
       const res = await fetch('/api/preorders/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: values.name.trim(), email: values.email.trim().toLowerCase(), message: values.message.trim(), website: values.website, ...(productId ? { productId } : {}) }),
+        body: JSON.stringify({ name: values.name.trim(), email: values.email.trim().toLowerCase(), message: values.message.trim(), website: values.website, ...(productId ? { productId } : {}), ...(source ? { source } : {}) }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || data.error) {
@@ -69,7 +71,7 @@ export default function PreorderContact({ productId = null, initial = {} }) {
 
   if (!open) {
     return (
-      <button type="button" className={s.contactBtn} onClick={show} aria-expanded="false" aria-controls="kerdes" data-kerdes-gomb>
+      <button type="button" className={`${s.contactBtn} ${onGold ? s.contactBtnOnGold : ''}`} onClick={show} aria-expanded="false" aria-controls="kerdes" data-kerdes-gomb>
         <span className={s.contactIcon} aria-hidden="true">{ICONS.mail}</span><span>Kérdésed van? Írj nekünk</span>
       </button>
     );
@@ -89,7 +91,7 @@ export default function PreorderContact({ productId = null, initial = {} }) {
         </div>
       ) : (
         <form onSubmit={send} noValidate className={s.fields}>
-          <p className={s.muted}>Kérdésed vagy problémád van az előrendeléssel? Írd meg, és a megadott e-mail címre válaszolunk.</p>
+          <p className={s.muted}>{intro || 'Kérdésed vagy problémád van az előrendeléssel? Írd meg, és a megadott e-mail címre válaszolunk.'}</p>
           <Field id="kerdes-name" label="Neved" icon={ICONS.user} value={values.name} onChange={set('name')} onBlur={leave('name')}
             error={errorOf('name')} ok={okOf('name')} maxLength={120} autoComplete="name" enterKeyHint="next" />
           <Field id="kerdes-email" label="E-mail címed" icon={ICONS.mail} type="email" inputMode="email" value={values.email} onChange={set('email')} onBlur={leave('email')}

@@ -31,7 +31,7 @@ try {
 
   // weboldal: a publikált ligák kártyái; eredmény nélkül „Hamarosan indul”
   const p = await page(b, null);
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
   const cards = await p.$$eval('[data-ligak] [data-liga]', els => els.map(e => ({ text: e.innerText, soon: !!e.querySelector('[data-hamarosan]'), href: e.querySelector('a')?.getAttribute('href') })));
   ok(cards.length === 2, `két publikált liga a weboldalon (${cards.length})`);
   const soon = cards.find(c => /Miskolc/.test(c.text));

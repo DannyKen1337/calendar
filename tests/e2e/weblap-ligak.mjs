@@ -10,7 +10,7 @@ const b = await browser();
 try {
   // nincs liga: a mező a régi
   let p = await page(b, null);
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
   ok(!(await p.$(SEL)), 'liga nélkül nincs ranglista-blokk');
 
   // három publikált liga (és egy publikálatlan, ami nem látszik)
@@ -20,7 +20,7 @@ try {
     { category: 'Riftbound', name: 'Riftbound Liga', published: { at: new Date(), rows: rows(['M. Zsolt', 'F. Réka', 'G. Bálint', 'L. Ádám', 'P. Nóra']) } },
     { category: 'Disney Lorcana', name: 'Lorcana Liga', published: null },
   ]);
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   const c = await cards(p);
   ok(c.length === 3, `3 publikált liga kártyája (${c.length})`);
   ok(c.some(x => /Pokémon Liga – 2026 ősz/.test(x.text) && /K\. Levente/.test(x.text) && /30/.test(x.text)), 'a kártyán a liga neve, az első helyezett és a pontja');
@@ -35,15 +35,15 @@ try {
   // négy liga: széles képernyőn négy oszlop, közepesen 2×2
   await db.collection('leagues').updateOne({ category: 'Disney Lorcana' }, { $set: { published: { at: new Date(), rows: rows(['A. Béla', 'C. Dóra']) } } });
   const wide = await page(b, null, 1440, 900);
-  await wide.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await wide.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   ok(await wide.evaluate((sel) => getComputedStyle(document.querySelector(sel)).gridTemplateColumns.split(' ').length, SEL) === 4, '4 ligánál széles képernyőn négy oszlop');
   const mid = await page(b, null, 1100, 900);
-  await mid.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await mid.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   ok(await mid.evaluate((sel) => getComputedStyle(document.querySelector(sel)).gridTemplateColumns.split(' ').length, SEL) === 2, '4 ligánál közepes képernyőn 2×2');
 
   // telefon: egymás alatt, liganként az első három
   const ph = await page(b, null, 402, 874);
-  await ph.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   const pc = await cards(ph);
   ok(pc.length === 4 && pc.every(x => x.rows <= 3), 'telefonon liganként legfeljebb három helyezett');
   ok((await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');

@@ -18,7 +18,7 @@ try {
   const p = await page(b, null);
   await p.setRequestInterception(true);
   p.on('request', (req) => { if (/\/photos\/verseny\.png$/.test(req.url())) return; /* soha nem válaszol */ req.continue().catch(() => {}); });
-  await p.goto(`${BASE}/weblapteszt/galeria/pokeween-2026`, { waitUntil: 'domcontentloaded', timeout: 240000 });
+  await p.goto(`${BASE}/galeria/pokeween-2026`, { waitUntil: 'domcontentloaded', timeout: 240000 });
   await p.waitForSelector('[data-kep]', { timeout: 60000 });
   await wait(2500);
   const state = () => p.$$eval('[data-kep]', els => els.map(e => { const img = e.querySelector('img'); return img ? { src: img.getAttribute('src'), ok: img.complete && img.naturalWidth > 0 } : { fail: !!e.querySelector('[data-kep-hiba]') }; }));

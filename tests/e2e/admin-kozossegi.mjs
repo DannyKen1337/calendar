@@ -35,7 +35,7 @@ try {
   // nyilvános naptár: név és leírás, helyszám nélkül
   const p = await page(b, null, 402, 874);
   await p.evaluateOnNewDocument(() => { try { localStorage.setItem('tavern_selected_store', 'debrecen'); } catch { /* */ } });
-  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 240000 });
+  await p.goto(`${BASE}/naptar`, { waitUntil: 'networkidle2', timeout: 240000 });
   await p.waitForSelector('[aria-label="Előző hónap"]', { timeout: 60000 });
   await wait(500);
   const row = await p.evaluate(() => [...document.querySelectorAll('[data-ujsor]')].map(l => l.textContent).find(t => t.includes('Pokeween')) || '');

@@ -31,7 +31,7 @@ try {
   ok(bar.includes('Elvetés'), 'jogos szerkesztő: elvetés gomb az előnézet sávjában');
   await p.screenshot({ path: `${SHOTS}t1-elonezet.jpg`, quality: 60 });
   await Promise.all([p.waitForNavigation({ waitUntil: 'networkidle2' }), clickText(p, '[aria-label="Előnézet"] button', 'Kirakás az éles oldalra')]);
-  const live = await (await get('/weblapteszt')).text();
+  const live = await (await get('/')).text();
   ok(live.includes('Teszt hír'), 'kirakás után az éles oldalon a hír');
 
   // a csoportok: a megszűnt jog eltűnik (a Felhasználók oldal betöltése futtatja az alapcsoportokat)

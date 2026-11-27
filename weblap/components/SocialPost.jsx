@@ -26,7 +26,6 @@ export default function SocialPost({ post: p }) {
           <b>{p.who}</b>
           <small><span className={s.socialIcon}>{ICONS[p.source]}</span>{NAMES[p.source]} · <time dateTime={p.date}>{postDate(p.date)}</time></small>
         </span>
-        {p.sample && <span className={s.socialSample}>Minta</span>}
       </header>
       {p.text && <p className={`${s.socialText} ${long ? s.socialLong : ''}`}>{p.text}</p>}
       {long && <Wrap className={s.socialMore} {...link}>Tovább</Wrap>}

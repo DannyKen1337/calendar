@@ -65,6 +65,26 @@ try {
   await n.goto(`${BASE}/elorendeles`, { waitUntil: 'networkidle2' });
   ok(!!(await n.$('[data-kerdes-gomb]')) && /nincs nyitott előrendelés/.test(await n.evaluate(() => document.body.innerText)), 'nyitott előrendelés nélkül is lehet írni');
 
+  // a weboldal „Írj nekünk” része: ugyanaz a gomb, a levél ugyanabba a postafiókba, „Üzenet a weboldalról” tárggyal
+  const w = await page(b, null, 402, 874);
+  await w.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
+  await w.$eval('[data-weboldal-kerdes]', el => el.scrollIntoView({ block: 'center' }));
+  await wait(400);
+  ok(!!(await w.$('[data-weboldal-kerdes] [data-kerdes-gomb]')), 'a weboldal „Írj nekünk” részében ott a gomb');
+  await w.click('[data-weboldal-kerdes] [data-kerdes-gomb]');
+  await w.waitForSelector('[data-weboldal-kerdes] #kerdes-name', { timeout: 10000 });
+  ok(/versenyről/.test(await w.$eval('[data-weboldal-kerdes]', el => el.innerText)), 'a weboldalon általános bevezető szöveg');
+  await w.type('#kerdes-name', 'Weboldal Vera');
+  await w.type('#kerdes-email', 'vera@pelda.hu');
+  await w.type('#kerdes-message', 'Szia! Lesz szombaton Commander?');
+  await w.screenshot({ path: `${SHOTS}weboldal-irj-nekunk.jpg`, quality: 60 });
+  await w.click('[data-weboldal-kerdes] [data-kerdes-kuld]');
+  await w.waitForSelector('[data-weboldal-kerdes] [data-kerdes-elkuldve]', { timeout: 20000 }).catch(() => {});
+  const wm = await mailFor(x => x.replyTo.includes('vera@pelda.hu'));
+  ok(!!wm && wm.to.includes('bolt@teszt.hu') && /^Üzenet a weboldalról \(Weboldal Vera\)$/.test(wm.subject) && /Commander/.test(wm.text), `a levél a bolt postafiókjába, „Üzenet a weboldalról” tárggyal (${wm?.subject})`);
+  ok((await w.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
+  console.log('  weboldal hibák:', w.errs.join(' | ') || 'nincs');
+
   // --- korlát: e-mail címenként óránként 5 ---
   const codes = [];
   for (let i = 0; i < 6; i++) codes.push((await post({ name: 'Sok', email: 'sok@pelda.hu', message: `Kérdés ${i}` })).status);

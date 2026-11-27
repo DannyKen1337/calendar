@@ -16,7 +16,7 @@ try {
 
   // töltőképernyő az első betöltéskor
   const p = await page(b, null, 1280, 900, { intro: true });
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'domcontentloaded', timeout: 240000 });
+  await p.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 240000 });
   await wait(300);
   const intro = await p.$eval('[data-toltokep]', el => ({ shown: getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0, text: el.textContent }));
   ok(intro.shown && MOOD.test(intro.text), `első betöltéskor töltőképernyő hangulatszöveggel (${intro.text.slice(0, 60)})`);
@@ -29,7 +29,7 @@ try {
   await p.reload({ waitUntil: 'domcontentloaded' });
   await wait(200);
   ok(await p.$eval('[data-toltokep]', el => getComputedStyle(el).display === 'none'), 'újratöltéskor (ugyanabban a munkamenetben) már nem jön');
-  await p.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await p.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
 
   // sorrend
   const order = await p.evaluate((ids) => ids.map(id => { const el = document.getElementById(id); return el ? [...document.querySelectorAll('main section')].indexOf(el) : -1; }), ORDER);
@@ -60,14 +60,14 @@ try {
   await wait(400);
   await p.screenshot({ path: `${SHOTS}fooldal-naptar-gomb.jpg`, quality: 60 });
 
-  // Hírek: minta Facebook- / Instagram-posztok (a behúzás még nincs beállítva)
-  const posts = await p.$$eval('#hirek [data-poszt]', els => els.map(e => ({ src: e.dataset.poszt, pics: +e.dataset.kepek, text: e.textContent })));
-  ok(posts.length === 6 && posts.every(x => /Minta/.test(x.text) && /30\. évfordulós/.test(x.text)), `6 minta poszt a 30. évfordulós ETB-kről (${posts.length})`);
-  ok(posts.map(x => x.pics).join() === '0,1,0,1,5,4' && posts.some(x => x.src === 'instagram') && posts.some(x => x.src === 'facebook'), `kép nélkül, 1 képpel, sok képpel; Facebook és Instagram (${posts.map(x => x.pics).join()})`);
-  ok(await p.$eval('#hirek [data-kepek="5"]', el => /\+1/.test(el.textContent)), 'sok képnél 4 látszik, az utolsón „+1”');
+  // Hírek: amíg nincs behúzott Facebook-poszt (nincs API-kulcs), nincs kitalált poszt, csak a három bolt Facebook-linkje
+  const posts = await p.$$eval('#hirek [data-poszt]', els => els.length);
+  const fb = await p.$$eval('[data-facebook-linkek] a', els => els.map(a => ({ text: a.textContent, href: a.href })));
+  ok(posts === 0 && !/Minta/.test(await p.$eval('#hirek', el => el.innerText)), 'nincsenek minta posztok');
+  ok(fb.length === 3 && fb.every(l => /facebook\.com/.test(l.href)) && /Tavern Debrecen/.test(fb[0].text), `a három bolt Facebook-linkje (${fb.map(l => l.text).join(', ')})`);
   await p.$eval('[data-kozossegi]', el => el.scrollIntoView({ block: 'start' }));
   await wait(600);
-  await p.screenshot({ path: `${SHOTS}fooldal-hirek-minta.jpg`, quality: 60, fullPage: false });
+  await p.screenshot({ path: `${SHOTS}fooldal-hirek.jpg`, quality: 60, fullPage: false });
 
   // Ligák: „Az összes liga” gomb jobbra fent, mint a naptárnál
   const lg = await p.$eval('[data-osszes-liga]', a => { const r = a.getBoundingClientRect(), h = document.getElementById('liga-cim').getBoundingClientRect(); return { h: r.height, right: innerWidth - r.right, top: r.top < h.bottom + 80 && r.bottom > h.top - 80, href: a.getAttribute('href'), cal: a.hasAttribute('data-cal'), bg: getComputedStyle(a).backgroundColor }; });
@@ -93,7 +93,7 @@ try {
 
   // telefon
   const ph = await page(b, null, 402, 874);
-  await ph.goto(`${BASE}/weblapteszt`, { waitUntil: 'networkidle2' });
+  await ph.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
   ok((await ph.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
   const phPre = await ph.evaluate(() => { const r = document.querySelector('[data-elorendeles-sav]').getBoundingClientRect(); return r.bottom <= innerHeight; });
   ok(phPre, 'telefonon is az első képernyőn az Előrendelés sáv');
@@ -104,7 +104,7 @@ try {
   ok(phCta.h >= 64 && phCta.w >= 360, `telefonon a teljes naptár gomb teljes szélességű (${Math.round(phCta.w)}×${Math.round(phCta.h)})`);
   await ph.$eval('[data-kozossegi]', el => el.scrollIntoView({ block: 'start' }));
   await wait(500);
-  await ph.screenshot({ path: `${SHOTS}fooldal-hirek-minta-telefon.jpg`, quality: 60 });
+  await ph.screenshot({ path: `${SHOTS}fooldal-hirek-telefon.jpg`, quality: 60 });
   await ph.$eval('[data-teljes-naptar]', el => el.scrollIntoView({ block: 'center' }));
   await wait(500);
   await ph.screenshot({ path: `${SHOTS}fooldal-naptar-gomb-telefon.jpg`, quality: 60 });
@@ -113,7 +113,7 @@ try {
   await ph.screenshot({ path: `${SHOTS}fooldal-boltok-telefon.jpg`, quality: 60 });
   // a töltőképernyő telefonon
   const pt = await page(b, null, 402, 874, { intro: true });
-  await pt.goto(`${BASE}/weblapteszt`, { waitUntil: 'domcontentloaded' });
+  await pt.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
   await wait(600);
   await pt.screenshot({ path: `${SHOTS}fooldal-tolto-telefon.jpg`, quality: 60 });
   ok(await pt.$eval('[data-toltokep]', el => el.getBoundingClientRect().width <= 402 && getComputedStyle(el).display !== 'none'), 'telefonon is a töltőképernyő');

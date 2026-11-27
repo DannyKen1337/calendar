@@ -32,7 +32,7 @@ try {
   const noGateLogin = await login();
   ok(noGateLogin.status === 404, `kapu nélkül a belépés API is 404 (${noGateLogin.status})`);
   ok((await req('/api/auth/session')).status === 200, 'a munkamenet lekérdezése (nyilvános oldalak) működik');
-  for (const path of ['/', '/embed', '/weblapteszt', `/esemeny/x`]) {
+  for (const path of ['/', '/naptar', '/embed', `/esemeny/x`]) {
     const res = await req(path);
     ok(res.status !== 404 || path.startsWith('/esemeny'), `nyilvános oldal változatlan: ${path} (${res.status})`);
   }

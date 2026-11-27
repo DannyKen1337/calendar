@@ -34,7 +34,8 @@ export async function POST(request) {
     const oid = toObjectId(body.productId);
     const product = oid ? await db.collection('preorder_products').findOne({ _id: oid }, { projection: { name: 1 } }) : null;
 
-    await sendMail({ to, ...questionMail({ ...question, product: product?.name || '' }) });
+    // source: 'weboldal', ha a weboldal „Írj nekünk” részéből jött (más tárgy, ugyanabba a postafiókba)
+    await sendMail({ to, ...questionMail({ ...question, product: product?.name || '', source: body.source === 'weboldal' ? 'weboldal' : '' }) });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('preorder contact error:', error);
