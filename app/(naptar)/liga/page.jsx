@@ -59,7 +59,7 @@ export default async function LeaguesPage() {
           {l.seasons.length > 0 && <span className="block text-sm text-[#cfc6b8] mt-1 underline">Korábbi szezonok ({l.seasons.length})</span>}
         </Link>
       )))}
-      <p className="text-center text-sm m-0"><Link href="/" className="underline text-[#cfc6b8]">Eseménynaptár</Link></p>
+      <p className="text-center text-sm m-0"><Link href="/naptar" className="underline text-[#cfc6b8]">Eseménynaptár</Link></p>
     </Shell>
   );
 }

@@ -24,7 +24,7 @@ function formatDate(dateStr) {
 // Visszalépés: beágyazva az iframe előzményeiben lépünk vissza (oda, ahonnan a látogató jött), különben a naptárra
 function goBack(embed) {
   if (window.history.length > 1) window.history.back();
-  else window.location.href = embed ? '/embed' : '/';
+  else window.location.href = embed ? '/embed' : '/naptar';
 }
 
 // Egy mező hibája (üres szöveg: jó)

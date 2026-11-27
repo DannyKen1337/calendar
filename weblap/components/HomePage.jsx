@@ -23,7 +23,7 @@ import AlbumsLink from '@/weblap/components/AlbumsLink';
 import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL, addDays, dayOf, timeOf, weekdayOf, gameShort, eventUrl } from '@/weblap/lib/calendar';
 import { getGameConfig, DEFAULT_GAME_LOGO } from '@/lib/gameConfig';
 import { navProps } from '@/weblap/lib/site';
-import { withBase, BASE_PATH } from '@/weblap/lib/basePath';
+import { withBase, CALENDAR_PATHS } from '@/weblap/lib/basePath';
 import s from '@/weblap/fooldal.module.css';
 
 const SHORT_DAYS = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
@@ -34,7 +34,7 @@ const ARROW = <span className={s.round} aria-hidden="true"><svg viewBox="0 0 10 
 // A cím rövid formája: város és irányítószám nélkül ("Gambrinus köz", "Nagy Imre u. 17")
 const streetOf = (address) => address.replace(/^(Debrecen|Miskolc), /, '').replace(/ - .*| ?, \d{4}$/, '');
 // A naptár oldalai (esemény, teljes naptár, előrendelés) az oldalon belül, a naptárablakban nyílnak meg
-const opensInCalendar = (href) => !!href && (href.startsWith(CALENDAR_URL) || (href.startsWith('/') && !href.startsWith(BASE_PATH)));
+const opensInCalendar = (href) => !!href && (href.startsWith(CALENDAR_URL) || CALENDAR_PATHS.test(href));
 // Melyik ablakban nyílik a link: az asztalfoglalás a saját („Foglalt” tábla) ablakában, a többi naptároldal a naptárablakban
 const overlayAttrs = (href, title) => {
   if (!opensInCalendar(href)) return {};

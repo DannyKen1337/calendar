@@ -462,7 +462,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
         {has('mailbox') && linkRow(InboxOutlined, 'Beérkezett levelek', 'A rendszer postafiókja', '/admin/levelek')}
         {linkRow(MobileOutlined, 'Check-in', null, '/admin/checkin')}
         {linkRow(BarChartOutlined, 'Statisztika', null, '/admin/statisztika')}
-        {linkRow(GlobalOutlined, 'Nyilvános naptár', null, '/', true)}
+        {linkRow(GlobalOutlined, 'Nyilvános naptár', null, '/naptar', true)}
       </div>
       {!isOwner && (
         <>

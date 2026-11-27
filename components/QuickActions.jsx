@@ -25,7 +25,7 @@ export function quickActionsFor(app) {
     has('users') && ['Felhasználók', '/admin/felhasznalok', TeamOutlined],
     owner && ['Rendszer', '/admin/rendszer', DashboardOutlined],
     has('website') && ['Weboldal', WEBSITE_ADMIN, GlobalOutlined, true],
-    ['Naptár', '/', CalendarOutlined, true],
+    ['Naptár', '/naptar', CalendarOutlined, true],
   ].filter(Boolean);
 }
 

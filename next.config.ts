@@ -7,12 +7,25 @@ const noFraming = [{ key: "X-Frame-Options", value: "DENY" }];
 const nextConfig: NextConfig = {
   // ne árulja el a válasz fejléce, milyen keretrendszer fut
   poweredByHeader: false,
-  // A weboldal (app/(weblap)/weblapteszt) hírszerkesztőjében a feltöltött kép (legfeljebb 4 MB) az űrlappal megy fel
+  // A weboldal (app/(weblap)) hírszerkesztőjében a feltöltött kép (legfeljebb 4 MB) az űrlappal megy fel
   experimental: {
     serverActions: { bodySizeLimit: "5mb" },
     // Az e2e tesztszerver (tests/e2e/server.mjs) lemezes Turbopack-gyorsítótár nélkül fut: egy félbehagyott vagy régi
     // gyorsítótárral a fejlesztői szerver minden oldalt újra és újra betölt, és a tesztek elakadnak
     turbopackFileSystemCacheForDev: process.env.E2E_NO_DEV_CACHE !== "1",
+  },
+  // 2026-11-27 óta a weboldal a gyökérben (a tavern.hu főoldala), a naptár a /naptar címen: a régi címek átirányítanak
+  // (a weboldal szerkesztője és előnézete marad a /weblapteszt/admin, /weblapteszt/elonezet címen)
+  redirects() {
+    return [
+      { source: "/weblapteszt", destination: "/", permanent: true },
+      { source: "/weblapteszt/hirek", destination: "/hirek", permanent: true },
+      { source: "/weblapteszt/hirek/:path*", destination: "/hirek/:path*", permanent: true },
+      { source: "/weblapteszt/galeria", destination: "/galeria", permanent: true },
+      { source: "/weblapteszt/galeria/:path*", destination: "/galeria/:path*", permanent: true },
+      // a régi vercel.app címen a gyökér a naptár volt (megosztott linkek): ott továbbra is a naptárra visz
+      { source: "/", has: [{ type: "host", value: "taverncalendar.vercel.app" }], destination: "/naptar", permanent: false },
+    ];
   },
   headers() {
     return [

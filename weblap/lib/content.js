@@ -5,7 +5,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { getTavernDb, hasDatabase } from '@/weblap/lib/db';
-import { CALENDAR_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL } from '@/weblap/lib/calendar';
+import { CALENDAR_URL, CALENDAR_PAGE_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL } from '@/weblap/lib/calendar';
 import { CONTENT_TABS, tabByKey, sanitizeField, STORE_IDS, STORE_LABELS } from '@/weblap/lib/contentSchema';
 
 const FB = 'https://www.facebook.com/taverndebrecen';
@@ -22,7 +22,7 @@ export const DEFAULT_CONTENT = {
     instagram: IG,
     webshop: WEBSHOP,
     nav: { program: 'Program', hirek: 'Hírek', boltok: 'Boltok', kapcsolat: 'Kapcsolat', galeria: 'Galéria' },
-    cta: { label: 'Naptár', href: CALENDAR_URL },
+    cta: { label: 'Naptár', href: CALENDAR_PAGE_URL },
   },
   hero: {
     sign: { src: '/brand/tavern-ceger.png', alt: 'Tavern – TCG, Board, and Wargame Club and Store', position: '50% 50%' },
@@ -99,7 +99,7 @@ export const DEFAULT_CONTENT = {
     title: 'Írj nekünk',
     text: 'Kérdésed van egy versenyről, egy előrendelésről vagy egy termékről? Mindhárom boltot eléred Facebookon, Messengeren is.',
     links: [
-      { id: 'naptar', label: 'Naptár', href: CALENDAR_URL },
+      { id: 'naptar', label: 'Naptár', href: CALENDAR_PAGE_URL },
       { id: 'ligak', label: 'Ligák', href: LEAGUES_URL },
       { id: 'elorendeles', label: 'Előrendelés', href: PREORDER_URL },
       { id: 'asztalfoglalas', label: 'Asztalfoglalás', href: TABLE_BOOKING_URL },
@@ -117,11 +117,23 @@ const COLLECTION = 'website_content';
 const LIVE_ID = 'site';
 const DRAFT_ID = 'draft';
 
+// A naptár gyökere (a régi vercel.app cím, a beállított naptár-cím, vagy a „/”)
+const OLD_CALENDAR_ORIGINS = new Set(['https://taverncalendar.vercel.app', CALENDAR_URL.replace(/\/$/, '')]);
+function isCalendarRoot(href) {
+  if (typeof href !== 'string') return false;
+  if (href === '/') return true;
+  try { const u = new URL(href); return OLD_CALENDAR_ORIGINS.has(u.origin) && (u.pathname === '/' || u.pathname === '') && !u.search; } catch { return false; }
+}
+
 // A mentett fülek összefésülése az alapértékekkel (a hibás vagy hiányzó mezők helyén az alapérték marad)
 // A boltok neve mindig a hivatalos forma: Tavern Debrecen, JátékCéh, Tavern Miskolc
 function merge(doc) {
   const content = Object.fromEntries(CONTENT_TABS.map(t => [t.key, doc?.[t.key] ? sanitizeField(t.schema, doc[t.key], DEFAULT_CONTENT[t.key]) : DEFAULT_CONTENT[t.key]]));
   content.stores = { ...content.stores, ...Object.fromEntries(STORE_IDS.map(id => [id, { ...content.stores[id], name: STORE_LABELS[id] }])) };
+  // a régebben elmentett „naptár” linkek a naptár gyökerére mutattak; a gyökérben most a weboldal van → /naptar
+  const fixCal = (href) => (isCalendarRoot(href) ? CALENDAR_PAGE_URL : href);
+  if (content.general?.cta) content.general = { ...content.general, cta: { ...content.general.cta, href: fixCal(content.general.cta.href) } };
+  if (Array.isArray(content.contact?.links)) content.contact = { ...content.contact, links: content.contact.links.map(l => ({ ...l, href: fixCal(l.href) })) };
   return content;
 }
 

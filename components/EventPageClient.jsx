@@ -72,7 +72,7 @@ export default function EventPageClient({ eventId, initialEvent, maintenance = f
     <ConfigProvider theme={tavernTheme}>
       {app.contextHolder}
       <Shell>
-        <Link href="/" className={s.back}>‹ Vissza a naptárhoz</Link>
+        <Link href="/naptar" className={s.back}>‹ Vissza a naptárhoz</Link>
 
         <article className={s.card} style={{ boxShadow: `inset 0 0 0 1.5px ${special ? special.color : evt.isFeatured ? '#e5b15d' : '#241b1d'}` }}>
           <div className={s.stripe} style={{ background: special ? special.gradient : color }} aria-hidden="true" />

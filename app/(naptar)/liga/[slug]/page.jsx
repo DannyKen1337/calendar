@@ -73,7 +73,7 @@ export default async function LeaguePage({ params, searchParams }) {
 
         <p className="text-center text-sm m-0 flex justify-center gap-4">
           <Link href="/liga" className="underline text-[#cfc6b8]">Összes liga</Link>
-          <Link href="/" className="underline text-[#cfc6b8]">Eseménynaptár</Link>
+          <Link href="/naptar" className="underline text-[#cfc6b8]">Eseménynaptár</Link>
         </p>
       </div>
     </main>

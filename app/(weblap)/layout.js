@@ -6,8 +6,8 @@ import '@/weblap/globals.css';
 export const metadata = {
   title: 'Tavern – kártya-, társas- és wargame klub és bolt Debrecenben és Miskolcon',
   description: 'Tavern Debrecen, JátékCéh és Tavern Miskolc: versenyek minden héten, ligák, előrendelés és hírek a boltokból.',
-  // Tesztváltozat: a keresők ne vegyék fel
-  robots: { index: false, follow: false },
+  // Élesben a tavern.hu főoldala (a szerkesztő és az előnézet nem kerül a keresőkbe: proxy.js, X-Robots-Tag)
+  robots: { index: true, follow: true },
 };
 
 // A főoldal töltőképernyője (HomePage: [data-toltokep]) munkamenetenként egyszer, az első betöltéskor látszik: ez a kis

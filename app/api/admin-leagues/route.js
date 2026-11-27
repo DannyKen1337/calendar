@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 // A weboldal (főoldal Ligák része) azonnal frissüljön, ha a liga nyilvános adata változik (publikálás, szezonzárás,
 // név / boltok, törlés), ne csak az 5 perces frissítéssel. A naptár /liga oldalai úgyis mindig frissek.
-const refreshWebsite = () => { try { revalidatePath('/(weblap)/weblapteszt', 'layout'); } catch (e) { console.error('weboldal frissítése:', e); } };
+const refreshWebsite = () => { try { revalidatePath('/', 'layout'); } catch (e) { console.error('weboldal frissítése:', e); } };
 
 // Ligák kezelése az admin felületen. Egy játékhoz több liga is lehet (pl. boltonként); a szervező csak az általa kezelt játékok ligáit
 // látja és szerkesztheti. A pontokat a szervező írja be alkalmanként, a játékosok viszont a liga boltjainak

@@ -56,6 +56,8 @@ export function spotsText(e) {
   return cur >= e.max_players ? `Betelt (${e.max_players} fő)` : `${cur} / ${e.max_players} hely`;
 }
 
+// a teljes nyilvános naptár (2026-11-27 óta a /naptar címen; a gyökérben a weboldal van)
+export const CALENDAR_PAGE_URL = `${CALENDAR_URL}/naptar`;
 export const LEAGUES_URL = `${CALENDAR_URL}/liga`;
 export const PREORDER_URL = `${CALENDAR_URL}/elorendeles`;
 export const TABLE_BOOKING_URL = `${CALENDAR_URL}/asztalfoglalas`;

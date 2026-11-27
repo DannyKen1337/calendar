@@ -178,7 +178,7 @@ export default function PreorderPage({ products = [], focusId = null, game = nul
             <p className={s.muted}>Amikor a termék megérkezik, a megadott elérhetőségeiden keresünk.{result.mailSent ? (result.checkoutUrl ? ' A visszaigazolást és a fizetési linket elküldtük e-mailben.' : ' A visszaigazolást elküldtük e-mailben.') : ''}</p>
           </Success>
         </div>
-        {!embed && <nav className={s.back}><Link href="/">Eseménynaptár</Link></nav>}
+        {!embed && <nav className={s.back}><Link href="/naptar">Eseménynaptár</Link></nav>}
       </Shell>
     );
   }
