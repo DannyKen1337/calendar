@@ -1,4 +1,4 @@
-// Telefonos admin: minden ablak (űrlap, lista) és az esemény alsó lapja végiggörgethető, az alja nem vágódik le, és a
+// Telefonos admin: minden ablak (űrlap, lista) és az esemény ablaka végiggörgethető, az alja nem vágódik le, és a
 // rögzített alsó gombsor nem takarja el az utolsó mezőt. Két telefonméreten (402×874 és 375×667): megnyitja az ablakot,
 // minden görgethető részét a végére görgeti, és megnézi, hogy az utolsó tartalom a képernyőn (a gombsor fölött) van-e.
 import { openDb, token, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
@@ -39,6 +39,8 @@ async function measure(p) {
     // levágott tartalom: rejtett túlcsordulású doboz, amiben a tartalom magasabb, mint a doboz
     const clipped = [root, ...root.querySelectorAll('*')].filter(el => {
       const cs = getComputedStyle(el);
+      // a szándékos rövidítés (pl. hosszú leírás „Teljes leírás” gombbal) nem levágás
+      if (cs.webkitLineClamp && cs.webkitLineClamp !== 'none') return false;
       return /(hidden|clip)/.test(cs.overflowY) && el.clientHeight > 60 && el.scrollHeight > el.clientHeight + 8 && !/ant-(select|picker|input|segmented|tabs-nav|table-header|image)/.test(el.className.toString());
     }).map(el => `${el.className.toString().split(' ').filter(c => c.startsWith('ant-') || c.includes('_')).slice(0, 2).join('.')} (${el.scrollHeight}>${el.clientHeight})`);
     const title = (root.querySelector('.ant-modal-title')?.textContent || root.querySelector('h2')?.textContent || '').slice(0, 40);
@@ -67,15 +69,37 @@ try {
     const cb = await card.boundingBox();
     await p.mouse.click(cb.x + cb.width - 20, cb.y + cb.height * 0.45); // a kártya üres része (nem gomb)
     await wait(700);
-    ok(!!(await p.evaluate(() => [...document.querySelectorAll('.ant-drawer')].some(d => d.querySelector('.ant-drawer-body')?.getBoundingClientRect().height > 0))), `${w}×${h}: a kártya bárhol koppintva megnyitja a teendőket`);
-    await closeAll(p);
-    // esemény alsó lapja
+    ok(!!(await p.$('[data-esemeny-ablak]')), `${w}×${h}: a kártya bárhol koppintva megnyitja az esemény ablakát`);
+    // középen, kártyaként (nem alulról, nem teljes képernyőn), jobb felső sarokban X; kívül kattintva bezárul
+    const geo = await p.evaluate(() => {
+      const box = document.querySelector('[data-esemeny-ablak]').closest('.ant-modal-container').getBoundingClientRect();
+      const x = document.querySelector('.esemeny-ablak .ant-modal-close')?.getBoundingClientRect();
+      return { left: box.left, right: innerWidth - box.right, top: box.top, bottom: innerHeight - box.bottom, x: x && { right: box.right - x.right, top: x.top - box.top, w: x.width } };
+    });
+    ok(geo.left >= 8 && geo.right >= 8 && Math.abs(geo.top - geo.bottom) < 40, `${w}×${h}: az esemény ablaka középen, kártyaként (${JSON.stringify({ l: Math.round(geo.left), r: Math.round(geo.right), t: Math.round(geo.top), b: Math.round(geo.bottom) })})`);
+    ok(geo.x && geo.x.right < 30 && geo.x.top < 30 && geo.x.w >= 24, `${w}×${h}: jobb felső sarokban X`);
+    const txt = await p.$eval('[data-esemeny-ablak]', el => el.innerText);
+    ok(/Hosszú Pokémon verseny/.test(txt) && /Tavern Debrecen, Gambrinus köz/.test(txt) && /Szervező/.test(txt) && /Leírás/.test(txt) && /Jatekos0/.test(txt) && /40\s*\/\s*40/.test(txt) && /Szerkesztés/.test(txt), `${w}×${h}: az ablakban az esemény adatai (hely, szervező, leírás, létszám, jelentkezők) és a gombok`);
+    await p.mouse.click(Math.max(4, geo.left / 2), 6 + Math.max(0, geo.top / 2)); // az ablakon kívül
+    await wait(700);
+    ok(!(await p.evaluate(() => !!document.querySelector('[data-esemeny-ablak]') && document.querySelector('[data-esemeny-ablak]').getBoundingClientRect().height > 0)), `${w}×${h}: az ablakon kívül kattintva bezárul`);
+    // az X is bezárja
+    await p.click('[data-kartya] > button'); await wait(700);
+    await p.click('.esemeny-ablak .ant-modal-close'); await wait(700);
+    ok(!(await p.evaluate(() => document.querySelector('[data-esemeny-ablak]')?.getBoundingClientRect().height > 0)), `${w}×${h}: az X bezárja`);
+    // esemény ablaka: a végéig görgethető
     await p.click('[data-kartya] > button');
     await wait(700);
-    report('esemény alsó lapja', await measure(p), `${w}×${h}`);
+    report('esemény ablaka', await measure(p), `${w}×${h}`);
     await p.screenshot({ path: `${SHOTS}telefon-ablak-lap-${h}.jpg`, quality: 60 });
-    // Jelentkezők (45 fő)
-    await clickText(p, 'Jelentkezők');
+    // hosszú leírás: „Teljes leírás” gombbal kinyílik
+    const before = await p.$eval('[data-esemeny-ablak] p[class*="dDescText"]', el => el.getBoundingClientRect().height);
+    await clickText(p, 'Teljes leírás');
+    await wait(300);
+    const after = await p.$eval('[data-esemeny-ablak] p[class*="dDescText"]', el => el.getBoundingClientRect().height);
+    ok(after > before + 20, `${w}×${h}: a hosszú leírás „Teljes leírás” gombbal kinyílik (${Math.round(before)} → ${Math.round(after)} px)`);
+    // Jelentkezők (45 fő): az ablak gombjával
+    await p.evaluate(() => [...document.querySelectorAll('[data-esemeny-ablak] button')].find(x => x.textContent.trim() === 'Jelentkezők')?.click());
     await wait(900);
     report('Jelentkezők ablak', await measure(p), `${w}×${h}`);
     const regs = await p.evaluate(() => {

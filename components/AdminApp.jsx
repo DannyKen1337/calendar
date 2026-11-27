@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
-import { ConfigProvider, Drawer, Popconfirm, Switch } from 'antd';
+import { ConfigProvider, Modal, Popconfirm, Switch } from 'antd';
 import {
   SyncOutlined, RightOutlined, LeftOutlined, MobileOutlined, UnorderedListOutlined, EditOutlined, CopyOutlined, LockOutlined,
   UnlockOutlined, DeleteOutlined, LinkOutlined, ShareAltOutlined, FormOutlined, SearchOutlined, CloseOutlined, HistoryOutlined,
@@ -15,6 +15,8 @@ import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
 import { STORE_NAMES } from '@/lib/permissions';
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { rgnEventId } from '@/lib/rgn';
+import { getEventTypeConfig } from '@/lib/eventTypes';
+import { STORE_INFO } from '@/lib/storeInfo';
 import { dayOccupancy, eventDay, STORE_IDS } from '@/lib/occupancy';
 import OccupancyManager from '@/components/OccupancyManager';
 import TableBookingAdmin from '@/components/TableBookingAdmin';
@@ -563,19 +565,20 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       </div>
 
       <PullToRefresh onRefresh={refresh} />
-      <EventSheet app={app} evt={selectedEvent} onClose={() => setSelected(null)} />
+      <EventDialog app={app} evt={selectedEvent} onClose={() => setSelected(null)} />
       <AdminModals app={app} />
     </ConfigProvider>
   );
 }
 
-// Egy esemény összes teendője alulról felcsúszó lapon
-function EventSheet({ app, evt, onClose }) {
+// Egy esemény adatai és teendői középre nyíló ablakban (az eseményre koppintva, gépen a névre kattintva). Jobb felső
+// sarokban X, és az ablakon kívül kattintva is bezárul. Telefonon sem teljes képernyős (app.css: .esemeny-ablak kivétel).
+function EventDialog({ app, evt, onClose }) {
   const open = !!evt;
   const [last, setLast] = useState(evt);
-  const dragRef = useRef(null);
-  // Bezáráskor a lap még lecsúszik: addig az utolsó esemény maradjon rajta
-  if (evt && evt !== last) setLast(evt);
+  const [longText, setLongText] = useState(false);
+  // Bezáráskor az ablak még elhalványul: addig az utolsó esemény maradjon rajta
+  if (evt && evt !== last) { setLast(evt); setLongText(false); }
   const e = evt || last;
   if (!e) return null;
 
@@ -587,22 +590,11 @@ function EventSheet({ app, evt, onClose }) {
   const closed = !e.is_open;
   const run = (fn) => () => { onClose(); fn(); };
   const d = new Date(`${eventDay(e)}T12:00:00`);
-
-  // A lap fejrészét lefelé húzva bezárul
-  const dragStart = (ev) => { dragRef.current = { y: ev.touches[0].clientY, panel: ev.currentTarget.closest('.ant-drawer-section'), dy: 0 }; };
-  const dragMove = (ev) => {
-    const drag = dragRef.current;
-    if (!drag?.panel) return;
-    drag.dy = Math.max(0, ev.touches[0].clientY - drag.y);
-    drag.panel.style.transform = `translateY(${drag.dy}px)`;
-  };
-  const dragEnd = () => {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (!drag?.panel) return;
-    drag.panel.style.transform = '';
-    if (drag.dy > 80) onClose();
-  };
+  const type = e.eventType && e.eventType !== 'tournament' ? getEventTypeConfig(e.eventType) : null;
+  const store = STORE_INFO[e.store || 'debrecen'];
+  const hosts = app.hostNames(e);
+  const description = String(e.description || '').trim();
+  const longDesc = description.length > 280 || description.split('\n').length > 5;
 
   const share = async () => {
     const url = eventShareUrl(e);
@@ -619,34 +611,70 @@ function EventSheet({ app, evt, onClose }) {
       : <Link key={key} className={s.action} href={href}>{icon}<span>{label}</span></Link>;
     return <button key={key} type="button" className={s.action} onClick={onClick}>{icon}<span>{label}</span></button>;
   };
+  const row = (label, value) => (value ? <div className={s.dRow}><dt>{label}</dt><dd>{value}</dd></div> : null);
 
   return (
-    <Drawer open={open} onClose={onClose} placement="bottom" size="auto" title={null} closable={false} rootClassName={s.sheetRoot}>
-      <div className={s.sheetBody}>
-        <span className={s.sheetDrag} onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd} onTouchCancel={dragEnd}><span className={s.grabber} aria-hidden="true" /></span>
-        <div className={s.sheetHead} onTouchStart={dragStart} onTouchMove={dragMove} onTouchEnd={dragEnd} onTouchCancel={dragEnd}>
+    <Modal
+      open={open}
+      onCancel={onClose}
+      centered
+      footer={null}
+      width={560}
+      className="esemeny-ablak"
+      closeIcon={<CloseOutlined style={{ color: '#E5B15D' }} />}
+      title={null}
+      styles={{ container: { padding: 0, overflow: 'hidden', background: '#1d1517' }, body: { padding: 0 } }}
+    >
+      <div className={s.dBody} data-esemeny-ablak>
+        {e.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={s.dImage} src={e.imageUrl} alt="" onError={(ev) => { ev.currentTarget.style.display = 'none'; }} />
+        )}
+        <div className={s.dHead}>
           <p className={s.sheetWhen}>{cap(`${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}.`)} · {timeOf(e)}</p>
           <h2 className={s.sheetTitle}>{e.name}</h2>
-          <p className={s.sheetMeta}>
-            {e.category || 'Egyéb'} · {STORES[e.store || 'debrecen']?.name}
-            {app.hostNames(e).length > 0 && <> · Tartja: {app.hostNames(e).join(', ')}</>}
-          </p>
-          {c.counted ? (
-            <div className={s.sheetCap}>
-              <div className={s.sheetCapRow}>
-                <b className={s.num}>{c.cur}<span>{c.max ? ` / ${c.max}` : ''}</span></b>
-                <span className={c.full ? s.gold : s.ok}>{[c.full ? 'Betelt' : c.max ? `${Math.max(0, c.max - c.cur)} hely szabad` : '', e.queue_count > 0 ? `${e.queue_count} várólistán` : ''].filter(Boolean).join(' · ')}</span>
-              </div>
-              <CapBar e={e} c={c} big />
-              {hasRegs && <span className={s.quiet}>{closed ? 'Jelentkezés lezárva' : 'Jelentkezés nyitva'}</span>}
-            </div>
-          ) : (
-            <p className={s.sheetMeta}>Létszám: <b>{c.text}</b></p>
-          )}
-          {!manage && <p className={s.sheetMeta}>Csak megtekintés: ezt az eseményt nem kezelheted.</p>}
-          {!manage && <AttendeeNames attendees={e.attendees} max={12} size="small" />}
-          <button type="button" className={s.sheetClose} onClick={onClose} aria-label="Bezárás"><CloseOutlined /></button>
+          <div className={s.dChips}>
+            <span className={s.dChip}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{e.category || 'Egyéb'}</span>
+            {type && <span className={s.dChip} style={{ color: type.color }}>{type.label}</span>}
+            {e.isFeatured && <span className={s.dChip} style={{ color: '#e5b15d' }}>Kiemelt</span>}
+            {e.decklistEnabled && <span className={s.dChip}>Decklist</span>}
+            {isRgn ? <span className={s.dChip}>Riftbound jelentkezés</span> : e.external_url ? <span className={s.dChip}>Külső jelentkezés</span> : null}
+          </div>
         </div>
+
+        {c.counted ? (
+          <div className={s.sheetCap}>
+            <div className={s.sheetCapRow}>
+              <b className={s.num}>{c.cur}<span>{c.max ? ` / ${c.max}` : ''}</span></b>
+              <span className={c.full ? s.gold : s.ok}>{[c.full ? 'Betelt' : c.max ? `${Math.max(0, c.max - c.cur)} hely szabad` : '', e.queue_count > 0 ? `${e.queue_count} várólistán` : ''].filter(Boolean).join(' · ')}</span>
+            </div>
+            <CapBar e={e} c={c} big />
+            {hasRegs && <span className={s.quiet}>{closed ? 'Jelentkezés lezárva' : 'Jelentkezés nyitva'}</span>}
+          </div>
+        ) : null}
+
+        <dl className={s.dList}>
+          {row('Helyszín', store ? `${store.name}${store.streetAddress ? `, ${store.streetAddress}` : ''}` : STORES[e.store || 'debrecen']?.name)}
+          {row('Szervező', hosts.length ? hosts.join(', ') : 'nincs megadva')}
+          {!c.counted && row('Létszám', c.text)}
+          {e.eventType === 'community' && row('Lefoglalt helyek', `${c.reserved} hely a napi telítettségből`)}
+          {e.isOpenAttendance && e.eventType !== 'community' && row('Jelentkezés', 'nincs, kötetlen létszám')}
+          {!manage && row('Jogosultság', 'Csak megtekintés: ezt az eseményt nem kezelheted.')}
+        </dl>
+
+        {description && (
+          <div className={s.dDesc}>
+            <p className={`${s.dDescText} ${longDesc && !longText ? s.dDescClamp : ''}`}>{description}</p>
+            {longDesc && <button type="button" className={s.dMore} onClick={() => setLongText(v => !v)}>{longText ? 'Kevesebb' : 'Teljes leírás'}</button>}
+          </div>
+        )}
+
+        {(e.attendees || []).length > 0 && (
+          <div className={s.dAttendees}>
+            <p className={s.dLabel}>Jelentkezők</p>
+            <AttendeeNames attendees={e.attendees} max={16} size="small" />
+          </div>
+        )}
 
         <div className={s.actions}>
           {manage && hasRegs && action('checkin', <MobileOutlined />, 'Check-in', { href: checkinPageUrl(e) })}
@@ -666,6 +694,6 @@ function EventSheet({ app, evt, onClose }) {
           </Popconfirm>
         )}
       </div>
-    </Drawer>
+    </Modal>
   );
 }

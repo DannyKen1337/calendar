@@ -1,5 +1,5 @@
 // Admin (a látványterv szerint, Tavern-arculat): telítettségsáv a kártyákon és a táblázatban, állapotcímke, MA jelölés,
-// kiemelt Check-in gomb, telítettség az esemény alsó lapján, helyszám-léptető a foglalásnál, ikonok a Továbbiak fülön.
+// kiemelt Check-in gomb, telítettség az esemény ablakában, helyszám-léptető a foglalásnál, ikonok a Továbbiak fülön.
 import { openDb, token, browser, page, ok, summary, wait, SHOTS, BASE } from './lib.mjs';
 
 const { client, db } = await openDb();
@@ -36,17 +36,17 @@ try {
   ok((await p.evaluate(() => document.documentElement.scrollWidth)) === 402, 'telefonon nincs vízszintes görgetés');
   await p.screenshot({ path: `${SHOTS}admin-esemenyek.jpg`, quality: 60 });
 
-  // Egy esemény alsó lapja
+  // Egy esemény ablaka (középen)
   await p.evaluate(() => [...document.querySelectorAll('[data-kartya] button')].find(x => x.textContent.includes('Pokémon Liga')).click());
   await wait(700);
-  ok(await p.evaluate(() => !!document.querySelector('.ant-drawer-open [data-sav]') && /Betelt/.test(document.querySelector('.ant-drawer-open')?.innerText || '')), 'alsó lap: telítettségkártya');
-  ok(await p.evaluate(() => getComputedStyle(document.querySelector('.ant-drawer-open [data-sav] > span')).backgroundColor === 'rgb(229, 177, 93)'), 'alsó lap: a sáv arany (a portálban is)');
+  ok(await p.evaluate(() => !!document.querySelector('[data-esemeny-ablak] [data-sav]') && /Betelt/.test(document.querySelector('[data-esemeny-ablak]')?.innerText || '')), 'esemény ablaka: telítettségkártya');
+  ok(await p.evaluate(() => getComputedStyle(document.querySelector('[data-esemeny-ablak] [data-sav] > span')).backgroundColor === 'rgb(229, 177, 93)'), 'esemény ablaka: a sáv arany (a portálban is)');
   await p.screenshot({ path: `${SHOTS}admin-lap.jpg`, quality: 60 });
   await p.keyboard.press('Escape');
   await wait(500);
   await p.evaluate(() => [...document.querySelectorAll('[data-kartya] button')].find(x => x.textContent.includes('Lorcana kezdő')).click());
   await wait(700);
-  ok(await p.evaluate(() => /2 várólistán/.test(document.querySelector('.ant-drawer-open')?.innerText || '')), 'alsó lap: a várólista akkor is látszik, ha nincs tele');
+  ok(await p.evaluate(() => /2 várólistán/.test(document.querySelector('[data-esemeny-ablak]')?.innerText || '')), 'esemény ablaka: a várólista akkor is látszik, ha nincs tele');
   await p.keyboard.press('Escape');
   await wait(500);
 

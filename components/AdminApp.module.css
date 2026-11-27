@@ -139,18 +139,25 @@ button.tool:hover, a.tool:hover { background: #1d1617; }
 .tip { margin: 8px 2px; color: var(--faint); font-size: 13px; }
 
 /* Teendőlap (antd Drawer alulról) */
-.sheetRoot :global(.ant-drawer-section), .sheetRoot :global(.ant-drawer-content) { max-height: 88dvh; border-radius: 18px 18px 0 0; background: #1d1517; color: #f3ece3; }
-.sheetRoot :global(.ant-drawer-body) { padding: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.sheetRoot :global(.ant-drawer-mask) { background: rgba(0, 0, 0, 0.55); }
-.sheetBody { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 10px max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 16px) max(16px, env(safe-area-inset-left)); font-family: var(--font-manrope), system-ui, sans-serif; }
-.sheetDrag { display: flex; justify-content: center; margin: -10px 0 -4px; padding: 10px 40px; align-self: center; touch-action: none; }
-.grabber { align-self: center; width: 38px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); }
-.sheetHead { position: relative; padding: 2px 44px 12px 0; border-bottom: 1px solid #2c2124; }
+/* Az esemény ablaka (EventDialog): középre nyíló kártya, portálban (fix színek, a CSS-változók itt nem érvényesek) */
+.dBody { display: flex; flex-direction: column; gap: 14px; max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; padding: 20px 18px 18px; color: #f3ece3; font-family: var(--font-manrope), system-ui, sans-serif; }
+.dImage { display: block; width: calc(100% + 36px); max-width: none; height: 150px; margin: -20px -18px 0; object-fit: cover; }
+.dHead { padding-right: 36px; }
+.dChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.dChip { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 999px; background: #2a2022; color: #b8aca7; font-size: 13px; font-weight: 700; }
+.dList { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.dRow { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+.dRow dt { color: #9a8d89; }
+.dRow dd { margin: 0; color: #f3ece3; overflow-wrap: anywhere; }
+.dDesc { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px; border-radius: 12px; background: #211819; }
+.dDescText { margin: 0; color: #d8cec6; font-size: 14px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
+.dDescClamp { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.dMore { min-height: 36px; padding: 0; border: 0; background: transparent; color: #e5b15d; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.dLabel { margin: 0 0 6px; color: #9a8d89; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .sheetWhen { margin: 0 0 4px; color: #e5b15d; font-size: 14px; font-weight: 700; }
 .sheetTitle { margin: 0 0 6px; font-size: 21px; line-height: 1.2; font-weight: 800; color: #f3ece3; }
 .sheetMeta { margin: 0; color: #b8aca7; font-size: 14px; }
 .sheetMeta b { color: #f3ece3; }
-.sheetClose { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 999px; background: #2a2022; color: #b8aca7; cursor: pointer; }
 .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .action { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px; border: 0; border-radius: 10px; background: #2a2022; color: #f3ece3 !important; font: inherit; font-size: 15px; font-weight: 600; text-align: left; text-decoration: none; cursor: pointer; }
 .action > :first-child { color: #b8aca7; font-size: 17px; }
