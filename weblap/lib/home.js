@@ -1,6 +1,7 @@
 // A főoldal adatai: a boltok (a tartalomból, a naptár közelgő eseményeivel és a mostani nyitva / zárva állapottal)
 // és a következő hét nap programja boltonként.
-import { getUpcomingEvents, budapestNow } from '@/weblap/lib/calendar';
+import { budapestNow } from '@/weblap/lib/calendar';
+import { getUpcomingEvents } from '@/weblap/lib/upcoming';
 import { storeStatus, weekByStore } from '@/weblap/lib/stores';
 import { STORE_IDS } from '@/weblap/lib/contentSchema';
 

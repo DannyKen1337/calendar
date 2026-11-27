@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isCrossOriginWrite } from '@/lib/requestGuard';
 import { buildCsp, newNonce } from '@/lib/csp';
 import { adminPath, isGatedPage, isGatedApi, passesGate, gateToken, GATE_COOKIE, GATE_MAX_AGE } from '@/lib/adminGate';
+import { isTestEnv, testOpenPath, testSessionUser, liveUrlFor } from '@/lib/testEnv';
 
 // Minden kérés előtt fut (Next 16: a régi middleware neve proxy).
 // - Rejtett admin (ADMIN_PATH, lib/adminGate.js): a titkos cím kaput nyit (süti), kapu nélkül az admin, a weboldal
@@ -10,6 +11,7 @@ import { adminPath, isGatedPage, isGatedApi, passesGate, gateToken, GATE_COOKIE,
 // - Oldalak: Content-Security-Policy kérésenként új nonce-szal (lib/csp.js). A Next a kérés CSP-fejlécéből veszi ki a
 //   nonce-ot, és ráteszi a saját scriptjeire; a saját inline scriptjeink az x-nonce fejlécből kapják meg.
 const SESSION_COOKIE = 'tavern_session';
+const FRESH_COOKIE = 'tavern_friss';
 const prod = process.env.NODE_ENV === 'production';
 
 const gateCookieOptions = { httpOnly: true, secure: prod, sameSite: 'lax', path: '/', maxAge: GATE_MAX_AGE };
@@ -29,6 +31,13 @@ function withCsp(request, pathname, rewriteTo = null) {
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
+
+  // Tesztkörnyezet (lib/testEnv.js): csak a tesztfiókokkal belépve látható; aki nincs belépve, az élő oldal ugyanazon
+  // címére kerül. A belépő oldal és a belépés nyitva van.
+  if (isTestEnv() && !testOpenPath(pathname) && !(await testSessionUser(request.cookies.get(SESSION_COOKIE)?.value))) {
+    if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Ez a tesztkörnyezet: csak a tesztfiókokkal, belépve érhető el.' }, { status: 401 });
+    return NextResponse.redirect(liveUrlFor(request.url), 307);
+  }
   const gate = adminPath();
   let setGateCookie = false;
 
@@ -62,10 +71,17 @@ export async function proxy(request) {
     if (isCrossOriginWrite({ method: request.method, origin: request.headers.get('origin'), host })) {
       return NextResponse.json({ error: 'Ezt a kérést csak a Tavern oldaláról lehet elküldeni.' }, { status: 403 });
     }
-    return NextResponse.next();
+    const res = NextResponse.next();
+    // Írás után egy percig a nyilvános naptár a CDN tárolója helyett friss adatot kér (app/useCalendar.js,
+    // lib/publicCache.js): aki jelentkezett vagy módosított, rögtön a saját változtatását látja
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method) && pathname !== '/api/csp-report') {
+      res.cookies.set(FRESH_COOKIE, '1', { path: '/', maxAge: 60, sameSite: 'lax', secure: prod });
+    }
+    return res;
   }
 
   const response = withCsp(request, pathname);
+  if (isTestEnv()) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   if (setGateCookie) response.cookies.set(GATE_COOKIE, await gateToken(gate), gateCookieOptions);
   if (gate && isGatedPage(pathname)) response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   return response;

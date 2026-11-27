@@ -12,6 +12,7 @@ import { DEFAULT_RULES, POINTS_MAX, LEAGUE_NAME_MAX, SESSION_TITLE_MAX, sanitize
 import { parseTdf, sanitizeTdfRules, tdfPoints, defaultTdfNickname, isFullNameNickname, TDF_CATEGORY, TDF_MAX_BYTES } from '@/lib/tdf';
 import { parseOpCsv, opPoints, bandaiKey, OP_CSV_CATEGORY, OP_CSV_MAX_BYTES } from '@/lib/opCsv';
 import { syncLeaguePlayers, leagueSeasonStart, playerKeys } from '@/lib/leagueSync';
+import { refreshPublic, TAG } from '@/lib/publicCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,7 +110,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const session = await verifyAdmin();
     if (!session) return NextResponse.json({ error: 'Nincs jogosultságod a művelethez!' }, { status: 401 });
@@ -520,4 +521,11 @@ export async function POST(request) {
     await logSystemError('admin-leagues POST', error);
     return NextResponse.json({ error: 'A művelet nem sikerült.' }, { status: 500 });
   }
+}
+
+// Minden sikeres módosítás után a nyilvános ligaoldalak és a weboldal Ligák része azonnal frissül (lib/publicCache.js)
+export async function POST(request) {
+  const res = await handlePOST(request);
+  if (res.status < 400) refreshPublic(TAG.liga);
+  return res;
 }

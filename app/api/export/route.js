@@ -106,7 +106,10 @@ export async function GET(request) {
       status: 200,
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${eventId ? 'tavern_esemeny' : 'tavern_versenyek'}.ics"`
+        'Content-Disposition': `attachment; filename="${eventId ? 'tavern_esemeny' : 'tavern_versenyek'}.ics"`,
+        // a naptár-előfizetések (Google, Apple) gyakran lekérik: a Vercel CDN 5 percig maga szolgálja ki
+        'Cache-Control': 'public, max-age=0, must-revalidate',
+        'Vercel-CDN-Cache-Control': 'max-age=300, stale-while-revalidate=600',
       }
     });
   } catch (error) {

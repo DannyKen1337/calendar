@@ -10,6 +10,7 @@ import 'server-only';
 import { fromOldOrigin } from '@/weblap/lib/content';
 import { ObjectId } from 'mongodb';
 import { getTavernDb, hasDatabase } from '@/weblap/lib/db';
+import { cachedPublic, TAG } from '@/lib/publicCache';
 import { getFacebookPosts, getInstagramPosts } from '@/weblap/lib/social';
 
 export const SOURCE_NAMES = { manual: 'Tavern', facebook: 'Facebook', instagram: 'Instagram' };
@@ -70,8 +71,11 @@ async function loadAll({ includeDrafts, preview }) {
 }
 
 // A nyilvános hírfolyam (elrejtett és piszkozat nélkül). preview: az előnézeté. Hiba esetén üres lista.
+// a kirakott hírfolyam a gyorsítótárból (lib/publicCache.js; a kirakás azonnal frissíti), az előnézeté mindig friss
+const liveFeed = cachedPublic(async () => (await loadAll({ includeDrafts: false, preview: false })).filter(p => !p.hidden).slice(0, 60), 'weblap-hirek', [TAG.weblap]);
 export async function getFeed(limit = 6, { preview = false } = {}) {
   try {
+    if (!preview) return (await liveFeed()).slice(0, limit);
     return (await loadAll({ includeDrafts: false, preview })).filter(p => !p.hidden).slice(0, limit);
   } catch (err) {
     console.error('hírek betöltése:', err);
@@ -83,12 +87,16 @@ export async function getFeed(limit = 6, { preview = false } = {}) {
 export const getAllForEditor = () => loadAll({ includeDrafts: true, preview: true });
 
 // Egy kirakott hír a saját oldalához (csak megjelenő). preview: az előnézet munkapéldányából
-export async function getManualPost(id, { preview = false } = {}) {
-  if (!hasDatabase() || !ObjectId.isValid(id) || String(id).length !== 24) return null;
+async function loadManualPost(id, preview) {
   const db = await getTavernDb();
   await ensureStaging(db);
   const p = await db.collection((preview ? WORK : LIVE).posts).findOne({ _id: new ObjectId(id), published: true });
   return p ? manualPost(p) : null;
+}
+const liveManualPost = cachedPublic((id) => loadManualPost(id, false), 'weblap-hir', [TAG.weblap]);
+export async function getManualPost(id, { preview = false } = {}) {
+  if (!hasDatabase() || !ObjectId.isValid(id) || String(id).length !== 24) return null;
+  return preview ? loadManualPost(id, true) : liveManualPost(String(id));
 }
 
 // A hírek eltérései a kirakott állapottól: { added: [cím], changed: [cím], removed: [cím], flags: szám }

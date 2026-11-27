@@ -21,6 +21,7 @@ import { SERIES_ID_RE, SERIES_FIELDS, seriesMembers } from '@/lib/series';
 import { effectiveAccess, getGroupsMap, grantLevel1 } from '@/lib/userAccess';
 import { syncRgnEvent } from '@/lib/rgnSync';
 import { rgnEventId } from '@/lib/rgn';
+import { refreshPublic, TAG } from '@/lib/publicCache';
 
 const TEMP_PASSWORD_TTL_MS = 7 * 24 * 60 * 60 * 1000; // az ideiglenes jelszó 7 napig érvényes
 
@@ -206,7 +207,7 @@ async function sendUnsubscribeMail(request, { email, reg, token }) {
   await sendMail({ to: email, subject: `Leiratkozás megerősítése: ${reg.tournamentName}`, html });
 }
 
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const body = await request.json();
     const { actionType, payload } = body;
@@ -979,4 +980,16 @@ export async function POST(request) {
     await logSystemError('actions', error);
     return NextResponse.json({ error: 'Szerverhiba történt.' }, { status: 500 });
   }
+}
+
+// Minden sikeres művelet után a nyilvános naptár (eseményoldal, jelentkezés, weboldal heti programja) azonnal frissül;
+// a takarítás után minden nyilvános adat (lib/publicCache.js)
+export async function POST(request) {
+  const actionType = await request.clone().json().then(b => b?.actionType).catch(() => null);
+  const res = await handlePOST(request);
+  if (res.status < 400) {
+    if (actionType === 'CLEANUP_OLD_EVENTS') refreshPublic();
+    else refreshPublic(TAG.naptar);
+  }
+  return res;
 }

@@ -371,6 +371,33 @@ function LogView() {
   );
 }
 
+// Tesztkörnyezetben (lib/testEnv.js): friss másolat az éles adatokról (az éleshez nem nyúl; a teszt adatai lecserélődnek)
+function TestCopyCard() {
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, msgCtx] = message.useMessage();
+  useEffect(() => { fetch('/api/test-env').then(r => (r.ok ? r.json() : null)).then(setInfo).catch(() => {}); }, []);
+  if (!info?.testEnv) return null;
+  const copy = async () => {
+    if (!window.confirm('Lecseréled a teszt adatait az éles adatok friss másolatára? A tesztben végzett módosítások elvesznek.')) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/test-env', { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error);
+      msg.success('Kész: a teszt az éles adatok friss másolatával dolgozik.');
+    } catch (err) { msg.error(err.message || 'A másolás nem sikerült.'); } finally { setBusy(false); }
+  };
+  return (
+    <div className={panel} data-teszt-masolat style={{ borderColor: '#d9363e', marginBottom: 16 }}>
+      {msgCtx}
+      <div style={{ fontWeight: 800, color: '#f3ece3', marginBottom: 4 }}>Tesztkörnyezet</div>
+      <div style={{ color: '#baaaac', fontSize: 13, marginBottom: 12 }}>Ez nem az élő oldal: saját adatbázissal fut ({info.db}), innen nem megy ki levél és értesítés a valódi címzetteknek.</div>
+      <Button onClick={copy} loading={busy} icon={<ReloadOutlined />}>Friss másolat az éles adatokról</Button>
+    </div>
+  );
+}
+
 export default function SystemDashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -400,7 +427,7 @@ export default function SystemDashboard() {
       <Tabs activeKey={tab} onChange={setTab} items={[
         {
           key: 'overview', label: 'Áttekintés',
-          children: data ? <Overview data={data} onRefresh={manualRefresh} refreshing={refreshing} />
+          children: data ? <><TestCopyCard /><Overview data={data} onRefresh={manualRefresh} refreshing={refreshing} /></>
             : <div className={panel} style={{ color: error ? '#e5534b' : '#E5B15D' }}>{error || 'Betöltés...'}</div>,
         },
         { key: 'logs', label: 'Napló', children: <LogView /> },

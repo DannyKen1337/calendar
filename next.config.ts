@@ -7,6 +7,8 @@ const noFraming = [{ key: "X-Frame-Options", value: "DENY" }];
 const nextConfig: NextConfig = {
   // ne árulja el a válasz fejléce, milyen keretrendszer fut
   poweredByHeader: false,
+  // a helyi tesztkörnyezet (scripts/teszt-inditas.sh) külön build-mappát használ, hogy a tesztek szerverével ne akadjon össze
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // A weboldal (app/(weblap)) hírszerkesztőjében a feltöltött kép (legfeljebb 4 MB) az űrlappal megy fel
   experimental: {
     serverActions: { bodySizeLimit: "5mb" },

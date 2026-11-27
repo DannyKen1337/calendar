@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import '@/weblap/globals.css';
+import TestBadge from '@/components/TestBadge';
 
 // A Tavern weboldal saját gyökér-layoutja (a naptárétól külön: más betűk, más alapstílus). A naptár oldalai az
 // app/(naptar) alatt vannak; a kettő között átlépve a böngésző az egész oldalt újratölti.
@@ -22,7 +23,7 @@ export default async function WebsiteLayout({ children }) {
   return (
     <html lang="hu" suppressHydrationWarning>
       <head><script nonce={nonce} dangerouslySetInnerHTML={{ __html: INTRO }} /></head>
-      <body>{children}</body>
+      <body>{children}<TestBadge /></body>
     </html>
   );
 }

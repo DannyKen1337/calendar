@@ -8,6 +8,7 @@ import { toObjectId } from '@/lib/preorderData';
 import { messagingStatus } from '@/lib/messages';
 import { isMailConfigured, sendMail } from '@/lib/mailer';
 import { sanitizeArrival, arrivalMail, arrivalRecipients, ARRIVAL_DAILY_MAX } from '@/lib/arrivalMail';
+import { refreshPublic, TAG } from '@/lib/publicCache';
 
 export const dynamic = 'force-dynamic';
 // A „Megérkezett” értesítő sok levelet küldhet egyszerre
@@ -48,7 +49,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const session = await verifyAdmin();
     if (!session) return NextResponse.json({ error: 'Nincs jogosultságod a művelethez!' }, { status: 401 });
@@ -196,4 +197,11 @@ export async function POST(request) {
     await logSystemError('admin-preorders POST', error);
     return NextResponse.json({ error: 'A művelet nem sikerült.' }, { status: 500 });
   }
+}
+
+// Minden sikeres módosítás után a nyilvános előrendelő oldal és a weboldal azonnal frissül (lib/publicCache.js)
+export async function POST(request) {
+  const res = await handlePOST(request);
+  if (res.status < 400) refreshPublic(TAG.elorendeles);
+  return res;
 }

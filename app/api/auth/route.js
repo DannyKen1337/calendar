@@ -8,6 +8,7 @@ import { isRateLimited, recordAttempt } from '@/lib/rateLimit';
 import { FAIL_LIMIT, IP_LIMIT, LOGIN_WINDOW_MS, failKey, ipKey } from '@/lib/loginLocks';
 import { passwordProblem } from '@/lib/passwordPolicy';
 import { consumeRateLimit } from '@/lib/rateLimit';
+import { isTestEnv, isTestUser } from '@/lib/testEnv';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,9 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // Tesztkörnyezet (lib/testEnv.js): csak belépni lehet, és csak a tesztfiókokkal
+    if (isTestEnv() && action !== 'login') return NextResponse.json({ error: 'A tesztkörnyezetben csak belépni lehet.' }, { status: 403 });
+
     // --- BEJELENTKEZÉS ---
     if (action === 'login') {
       if (typeof loginId !== 'string' || typeof password !== 'string') {
@@ -103,6 +107,7 @@ export async function POST(request) {
         return NextResponse.json({ error: "Hibás adatok!" }, { status: 401 });
       }
       if (user.disabled) return NextResponse.json({ error: "Ez a fiók fel van függesztve. Keresd a tulajdonost." }, { status: 403 });
+      if (isTestEnv() && !isTestUser(user.username)) return NextResponse.json({ error: 'Ez a tesztkörnyezet: ide csak a tesztfiókok léphetnek be. Az éles oldal: www.tavern.hu' }, { status: 403 });
 
       // Ideiglenes jelszóval NEM lehet belépni: csak jelszóbeállításra jogosít (nem készül munkamenet / süti)
       if (user.mustChangePassword) {

@@ -3,6 +3,7 @@ import { isCronAuthorized } from '@/lib/cronAuth';
 import { getTavernDb } from '@/lib/mongodb';
 import { recordRun } from '@/lib/systemLog';
 import { runCleanup } from '@/lib/cleanup';
+import { refreshPublic } from '@/lib/publicCache';
 
 export const dynamic = 'force-dynamic';
 // a Drive-mentés (nagyobb fájl feltöltése) időbe telhet
@@ -10,7 +11,7 @@ export const maxDuration = 300;
 
 // Heti takarítás (Vercel Cron, hétfőnként): előbb a Google Drive-ra menti, amit töröl, utána töröl (lib/cleanup.js).
 // Ha a mentés nem sikerül, nem töröl semmit; a hiba a Rendszer oldalon látszik.
-export async function GET(request) {
+async function handleGET(request) {
   // Kulcs nélkül (hiányzó CRON_SECRET) nem enged át; állandó idejű összehasonlítás
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Jogosulatlan hozzáférés' }, { status: 401 });
@@ -23,4 +24,11 @@ export async function GET(request) {
     // A hiba részletei a tulajdonosi Rendszer oldalon látszanak (recordRun), a válaszba nem kerülnek
     return NextResponse.json({ error: 'A futás nem sikerült.' }, { status: 500 });
   }
+}
+
+// A takarítás után minden nyilvános adat azonnal frissül (lib/publicCache.js)
+export async function GET(request) {
+  const res = await handleGET(request);
+  if (res.status < 400) refreshPublic();
+  return res;
 }

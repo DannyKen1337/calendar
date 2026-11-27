@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Geist, Geist_Mono, Cinzel, Manrope } from "next/font/google";
 import "../globals.css";
+import TestBadge from "@/components/TestBadge";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,7 +37,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang="hu"
       className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} ${manrope.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">{children}<TestBadge /></body>
     </html>
   );
 }

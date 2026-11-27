@@ -1,55 +1,38 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { logSystemError } from '@/lib/systemLog';
 import { getTavernDb } from '@/lib/mongodb';
-import { attachPublicAttendees } from '@/lib/attendance';
 import { syncDueRgnEvents } from '@/lib/rgnSync';
-import { normalizeOccupancy, publicBookedSeats, publicReservedSeats } from '@/lib/occupancy';
-import { budapestDateTime } from '@/lib/eventDates';
+import { refreshPublic, TAG, CDN_HEADERS } from '@/lib/publicCache';
+import { getPublicCalendarData } from '@/lib/publicCalendar';
 
 export const dynamic = 'force-dynamic';
 
+// A nyilvános naptár adata (lib/publicCalendar.js, gyorsítótárazva); a Vercel CDN-je is 15 mp-ig maga szolgálja ki
+// (CDN_HEADERS), így egy roham vagy bot nem éri el a függvényt.
+
+// A Riftbound események létszáma: eseményenként legfeljebb 15 percenként frissül, a válasz után a háttérben
+// (példányonként legfeljebb percenként néz rá); ha frissült valami, a naptár gyorsítótára is
+let lastRgnCheck = 0;
+function syncRgnInBackground() {
+  if (Date.now() - lastRgnCheck < 60 * 1000) return;
+  lastRgnCheck = Date.now();
+  after(async () => {
+    try {
+      const db = await getTavernDb();
+      if (await syncDueRgnEvents(db, { maxAgeMs: 15 * 60 * 1000, budgetMs: 2500 })) refreshPublic(TAG.naptar);
+    } catch { /* a következő kérésnél újra próbálja */ }
+  });
+}
+
 export async function GET() {
   try {
-    const db = await getTavernDb();
-    // A Riftbound események létszáma a nyilvános naptárhoz: eseményenként legfeljebb 15 percenként frissül
-    await syncDueRgnEvents(db, { maxAgeMs: 15 * 60 * 1000, budgetMs: 2500 }).catch(() => {});
-
-    const [tournaments, registrations, settings] = await Promise.all([
-      // Az eseményt tartó szervezők (hosts) csak az adminoknak látszanak
-      db.collection('tournaments').find({}, { projection: { hosts: 0, adminName: 0, userRole: 0, 'rgn.lockUntil': 0, 'rgn.error': 0 } } /* a létrehozó szervező fiókneve nem nyilvános (belépési név) */).toArray(),
-      // Csak a megjelenítéshez szükséges mezők: e-mail cím nem kerül ki a nyilvános oldalra
-      db.collection('registrations').find({}, { projection: { _id: 0, tournamentId: 1, name: 1, username: 1, status: 1, date: 1 } }).toArray(),
-      db.collection('settings').findOne({ _id: 'global_settings' })
-    ]);
-
-    // Napi telítettség a nyilvános naptárban: csak ha a tulajdonos bekapcsolta és a nyilvános megjelenítést is engedte.
-    // A kézi foglalásokból csak a helyek napi összege kerül ki, név nélkül.
-    const occ = normalizeOccupancy(settings?.occupancy);
-    let occupancy = null;
-    if (occ.enabled && occ.public) {
-      const from = budapestDateTime(Date.now() - 62 * 24 * 60 * 60 * 1000).slice(0, 10);
-      const bookings = await db.collection('store_bookings').find({ date: { $gte: from } }, { projection: { _id: 0, store: 1, date: 1, seats: 1 } }).toArray();
-      // a közösségi események lefoglalt helyei: csak a napi összeg, az eseményhez nem köthetően
-      occupancy = { capacity: occ.capacity, booked: publicBookedSeats(bookings), reserved: publicReservedSeats(tournaments) };
-    }
-
-    // Elfogadott asztalfoglalások a naptárba: csak a bolt és az időpont, név és elérhetőség nélkül
-    const tableBookingsFrom = budapestDateTime(Date.now() - 62 * 24 * 60 * 60 * 1000).slice(0, 10);
-    const tableBookings = await db.collection('store_bookings')
-      .find({ tableBookingId: { $exists: true }, date: { $gte: tableBookingsFrom } }, { projection: { _id: 0, store: 1, date: 1, from: 1, to: 1 } })
-      .sort({ date: 1, from: 1 }).toArray();
-
-    return NextResponse.json({
-        // A közösségi események helyszáma nem kerül ki a nyilvános oldalra
-        tournaments: attachPublicAttendees(tournaments.map(({ reservedSeats, ...t }) => t), registrations),
-        tableBookings,
-        isMaintenance: settings?.isMaintenance || false,
-        occupancy,
-        serverTime: Date.now()
-    });
+    syncRgnInBackground();
+    const data = await getPublicCalendarData();
+    // a szerver ideje a böngésző órájának igazításához (nem a tárolt adat része)
+    return NextResponse.json({ ...data, serverTime: Date.now() }, { headers: CDN_HEADERS });
   } catch (error) {
     console.error('public-data error:', error);
     await logSystemError('public-data', error);
-    return NextResponse.json({ error: "Adatbázis hiba" }, { status: 500 });
+    return NextResponse.json({ error: "Adatbázis hiba" }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }

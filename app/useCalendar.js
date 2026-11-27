@@ -135,7 +135,10 @@ export const useCalendar = ({ eager = false } = {}) => {
   const fetchPublicData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
     try {
-      const response = await fetch(`/api/public-data?t=${Date.now()}`);
+      // A Vercel CDN 15 mp-ig tárolja a választ (lib/publicCache.js); a saját írás utáni percben (tavern_friss süti,
+      // proxy.js) egyedi címmel a friss adatot kéri
+      const fresh = typeof document !== 'undefined' && /(?:^|;\s*)tavern_friss=/.test(document.cookie);
+      const response = await fetch(fresh ? `/api/public-data?friss=${Date.now()}` : '/api/public-data');
       const data = await response.json();
       if (data.tournaments) {
         const coloredTournaments = data.tournaments.map(t => ({

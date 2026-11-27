@@ -5,6 +5,7 @@
 // Kirakás gombja viszi ki őket (publishAction, bármelyik szerkesztő).
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { refreshPublic, TAG } from '@/lib/publicCache';
 import { ObjectId } from 'mongodb';
 import { getTavernDb } from '@/weblap/lib/db';
 import { getEditor, logout } from '@/weblap/lib/auth';
@@ -14,7 +15,8 @@ import { tabByKey, isEditableTab } from '@/weblap/lib/contentSchema';
 import { getPendingChanges, publishAll, discardAll } from '@/weblap/lib/staging';
 
 // A weboldal minden oldala (a route group is a cache-címke része); csak kirakáskor kell
-const refreshSite = () => revalidatePath('/(weblap)/weblapteszt', 'layout');
+// a kirakott tartalom gyorsítótára (lib/publicCache.js) és az oldalak
+const refreshSite = () => { refreshPublic(TAG.weblap); revalidatePath('/', 'layout'); };
 
 async function addLog(db, editor, details) {
   await db.collection('audit_logs').insertOne({ adminName: editor.username, action: 'WEBLAP', details, date: new Date() }).catch(() => {});

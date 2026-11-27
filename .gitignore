@@ -45,3 +45,6 @@ next-env.d.ts
 .superpowers/
 tests/e2e/shots/
 tests/e2e/.uri
+
+# a helyi tesztkörnyezet build-mappája (scripts/teszt-inditas.sh)
+/.next-teszt/

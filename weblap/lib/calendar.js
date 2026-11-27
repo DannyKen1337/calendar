@@ -66,22 +66,3 @@ export const TABLE_BOOKING_URL = `${CALENDAR_URL}/asztalfoglalas`;
 // A weboldal a naptár alkalmazásán belül fut: az esemény oldala ugyanazon a címen van (szerveren és böngészőben is ugyanaz a link)
 export const eventUrl = (e) => `/esemeny/${encodeURIComponent(e._id || e.id)}`;
 
-// A boltok közelgő (mai és későbbi) eseményei időrendben; stores: mely boltoké (alapból csak Debrecen, a korábbi egyboltos oldalhoz).
-// Hiba esetén üres lista (az oldal akkor is megjelenik).
-export async function getUpcomingEvents(stores = ['debrecen']) {
-  try {
-    // élesben 5 percig gyorsítótárazva; fejlesztéskor (és a teszteken) mindig friss
-    const res = await fetch(`${CALENDAR_URL}/api/public-data`, process.env.NODE_ENV === 'development' ? { cache: 'no-store' } : { next: { revalidate: 300 } });
-    if (!res.ok) return { events: [], ok: false };
-    const data = await res.json();
-    const today = budapestNow().day;
-    const events = (data.tournaments || [])
-      .filter(e => stores.includes(e.store || 'debrecen'))
-      // A ma kezdődött eseményeket a nap végéig mutatjuk (egy délutáni verseny este még "ma este" van)
-      .filter(e => dayOf(e.date) >= today)
-      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    return { events, ok: true };
-  } catch {
-    return { events: [], ok: false };
-  }
-}

@@ -5,6 +5,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { getTavernDb, hasDatabase } from '@/weblap/lib/db';
+import { cachedPublic, TAG } from '@/lib/publicCache';
 import { CALENDAR_URL, CALENDAR_PAGE_URL, LEAGUES_URL, PREORDER_URL, TABLE_BOOKING_URL } from '@/weblap/lib/calendar';
 import { CONTENT_TABS, tabByKey, sanitizeField, STORE_IDS, STORE_LABELS } from '@/weblap/lib/contentSchema';
 
@@ -151,10 +152,13 @@ async function loadDoc(id) {
   return db.collection(COLLECTION).findOne({ _id: id });
 }
 
+// A kirakott tartalom a gyorsítótárból (lib/publicCache.js; a kirakás azonnal frissíti)
+const loadLiveDoc = cachedPublic(() => loadDoc(LIVE_ID), 'weblap-tartalom', [TAG.weblap]);
+
 // Az éles oldal tartalma (kérésenként egyszer olvassa be). Ha az adatbázis nem érhető el, az alapértékekkel megy.
 export const getContent = cache(async () => {
   try {
-    return merge(await loadDoc(LIVE_ID));
+    return merge(await loadLiveDoc());
   } catch (err) {
     console.error('weblap tartalom:', err);
     return DEFAULT_CONTENT;

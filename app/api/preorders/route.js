@@ -7,6 +7,7 @@ import { normalizePhone, normalizeQuantity, phoneKey, productStock, productLimit
 import { toObjectId } from '@/lib/preorderData';
 import { isMailConfigured, sendMail } from '@/lib/mailer';
 import { preorderMail } from '@/lib/preorderMail';
+import { refreshPublic, TAG } from '@/lib/publicCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ function checkProductLimits(p, rows, { email, pKey, qty }) {
 
 // Nyilvános előrendelés (feliratkozás) beküldése: név, e-mail, telefon és a kiválasztott termékek darabszámmal.
 // Ugyanarra a termékre egy e-mail címmel egy sor tartozik: újraküldéskor a meglévő sor frissül (pl. más darabszám).
-export async function POST(request) {
+async function handlePOST(request) {
   try {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Hiányzó adatok.' }, { status: 400 });
@@ -151,4 +152,11 @@ export async function POST(request) {
     await logSystemError('preorder', error);
     return NextResponse.json({ error: 'Az előrendelés most nem sikerült. Próbáld újra később.' }, { status: 500 });
   }
+}
+
+// Sikeres előrendelés után a nyilvános oldalak (szabad darabszám) azonnal frissülnek (lib/publicCache.js)
+export async function POST(request) {
+  const res = await handlePOST(request);
+  if (res.status < 400) refreshPublic(TAG.elorendeles);
+  return res;
 }
