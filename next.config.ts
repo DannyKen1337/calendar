@@ -25,8 +25,6 @@ const nextConfig: NextConfig = {
       { source: "/weblapteszt/hirek/:path*", destination: "/hirek/:path*", permanent: true },
       { source: "/weblapteszt/galeria", destination: "/galeria", permanent: true },
       { source: "/weblapteszt/galeria/:path*", destination: "/galeria/:path*", permanent: true },
-      // a régi vercel.app címen a gyökér a naptár volt (megosztott linkek): ott továbbra is a naptárra visz
-      { source: "/", has: [{ type: "host", value: "taverncalendar.vercel.app" }], destination: "/naptar", permanent: false },
     ];
   },
   headers() {

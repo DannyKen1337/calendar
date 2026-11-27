@@ -13,7 +13,7 @@ const ROUNDS = [
   { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'telefon-ablakok', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'elorendeles-boltok', 'admin-udvozlo', 'email-ellenorzes', 'regi-cimek', 'biztonsag', 'belepes-feloldas', 'csp'] },
   { fake: true, tests: ['weblap-javitasok', 'weblap-galeria', 'weblap-kepek'] },
   // rejtett admin: a szerver a titkos belépő címmel (ADMIN_PATH) fut
-  { fake: false, env: { ADMIN_PATH: '/kapu-teszt-2026' }, tests: ['admin-kapu'] },
+  { fake: false, env: { ADMIN_PATH: '/kapu-teszt-2026' }, tests: ['admin-kapu', 'regi-vercel-cim'] },
   // bekapcsolt gyorsítótárral (lib/publicCache.js; fejlesztéskor egyébként ki van kapcsolva)
   { fake: false, env: { PUBLIC_CACHE: '1', CRON_SECRET: 'e2e-cron-titok' }, tests: ['gyorsitotar'] },
   // tesztkörnyezet (lib/testEnv.js): saját adatbázis, csak a tesztfiókokkal belépve

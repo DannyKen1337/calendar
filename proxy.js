@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { isCrossOriginWrite } from '@/lib/requestGuard';
 import { buildCsp, newNonce } from '@/lib/csp';
 import { adminPath, isGatedPage, isGatedApi, passesGate, gateToken, GATE_COOKIE, GATE_MAX_AGE } from '@/lib/adminGate';
-import { isTestEnv, testOpenPath, testSessionUser, liveUrlFor } from '@/lib/testEnv';
+import { isTestEnv, testOpenPath, testSessionUser, liveUrlFor, LIVE_URL } from '@/lib/testEnv';
+import { jwtVerify } from 'jose';
 
 // Minden kérés előtt fut (Next 16: a régi middleware neve proxy).
 // - Rejtett admin (ADMIN_PATH, lib/adminGate.js): a titkos cím kaput nyit (süti), kapu nélkül az admin, a weboldal
@@ -29,8 +30,36 @@ function withCsp(request, pathname, rewriteTo = null) {
   return response;
 }
 
+// A régi cím (taverncalendar.vercel.app): minden oldal a www.tavern.hu ugyanazon útjára költözik (308, a paraméterekkel
+// együtt; a régi gyökér a naptár volt: /naptar). Csak az oldalak megnyitása (GET/HEAD) és a naptár-előfizetés (ICS)
+// irányít át, a többi API nem: egy épp nyitva lévő régi lap még működik, és az időzítők sem akadnak el. A régi címen belépett szervező az új admin belépőjére kerül (a titkos cím csak
+// érvényes belépéssel derül ki; az új címen újra be kell lépni, mert a belépés címenként külön tárolódik).
+const OLD_HOSTS = new Set(['taverncalendar.vercel.app']);
+async function oldHostRedirect(request, pathname) {
+  const host = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().split(':')[0];
+  if (!OLD_HOSTS.has(host) || !['GET', 'HEAD'].includes(request.method)) return null;
+  // az API nem költözik (egy nyitott régi lap kérései, a Vercel időzítői), kivéve a naptár-előfizetést (ICS)
+  if (pathname.startsWith('/api/') && pathname !== '/api/export') return null;
+  const gate = adminPath();
+  if (gate && /^\/(admin|weblapteszt\/(admin|elonezet))(\/|$)/.test(pathname)) {
+    const session = request.cookies.get(SESSION_COOKIE)?.value;
+    const secret = process.env.JWT_SECRET;
+    if (session && secret) {
+      try {
+        await jwtVerify(session, new TextEncoder().encode(secret), { algorithms: ['HS256'] });
+        return NextResponse.redirect(`${LIVE_URL}${gate}`, 307);
+      } catch { /* lejárt vagy hamis süti: a sima átirányítás (az új címen a rejtett admin 404-et ad) */ }
+    }
+  }
+  const { search } = request.nextUrl;
+  return NextResponse.redirect(`${LIVE_URL}${pathname === '/' ? '/naptar' : pathname}${search}`, 308);
+}
+
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
+
+  const moved = await oldHostRedirect(request, pathname);
+  if (moved) return moved;
 
   // Tesztkörnyezet (lib/testEnv.js): csak a tesztfiókokkal belépve látható; aki nincs belépve, az élő oldal ugyanazon
   // címére kerül. A belépő oldal és a belépés nyitva van.
