@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Field, SubmitButton, ICONS } from '@/components/FormKit';
 import s from './PreorderPage.module.css';
 
@@ -18,7 +18,9 @@ function check(field, value) {
 // source: 'weboldal' a weboldal „Írj nekünk” részében (a levél tárgya más); intro: a kinyíló űrlap első mondata;
 // onGold: arany háttéren (a weboldal Kapcsolat sávja) sötét gomb
 export default function PreorderContact({ productId = null, initial = {}, source = '', intro = '', onGold = false }) {
-  const [open, setOpen] = useState(false);
+  // kinyíló / bezáródó űrlap (a felhasználó kérése): 'zarva' → (gomb) · 'nyilik' → 'nyitva' (lefelé kinyílik) · 'zarul' → 'zarva'
+  const [phase, setPhase] = useState('zarva');
+  const [back, setBack] = useState(false); // bezárás után a gomb rugózva tér vissza, és rá kerül a fókusz
   const [values, setValues] = useState({ name: '', email: '', message: '', website: '' });
   const [touched, setTouched] = useState({});
   const [tried, setTried] = useState(false);
@@ -30,9 +32,26 @@ export default function PreorderContact({ productId = null, initial = {}, source
   const show = () => {
     setValues(v => ({ ...v, name: v.name || initial.name || '', email: v.email || initial.email || '' }));
     setSentTo('');
-    setOpen(true);
-    setTimeout(() => document.getElementById('kerdes-name')?.focus({ preventScroll: true }), 50);
+    setPhase('nyilik');
+    // két képkocka múlva nyílik (előbb összecsukva kerül a helyére, hogy legyen honnan kinyílnia)
+    requestAnimationFrame(() => requestAnimationFrame(() => setPhase(p => (p === 'nyilik' ? 'nyitva' : p))));
+    setTimeout(() => document.getElementById('kerdes-name')?.focus({ preventScroll: true }), 60);
   };
+  const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const hide = () => {
+    setBack(true);
+    if (reduced()) { setPhase('zarva'); return; }
+    setPhase('zarul');
+  };
+  // ha az áttűnés vége nem jönne (pl. háttérben lévő lap), legkésőbb fél másodperc múlva bezárul
+  useEffect(() => {
+    if (phase !== 'zarul') return undefined;
+    const timer = setTimeout(() => setPhase('zarva'), 520);
+    return () => clearTimeout(timer);
+  }, [phase]);
+  useEffect(() => {
+    if (phase === 'zarva' && back) document.querySelector('[data-kerdes-gomb]')?.focus({ preventScroll: true });
+  }, [phase, back]);
   const set = (f) => (e) => { setValues(v => ({ ...v, [f]: e.target.value })); if (serverErrors[f]) setServerErrors(x => ({ ...x, [f]: '' })); };
   const leave = (f) => () => { if (values[f]) setTouched(t => ({ ...t, [f]: true })); };
   const errorOf = (f) => serverErrors[f] || ((touched[f] || tried) ? check(f, values[f]) : '');
@@ -69,19 +88,21 @@ export default function PreorderContact({ productId = null, initial = {}, source
     }
   };
 
-  if (!open) {
+  if (phase === 'zarva') {
     return (
-      <button type="button" className={`${s.contactBtn} ${onGold ? s.contactBtnOnGold : ''}`} onClick={show} aria-expanded="false" aria-controls="kerdes" data-kerdes-gomb>
+      <button type="button" className={`${s.contactBtn} ${onGold ? s.contactBtnOnGold : ''} ${back ? s.contactBtnBack : ''}`} onClick={show} aria-expanded="false" aria-controls="kerdes" data-kerdes-gomb>
         <span className={s.contactIcon} aria-hidden="true">{ICONS.mail}</span><span>Kérdésed van? Írj nekünk</span>
       </button>
     );
   }
 
   return (
+    <div className={s.contactFold} data-allapot={phase} data-kerdes-ablak onTransitionEnd={(e) => { if (e.target === e.currentTarget && phase === 'zarul') setPhase('zarva'); }}>
+    <div className={s.contactFoldInner}>
     <section id="kerdes" className={`${s.panel} ${s.contact}`} aria-labelledby="kerdes-cim" data-kerdes>
       <div className={s.contactHead}>
         <h2 id="kerdes-cim" className={s.h2}>Írj nekünk</h2>
-        <button type="button" className={s.contactClose} onClick={() => setOpen(false)} aria-label="Bezárás">×</button>
+        <button type="button" className={s.contactClose} onClick={hide} aria-label="Bezárás" aria-expanded="true" aria-controls="kerdes">×</button>
       </div>
       {sentTo ? (
         <div className={s.contactSent} role="status" data-kerdes-elkuldve>
@@ -109,5 +130,7 @@ export default function PreorderContact({ productId = null, initial = {}, source
         </form>
       )}
     </section>
+    </div>
+    </div>
   );
 }
