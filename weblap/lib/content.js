@@ -107,7 +107,7 @@ export const DEFAULT_CONTENT = {
       ...(WEBSHOP ? [{ id: 'webshop', label: 'Webshop', href: WEBSHOP }] : []),
       { id: 'instagram', label: 'Instagram', href: IG },
     ],
-    imprint: '© Tavern · Where games become legends',
+    imprint: '© Tavern · kártya-, társas- és wargame klub és bolt Debrecenben és Miskolcon',
   },
 };
 

@@ -187,9 +187,11 @@ export default async function HomePage({ content, feed, previewBar = null, base 
           <BookingTent />
         </section>
 
-        <section className={s.news} id="hirek" aria-labelledby="hirek-cim">
+        {/* amíg nincs kirakott hír és behúzott poszt, a szakasz rövid: cím, egy mondat és a három Facebook-oldal (nem üres sáv) */}
+        <section className={s.news} id="hirek" aria-labelledby="hirek-cim" data-ures={posts.length === 0 && social.length === 0 ? '' : undefined}>
           <div className={s.newsHead}>
             <h2 id="hirek-cim" className={s.disp} data-reveal>{news.title}</h2>
+            {posts.length === 0 && social.length === 0 && <p className={s.newsNote}>A friss híreket, versenyeredményeket és fotókat a boltok Facebook-oldalán találod.</p>}
           </div>
           {posts.length > 0 && (
             <>
@@ -264,7 +266,8 @@ export default async function HomePage({ content, feed, previewBar = null, base 
       </main>
 
       <footer className={s.footer}>
-        <div className={s.blocks} aria-hidden="true">{'TAVERN'.split('').map((ch, i) => <span key={i}>{ch}</span>)}</div>
+        {/* a lábléc a cégérrel zár (a betűkockák helyett, 2026-11-28) */}
+        <a className={s.footSign} href="#top" aria-label="Vissza az oldal tetejére"><Image src={hero.sign.src} alt="Tavern" width={1499} height={403} sizes="(max-width: 820px) 90vw, 560px" /></a>
         <div className={s.foot}>
           <div className={s.footLinks}>
             {contact.links.filter(l => l.label && l.href).map(l => (

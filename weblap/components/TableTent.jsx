@@ -5,11 +5,9 @@ import s from '@/weblap/fooldal.module.css';
 export default function TableTent({ className = '' }) {
   return (
     <div className={`${s.tent} ${className}`} aria-hidden="true" data-tabla>
+      {/* csak a felirat: az apró, ritkított „Tavern” / „Neked tartjuk” sor kikerült (2026-11-28, díszítések nélkül) */}
       <div className={s.tentFace}>
-        <span>Tavern</span>
         <b>Foglalt</b>
-        <i />
-        <span>Neked tartjuk</span>
       </div>
     </div>
   );
