@@ -34,6 +34,9 @@ fi
 export NEXT_DIST_DIR=.next-teszt
 # belépés nélkül a belépőre visz (nem az élő oldalra): lib/testEnv.js isLocalTest
 export TEST_LOCAL=1
+# a weboldal linkjei (Naptár, Előrendelés, Ligák, Asztalfoglalás, a beágyazott ablakok) a tesztkörnyezetre mutassanak, ne az
+# élő oldalra (weblap/lib/calendar.js CALENDAR_URL; APP_URL; lib/storeInfo.js); a beállítófájl felülírhatja
+export CALENDAR_URL="${CALENDAR_URL:-http://localhost:$PORT}" APP_URL="${APP_URL:-http://localhost:$PORT}" NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-http://localhost:$PORT}"
 node node_modules/next/dist/bin/next dev -p "$PORT" &
 PID=$!
 

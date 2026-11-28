@@ -67,6 +67,9 @@ foreach ($k in $cfg.Keys) { [Environment]::SetEnvironmentVariable($k, $cfg[$k], 
 $env:NEXT_DIST_DIR = '.next-teszt'
 # belépés nélkül a belépőre visz (nem az élő oldalra): lib/testEnv.js isLocalTest
 $env:TEST_LOCAL = '1'
+# a weboldal linkjei (Naptár, Előrendelés, Ligák, Asztalfoglalás, a beágyazott ablakok) a tesztkörnyezetre mutassanak, ne az
+# élő oldalra (weblap/lib/calendar.js CALENDAR_URL; APP_URL; lib/storeInfo.js); a beállítófájl felülírhatja
+foreach ($k in 'CALENDAR_URL', 'APP_URL', 'NEXT_PUBLIC_SITE_URL') { if (-not $cfg[$k]) { [Environment]::SetEnvironmentVariable($k, "http://localhost:$Port", 'Process') } }
 Set-Location $Repo
 $server = Start-Process node -ArgumentList 'node_modules/next/dist/bin/next', 'dev', '-p', "$Port" -NoNewWindow -PassThru
 
