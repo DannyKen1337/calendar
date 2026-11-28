@@ -8,7 +8,8 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const URL_ = process.env.TESZT_URL || 'http://localhost:3100/admin';
+// az első paraméter az oldal útja: /admin (alapból) vagy / (a weboldal)
+const URL_ = process.env.TESZT_URL || `http://localhost:3100${process.argv[2] || '/admin'}`;
 const DEVICE = {
   viewport: { width: 402, height: 874, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   // az iOS 26 Safari a rendszerverziót 18_6-on rögzíti a böngészőazonosítóban
@@ -32,7 +33,8 @@ const browser = await puppeteer.launch({
   executablePath: chrome,
   headless: false,
   defaultViewport: null,
-  userDataDir: join(base, 'iphone-profil'),
+  // oldalanként külön profil, hogy az admin és a weboldal előnézete egyszerre is nyitva lehessen (mindkettőben egyszer kell belépni)
+  userDataDir: join(base, (process.argv[2] || '/admin') === '/admin' ? 'iphone-profil' : 'iphone-profil-weboldal'),
   ignoreDefaultArgs: ['--enable-automation'],
   // alkalmazásablak címsor és címsáv nélkül, akkora, hogy a telefon képernyője pont kiférjen
   args: [`--app=${URL_}`, '--window-size=418,920', '--window-position=60,20', '--no-first-run', '--no-default-browser-check', '--lang=hu', '--disable-features=Translate'],

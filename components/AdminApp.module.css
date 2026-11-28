@@ -93,6 +93,16 @@
 .cardTap:active { background: var(--raised); }
 .cardHeadEnd { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .cardChevron { color: var(--faint); font-size: 12px; }
+/* telefonos eseménykártya (C változat): balra a logó és alatta az időpont, jobbra a név (nem vágódik le), alatta az állapot és a bolt */
+.evHead { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: start; width: 100%; border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.evCol { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 2px; }
+.evCol .gameIcon { width: 64px; height: 26px; }
+.evCol b { font-size: 16px; font-weight: 800; }
+.evMain { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.evTop { display: flex; align-items: flex-start; gap: 8px; }
+.evName { flex: 1; min-width: 0; font-size: 16px; font-weight: 800; line-height: 1.3; overflow-wrap: break-word; hyphens: auto; }
+.evTop .cardChevron { padding-top: 4px; }
+.evMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--muted); font-size: 13px; }
 .cardSub { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .dot { width: 8px; height: 8px; border-radius: 999px; flex: none; display: inline-block; }
 .dotBooking { box-shadow: inset 0 0 0 2px #d9cdc8; }

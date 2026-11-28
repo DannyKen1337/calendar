@@ -32,6 +32,8 @@ if [ -z "$MONGODB_URI" ] || [ "$MONGODB_URI" = "[Sensitive]" ]; then
 fi
 # külön build-mappa (.next-teszt), hogy a tesztek szerverével (.next) ne akadjon össze
 export NEXT_DIST_DIR=.next-teszt
+# belépés nélkül a belépőre visz (nem az élő oldalra): lib/testEnv.js isLocalTest
+export TEST_LOCAL=1
 node node_modules/next/dist/bin/next dev -p "$PORT" &
 PID=$!
 

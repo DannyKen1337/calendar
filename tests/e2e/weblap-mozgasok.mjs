@@ -1,4 +1,4 @@
-// Weboldal, mozgások: játékszűrő (FLIP), telítettség-sáv (feltöltődik, amikor látszik), „Most zajlik” / „N perc múlva”,
+// Weboldal, mozgások: játékszűrő (FLIP), telítettség-sáv (feltöltődik, amikor látszik), „Most zajlik” / „Hamarosan kezdődik” (telefonon „Hamarosan”),
 // a bolt „Nyitva” visszaszámlálása, ligakártya felpörgése, „Utolsó darabok” (rázkódás, készletsáv), a Galéria fotóinak
 // billenése, sikeres asztalfoglalás után felbillenő „FOGLALT” tábla, albumnyitás átnövéssel (ViewTransition).
 // Csökkentett mozgásnál a szűrés nem animál.
@@ -41,10 +41,10 @@ try {
   ok(before < 0.05 && after > 0.7, `a telítettség-sáv a képernyőre érve töltődik fel (${before.toFixed(2)} → ${after.toFixed(2)}, 13/16)`);
   ok(await p.$$eval('[data-telitettseg]', els => els.some(e => /hely szabad|Betelt/.test(e.getAttribute('aria-label')))), 'a sáv a felolvasónak is mondja (pl. „3 hely szabad”)');
 
-  // „Most zajlik” / „N perc múlva”
-  const live = await p.$$eval('[data-elo]', els => els.map(e => [e.dataset.elo, e.textContent.trim()]));
+  // „Most zajlik” / „Hamarosan kezdődik” (a pontos idő a felugró címben)
+  const live = await p.$$eval('[data-elo]', els => els.map(e => [e.dataset.elo, e.innerText.trim(), e.title || '']));
   ok(live.some(([k, t]) => k === 'run' && t === 'Most zajlik'), `a fél órája kezdődött esemény: „Most zajlik” (${JSON.stringify(live)})`);
-  ok(live.some(([k, t]) => k === 'soon' && /^1 óra (2\d|30) perc múlva$/.test(t)), 'a másfél óra múlva kezdődő: „1 óra 30 perc múlva”');
+  ok(live.some(([k, t, title]) => k === 'soon' && t === 'Hamarosan kezdődik' && /^1 óra (2\d|30) perc múlva$/.test(title)), 'a másfél óra múlva kezdődő: „Hamarosan kezdődik”, a felugró címben „1 óra 30 perc múlva”');
   ok(await p.$eval('[data-elo] i', i => getComputedStyle(i, '::after').animationName !== 'none'), 'lüktető pont');
   await p.screenshot({ path: `${SHOTS}mozgas-program.jpg`, quality: 60 });
 

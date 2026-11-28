@@ -82,7 +82,10 @@ export default function AdminPage() {
       } else {
         message.success('Sikeres bejelentkezés!');
         resetLoginDice(); // belépéskor dobhat a kocka
-        window.location.reload(); // Frissíti az oldalt, így a useCalendar hook betölti a munkamenetet!
+        // a helyi tesztkörnyezet (proxy.js) ?vissza=-val küld ide: belépés után oda tér vissza (csak saját útvonal)
+        const back = new URLSearchParams(window.location.search).get('vissza');
+        if (back && back.startsWith('/') && !back.startsWith('//') && !back.startsWith('/\\')) window.location.assign(back);
+        else window.location.reload(); // Frissíti az oldalt, így a useCalendar hook betölti a munkamenetet!
       }
     } catch {
       message.error('Szerverhiba történt.');

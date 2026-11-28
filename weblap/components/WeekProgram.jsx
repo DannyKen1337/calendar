@@ -7,7 +7,7 @@ import s from '@/weblap/fooldal.module.css';
 // Mozgások (csökkentett mozgásnál nincsenek):
 //  - szűréskor a kieső sorok elhalványulnak, a maradók az új helyükre csúsznak (FLIP), az újak beúsznak;
 //  - a telítettség-sáv egyszer feltöltődik, amikor a bolt sorai a képernyőre érnek (JavaScript nélkül teli sáv látszik);
-//  - a ma futó esemény „Most zajlik”, a 3 órán belül kezdődő „N perc múlva” jelzést kap lüktető ponttal (percenként frissül).
+//  - a ma futó esemény „Most zajlik”, a 3 órán belül kezdődő „Hamarosan kezdődik” (telefonon „Hamarosan”) jelzést kap lüktető ponttal, a pontos idő a felugró címben (percenként frissül).
 // stores: [{ id, name, street, logo }]; events: [{ id, store, name, game, category, logo, href, date, day, time, full, seats }];
 // games: [{ category, label }] a héten szereplő játékok; allLabel: a „Minden játék” felirat
 const RUNNING_MIN = 4 * 60; // ennyi ideig számít „most zajlik”-nak egy esemény a kezdése után
@@ -87,7 +87,8 @@ export default function WeekProgram({ stores, events, games, allLabel }) {
     if (start === null) return null;
     const diff = start - now;
     if (diff <= 0 && -diff < RUNNING_MIN) return { kind: 'run', text: 'Most zajlik' };
-    if (diff > 0 && diff <= SOON_MIN) return { kind: 'soon', text: inText(diff) };
+    // a pontos idő csak a felugró címben; a felirat rövid, hogy telefonon se lógjon a névbe (a felhasználó kérése)
+    if (diff > 0 && diff <= SOON_MIN) return { kind: 'soon', text: 'Hamarosan kezdődik', short: 'Hamarosan', title: inText(diff) };
     return null;
   };
 
@@ -118,7 +119,7 @@ export default function WeekProgram({ stores, events, games, allLabel }) {
                     <img src={e.logo} alt={e.game} loading="lazy" width={96} height={56} />
                     <b>{e.name}</b>
                     <time dateTime={e.date}>
-                      {l ? <span className={`${s.liveTag} ${l.kind === 'run' ? s.liveRun : ''}`} data-elo={l.kind}><i aria-hidden="true" />{l.text}</span> : <>{e.full && <span className={s.full}>betelt · </span>}{e.day} </>}
+                      {l ? <span className={`${s.liveTag} ${l.kind === 'run' ? s.liveRun : ''}`} data-elo={l.kind} title={l.title}><i aria-hidden="true" />{l.short ? <><span className={s.liveLong}>{l.text}</span><span className={s.liveShort}>{l.short}</span></> : l.text}</span> : <>{e.full && <span className={s.full}>betelt · </span>}{e.day} </>}
                       <em>{e.time}</em>
                     </time>
                     {ratio !== null && (

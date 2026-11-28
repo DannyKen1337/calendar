@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { isCrossOriginWrite } from '@/lib/requestGuard';
 import { buildCsp, newNonce } from '@/lib/csp';
 import { adminPath, isGatedPage, isGatedApi, passesGate, gateToken, GATE_COOKIE, GATE_MAX_AGE } from '@/lib/adminGate';
-import { isTestEnv, testOpenPath, testSessionUser, liveUrlFor, LIVE_URL } from '@/lib/testEnv';
+import { isTestEnv, isLocalTest, testOpenPath, testSessionUser, liveUrlFor, LIVE_URL } from '@/lib/testEnv';
 import { jwtVerify } from 'jose';
 
 // Minden kérés előtt fut (Next 16: a régi middleware neve proxy).
@@ -65,6 +65,12 @@ export async function proxy(request) {
   // címére kerül. A belépő oldal és a belépés nyitva van.
   if (isTestEnv() && !testOpenPath(pathname) && !(await testSessionUser(request.cookies.get(SESSION_COOKIE)?.value))) {
     if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Ez a tesztkörnyezet: csak a tesztfiókokkal, belépve érhető el.' }, { status: 401 });
+    // a saját gépen futó tesztkörnyezet (az asztali indító, TEST_LOCAL=1) a belépőre visz, hogy ne az élő oldal nyíljon meg
+    if (isLocalTest()) {
+      const to = new URL('/admin', request.url);
+      to.searchParams.set('vissza', `${pathname}${request.nextUrl.search}`); // belépés után ide tér vissza
+      return NextResponse.redirect(to, 307);
+    }
     return NextResponse.redirect(liveUrlFor(request.url), 307);
   }
   const gate = adminPath();

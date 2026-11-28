@@ -18,6 +18,8 @@ const ROUNDS = [
   { fake: false, env: { PUBLIC_CACHE: '1', CRON_SECRET: 'e2e-cron-titok' }, tests: ['gyorsitotar'] },
   // tesztkörnyezet (lib/testEnv.js): saját adatbázis, csak a tesztfiókokkal belépve
   { fake: false, env: { TEST_ENV: '1', TEST_USERS: 'TesztTulaj, TavernAdmin', MONGODB_DB: 'TavernTeszt', TEST_SETUP_SECRET: 'e2e-teszt-kulcs' }, tests: ['tesztkornyezet'] },
+  // a saját gépen futó tesztkörnyezet (asztali indító): belépés nélkül a belépőre visz, belépés után vissza
+  { fake: false, env: { TEST_ENV: '1', TEST_LOCAL: '1', TEST_USERS: 'TavernAdmin', MONGODB_DB: 'TavernTeszt' }, tests: ['tesztkornyezet-helyi'] },
   // levelezéssel és Drive-mentéssel: a tesztszerver a hamis SMTP- és Google-szervernek küld (tests/e2e/fake-smtp.mjs, fake-gdrive.mjs; a tesztfájl indítja)
   { fake: false, env: { SMTP_HOST: '127.0.0.1', SMTP_PORT: '25871', SMTP_USER: 'bolt@teszt.hu', SMTP_PASS: 'x', SMTP_INSECURE_TEST: '1', CRON_SECRET: 'e2e-cron-titok', GOOGLE_DRIVE_TEST_BASE: 'http://127.0.0.1:25872', GOOGLE_DRIVE_CLIENT_ID: 'teszt-ugyfel', GOOGLE_DRIVE_CLIENT_SECRET: 'teszt-titok', GOOGLE_DRIVE_REFRESH_TOKEN: 'teszt-frissito' }, tests: ['elorendeles-stripe', 'elorendeles-kerdes', 'elorendeles-ertesites', 'admin-levelek-valasz', 'teljes-nev', 'takaritas-mentes', 'korlevel'] },
 ];

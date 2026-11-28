@@ -203,11 +203,15 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
     return (
       // az egész kártya megnyitja a teendőket (a gombjai és linkjei kivételével); billentyűzettel a címsor gombja
       <div key={eid(e)} className={`${s.card} ${s.cardTap}`} data-kartya onClick={(ev) => { if (!ev.target.closest('button, a')) setSelected(eid(e)); }}>
-        <button type="button" className={s.cardHead} onClick={() => setSelected(eid(e))} aria-label={`${e.name}: teendők`}>
-          <span className={s.cardTitle}><b className={s.num}>{timeOf(e)}</b><GameIcon e={e} /><b>{e.name}</b></span>
-          <span className={s.cardHeadEnd}><span className={pillClass(st)}>{st.label}</span><RightOutlined className={s.cardChevron} aria-hidden="true" /></span>
+        {/* a felhasználó választása (C változat): bal oldalt egy oszlopban a játék logója és alatta az időpont, jobbra a teljes
+            név (több sorban is, nem vágódik le), alatta az állapot és a bolt */}
+        <button type="button" className={s.evHead} onClick={() => setSelected(eid(e))} aria-label={`${e.name}: teendők`}>
+          <span className={s.evCol}><GameIcon e={e} /><b className={s.num}>{timeOf(e)}</b></span>
+          <span className={s.evMain}>
+            <span className={s.evTop}><b className={s.evName} data-nev>{e.name}</b><RightOutlined className={s.cardChevron} aria-hidden="true" /></span>
+            <span className={s.evMeta}><span className={pillClass(st)}>{st.label}</span><span>{SHORT_STORES[e.store || 'debrecen']}{note ? ` · ${note}` : ''}</span></span>
+          </span>
         </button>
-        <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']}{note ? ` · ${note}` : ''}</span>
         {c.counted && (
           <span className={s.capRow}>
             <CapBar e={e} c={c} />

@@ -141,9 +141,16 @@
 }
 @keyframes heroPreIn { from { opacity: 0; transform: translateY(16px); } }
 .heroPreHead { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-.preorderAll { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0 0.6rem 0 1rem; border-radius: 999px; color: var(--gold) !important; font-weight: 700; text-decoration: none; box-shadow: inset 0 0 0 1.5px rgba(229, 177, 93, 0.7); transition: background-color 180ms ease, transform 140ms var(--ease-out); }
+.preorderAll { display: inline-flex; flex: none; white-space: nowrap; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0 0.6rem 0 1rem; border-radius: 999px; color: var(--gold) !important; font-weight: 700; text-decoration: none; box-shadow: inset 0 0 0 1.5px rgba(229, 177, 93, 0.7); transition: background-color 180ms ease, transform 140ms var(--ease-out); }
 .preorderAll span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--gold); color: var(--on-gold); font-size: 1.1rem; line-height: 1; }
 .preorderAll:hover { background: rgba(229, 177, 93, 0.14); }
+/* telefonon a „Élő előrendelés” felirat és a gomb egy sorban elfér (a gomb nem törik két sorba, nem lóg ki) */
+@media (max-width: 480px) {
+  .heroPreHead { gap: 0.6rem; }
+  .heroPreHead .live { letter-spacing: 0.08em; font-size: 0.7rem; }
+  .preorderAll { font-size: 15px; gap: 0.45rem; padding: 0 0.4rem 0 0.85rem; }
+  .preorderAll span { width: 26px; height: 26px; font-size: 1rem; }
+}
 .preorderAll:active { transform: scale(0.97); }
 .preorderSolo { align-self: center; display: inline-flex; align-items: center; gap: 0.9rem; min-height: 56px; padding: 0 8px 0 1.1rem; border-radius: 999px; background: rgba(26, 26, 26, 0.85); box-shadow: inset 0 0 0 1.5px rgba(229, 177, 93, 0.55); text-decoration: none; transition: box-shadow 180ms ease, transform 140ms var(--ease-out); }
 .preorderSolo:hover { box-shadow: inset 0 0 0 1.5px var(--gold); }
@@ -194,6 +201,7 @@
 @media (prefers-reduced-motion: reduce) { .openDot::after { animation: none; } }
 /* „Most zajlik” / „N perc múlva” a ma esti eseményeknél: lüktető pont */
 .liveTag { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; color: var(--gold); font-weight: 700; }
+.liveShort { display: none; }
 .liveTag i { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex: none; }
 .liveRun { color: #ff8a78; }
 .liveRun i { background: #ff5d4d; }
@@ -602,6 +610,12 @@ a.socialGo:hover { color: var(--ink) !important; }
   .items { grid-template-columns: 1fr; }
   .item { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 0 14px; }
   .item img { width: 76px; height: 46px; padding: 6px 8px; }
+  /* telefonon a név nem lóghat az időpontba: hosszú szónál elválaszt, az élő jelzés („Hamarosan”, „Most zajlik”) az időpont fölé kerül */
+  .item b { overflow-wrap: break-word; hyphens: auto; }
+  .item time:has(.liveTag) { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .item time .liveTag { margin-right: 0; font-size: 0.85em; }
+  .liveLong { display: none; }
+  .liveShort { display: inline; }
   .programHead, .ligaHead { flex-direction: column; align-items: stretch; }
   .calCta { grid-template-columns: minmax(0, 1fr) auto; min-height: 4.5rem; padding: 0.8rem 0.8rem 0.8rem 1.25rem; }
   .calCtaIcon { display: none; }
@@ -705,7 +719,7 @@ a.socialGo:hover { color: var(--ink) !important; }
 .preorder[data-indul]::after { opacity: 1; animation: holoSweep 560ms var(--ease-in-out) both; }
 @keyframes preorderPop { 0% { transform: scale(1); } 18% { transform: scale(0.95) rotate(-0.6deg); } 55% { transform: scale(1.045) rotate(0.8deg); box-shadow: inset 0 0 0 2px var(--gold), 0 0 50px rgba(229, 177, 93, 0.55); } 100% { transform: scale(1.02); box-shadow: inset 0 0 0 2px var(--gold), 0 0 30px rgba(229, 177, 93, 0.35); } }
 @keyframes holoSweep { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
-.live { display: inline-flex; align-items: center; gap: 8px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+.live { display: inline-flex; white-space: nowrap; align-items: center; gap: 8px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
 .live i { position: relative; width: 9px; height: 9px; border-radius: 50%; background: #ff5d4d; animation: livePulse 1.6s ease-out infinite; }
 @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(255, 93, 77, 0.65); } 70% { box-shadow: 0 0 0 9px rgba(255, 93, 77, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 93, 77, 0); } }
 .preorderHot { margin-left: 0.5rem; padding: 1px 8px; border-radius: 999px; background: rgba(255, 93, 77, 0.15); color: #ff9d92; font-size: 0.75rem; font-style: normal; font-weight: 800; white-space: nowrap; }

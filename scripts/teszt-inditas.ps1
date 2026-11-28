@@ -65,6 +65,8 @@ if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyCon
 foreach ($k in $cfg.Keys) { [Environment]::SetEnvironmentVariable($k, $cfg[$k], 'Process') }
 # külön build-mappa (.next-teszt), hogy a tesztek szerverével (.next) ne akadjon össze
 $env:NEXT_DIST_DIR = '.next-teszt'
+# belépés nélkül a belépőre visz (nem az élő oldalra): lib/testEnv.js isLocalTest
+$env:TEST_LOCAL = '1'
 Set-Location $Repo
 $server = Start-Process node -ArgumentList 'node_modules/next/dist/bin/next', 'dev', '-p', "$Port" -NoNewWindow -PassThru
 
