@@ -86,7 +86,8 @@
 .dayHeadToday { border-bottom-color: var(--gold); }
 .card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 10px; background: var(--surface); }
 .cardHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.cardTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cardTitle { display: flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.cardTitle > b:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* az egész kártya koppintható (teendők); a „›” jelzi, hogy van mögötte több */
 .cardTap { cursor: pointer; transition: background 120ms ease; }
 .cardTap:active { background: var(--raised); }
@@ -113,6 +114,12 @@
 .dayRow td.dayToday { color: var(--gold); }
 .tr:hover { background: #1d1617; }
 .emptyCell { color: var(--muted); padding: 18px 14px !important; }
+/* a játék logója egyforma széles helyen (így a nevek egy vonalban kezdődnek): telefonon 76×28, gépen 104×32 px */
+.gameIcon { display: block; flex: none; width: 76px; height: 28px; object-fit: contain; object-position: center; }
+.nameCell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.nameText { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.nameText > span { font-size: 12px; }
+@media (min-width: 960px) { .gameIcon { width: 104px; height: 32px; } .nameCell { min-width: 230px; } }
 .linkCell { border: 0; padding: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; text-align: left; }
 .linkCell:hover { text-decoration: underline; }
 .pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--raised); color: #d9cdc8; font-size: 12px; font-weight: 700; white-space: nowrap; }

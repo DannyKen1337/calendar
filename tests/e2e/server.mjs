@@ -9,7 +9,8 @@ const SECRET = 'e2e_secret_e2e_secret_e2e_secret_123';
 const fake = !!process.env.FAKE_IMGBB;
 const mongod = await MongoMemoryServer.create();
 writeFileSync(new URL('./.uri', import.meta.url), mongod.getUri());
-const next = spawn('npx', ['next', 'dev', '-p', '3179'], {
+// a next közvetlenül a Node-dal indul (Windowson az npx csak héjon át futna)
+const next = spawn(process.execPath, [fileURLToPath(new URL('../../node_modules/next/dist/bin/next', import.meta.url)), 'dev', '-p', '3179'], {
   cwd: ROOT,
   env: { ...process.env, MONGODB_URI: mongod.getUri(), JWT_SECRET: SECRET, CALENDAR_URL: 'http://localhost:3179', NEXT_PUBLIC_CALENDAR_URL: 'http://localhost:3179', NODE_ENV: 'development', E2E_NO_DEV_CACHE: '1', EMAIL_MX_FAKE: '1', IMGBB_API_KEY: fake ? 'fake' : '', RESEND_API_KEY: '', NODE_OPTIONS: fake ? `--import ${fileURLToPath(new URL('./fake-imgbb.mjs', import.meta.url))}` : '' },
   stdio: ['ignore', 'pipe', 'pipe'],

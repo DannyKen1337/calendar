@@ -11,7 +11,7 @@ import {
   StarOutlined, LogoutOutlined, MailOutlined, InboxOutlined } from '@ant-design/icons';
 import { STORES, AdminModals, AttendeeNames, checkinPageUrl, registrationPageUrl, eventShareUrl } from '@/app/components';
 import { adminTheme } from '@/components/AdminPage';
-import { GAME_CONFIG, getGameColor } from '@/lib/gameConfig';
+import { GAME_CONFIG, getGameColor, getGameConfig } from '@/lib/gameConfig';
 import { STORE_NAMES } from '@/lib/permissions';
 import { eventMatchesQuery, eventExtraSearchText } from '@/lib/eventSearch';
 import { rgnEventId } from '@/lib/rgn';
@@ -77,6 +77,14 @@ function CapBar({ e, c, big = false }) {
   );
 }
 // A felirat mellett ott a „Ma ·” is, ezért a felolvasónak rejtve
+// A játék logója az időpont és az esemény neve között (telefonon a kártyán, gépen a táblázatban). A szélein levágott
+// kis változat (public/jatekok/kicsi/, a logók többsége széles felirat), a logó arányait megtartva.
+function GameIcon({ e }) {
+  const logo = getGameConfig(e.category).logo;
+  // eslint-disable-next-line @next/next/no-img-element
+  return logo ? <img className={s.gameIcon} src={logo.replace('/jatekok/', '/jatekok/kicsi/')} alt="" title={e.category || 'Egyéb'} loading="lazy" data-jatek-ikon /> : null;
+}
+
 const MaBadge = () => <span className={s.maBadge} data-ma aria-hidden="true">MA</span>;
 
 export default function AdminApp({ app, onShowChangelog, unseenCount }) {
@@ -196,7 +204,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
       // az egész kártya megnyitja a teendőket (a gombjai és linkjei kivételével); billentyűzettel a címsor gombja
       <div key={eid(e)} className={`${s.card} ${s.cardTap}`} data-kartya onClick={(ev) => { if (!ev.target.closest('button, a')) setSelected(eid(e)); }}>
         <button type="button" className={s.cardHead} onClick={() => setSelected(eid(e))} aria-label={`${e.name}: teendők`}>
-          <span className={s.cardTitle}><b className={s.num}>{timeOf(e)}</b> <b>{e.name}</b></span>
+          <span className={s.cardTitle}><b className={s.num}>{timeOf(e)}</b><GameIcon e={e} /><b>{e.name}</b></span>
           <span className={s.cardHeadEnd}><span className={pillClass(st)}>{st.label}</span><RightOutlined className={s.cardChevron} aria-hidden="true" /></span>
         </button>
         <span className={s.cardSub}><i className={s.dot} style={{ background: getGameColor(e) }} aria-hidden="true" />{SHORT_STORES[e.store || 'debrecen']}{note ? ` · ${note}` : ''}</span>
@@ -292,7 +300,7 @@ export default function AdminApp({ app, onShowChangelog, unseenCount }) {
               return (
                 <tr key={eid(e)} className={s.tr}>
                   <td className={s.num}><b>{timeOf(e)}</b></td>
-                  <td><button type="button" className={s.linkCell} onClick={() => setSelected(eid(e))}><b>{e.name}</b></button> <span className={s.quiet}>· {e.category || 'Egyéb'}</span></td>
+                  <td><span className={s.nameCell}><GameIcon e={e} /><span className={s.nameText}><button type="button" className={s.linkCell} onClick={() => setSelected(eid(e))}><b>{e.name}</b></button><span className={s.quiet}>{e.category || 'Egyéb'}</span></span></span></td>
                   <td className={s.quiet}>{STORES[e.store || 'debrecen']?.name}</td>
                   <td className={`${s.right} ${s.num}`}><span className={s.capCell}><CapBar e={e} c={c} /><b>{c.text}</b></span></td>
                   <td className={`${s.right} ${s.num} ${s.quiet}`}>{e.queue_count > 0 ? e.queue_count : '—'}</td>
