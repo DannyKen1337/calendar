@@ -10,7 +10,7 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const URL_ = 'http://localhost:3179/api/auth/session';
 const TEST_TIMEOUT = 10 * 60 * 1000; // egy tesztfájl legfeljebb ennyi ideig fut
 const ROUNDS = [
-  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'admin-jatek-ikon', 'telefon-ablakok', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'elorendeles-boltok', 'admin-udvozlo', 'email-ellenorzes', 'regi-cimek', 'biztonsag', 'belepes-feloldas', 'csp'] },
+  { fake: false, tests: ['weblap-jog', 'weblap-ligak', 'weblap-elorendeles', 'weblap-asztalfoglalas', 'weblap-fooldal', 'weblap-boltok-sav', 'weblap-mozgasok', 'weblap-kepbetoltes', 'weblap-felulet', 'naptar-havi', 'naptar-oldalak', 'naptar-esemeny', 'urlapok', 'admin', 'admin-kozossegi', 'admin-uzenetek', 'admin-levelek', 'admin-push', 'admin-jatekosok', 'checkin-pipa', 'admin-jatek-ikon', 'telefon-ablakok', 'ligak-tobb', 'liga-riftbound', 'naptar-booster', 'esemeny-kep', 'elorendeles-boltok', 'elorendeles-osszecsukas', 'admin-udvozlo', 'email-ellenorzes', 'regi-cimek', 'biztonsag', 'belepes-feloldas', 'csp'] },
   { fake: true, tests: ['weblap-javitasok', 'weblap-galeria', 'weblap-kepek'] },
   // rejtett admin: a szerver a titkos belépő címmel (ADMIN_PATH) fut
   { fake: false, env: { ADMIN_PATH: '/kapu-teszt-2026' }, tests: ['admin-kapu', 'regi-vercel-cim'] },

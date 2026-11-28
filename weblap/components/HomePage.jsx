@@ -83,6 +83,10 @@ export default async function HomePage({ content, feed, previewBar = null, base 
       };
     });
   const games = [...new Set(week.map(e => e.category))].map(c => ({ category: c, label: gameShort(c) }));
+  // Az első képernyő alján mindhárom bolt egyforma helyen (a felhasználó kérése: a főoldal mindhárom bolt landing oldala):
+  // nyitva van-e, és a következő eseménye
+  const dayWord = (e) => { const d = dayOf(e.date); return d === now.day ? 'Ma' : d === addDays(now.day, 1) ? 'Holnap' : SHORT_DAYS[weekdayOf(d)]; };
+  const nextAt = (storeId) => { const e = events.find(x => (x.store || 'debrecen') === storeId); return e ? { when: `${dayWord(e)} ${timeOf(e.date)}`, name: e.name.trim() } : null; };
 
   // A hírek: a kirakott hírek (a saját oldalukra visznek) a listában; a Facebookról / Instagramról behúzott posztok
   // alatta, a közösségi oldalak formájában (SocialPost). Amíg nincs behúzott poszt (nincs API-kulcs), csak a három bolt
@@ -126,8 +130,24 @@ export default async function HomePage({ content, feed, previewBar = null, base 
           </h1>
           <PreorderCards products={preorders} allHref={PREORDER_URL} />
           <div className={s.heroFoot}>
-            {hero.text && <p>{hero.text}</p>}
-            {hero.button && <div className={s.heroActions}><a className={s.btnGhost} href="#program">{hero.button}</a></div>}
+            <ul className={s.heroStores} aria-label="A boltjaink" data-boltok-sav>
+              {stores.map(st => {
+                const n = nextAt(st.id);
+                return (
+                  <li key={st.id}>
+                    <a href={`#bolt-${st.id}`} data-bolt-csempe={st.id}>
+                      <b>{st.name}</b>
+                      <StoreStatus hours={st.hours} initial={st.status} className={s.heroStoreStatus} />
+                      {n && <span className={s.heroStoreNext}><em>{n.when}</em> {n.name}</span>}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className={s.heroFootRow}>
+              {hero.text && <p>{hero.text}</p>}
+              {hero.button && <div className={s.heroActions}><a className={s.btnGhost} href="#program">{hero.button}</a></div>}
+            </div>
           </div>
         </section>
 
@@ -229,7 +249,7 @@ export default async function HomePage({ content, feed, previewBar = null, base 
           {stores.map(st => {
             const days = weekHours(st.hours, now.weekday);
             return (
-              <a key={st.id} className={s.row} href={st.maps || '#boltok'} data-map={st.id}>
+              <a key={st.id} id={`bolt-${st.id}`} className={s.row} href={st.maps || '#boltok'} data-map={st.id}>
                 <div className={s.rowMain}>
                   <h3>{st.name}</h3>
                   <small>{streetOf(st.address)}{st.where ? `, ${st.where[0].toLowerCase()}${st.where.slice(1)}` : ''}</small>
